@@ -432,7 +432,7 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                     </div>
                   )}
                 </div>
-
+                {/* en */}
                 {/* Footer Stats */}
                 {!showFullText && (
                   <div className="flex items-center justify-between pt-4 mt-6 border-t border-gray-100">
@@ -728,10 +728,10 @@ export default function ClinicDocuments() {
             {showUpload ? (
               <div
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${selectedFile
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : isDragOver
-                      ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
-                      : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
+                  ? "border-emerald-300 bg-emerald-50/50"
+                  : isDragOver
+                    ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
+                    : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
                   }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
@@ -798,8 +798,8 @@ export default function ClinicDocuments() {
                 ) : (
                   <div className="space-y-6">
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${isDragOver
-                        ? "bg-blue-200 border-2 border-blue-400 scale-110"
-                        : "bg-blue-100 border border-blue-200"
+                      ? "bg-blue-200 border-2 border-blue-400 scale-110"
+                      : "bg-blue-100 border border-blue-200"
                       }`}>
                       <Upload className={`h-8 w-8 transition-colors duration-300 ${isDragOver ? "text-blue-700" : "text-blue-600"
                         }`} />
@@ -848,8 +848,8 @@ export default function ClinicDocuments() {
             ) : (
               <div
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${isDragOver
-                    ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
-                    : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
+                  ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
+                  : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
                   }`}
                 onClick={() => setShowUpload(true)}
                 onDrop={handleDrop}
@@ -858,8 +858,8 @@ export default function ClinicDocuments() {
                 onDragLeave={handleDragLeave}
               >
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${isDragOver
-                    ? "bg-blue-200 border-2 border-blue-400 scale-110"
-                    : "bg-blue-100 border border-blue-200"
+                  ? "bg-blue-200 border-2 border-blue-400 scale-110"
+                  : "bg-blue-100 border border-blue-200"
                   }`}>
                   <Upload className={`h-8 w-8 transition-colors duration-300 ${isDragOver ? "text-blue-700" : "text-blue-600"
                     }`} />
