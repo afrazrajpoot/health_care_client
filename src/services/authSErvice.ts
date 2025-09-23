@@ -1,23 +1,54 @@
 // auth.ts
-import { AuthOptions } from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import GoogleProvider from 'next-auth/providers/google';
-import bcrypt from 'bcrypt';
-import { prisma } from '@/lib/prisma';
+import { AuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import bcrypt from "bcrypt";
+import { prisma } from "@/lib/prisma";
+
+// Extend the built-in session types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+      role?: string;
+      firstName?: string;
+      lastName?: string;
+    };
+  }
+
+  interface User {
+    id: string;
+    email: string;
+    name?: string;
+    role?: string;
+    firstName?: string;
+    lastName?: string;
+    image?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    userId?: string;
+    role?: string;
+    firstName?: string;
+    lastName?: string;
+  }
+}
 
 export const authOptions: AuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
-      name: 'credentials',
+      name: "credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Email and password are required');
+          throw new Error("Email and password are required");
         }
 
         // Find user
@@ -26,65 +57,59 @@ export const authOptions: AuthOptions = {
         });
 
         if (!user) {
-          throw new Error('Invalid email or password');
+          throw new Error("Invalid email or password");
         }
 
         if (!user.password) {
-          throw new Error('Account not set up for password login');
+          throw new Error("Account not set up for password login");
         }
 
         // Verify password
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
         if (!isValid) {
-          throw new Error('Invalid email or password');
+          throw new Error("Invalid email or password");
         }
 
         // Return user object (without password)
         return {
           id: user.id,
           email: user.email,
-          name: user.firstName,
+          name: `${user.firstName} ${user.lastName}`,
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
-          hrId: user.hrId,
           image: user.image,
         };
       },
     }),
-
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
   ],
   pages: {
-    signIn: '/auth/sign-in',
-    signUp: '/auth/sign-up',
+    signIn: "/auth/sign-in",
   },
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.userId = user.id;
         token.role = user.role;
         token.firstName = user.firstName;
         token.lastName = user.lastName;
-   
       }
       return token;
     },
 
     async session({ session, token }) {
-      if (token) {
+      if (session.user && token) {
         session.user.id = token.userId as string;
         session.user.role = token.role as string;
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
-        session.user.hrId = token.hrId as string;
       }
       return session;
     },

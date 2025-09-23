@@ -10,6 +10,7 @@ import { ThemeProvider } from "./theme-provider";
 import { Session } from "inspector/promises";
 import { SessionProvider } from "next-auth/react";
 import { ReduxProvider } from "./redux-provider";
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 
 export function Providers({ children }: { children: ReactNode }) {
   // const [queryClient] = useState(() => new QueryClient());
@@ -18,11 +19,12 @@ export function Providers({ children }: { children: ReactNode }) {
     // <QueryClientProvider client={queryClient}>
     <SessionProvider>
       <ReduxProvider>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <TooltipProvider>
-            {/* <Toaster /> */}
-            {/* <Sonner /> */}
-            {children}
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+            <Sonner />
           </TooltipProvider>
         </ThemeProvider>
       </ReduxProvider>
