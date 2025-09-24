@@ -165,8 +165,8 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
       confidence > 0.8
         ? "bg-emerald-500"
         : confidence > 0.6
-          ? "bg-amber-500"
-          : "bg-red-500";
+        ? "bg-amber-500"
+        : "bg-red-500";
     return { percentage, color };
   };
 
@@ -222,7 +222,10 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                 <div>
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     Document Analysis Report
-                    <Badge variant="outline" className="text-xs font-medium border-gray-300">
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-medium border-gray-300"
+                    >
                       {result.pages} Page{result.pages !== 1 ? "s" : ""}
                     </Badge>
                   </CardTitle>
@@ -278,12 +281,17 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                 </div>
                 AI Extraction Quality
               </h3>
-              <Badge className={`text-xs font-medium text-white ${confidenceInfo.color}`}>
+              <Badge
+                className={`text-xs font-medium text-white ${confidenceInfo.color}`}
+              >
                 {confidenceInfo.percentage}%
               </Badge>
             </div>
             <div className="space-y-3">
-              <Progress value={Number(confidenceInfo.percentage)} className="h-2" />
+              <Progress
+                value={Number(confidenceInfo.percentage)}
+                className="h-2"
+              />
               <p className="text-xs text-gray-600">
                 {getConfidenceMessage(result.confidence)}
               </p>
@@ -306,14 +314,20 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                         <div className="p-1 bg-blue-50 rounded border border-blue-200/50">
                           <BookOpen className="h-3 w-3 text-blue-600" />
                         </div>
-                        <span className="font-semibold text-gray-900">AI Summary</span>
-                        <Badge variant="secondary" className="text-xs ml-2 bg-gray-100 text-gray-700 border border-gray-300">
+                        <span className="font-semibold text-gray-900">
+                          AI Summary
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="text-xs ml-2 bg-gray-100 text-gray-700 border border-gray-300"
+                        >
                           GPT-4o
                         </Badge>
                       </div>
                       <ChevronDown
-                        className={`h-4 w-4 text-gray-400 transition-transform ${showSummary ? "rotate-180" : ""
-                          }`}
+                        className={`h-4 w-4 text-gray-400 transition-transform ${
+                          showSummary ? "rotate-180" : ""
+                        }`}
                       />
                     </div>
                   </Button>
@@ -392,11 +406,13 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                 <div className="space-y-4">
                   <div className="prose prose-sm max-w-none">
                     <div className="text-sm leading-6 text-gray-700">
-                      {textPreview.split("\n").map((line: string, index: number) => (
-                        <p key={index} className="mb-2 last:mb-0">
-                          {line || "\u00A0"}
-                        </p>
-                      ))}
+                      {textPreview
+                        .split("\n")
+                        .map((line: string, index: number) => (
+                          <p key={index} className="mb-2 last:mb-0">
+                            {line || "\u00A0"}
+                          </p>
+                        ))}
                     </div>
                   </div>
 
@@ -424,7 +440,10 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                             </Badge>
                           ))}
                         {result.entities.length > 5 && (
-                          <Badge variant="outline" className="text-xs border-gray-300">
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-gray-300"
+                          >
                             +{result.entities.length - 5} more
                           </Badge>
                         )}
@@ -514,7 +533,7 @@ export default function ClinicDocuments() {
   useEffect(() => {
     const handleGlobalDragEnter = (e: DragEvent) => {
       e.preventDefault();
-      if (e.dataTransfer?.types.includes('Files')) {
+      if (e.dataTransfer?.types.includes("Files")) {
         setShowUpload(true);
       }
     };
@@ -528,15 +547,15 @@ export default function ClinicDocuments() {
     };
 
     // Add event listeners to document
-    document.addEventListener('dragenter', handleGlobalDragEnter);
-    document.addEventListener('dragover', handleGlobalDragOver);
-    document.addEventListener('drop', handleGlobalDrop);
+    document.addEventListener("dragenter", handleGlobalDragEnter);
+    document.addEventListener("dragover", handleGlobalDragOver);
+    document.addEventListener("drop", handleGlobalDrop);
 
     // Cleanup
     return () => {
-      document.removeEventListener('dragenter', handleGlobalDragEnter);
-      document.removeEventListener('dragover', handleGlobalDragOver);
-      document.removeEventListener('drop', handleGlobalDrop);
+      document.removeEventListener("dragenter", handleGlobalDragEnter);
+      document.removeEventListener("dragover", handleGlobalDragOver);
+      document.removeEventListener("drop", handleGlobalDrop);
     };
   }, []);
 
@@ -635,8 +654,8 @@ export default function ClinicDocuments() {
       const file = files[0];
 
       // Validate file type
-      const allowedTypes = ['.pdf', '.docx', '.jpg', '.jpeg', '.png'];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
+      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
       if (!allowedTypes.includes(fileExtension)) {
         toast.error("Invalid file type", {
           description: "Please upload PDF, DOCX, JPG, or PNG files only",
@@ -664,7 +683,7 @@ export default function ClinicDocuments() {
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter(prev => prev + 1);
+    setDragCounter((prev) => prev + 1);
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setIsDragOver(true);
     }
@@ -673,7 +692,7 @@ export default function ClinicDocuments() {
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter(prev => prev - 1);
+    setDragCounter((prev) => prev - 1);
     if (dragCounter === 1) {
       setIsDragOver(false);
     }
@@ -692,9 +711,12 @@ export default function ClinicDocuments() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Document Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Document Management
+            </h1>
             <p className="text-gray-600 mt-2">
-              Upload and process healthcare documents using AI-powered extraction
+              Upload and process healthcare documents using AI-powered
+              extraction
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -704,7 +726,7 @@ export default function ClinicDocuments() {
                 placeholder="Search documents..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-72 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                className="pl-10 w-72 text-red-600 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
             <Button
@@ -727,12 +749,13 @@ export default function ClinicDocuments() {
           <CardContent className="pt-6">
             {showUpload ? (
               <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${selectedFile
-                  ? "border-emerald-300 bg-emerald-50/50"
-                  : isDragOver
+                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
+                  selectedFile
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : isDragOver
                     ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
                     : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
-                  }`}
+                }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragEnter={handleDragEnter}
@@ -750,11 +773,14 @@ export default function ClinicDocuments() {
                         Processing Document...
                       </h3>
                       <p className="text-gray-600">
-                        {selectedFile?.name} • {formatSize(selectedFile?.size || 0)}
+                        {selectedFile?.name} •{" "}
+                        {formatSize(selectedFile?.size || 0)}
                       </p>
                       <div className="mt-4 max-w-xs mx-auto">
                         <Progress value={65} className="h-2" />
-                        <p className="text-xs text-gray-500 mt-2">Extracting text and analyzing content...</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Extracting text and analyzing content...
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -797,22 +823,29 @@ export default function ClinicDocuments() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${isDragOver
-                      ? "bg-blue-200 border-2 border-blue-400 scale-110"
-                      : "bg-blue-100 border border-blue-200"
-                      }`}>
-                      <Upload className={`h-8 w-8 transition-colors duration-300 ${isDragOver ? "text-blue-700" : "text-blue-600"
-                        }`} />
+                    <div
+                      className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${
+                        isDragOver
+                          ? "bg-blue-200 border-2 border-blue-400 scale-110"
+                          : "bg-blue-100 border border-blue-200"
+                      }`}
+                    >
+                      <Upload
+                        className={`h-8 w-8 transition-colors duration-300 ${
+                          isDragOver ? "text-blue-700" : "text-blue-600"
+                        }`}
+                      />
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        {isDragOver ? "Drop files here" : "Drop your medical documents here"}
+                        {isDragOver
+                          ? "Drop files here"
+                          : "Drop your medical documents here"}
                       </h3>
                       <p className="text-gray-600 mb-6">
                         {isDragOver
                           ? "Release to select your file for processing"
-                          : "Drag & drop files here or use the button below • PDF, DOCX, JPG, PNG up to 40MB"
-                        }
+                          : "Drag & drop files here or use the button below • PDF, DOCX, JPG, PNG up to 40MB"}
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -830,7 +863,9 @@ export default function ClinicDocuments() {
                           disabled={uploading}
                           asChild
                         >
-                          <span>{isDragOver ? "Drop Files Here" : "Choose Files"}</span>
+                          <span>
+                            {isDragOver ? "Drop Files Here" : "Choose Files"}
+                          </span>
                         </Button>
                       </label>
                       <Button
@@ -847,31 +882,39 @@ export default function ClinicDocuments() {
               </div>
             ) : (
               <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${isDragOver
-                  ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
-                  : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
-                  }`}
+                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${
+                  isDragOver
+                    ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
+                    : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
+                }`}
                 onClick={() => setShowUpload(true)}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
               >
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${isDragOver
-                  ? "bg-blue-200 border-2 border-blue-400 scale-110"
-                  : "bg-blue-100 border border-blue-200"
-                  }`}>
-                  <Upload className={`h-8 w-8 transition-colors duration-300 ${isDragOver ? "text-blue-700" : "text-blue-600"
-                    }`} />
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${
+                    isDragOver
+                      ? "bg-blue-200 border-2 border-blue-400 scale-110"
+                      : "bg-blue-100 border border-blue-200"
+                  }`}
+                >
+                  <Upload
+                    className={`h-8 w-8 transition-colors duration-300 ${
+                      isDragOver ? "text-blue-700" : "text-blue-600"
+                    }`}
+                  />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {isDragOver ? "Drop files here" : "Drop medical documents here"}
+                  {isDragOver
+                    ? "Drop files here"
+                    : "Drop medical documents here"}
                 </h3>
                 <p className="text-gray-600 mb-6">
                   {isDragOver
                     ? "Release to upload your files"
-                    : "Drag & drop files here or click to browse • PDF, DOCX, JPG, PNG up to 40MB"
-                  }
+                    : "Drag & drop files here or click to browse • PDF, DOCX, JPG, PNG up to 40MB"}
                 </p>
                 <Button className="bg-blue-600 hover:bg-blue-700 px-6">
                   <Plus className="h-4 w-4 mr-2" />
@@ -896,7 +939,10 @@ export default function ClinicDocuments() {
                   <FileText className="h-4 w-4 text-emerald-600" />
                 </div>
                 New Since Check-in
-                <Badge variant="secondary" className="ml-auto bg-blue-100 text-blue-700 border border-blue-200">
+                <Badge
+                  variant="secondary"
+                  className="ml-auto bg-blue-100 text-blue-700 border border-blue-200"
+                >
                   {newDocuments.length}
                 </Badge>
               </CardTitle>
@@ -917,13 +963,17 @@ export default function ClinicDocuments() {
                           )}`}
                         ></div>
                         <div>
-                          <p className="font-medium text-sm text-gray-900">{doc.type}</p>
+                          <p className="font-medium text-sm text-gray-900">
+                            {doc.type}
+                          </p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             ID: {doc.id}
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs text-gray-500 font-medium">{doc.date}</span>
+                      <span className="text-xs text-gray-500 font-medium">
+                        {doc.date}
+                      </span>
                     </div>
                     <div className="flex gap-1.5">
                       {doc.actions.map((action, actionIndex) => (
@@ -951,7 +1001,10 @@ export default function ClinicDocuments() {
                   <FileText className="h-4 w-4 text-blue-600" />
                 </div>
                 All Correspondence
-                <Badge variant="secondary" className="ml-auto bg-gray-100 text-gray-700 border border-gray-200">
+                <Badge
+                  variant="secondary"
+                  className="ml-auto bg-gray-100 text-gray-700 border border-gray-200"
+                >
                   {allCorrespondence.length}
                 </Badge>
               </CardTitle>
@@ -973,7 +1026,9 @@ export default function ClinicDocuments() {
                         ></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <p className="font-semibold text-gray-900">{doc.type}</p>
+                            <p className="font-semibold text-gray-900">
+                              {doc.type}
+                            </p>
                             {doc.confidence && (
                               <Badge
                                 variant="secondary"
@@ -983,7 +1038,9 @@ export default function ClinicDocuments() {
                                 {doc.confidence}
                               </Badge>
                             )}
-                            <span className="text-xs text-gray-500 ml-auto">{doc.date}</span>
+                            <span className="text-xs text-gray-500 ml-auto">
+                              {doc.date}
+                            </span>
                           </div>
                           <p className="text-sm text-gray-600 leading-relaxed">
                             {doc.summary}
@@ -1025,7 +1082,10 @@ export default function ClinicDocuments() {
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </div>
               Active Tasks
-              <Badge variant="secondary" className="ml-auto bg-green-100 text-green-700 border border-green-200">
+              <Badge
+                variant="secondary"
+                className="ml-auto bg-green-100 text-green-700 border border-green-200"
+              >
                 {tasks.length}
               </Badge>
             </CardTitle>
@@ -1041,7 +1101,9 @@ export default function ClinicDocuments() {
                     <div className="flex items-center gap-4">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div>
-                        <p className="font-semibold text-gray-900">{task.title}</p>
+                        <p className="font-semibold text-gray-900">
+                          {task.title}
+                        </p>
                         <div className="flex items-center gap-3 mt-1">
                           <p className="text-sm text-gray-600 flex items-center gap-1">
                             <User className="h-3 w-3" />
@@ -1085,7 +1147,10 @@ export default function ClinicDocuments() {
                 <Clock className="h-4 w-4 text-purple-600" />
               </div>
               Date Tracking
-              <Badge variant="secondary" className="ml-auto bg-gray-100 text-gray-700 border border-gray-200">
+              <Badge
+                variant="secondary"
+                className="ml-auto bg-gray-100 text-gray-700 border border-gray-200"
+              >
                 0
               </Badge>
             </CardTitle>
@@ -1095,9 +1160,16 @@ export default function ClinicDocuments() {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
                 <Clock className="h-8 w-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tracking items</h3>
-              <p className="text-gray-500 mb-4">Date tracking items will appear here when available</p>
-              <Button variant="outline" className="border-gray-300 hover:bg-gray-50">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No tracking items
+              </h3>
+              <p className="text-gray-500 mb-4">
+                Date tracking items will appear here when available
+              </p>
+              <Button
+                variant="outline"
+                className="border-gray-300 hover:bg-gray-50"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Tracking Item
               </Button>
