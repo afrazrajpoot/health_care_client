@@ -44,6 +44,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useSession } from "next-auth/react";
 
 const newDocuments = [
   {
@@ -130,8 +131,8 @@ const tasks = [
   },
 ];
 
-const getDocTypeColor = (color: string, theme: string) => {
-  const colorMapLight: { [key: string]: string } = {
+const getDocTypeColor = (color, theme) => {
+  const colorMapLight = {
     "doc-qme": "bg-blue-500",
     "doc-attorney": "bg-emerald-500",
     "doc-ur-denial": "bg-red-500",
@@ -142,8 +143,8 @@ const getDocTypeColor = (color: string, theme: string) => {
   return colorMapLight[color] || "bg-gray-500";
 };
 
-const getDocTypeColorLight = (color: string) => {
-  const colorMapLight: { [key: string]: string } = {
+const getDocTypeColorLight = (color) => {
+  const colorMapLight = {
     "doc-qme": "bg-blue-50 text-blue-700 border-blue-200",
     "doc-attorney": "bg-emerald-50 text-emerald-700 border-emerald-200",
     "doc-ur-denial": "bg-red-50 text-red-700 border-red-200",
@@ -155,11 +156,11 @@ const getDocTypeColorLight = (color: string) => {
 };
 
 // Professional Text Preview Component
-const ProfessionalTextPreview = ({ result }: { result: any }) => {
+const ProfessionalTextPreview = ({ result }) => {
   const [showFullText, setShowFullText] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
 
-  const formatConfidence = (confidence: number) => {
+  const formatConfidence = (confidence) => {
     const percentage = (confidence * 100).toFixed(1);
     const color =
       confidence > 0.8
@@ -170,13 +171,13 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
     return { percentage, color };
   };
 
-  const getConfidenceMessage = (confidence: number) => {
+  const getConfidenceMessage = (confidence) => {
     if (confidence > 0.8) return "Excellent extraction quality";
     if (confidence > 0.6) return "Good extraction quality";
     return "Review extraction quality";
   };
 
-  const confidenceInfo = formatConfidence(result.confidence);
+  const confidenceInfo = formatConfidence(result.confidence || 0.9);
 
   const textPreview = showFullText
     ? result.text
@@ -293,7 +294,7 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                 className="h-2"
               />
               <p className="text-xs text-gray-600">
-                {getConfidenceMessage(result.confidence)}
+                {getConfidenceMessage(result.confidence || 0.9)}
               </p>
             </div>
           </div>
@@ -384,10 +385,8 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
               </Button>
             </div>
 
-            {/* Professional Text Container */}
             <ScrollArea className="h-80 rounded-xl border border-gray-200 bg-white">
               <div className="p-6 space-y-4">
-                {/* Document Header */}
                 <div className="flex items-start justify-between pb-4 border-b border-gray-100">
                   <div className="flex items-center gap-3">
                     <div
@@ -402,21 +401,17 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                   </Badge>
                 </div>
 
-                {/* Text Content */}
                 <div className="space-y-4">
                   <div className="prose prose-sm max-w-none">
                     <div className="text-sm leading-6 text-gray-700">
-                      {textPreview
-                        .split("\n")
-                        .map((line: string, index: number) => (
-                          <p key={index} className="mb-2 last:mb-0">
-                            {line || "\u00A0"}
-                          </p>
-                        ))}
+                      {textPreview.split("\n").map((line, index) => (
+                        <p key={index} className="mb-2 last:mb-0">
+                          {line || "\u00A0"}
+                        </p>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Highlighted Keywords */}
                   {result.entities && result.entities.length > 0 && (
                     <div className="mt-6 pt-4 border-t border-gray-100">
                       <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
@@ -428,17 +423,15 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {result.entities
-                          .slice(0, 5)
-                          .map((entity: any, index: number) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200"
-                            >
-                              {entity.type}
-                            </Badge>
-                          ))}
+                        {result.entities.slice(0, 5).map((entity, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="text-xs px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200"
+                          >
+                            {entity.type}
+                          </Badge>
+                        ))}
                         {result.entities.length > 5 && (
                           <Badge
                             variant="outline"
@@ -451,8 +444,7 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
                     </div>
                   )}
                 </div>
-                {/* en */}
-                {/* Footer Stats */}
+
                 {!showFullText && (
                   <div className="flex items-center justify-between pt-4 mt-6 border-t border-gray-100">
                     <span className="text-xs text-gray-500">
@@ -471,7 +463,6 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
               </div>
             </ScrollArea>
 
-            {/* Quick Actions */}
             {showFullText && (
               <div className="flex flex-wrap gap-2 pt-3">
                 <Button
@@ -520,38 +511,34 @@ const ProfessionalTextPreview = ({ result }: { result: any }) => {
 
 export default function ClinicDocuments() {
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Upload functionality states
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadResults, setUploadResults] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const { data: session } = useSession();
 
-  // Global drag and drop event handlers
   useEffect(() => {
-    const handleGlobalDragEnter = (e: DragEvent) => {
+    const handleGlobalDragEnter = (e) => {
       e.preventDefault();
       if (e.dataTransfer?.types.includes("Files")) {
         setShowUpload(true);
       }
     };
 
-    const handleGlobalDragOver = (e: DragEvent) => {
+    const handleGlobalDragOver = (e) => {
       e.preventDefault();
     };
 
-    const handleGlobalDrop = (e: DragEvent) => {
+    const handleGlobalDrop = (e) => {
       e.preventDefault();
     };
 
-    // Add event listeners to document
     document.addEventListener("dragenter", handleGlobalDragEnter);
     document.addEventListener("dragover", handleGlobalDragOver);
     document.addEventListener("drop", handleGlobalDrop);
 
-    // Cleanup
     return () => {
       document.removeEventListener("dragenter", handleGlobalDragEnter);
       document.removeEventListener("dragover", handleGlobalDragOver);
@@ -559,128 +546,138 @@ export default function ClinicDocuments() {
     };
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 40 * 1024 * 1024) {
-        toast.error("File too large", {
-          description: "Maximum file size is 40MB",
-        });
-        return;
-      }
-      setSelectedFile(file);
-      setUploadResult(null);
-      toast.success("File selected", {
-        description: file.name,
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const validFiles = files.filter((file) => {
+        if (file.size > 40 * 1024 * 1024) {
+          toast.error(`File too large: ${file.name}`, {
+            description: "Maximum file size is 40MB",
+          });
+          return false;
+        }
+        const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+        const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
+        if (!allowedTypes.includes(fileExtension)) {
+          toast.error(`Invalid file type: ${file.name}`, {
+            description: "Please upload PDF, DOCX, JPG, or PNG files only",
+          });
+          return false;
+        }
+        return true;
       });
+
+      if (validFiles.length > 0) {
+        setSelectedFiles(validFiles);
+        setUploadResults([]);
+        toast.success(`${validFiles.length} file(s) selected`, {
+          description: validFiles.map((file) => file.name).join(", "),
+        });
+      }
     }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
 
     setUploading(true);
+
     const formData = new FormData();
-    formData.append("document", selectedFile);
+    selectedFiles.forEach((file) => {
+      formData.append("documents", file);
+    });
 
     try {
+      // ✅ Add user info as headers
       const response = await fetch(
-        "http://localhost:8000/api/extract-document",
+        "http://localhost:8000/api/extract-documents",
         {
           method: "POST",
           body: formData,
+          headers: {
+            "x-user-id": session?.user?.id,
+            "x-user-email": session?.user?.email,
+            "x-user-name": session?.user?.name,
+          },
         }
       );
 
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       const data = await response.json();
 
-      if (data.success) {
-        setUploadResult(data);
-        toast.success("Processing Complete!", {
-          description: `Successfully extracted ${data.pages} pages`,
-        });
-
-        const newDoc = {
-          type: "Uploaded Document",
-          id: data.fileInfo?.originalName || `DOC-${Date.now()}`,
-          color: "doc-specialty",
-          date: "Just Now",
-          actions: ["Open PDF", "View Results", "Mark Done"],
-        };
-
-        toast.success("Document added to your list!", {
-          description: `New document: ${newDoc.type} (${newDoc.id})`,
-        });
-      } else {
-        throw new Error(data.error || "Processing failed");
-      }
-    } catch (error: any) {
+      setUploadResults(data);
+      toast.success("Processing Complete!", {
+        description: `Successfully processed ${data.length} document(s)`,
+      });
+    } catch (error) {
       toast.error("Processing Failed", {
-        description: error.message || "Failed to process document",
+        description: error.message || "Failed to process documents",
       });
     } finally {
       setUploading(false);
-      setSelectedFile(null);
+      setSelectedFiles([]);
     }
   };
 
-  const formatSize = (bytes: number) => {
+  const formatSize = (bytes) => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const handleCopyResults = () => {
-    if (uploadResult) {
-      navigator.clipboard.writeText(JSON.stringify(uploadResult, null, 2));
+  const handleCopyResults = (result) => {
+    if (result) {
+      navigator.clipboard.writeText(JSON.stringify(result, null, 2));
       toast.success("Copied to Clipboard", {
-        description: "Results copied successfully",
+        description: `Results for ${
+          result.fileInfo?.originalName || "document"
+        } copied successfully`,
       });
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
     setDragCounter(0);
 
-    const files = e.dataTransfer.files;
+    const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      const file = files[0];
-
-      // Validate file type
-      const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
-      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
-      if (!allowedTypes.includes(fileExtension)) {
-        toast.error("Invalid file type", {
-          description: "Please upload PDF, DOCX, JPG, or PNG files only",
-        });
-        return;
-      }
-
-      // Validate file size
-      if (file.size > 40 * 1024 * 1024) {
-        toast.error("File too large", {
-          description: "Maximum file size is 40MB",
-        });
-        return;
-      }
-
-      setSelectedFile(file);
-      setUploadResult(null);
-      setShowUpload(true); // Show upload section when file is dropped
-      toast.success("File ready for upload", {
-        description: `${file.name} (${formatSize(file.size)})`,
+      const validFiles = files.filter((file) => {
+        const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+        const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
+        if (!allowedTypes.includes(fileExtension)) {
+          toast.error(`Invalid file type: ${file.name}`, {
+            description: "Please upload PDF, DOCX, JPG, or PNG files only",
+          });
+          return false;
+        }
+        if (file.size > 40 * 1024 * 1024) {
+          toast.error(`File too large: ${file.name}`, {
+            description: "Maximum file size is 40MB",
+          });
+          return false;
+        }
+        return true;
       });
+
+      if (validFiles.length > 0) {
+        setSelectedFiles(validFiles);
+        setUploadResults([]);
+        setShowUpload(true);
+        toast.success(`${validFiles.length} file(s) ready for upload`, {
+          description: validFiles
+            .map((file) => `${file.name} (${formatSize(file.size)})`)
+            .join(", "),
+        });
+      }
     }
   };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragCounter((prev) => prev + 1);
@@ -689,7 +686,7 @@ export default function ClinicDocuments() {
     }
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragCounter((prev) => prev - 1);
@@ -698,7 +695,7 @@ export default function ClinicDocuments() {
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
   };
@@ -750,7 +747,7 @@ export default function ClinicDocuments() {
             {showUpload ? (
               <div
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
-                  selectedFile
+                  selectedFiles.length > 0
                     ? "border-emerald-300 bg-emerald-50/50"
                     : isDragOver
                     ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
@@ -770,11 +767,10 @@ export default function ClinicDocuments() {
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        Processing Document...
+                        Processing Documents...
                       </h3>
                       <p className="text-gray-600">
-                        {selectedFile?.name} •{" "}
-                        {formatSize(selectedFile?.size || 0)}
+                        {selectedFiles.length} file(s) being processed
                       </p>
                       <div className="mt-4 max-w-xs mx-auto">
                         <Progress value={65} className="h-2" />
@@ -784,21 +780,22 @@ export default function ClinicDocuments() {
                       </div>
                     </div>
                   </div>
-                ) : selectedFile ? (
+                ) : selectedFiles.length > 0 ? (
                   <div className="space-y-6">
                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
                       <Check className="h-8 w-8 text-emerald-600" />
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        Ready to Process
+                        Ready to Process {selectedFiles.length} File(s)
                       </h3>
-                      <p className="text-gray-700 font-medium">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {formatSize(selectedFile.size)}
-                      </p>
+                      <div className="text-gray-700 font-medium">
+                        {selectedFiles.map((file, index) => (
+                          <p key={index} className="text-sm">
+                            {file.name} ({formatSize(file.size)})
+                          </p>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex gap-3 justify-center">
                       <Button
@@ -812,8 +809,8 @@ export default function ClinicDocuments() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedFile(null);
-                          setUploadResult(null);
+                          setSelectedFiles([]);
+                          setUploadResults([]);
                         }}
                         className="border-gray-300 hover:bg-gray-50"
                       >
@@ -844,8 +841,8 @@ export default function ClinicDocuments() {
                       </h3>
                       <p className="text-gray-600 mb-6">
                         {isDragOver
-                          ? "Release to select your file for processing"
-                          : "Drag & drop files here or use the button below • PDF, DOCX, JPG, PNG up to 40MB"}
+                          ? "Release to select your files for processing"
+                          : "Drag & drop multiple files here or use the button below • PDF, DOCX, JPG, PNG up to 40MB each"}
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -855,6 +852,7 @@ export default function ClinicDocuments() {
                           type="file"
                           accept=".pdf,.docx,.jpg,.jpeg,.png"
                           onChange={handleFileChange}
+                          multiple
                           className="hidden"
                           disabled={uploading}
                         />
@@ -914,7 +912,7 @@ export default function ClinicDocuments() {
                 <p className="text-gray-600 mb-6">
                   {isDragOver
                     ? "Release to upload your files"
-                    : "Drag & drop files here or click to browse • PDF, DOCX, JPG, PNG up to 40MB"}
+                    : "Drag & drop multiple files here or click to browse • PDF, DOCX, JPG, PNG up to 40MB each"}
                 </p>
                 <Button className="bg-blue-600 hover:bg-blue-700 px-6">
                   <Plus className="h-4 w-4 mr-2" />
@@ -925,13 +923,29 @@ export default function ClinicDocuments() {
           </CardContent>
         </Card>
 
-        {/* Professional Text Preview */}
-        {uploadResult?.success && (
-          <ProfessionalTextPreview result={uploadResult} />
+        {/* Professional Text Preview for Multiple Results */}
+        {uploadResults.length > 0 && (
+          <div className="space-y-6">
+            {uploadResults.map((result, index) => (
+              <div key={index}>
+                <ProfessionalTextPreview result={result} />
+                <div className="flex justify-end mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyResults(result)}
+                    className="text-xs border-gray-300 hover:bg-gray-50"
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy Results JSON
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* New Since Check-in */}
           <Card className="border border-gray-200/80 shadow-sm bg-white">
             <CardHeader className="pb-4 border-b border-gray-100">
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -993,7 +1007,6 @@ export default function ClinicDocuments() {
             </CardContent>
           </Card>
 
-          {/* All Correspondence */}
           <Card className="border border-gray-200/80 shadow-sm bg-white lg:col-span-2">
             <CardHeader className="pb-4 border-b border-gray-100">
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -1074,7 +1087,6 @@ export default function ClinicDocuments() {
           </Card>
         </div>
 
-        {/* Tasks Section */}
         <Card className="border border-gray-200/80 shadow-sm bg-white">
           <CardHeader className="pb-4 border-b border-gray-100">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
@@ -1139,7 +1151,6 @@ export default function ClinicDocuments() {
           </CardContent>
         </Card>
 
-        {/* Date Tracking */}
         <Card className="border border-gray-200/80 shadow-sm bg-white">
           <CardHeader className="pb-4 border-b border-gray-100">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">

@@ -1,9 +1,21 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/services/authSErvice';
+// import { authOptions } from "@/lib/auth"; // adjust this path
 
 export async function GET(request: Request) {
   try {
-    // Get patient name from search params
+    // ✅ Get session user
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get('patientName');
 
@@ -14,18 +26,29 @@ export async function GET(request: Request) {
       );
     }
 
-    // Search for documents matching patient name and return only patient names
+    // ✅ Search documents by patient name
     const patients = await prisma.document.findMany({
       where: {
         patientName: {
           contains: patientName,
-          mode: 'insensitive', // Case-insensitive search
+          mode: 'insensitive',
         },
       },
       select: {
         patientName: true,
       },
-      distinct: ['patientName'], // Ensure unique patient names
+      distinct: ['patientName'],
+    });
+
+    // ✅ Save audit log with session user info
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        email: session.user.email,
+        action: `Searched patients by name: ${patientName}`,
+        path: '/api/patients',
+        method: 'GET',
+      },
     });
 
     if (patients.length === 0) {
@@ -35,8 +58,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // Extract just the patient names into an array
-    const patientNames = patients.map((patient:any) => patient.patientName);
+    const patientNames = patients.map((p: any) => p.patientName);
 
     return NextResponse.json({
       success: true,

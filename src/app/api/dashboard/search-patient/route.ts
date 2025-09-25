@@ -1,9 +1,22 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/services/authSErvice';
+// import { authOptions } from "@/lib/auth"; // ⚠️ adjust the path if needed
 
 export async function GET(request: Request) {
   try {
-    // Get patient name from search params
+    // ✅ Get current user session
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Extract search param
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get('patientName');
 
@@ -14,12 +27,12 @@ export async function GET(request: Request) {
       );
     }
 
-    // Search for documents matching patient name and include related alerts
+    // ✅ Fetch documents with related alerts
     const documents = await prisma.document.findMany({
       where: {
         patientName: {
           contains: patientName,
-          mode: 'insensitive', // Case-insensitive search
+          mode: 'insensitive',
         },
       },
       include: {
@@ -48,6 +61,18 @@ export async function GET(request: Request) {
       );
     }
 
+    // ✅ Save audit log for this request
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        email: session.user.email,
+        action: `Viewed documents and alerts for patient: ${patientName}`,
+        path: '/api/documents',
+        method: 'GET',
+      },
+    });
+
+    // ✅ Return result
     return NextResponse.json({
       success: true,
       data: documents,
