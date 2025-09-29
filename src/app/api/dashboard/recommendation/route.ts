@@ -1,73 +1,115 @@
-import { prisma } from '@/lib/prisma';
-import { NextResponse } from 'next/server';
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from '@/services/authSErvice';
-// import { authOptions } from "@/lib/auth"; // adjust this path
+import { authOptions } from "@/services/authSErvice";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: Request) {
   try {
-    // ✅ Get session user
+    // ✅ Verify user session
     const session = await getServerSession(authOptions);
-
     if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized. Please log in.' },
+        { error: "Unauthorized. Please log in." },
         { status: 401 }
       );
     }
 
+    // ✅ Extract search params
     const { searchParams } = new URL(request.url);
-    const patientName = searchParams.get('patientName');
+    const patientName = searchParams.get("patientName");
+    const claimNumber = searchParams.get("claimNumber");
 
-    if (!patientName) {
+    if (!patientName && !claimNumber) {
       return NextResponse.json(
-        { error: 'Patient name is required' },
+        { error: "Either patientName or claimNumber is required" },
         { status: 400 }
       );
     }
 
-    // ✅ Search documents by patient name
-    const patients = await prisma.document.findMany({
-      where: {
+    // ✅ Build OR filter (case-insensitive contains)
+    const orConditions: Prisma.DocumentWhereInput[] = [];
+
+    if (patientName) {
+      orConditions.push({
         patientName: {
           contains: patientName,
-          mode: 'insensitive',
+          mode: "insensitive",
         },
-      },
+      });
+    }
+
+    if (claimNumber) {
+      orConditions.push({
+        claimNumber: {
+          contains: claimNumber,
+          mode: "insensitive",
+        },
+      });
+    }
+
+    const whereClause: Prisma.DocumentWhereInput = {
+      OR: orConditions,
+    };
+
+    // ✅ Fetch distinct suggestions
+    const results = await prisma.document.findMany({
+      where: whereClause,
       select: {
         patientName: true,
+        claimNumber: true,
       },
-      distinct: ['patientName'],
+      distinct: ["patientName", "claimNumber"],
     });
 
-    // ✅ Save audit log with session user info
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        email: session.user.email,
-        action: `Searched patients by name: ${patientName}`,
-        path: '/api/patients',
-        method: 'GET',
-      },
-    });
-
-    if (patients.length === 0) {
+    if (results.length === 0) {
       return NextResponse.json(
-        { message: 'No patients found for the given name' },
+        { message: "No matching patients or claims found" },
         { status: 404 }
       );
     }
 
-    const patientNames = patients.map((p: any) => p.patientName);
+    // ✅ Prepare suggestions
+    const patientNames = Array.from(
+      new Set(
+        results
+          .map((r: { patientName: string | null }) => r.patientName)
+          .filter(Boolean)
+      )
+    );
+    const claimNumbers = Array.from(
+      new Set(
+        results
+          .map((r: { claimNumber: string | null }) => r.claimNumber)
+          .filter(Boolean)
+      )
+    );
 
+    // ✅ Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        email: session.user.email,
+        action: `Searched suggestions: patientName="${
+          patientName ?? ""
+        }", claimNumber="${claimNumber ?? ""}"`,
+        path: "/api/patients",
+        method: "GET",
+      },
+    });
+
+    // ✅ Return suggestions
     return NextResponse.json({
       success: true,
-      data: patientNames,
+      data: {
+        patientNames,
+        claimNumbers,
+      },
     });
   } catch (error) {
-    console.error('Error fetching patient names:', error);
+    console.error("Error fetching patient/claim suggestions:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   } finally {
