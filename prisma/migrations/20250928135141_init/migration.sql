@@ -51,6 +51,71 @@ CREATE TABLE "public"."VerificationToken" (
     "expires" TIMESTAMP(3) NOT NULL
 );
 
+-- CreateTable
+CREATE TABLE "public"."documents" (
+    "id" TEXT NOT NULL,
+    "originalName" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "extractedText" TEXT NOT NULL,
+    "pages" INTEGER NOT NULL DEFAULT 0,
+    "confidence" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "entities" JSONB[],
+    "tables" JSONB[],
+    "formFields" JSONB[],
+    "patientName" TEXT,
+    "patientEmail" TEXT,
+    "claimNumber" TEXT,
+    "reportTitle" TEXT,
+    "reportDate" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'normal',
+    "summary" TEXT[],
+    "originalReport" TEXT NOT NULL,
+    "processingTimeMs" INTEGER NOT NULL DEFAULT 0,
+    "analysisSuccess" BOOLEAN NOT NULL DEFAULT true,
+    "errorMessage" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "gcsFileLink" TEXT,
+    "lastchanges" TEXT,
+    "actions" JSONB,
+
+    CONSTRAINT "documents_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."alerts" (
+    "id" TEXT NOT NULL,
+    "alertType" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "date" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "description" TEXT,
+    "documentId" TEXT NOT NULL,
+    "isResolved" BOOLEAN NOT NULL DEFAULT false,
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "alerts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."AuditLog" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "email" TEXT,
+    "action" TEXT NOT NULL,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "path" TEXT,
+    "method" TEXT,
+    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "public"."User"("email");
 
@@ -71,3 +136,6 @@ ALTER TABLE "public"."Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "public"."Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."alerts" ADD CONSTRAINT "alerts_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "public"."documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;

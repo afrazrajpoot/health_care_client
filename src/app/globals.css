@@ -123,34 +123,13 @@
 }
 
 
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* {
-        "• Document Type: Lab Report - Comprehensive Metabolic and Hematological Evaluation",
-        "• Key Medical Findings: Mild microcytic anemia suggestive of iron deficiency; normal renal, hepatic, and electrolyte function",
-        "• Current Work Status: Not applicable as this is a lab report",
-        "• Treatment Recommendations: Initiate oral iron supplementation, dietary modifications, recheck blood count and iron studies in 6-8 weeks",
-        "• Next Steps: Investigate potential sources of chronic blood loss if clinical suspicion persists",
-        "• Priority Items: None requiring immediate attention"
-    } */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
