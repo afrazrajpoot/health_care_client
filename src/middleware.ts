@@ -1,4 +1,3 @@
-// middleware.ts
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
@@ -9,15 +8,35 @@ function redirectToSignIn(req: Request) {
 export default withAuth(
   (req) => {
     const token: any = (req as any).nextauth?.token;
-
     if (!token) return redirectToSignIn(req);
 
     const now = Math.floor(Date.now() / 1000);
 
-    // Check if token is expired
+    // 🔐 Token expiration checks
     if (token.exp && token.exp < now) return redirectToSignIn(req);
+    if (token.refreshExpiresAt && token.refreshExpiresAt < now)
+      return redirectToSignIn(req);
 
-    // Allow access to protected routes for authenticated users
+    const pathname = req.nextUrl.pathname;
+
+    // ✅ Physician-only routes
+    if (
+      (pathname.startsWith("/add-staff") || pathname.startsWith("/tasks")) &&
+      token.role !== "Physician"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    // ✅ Staff-only routes
+    if (
+      (pathname.startsWith("/upload") ||
+        pathname.startsWith("/documents") ||
+        pathname.startsWith("/tasks")) &&
+      token.role !== "Staff"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
     return NextResponse.next();
   },
   {
@@ -29,10 +48,15 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    "/dashboard",
     "/dashboard/:path*",
-    "/patients/:path*",
-    "/documents/:path*",
+    "/tasks",
     "/tasks/:path*",
-    "/upload-doc/:path*",
+    "/add-staff",
+    "/add-staff/:path*",
+    "/upload",
+    "/upload/:path*",
+    "/documents",
+    "/documents/:path*",
   ],
 };

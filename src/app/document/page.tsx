@@ -12,6 +12,14 @@ interface Patient {
   claimNumber: string;
 }
 
+interface SummarySnapshotItem {
+  id: string;
+  dx: string;
+  keyConcern: string;
+  nextStep: string;
+  documentId: string;
+}
+
 interface SummarySnapshot {
   diagnosis: string;
   diagnosis_history: string;
@@ -51,6 +59,7 @@ interface DocumentData {
   status?: string;
   brief_summary?: { [key: string]: string[] };
   summary_snapshot?: SummarySnapshot;
+  summary_snapshots?: SummarySnapshotItem[];
   whats_new?: WhatsNew;
   adl?: ADL;
   document_summary?: { [key: string]: { date: string; summary: string }[] };
@@ -113,8 +122,36 @@ const SummarySnapshotSection = ({
 }: {
   documentData: DocumentData | null;
   copied: { [key: string]: boolean };
-  onCopySection: (sectionId: string) => void;
+  onCopySection: (sectionId: string, index?: number) => void;
 }) => {
+  const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
+  const snapshots = documentData?.summary_snapshots || [];
+
+  useEffect(() => {
+    setCurrentSnapshotIndex(0); // Reset to latest on data change
+  }, [documentData]);
+
+  const currentSnapshot = snapshots[currentSnapshotIndex];
+
+  const handlePreviousSnapshot = () => {
+    if (currentSnapshotIndex < snapshots.length - 1) {
+      setCurrentSnapshotIndex((prev) => prev + 1);
+    }
+  };
+
+  const handleLatestSnapshot = () => {
+    setCurrentSnapshotIndex(0);
+  };
+
+  const formatSnapshotText = () => {
+    if (!currentSnapshot) return "Not specified";
+    return `Dx: ${currentSnapshot.dx || "Not specified"}\nKey Concern: ${
+      currentSnapshot.keyConcern || "Not specified"
+    }\nNext Step: ${currentSnapshot.nextStep || "Not specified"}`;
+  };
+
+  const sectionId = `section-snapshot-${currentSnapshotIndex}`;
+
   return (
     <section
       className="p-5 bg-blue-100 border-b border-blue-200"
@@ -125,40 +162,59 @@ const SummarySnapshotSection = ({
         id="snapshot-title"
       >
         📌 Summary (Snapshot)
+        {snapshots.length > 1 && (
+          <span className="text-xs bg-blue-200 text-blue-800 px-1 py-0.5 rounded">
+            {currentSnapshotIndex + 1} of {snapshots.length}
+          </span>
+        )}
       </h3>
       <div className="grid grid-cols-[170px_1fr] gap-x-4 gap-y-2 items-center mb-4">
         <b>Dx</b>
-        <div>
-          {documentData?.summary_snapshot?.diagnosis_history ||
-            documentData?.summary_snapshot?.diagnosis ||
-            "Not specified"}
-        </div>
+        <div>{currentSnapshot?.dx || "Not specified"}</div>
 
         <b>Key Concern</b>
-        <div>
-          {documentData?.summary_snapshot?.key_concern_history ||
-            documentData?.summary_snapshot?.key_concern ||
-            "Not specified"}
-        </div>
+        <div>{currentSnapshot?.keyConcern || "Not specified"}</div>
 
         <b>Next Step</b>
-        <div>
-          {documentData?.summary_snapshot?.next_step_history ||
-            documentData?.summary_snapshot?.next_step ||
-            "Not specified"}
-        </div>
+        <div>{currentSnapshot?.nextStep || "Not specified"}</div>
       </div>
+      {snapshots.length > 1 && (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={handleLatestSnapshot}
+            className={`px-3 py-1 text-sm rounded bg-blue-200 text-blue-800 hover:bg-blue-300 ${
+              currentSnapshotIndex === 0 ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            disabled={currentSnapshotIndex === 0}
+          >
+            Latest
+          </button>
+          <button
+            onClick={handlePreviousSnapshot}
+            className={`px-3 py-1 text-sm rounded bg-blue-200 text-blue-800 hover:bg-blue-300 ${
+              currentSnapshotIndex === snapshots.length - 1
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
+            disabled={currentSnapshotIndex === snapshots.length - 1}
+          >
+            Previous
+          </button>
+        </div>
+      )}
       <div className="flex justify-end">
         <button
           className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${
-            copied["section-snapshot"]
+            copied[sectionId]
               ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
               : "border-blue-200 bg-white text-gray-900"
           }`}
-          onClick={() => onCopySection("section-snapshot")}
+          onClick={() =>
+            onCopySection("section-snapshot", currentSnapshotIndex)
+          }
           title="Copy Section"
         >
-          {copied["section-snapshot"] ? <CheckIcon /> : <CopyIcon />}
+          {copied[sectionId] ? <CheckIcon /> : <CopyIcon />}
           Copy Section
         </button>
       </div>
@@ -669,14 +725,8 @@ export default function PhysicianCard() {
         processedData.document_summaries = document_summaries;
         processedData.previous_summaries = previous_summaries;
 
-        // Handle summary_snapshot - set history to current if no history
-        if (processedData.summary_snapshot) {
-          const ss = processedData.summary_snapshot;
-          ss.diagnosis_history = ss.diagnosis || "Not specified";
-          ss.key_concern_history = ss.key_concern || "Not specified";
-          ss.next_step_history = ss.next_step || "Not specified";
-          ss.has_changes = false;
-        }
+        // Handle summary_snapshots array
+        processedData.summary_snapshots = aggDoc.summary_snapshots || [];
 
         // Handle adl - set history if needed, but since aggregated from latest medical, no previous here
         if (processedData.adl) {
@@ -776,25 +826,25 @@ export default function PhysicianCard() {
   };
 
   // Handle section copy
-  const handleSectionCopy = async (sectionId: string) => {
+  const handleSectionCopy = async (
+    sectionId: string,
+    snapshotIndex?: number
+  ) => {
     let text = "";
     const doc = documentData;
 
     switch (sectionId) {
       case "section-snapshot":
-        text = `Summary Snapshot\nDx: ${
-          doc?.summary_snapshot?.diagnosis_history ||
-          doc?.summary_snapshot?.diagnosis ||
-          "Not specified"
-        }\nKey Concern: ${
-          doc?.summary_snapshot?.key_concern_history ||
-          doc?.summary_snapshot?.key_concern ||
-          "Not specified"
-        }\nNext Step: ${
-          doc?.summary_snapshot?.next_step_history ||
-          doc?.summary_snapshot?.next_step ||
-          "Not specified"
-        }`;
+        const snapshots = doc?.summary_snapshots || [];
+        const currentIdx = snapshotIndex || 0;
+        const currentSnap = snapshots[currentIdx];
+        if (currentSnap) {
+          text = `Summary Snapshot\nDx: ${
+            currentSnap.dx || "Not specified"
+          }\nKey Concern: ${
+            currentSnap.keyConcern || "Not specified"
+          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+        }
         break;
       case "section-whatsnew":
         text = "What's New Since Last Visit\n";
