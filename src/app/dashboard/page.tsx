@@ -1,898 +1,1332 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Search,
-  AlertTriangle,
-  Clock,
-  ChevronRight,
-  ChevronDown,
-  FileText,
-  Calendar,
-  ExternalLink,
-  CheckCircle2,
-  AlertCircle,
-  Bell,
-  Settings
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-// Define interfaces based on API data structure
-interface Alert {
-  id: string;
-  alertType: string;
-  title: string;
-  date: string;
-  status: string;
-  description: string | null;
-  isResolved: boolean;
-  resolvedAt: string | null;
-  resolvedBy: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface DocumentAction {
-  type: string;
-  reason: string;
-  assignee: string;
-  due_date: string;
-  action_id: string;
-  created_at: string;
-  suggestion: boolean;
-  auto_create: boolean;
-  source_doc_id: string;
-  deterministic_rule_id: string;
-}
-
-interface Document {
-  id: string;
-  originalName: string;
-  fileSize: number;
-  mimeType: string;
-  extractedText: string;
-  pages: number;
-  confidence: number;
-  entities: unknown[];
-  tables: unknown[];
-  formFields: unknown[];
-  patientName: string;
-  patientEmail: string | null;
-  claimNumber: string | null;
-  reportTitle: string;
-  reportDate: string;
-  status: string;
-  summary: string[];
-  originalReport: string;
-  processingTimeMs: number;
-  analysisSuccess: boolean;
-  errorMessage: string | null;
-  createdAt: string;
-  updatedAt: string;
-  gcsFileLink: string;
-  lastchanges: string;
-  alerts: Alert[];
-  actions: DocumentAction[];
-  complianceNudges: ComplianceNudge[];
-  referrals: Referral[];
-}
-
+// Define TypeScript interfaces for data structures
 interface Patient {
-  id: string;
-  name: string;
-  claimId: string | null;
-  claimNumber: string | null;
-}
-
-interface WorkStatusAlert {
-  id: string;
+  id?: number;
   patientName: string;
-  status: string;
-  daysOverdue: number;
-  lastUpdate: string;
-  severity: "alert" | "critical";
-  title: string;
+  name?: string;
+  dob: string;
+  doi: string;
+  claimNumber: string;
 }
 
-interface DocumentAlert {
+interface SummarySnapshotItem {
   id: string;
-  originalName: string;
-  patientName: string;
-  daysOld: number;
-  urgent: boolean;
-  gcsFileLink: string;
-  reportTitle: string;
-  summary: string[];
-  lastchanges: string[];
-  createdAt: string;
-  actions: DocumentAction[];
+  dx: string;
+  keyConcern: string;
+  nextStep: string;
+  documentId: string;
 }
 
-interface DeadlineAlert {
-  id: string;
-  title: string;
-  patientName: string;
-  dueDate: string;
+interface SummarySnapshot {
+  diagnosis: string;
+  diagnosis_history: string;
+  key_concern: string;
+  key_concern_history: string;
+  next_step: string;
+  next_step_history: string;
+  has_changes: boolean;
 }
 
-interface ComplianceNudge {
+interface WhatsNew {
+  [key: string]: string;
+}
+
+interface ADL {
+  adls_affected: string;
+  adls_affected_history: string;
+  work_restrictions: string;
+  work_restrictions_history: string;
+  has_changes: boolean;
+}
+
+interface DocumentSummary {
   type: string;
-  reason: string;
-  assignee: string;
-  due_date: string;
-  nudge_id: string;
-  created_at: string;
+  date: string;
+  summary: string;
+  brief_summary?: string;
+  document_id?: string;
 }
 
-interface Referral {
-  reason: string;
-  assignee: string;
-  due_date: string;
-  specialty: string;
-  created_at: string;
-  referral_id: string;
+interface DocumentData {
+  patient_name?: string;
+  dob?: string;
+  doi?: string;
+  claim_number?: string;
+  created_at?: string;
+  status?: string;
+  brief_summary?: { [key: string]: string[] };
+  summary_snapshot?: SummarySnapshot;
+  summary_snapshots?: SummarySnapshotItem[];
+  whats_new?: WhatsNew;
+  adl?: ADL;
+  document_summary?: { [key: string]: { date: string; summary: string }[] };
+  document_summaries?: DocumentSummary[];
+  merge_metadata?: {
+    total_documents_merged: number;
+    is_merged: boolean;
+    latest_document_date: string;
+    previous_document_date: string;
+  };
+  previous_summaries?: { [key: string]: DocumentSummary };
+  allVerified?: boolean;
 }
 
-const Dashboard = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [suggestions, setSuggestions] = useState<{ patientNames: string[], claimNumbers: string[] }>({ patientNames: [], claimNumbers: [] });
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [workStatusAlerts, setWorkStatusAlerts] = useState<WorkStatusAlert[]>(
-    []
+interface RecommendationsResponse {
+  success: boolean;
+  data: {
+    patients?: Patient[];
+    patientNames?: string[];
+    dobs?: string[];
+    dois?: string[];
+    claimNumbers?: string[];
+  };
+}
+
+const CopyIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-3.5 h-3.5"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-3.5 h-3.5"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg>
+);
+
+// Summary Snapshot Component
+const SummarySnapshotSection = ({
+  documentData,
+  copied,
+  onCopySection,
+}: {
+  documentData: DocumentData | null;
+  copied: { [key: string]: boolean };
+  onCopySection: (sectionId: string, index?: number) => void;
+}) => {
+  const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
+  const snapshots = documentData?.summary_snapshots || [];
+
+  useEffect(() => {
+    setCurrentSnapshotIndex(0); // Reset to latest on data change
+  }, [documentData]);
+
+  const currentSnapshot = snapshots[currentSnapshotIndex];
+
+  const handlePreviousSnapshot = () => {
+    if (currentSnapshotIndex < snapshots.length - 1) {
+      setCurrentSnapshotIndex((prev) => prev + 1);
+    }
+  };
+
+  const handleLatestSnapshot = () => {
+    setCurrentSnapshotIndex(0);
+  };
+
+  const formatSnapshotText = () => {
+    if (!currentSnapshot) return "Not specified";
+    return `Dx: ${currentSnapshot.dx || "Not specified"}\nKey Concern: ${
+      currentSnapshot.keyConcern || "Not specified"
+    }\nNext Step: ${currentSnapshot.nextStep || "Not specified"}`;
+  };
+
+  const sectionId = `section-snapshot-${currentSnapshotIndex}`;
+
+  return (
+    <section
+      className="p-5 bg-blue-100 border-b border-blue-200"
+      aria-labelledby="snapshot-title"
+    >
+      <h3
+        className="flex gap-2 items-center mb-3 text-base font-semibold"
+        id="snapshot-title"
+      >
+        📌 Summary (Snapshot)
+        {snapshots.length > 1 && (
+          <span className="text-xs bg-blue-200 text-blue-800 px-1 py-0.5 rounded">
+            {currentSnapshotIndex + 1} of {snapshots.length}
+          </span>
+        )}
+      </h3>
+      <div className="grid grid-cols-[170px_1fr] gap-x-4 gap-y-2 items-center mb-4">
+        <b>Dx</b>
+        <div>{currentSnapshot?.dx || "Not specified"}</div>
+
+        <b>Key Concern</b>
+        <div>{currentSnapshot?.keyConcern || "Not specified"}</div>
+
+        <b>Next Step</b>
+        <div>{currentSnapshot?.nextStep || "Not specified"}</div>
+      </div>
+      {snapshots.length > 1 && (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={handleLatestSnapshot}
+            className={`px-3 py-1 text-sm rounded bg-blue-200 text-blue-800 hover:bg-blue-300 ${
+              currentSnapshotIndex === 0 ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            disabled={currentSnapshotIndex === 0}
+          >
+            Latest
+          </button>
+          <button
+            onClick={handlePreviousSnapshot}
+            className={`px-3 py-1 text-sm rounded bg-blue-200 text-blue-800 hover:bg-blue-300 ${
+              currentSnapshotIndex === snapshots.length - 1
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
+            disabled={currentSnapshotIndex === snapshots.length - 1}
+          >
+            Previous
+          </button>
+        </div>
+      )}
+      <div className="flex justify-end">
+        <button
+          className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${
+            copied[sectionId]
+              ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+              : "border-blue-200 bg-white text-gray-900"
+          }`}
+          onClick={() =>
+            onCopySection("section-snapshot", currentSnapshotIndex)
+          }
+          title="Copy Section"
+        >
+          {copied[sectionId] ? <CheckIcon /> : <CopyIcon />}
+          Copy Section
+        </button>
+      </div>
+    </section>
   );
-  const [documentAlerts, setDocumentAlerts] = useState<DocumentAlert[]>([]);
-  const [deadlineAlerts, setDeadlineAlerts] = useState<DeadlineAlert[]>([]);
-  const [complianceNudges, setComplianceNudges] = useState<ComplianceNudge[]>([]);
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [expandedSummaries, setExpandedSummaries] = useState<Record<string, boolean>>({});
-  const [expandedNewItems, setExpandedNewItems] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+};
 
-  // Current date as per the prompt (September 24, 2025)
-  const currentDate = new Date("2025-09-24");
+// What's New Component
+const WhatsNewSection = ({
+  documentData,
+  copied,
+  onCopySection,
+}: {
+  documentData: DocumentData | null;
+  copied: { [key: string]: boolean };
+  onCopySection: (sectionId: string) => void;
+}) => {
+  return (
+    <section
+      className="p-5 bg-amber-50 border-b border-blue-200"
+      aria-labelledby="whatsnew-title"
+    >
+      <h3
+        className="flex gap-2 items-center mb-3 text-base font-semibold"
+        id="whatsnew-title"
+      >
+        ⚡ What's New Since Last Visit
+      </h3>
+      <ul className="m-0 p-0 grid gap-2 list-none" role="list">
+        {documentData?.whats_new &&
+          Object.entries(documentData.whats_new).map(([key, value]) => {
+            if (!value || value.trim() === "" || value.trim() === " ") {
+              return null;
+            }
+            const label = key.toUpperCase().replace(/_/g, " ");
+            return (
+              <li
+                key={key}
+                className="flex gap-2 items-start p-3 border border-dashed border-amber-300 bg-white rounded-lg"
+              >
+                <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-400 text-xs font-bold whitespace-nowrap flex-shrink-0">
+                  {label}
+                </span>
+                <div className="flex-1 min-w-0">{value}</div>
+              </li>
+            );
+          })}
+        {(!documentData?.whats_new ||
+          Object.values(documentData.whats_new || {}).every(
+            (val) => !val || val.trim() === "" || val.trim() === " "
+          )) && (
+          <li className="p-3 text-gray-500 text-center">
+            No significant changes since last visit
+          </li>
+        )}
+      </ul>
+      <div className="flex justify-end mt-4">
+        <button
+          className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${
+            copied["section-whatsnew"]
+              ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+              : "border-amber-200 bg-white text-gray-900"
+          }`}
+          onClick={() => onCopySection("section-whatsnew")}
+          title="Copy Section"
+        >
+          {copied["section-whatsnew"] ? <CheckIcon /> : <CopyIcon />}
+          Copy Section
+        </button>
+      </div>
+    </section>
+  );
+};
 
-  const toggleSummary = (id: string) => {
-    setExpandedSummaries(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+// ADL Component
+const ADLSection = ({
+  documentData,
+  copied,
+  onCopySection,
+}: {
+  documentData: DocumentData | null;
+  copied: { [key: string]: boolean };
+  onCopySection: (sectionId: string) => void;
+}) => {
+  return (
+    <section
+      className="p-5 bg-green-50 border-b border-blue-200"
+      aria-labelledby="adl-title"
+    >
+      <h3
+        className="flex gap-2 items-center mb-3 text-base font-semibold"
+        id="adl-title"
+      >
+        🧩 ADL / Work Status
+      </h3>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="border border-green-200 bg-white rounded-lg p-3">
+          <h4 className="m-0 mb-2 text-sm text-green-800 font-semibold">
+            ADLs Affected
+          </h4>
+          <div className="whitespace-pre-wrap">
+            {documentData?.adl?.adls_affected || "Not specified"}
+          </div>
+        </div>
+        <div className="border border-green-200 bg-white rounded-lg p-3">
+          <h4 className="m-0 mb-2 text-sm text-green-800 font-semibold">
+            Work Restrictions
+          </h4>
+          <div className="whitespace-pre-wrap">
+            {documentData?.adl?.work_restrictions || "Not specified"}
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <button
+          className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${
+            copied["section-adl"]
+              ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+              : "border-green-200 bg-white text-gray-900"
+          }`}
+          onClick={() => onCopySection("section-adl")}
+          title="Copy Section"
+        >
+          {copied["section-adl"] ? <CheckIcon /> : <CopyIcon />}
+          Copy Section
+        </button>
+      </div>
+    </section>
+  );
+};
 
-  // Helper function to detect if search term looks like a claim number
-  const isClaimNumber = (term: string): boolean => {
-    // Common claim number patterns: contains numbers, dashes, or starts with specific prefixes
-    return /^\d+[-\d]*$|^WC[-\d]+|^[A-Z]{2,3}[-\d]+|^\d{4}-\d+/.test(term.trim());
-  };
+// Document Summary Component
+const DocumentSummarySection = ({
+  documentData,
+  openModal,
+  handleShowPrevious,
+  copied,
+  onCopySection,
+}: {
+  documentData: DocumentData | null;
+  openModal: (briefSummary: string) => void;
+  handleShowPrevious: (type: string) => void;
+  copied: { [key: string]: boolean };
+  onCopySection: (sectionId: string) => void;
+}) => {
+  const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
+  const accordionBodyRef = useRef<HTMLDivElement>(null);
 
-  const parseLastChanges = (lastChangesString: string | null): string[] => {
-    if (!lastChangesString) {
-      return [];
+  useEffect(() => {
+    const bodyEl = accordionBodyRef.current;
+    if (bodyEl) {
+      bodyEl.style.maxHeight = isAccordionOpen
+        ? ` ${bodyEl.scrollHeight}px`
+        : "0px";
     }
+  }, [isAccordionOpen, documentData]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (isAccordionOpen && accordionBodyRef.current) {
+        accordionBodyRef.current.style.maxHeight = `${accordionBodyRef.current.scrollHeight}px`;
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isAccordionOpen]);
+
+  const toggleAccordion = () => {
+    setIsAccordionOpen((prev) => !prev);
+  };
+
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return "—";
     try {
-      const parsed = JSON.parse(lastChangesString);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) =>
-            typeof item === "string" ? item.trim() : String(item)
-          )
-          .filter(Boolean);
-      }
-    } catch (error) {
-      console.error("Error parsing lastchanges:", error);
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
     }
-
-    return lastChangesString
-      .replace(/[\[\]"]+/g, "")
-      .split(/,\s*/)
-      .map((item) => item.trim())
-      .filter(Boolean);
   };
 
-  // Fetch suggestions when typing
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      if (searchTerm.trim() === "") {
-        setSuggestions({ patientNames: [], claimNumbers: [] });
-        setIsDropdownOpen(false);
-        return;
+  // Utility function to keep only latest by type
+  const getUniqueLatestSummaries = (summaries) => {
+    if (!summaries) return [];
+
+    // Group by type and pick latest by date
+    const latestMap = summaries.reduce((acc, summary) => {
+      const existing = acc[summary.type];
+      if (!existing || new Date(summary.date) > new Date(existing.date)) {
+        acc[summary.type] = summary;
       }
+      return acc;
+    }, {});
 
-      try {
-        const term = searchTerm.trim();
-        const isClaimSearch = isClaimNumber(term);
+    return Object.values(latestMap);
+  };
+  const uniqueSummaries = getUniqueLatestSummaries(
+    documentData?.document_summaries
+  );
 
-        // Build query parameters based on search type
-        const queryParams = new URLSearchParams();
-        if (isClaimSearch) {
-          queryParams.append('claimNumber', term);
-        } else {
-          queryParams.append('patientName', term);
-        }
+  return (
+    <section className="p-5 bg-gray-100" aria-labelledby="doc-title">
+      <div
+        className="flex justify-between items-center cursor-pointer py-1"
+        role="button"
+        aria-expanded={isAccordionOpen}
+        aria-controls="doc-body"
+        id="doc-title"
+        onClick={toggleAccordion}
+      >
+        <h3 className="flex gap-2 items-center m-0 text-base font-semibold">
+          📄 Document Summary
+          {documentData?.document_summaries &&
+            documentData.document_summaries.length > 1 && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                {documentData.document_summaries.length} reports
+              </span>
+            )}
+        </h3>
+        <svg
+          className={`w-4 h-4 transition-transform duration-300 ${
+            isAccordionOpen ? "rotate-180" : "rotate-0"
+          }`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#475569"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div
+        id="doc-body"
+        className="overflow-hidden transition-all duration-300"
+        ref={accordionBodyRef}
+        role="region"
+        aria-label="Parsed documents"
+      >
+        {uniqueSummaries.length > 0 ? (
+          uniqueSummaries.map((summary, index) => {
+            const hasPrevious =
+              documentData.previous_summaries &&
+              documentData.previous_summaries[summary.type];
+            const sectionId = `section-summary-${index}`;
 
-        const response = await fetch(
-          `/api/dashboard/recommendation?${queryParams.toString()}`
-        );
-        const result = await response.json();
+            return (
+              <div key={index} className="my-3">
+                <div className="border border-blue-200 bg-white rounded-lg p-3 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <div className="text-gray-600 text-xs">Type</div>
+                        <div>{summary.type}</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <div className="text-gray-600 text-xs">Date</div>
+                        <div>{formatDate(summary.date)}</div>
+                      </div>
+                      <div className="grid grid-cols-[140px_1fr] gap-2">
+                        <div className="text-gray-600 text-xs">Summary</div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">{summary.summary}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="ml-4 flex flex-col gap-2 items-end">
+                      <button
+                        onClick={() => openModal(summary.brief_summary || "")}
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        View Summary
+                      </button>
+                      {hasPrevious && (
+                        <button
+                          onClick={() => handleShowPrevious(summary.type)}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          Previous Summary
+                        </button>
+                      )}
+                      <button
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${
+                          copied[sectionId]
+                            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                            : "border-blue-200 bg-white text-gray-900"
+                        }`}
+                        onClick={() => onCopySection(sectionId)}
+                        title="Copy Section"
+                      >
+                        {copied[sectionId] ? <CheckIcon /> : <CopyIcon />}
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-gray-500 text-center p-3">
+            No document summaries available
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+export default function PhysicianCard() {
+  const [theme, setTheme] = useState<"clinical" | "standard">("clinical");
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [verifyTime, setVerifyTime] = useState<string>("—");
+  const [documentData, setDocumentData] = useState<DocumentData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [recommendations, setRecommendations] = useState<Patient[]>([]);
+  const [showRecommendations, setShowRecommendations] =
+    useState<boolean>(false);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [selectedBriefSummary, setSelectedBriefSummary] = useState<string>("");
+  const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
+  const [showPreviousSummary, setShowPreviousSummary] =
+    useState<boolean>(false);
+  const [previousSummary, setPreviousSummary] =
+    useState<DocumentSummary | null>(null);
+  const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
+  const searchRef = useRef<HTMLDivElement>(null);
+  const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
-        if (response.ok && result.success) {
-          setSuggestions(result.data);
-          setIsDropdownOpen(true);
-        } else {
-          setSuggestions({ patientNames: [], claimNumbers: [] });
-          setIsDropdownOpen(false);
-        }
-      } catch (error) {
-        console.error("Error fetching suggestions:", error);
-        setSuggestions({ patientNames: [], claimNumbers: [] });
-        setIsDropdownOpen(false);
-      }
+  // Debounce function
+  const debounce = <T extends (...args: any[]) => void>(
+    func: T,
+    delay: number
+  ) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
     };
+  };
 
-    const delayDebounceFn = setTimeout(fetchSuggestions, 150);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Handle search button click
-  const handleSearch = async () => {
-    if (searchTerm.trim() === "") {
-      setPatients([]);
-      setWorkStatusAlerts([]);
-      setDocumentAlerts([]);
-      setDeadlineAlerts([]);
-      setComplianceNudges([]);
-      setReferrals([]);
-      setError(null);
-      setIsDropdownOpen(false);
+  // Fetch recommendations from your patients API
+  const fetchRecommendations = async (query: string) => {
+    if (!query.trim()) {
+      setRecommendations([]);
+      setShowRecommendations(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setIsDropdownOpen(false);
-
     try {
-      const term = searchTerm.trim();
-      const isClaimSearch = isClaimNumber(term);
+      setSearchLoading(true);
+      const response = await fetch(
+        `/api/dashboard/recommendation?patientName=${encodeURIComponent(query)}`
+      );
 
-      // Build query parameters based on search type
-      const queryParams = new URLSearchParams();
-      if (isClaimSearch) {
-        queryParams.append('claimNumber', term);
-      } else {
-        queryParams.append('patientName', term);
+      if (!response.ok) {
+        throw new Error("Failed to fetch recommendations");
       }
+
+      const data: RecommendationsResponse = await response.json();
+      console.log("Recommendations API response:", data);
+
+      if (data.success) {
+        if (data.data.patients) {
+          setRecommendations(data.data.patients);
+        } else if (data.data.patientNames) {
+          const patients: Patient[] = data.data.patientNames.map(
+            (name, index) => ({
+              id: index,
+              patientName: name,
+              dob: data.data.dobs?.[index] || "1980-01-01",
+              doi: data.data.dois?.[index] || "2024-01-01",
+              claimNumber:
+                data.data.claimNumbers?.[index] ||
+                `WC-${Math.floor(100000 + Math.random() * 900000)}`,
+            })
+          );
+          setRecommendations(patients);
+        }
+        setShowRecommendations(true);
+      }
+    } catch (err: unknown) {
+      console.error("Error fetching recommendations:", err);
+      setRecommendations([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      fetchRecommendations(query);
+    }, 300),
+    []
+  );
+
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.trim()) {
+      debouncedSearch(query);
+    } else {
+      setRecommendations([]);
+      setShowRecommendations(false);
+    }
+  };
+
+  // Flatten grouped summaries into array and prepare previous
+  const processAggregatedSummaries = (
+    groupedDocumentSummary: {
+      [key: string]: { date: string; summary: string }[];
+    },
+    groupedBriefSummary: { [key: string]: string[] }
+  ): {
+    document_summaries: DocumentSummary[];
+    previous_summaries: { [key: string]: DocumentSummary };
+  } => {
+    const document_summaries: DocumentSummary[] = [];
+    const previousByType: { [key: string]: DocumentSummary } = {};
+
+    Object.entries(groupedDocumentSummary).forEach(([type, sumEntries]) => {
+      // Sort entries by date descending
+      sumEntries.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      const briefEntries = groupedBriefSummary[type] || [];
+      // Assume brief entries are in same order, sort if needed
+      // For simplicity, pair by index
+
+      sumEntries.forEach((entry, idx) => {
+        const brief =
+          briefEntries[idx] || (briefEntries.length > 0 ? briefEntries[0] : "");
+        document_summaries.push({
+          type,
+          date: entry.date,
+          summary: entry.summary,
+          brief_summary: brief,
+        });
+      });
+
+      // Set previous if more than one
+      if (sumEntries.length > 1) {
+        const prevEntry = sumEntries[1];
+        const prevBrief =
+          briefEntries[1] || (briefEntries.length > 0 ? briefEntries[0] : "");
+        previousByType[type] = {
+          type,
+          date: prevEntry.date,
+          summary: prevEntry.summary,
+          brief_summary: prevBrief,
+        };
+      }
+    });
+
+    // Sort all summaries by date desc
+    document_summaries.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    return { document_summaries, previous_summaries: previousByType };
+  };
+
+  // Handle patient selection from recommendations
+  const handlePatientSelect = (patient: Patient) => {
+    console.log("Patient selected:", patient);
+    setSelectedPatient(patient);
+    setSearchQuery(patient.patientName || patient.name || "");
+    setShowRecommendations(false);
+
+    // Fetch document data for the selected patient
+    fetchDocumentData(patient);
+  };
+
+  // Fetch document data from API
+  const fetchDocumentData = async (patientInfo: Patient) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams({
+        patient_name: patientInfo.patientName || patientInfo.name || "",
+        dob: patientInfo.dob,
+        doi: patientInfo.doi,
+        claim_number: patientInfo.claimNumber,
+      });
+
+      console.log("Fetching document data with params:", params.toString());
 
       const response = await fetch(
-        `/api/dashboard/search-patient?${queryParams.toString()}`
+        `http://127.0.0.1:8000/api/document?${params}`
       );
-      const result = await response.json();
 
-      if (response.ok && result.success) {
-        const uniquePatientsMap = new Map<string, Patient>();
-        result.data.forEach((doc: Document) => {
-          if (!uniquePatientsMap.has(doc.patientName)) {
-            uniquePatientsMap.set(doc.patientName, {
-              id: doc.id,
-              name: doc.patientName,
-              claimId: doc.claimNumber,
-              claimNumber: doc.claimNumber,
-            });
-          }
-        });
-        const mappedPatients = Array.from(uniquePatientsMap.values());
-        setPatients(mappedPatients);
-
-        const mappedWorkStatusAlerts: WorkStatusAlert[] = result.data.flatMap(
-          (doc: Document) =>
-            doc.alerts.map((alert: Alert) => {
-              const alertDate = new Date(alert.date);
-              const daysOverdue = Math.max(
-                0,
-                Math.floor(
-                  (currentDate.getTime() - alertDate.getTime()) /
-                  (1000 * 3600 * 24)
-                )
-              );
-              return {
-                id: alert.id,
-                patientName: doc.patientName,
-                status: alert.alertType.toUpperCase(),
-                title: alert.title,
-                daysOverdue,
-                lastUpdate: alert.date.split("T")[0].replace(/-/g, "/"),
-                severity: alert.status === "urgent" ? "critical" : "alert",
-              };
-            })
-        );
-        setWorkStatusAlerts(mappedWorkStatusAlerts);
-
-        const mappedDocumentAlerts: DocumentAlert[] = result.data.map(
-          (doc: Document) => {
-            const docDate = new Date(doc.createdAt);
-            const daysOld = Math.floor(
-              (currentDate.getTime() - docDate.getTime()) / (1000 * 3600 * 24)
-            );
-            const actions = Array.isArray(doc.actions) ? doc.actions : [];
-            return {
-              id: doc.id,
-              originalName: doc.originalName,
-              patientName: doc.patientName,
-              daysOld,
-              urgent: doc.status === "urgent",
-              gcsFileLink: doc.gcsFileLink,
-              reportTitle: doc.reportTitle,
-              summary: doc.summary,
-              lastchanges: parseLastChanges(doc.lastchanges),
-              createdAt: doc.createdAt,
-              actions,
-            };
-          }
-        );
-
-
-        setDocumentAlerts(mappedDocumentAlerts);
-
-        const mappedDeadlineAlerts: DeadlineAlert[] = result.data.flatMap(
-          (doc: Document) =>
-            doc.alerts
-              .filter(
-                (alert: Alert) =>
-                  alert.status === "urgent" &&
-                  new Date(alert.date) <= currentDate
-              )
-              .map((alert: Alert) => ({
-                id: alert.id,
-                title: alert.title,
-                patientName: doc.patientName,
-                dueDate: "Today",
-              }))
-        );
-        setDeadlineAlerts(mappedDeadlineAlerts);
-
-        // Map compliance nudges from all documents
-        const mappedComplianceNudges: ComplianceNudge[] = result.data.flatMap(
-          (doc: Document) => doc.complianceNudges || []
-        );
-        setComplianceNudges(mappedComplianceNudges);
-
-        // Map referrals from all documents
-        const mappedReferrals: Referral[] = result.data.flatMap(
-          (doc: Document) => doc.referrals || []
-        );
-        setReferrals(mappedReferrals);
-
-      } else {
-        console.error("Error fetching data:", result.error);
-        setError(result.error || "Failed to fetch patient data");
-        setPatients([]);
-        setWorkStatusAlerts([]);
-        setDocumentAlerts([]);
-        setDeadlineAlerts([]);
-        setComplianceNudges([]);
-        setReferrals([]);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch document: ${response.status}`);
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setError("An unexpected error occurred");
-      setPatients([]);
-      setWorkStatusAlerts([]);
-      setDocumentAlerts([]);
-      setDeadlineAlerts([]);
-      setComplianceNudges([]);
-      setReferrals([]);
+
+      const data: any = await response.json();
+      console.log("Document data received:", data);
+
+      let processedData: DocumentData;
+
+      // Handle aggregated single document
+      if (data.documents && data.documents.length > 0) {
+        const aggDoc = data.documents[0];
+        processedData = { ...aggDoc };
+
+        // Compute allVerified based on status
+        processedData.allVerified =
+          !!aggDoc.status && aggDoc.status.toLowerCase() === "verified";
+
+        // Process grouped summaries
+        const { document_summaries, previous_summaries } =
+          processAggregatedSummaries(
+            aggDoc.document_summary || {},
+            aggDoc.brief_summary || {}
+          );
+        processedData.document_summaries = document_summaries;
+        processedData.previous_summaries = previous_summaries;
+
+        // Handle summary_snapshots array
+        processedData.summary_snapshots = aggDoc.summary_snapshots || [];
+
+        // Handle adl - set history if needed, but since aggregated from latest medical, no previous here
+        if (processedData.adl) {
+          const adlData = processedData.adl;
+          adlData.adls_affected_history =
+            adlData.adls_affected || "Not specified";
+          adlData.work_restrictions_history =
+            adlData.work_restrictions || "Not specified";
+          adlData.has_changes = false;
+        }
+
+        // Set merge_metadata if total_documents >1
+        if (data.total_documents > 1) {
+          processedData.merge_metadata = {
+            total_documents_merged: data.total_documents,
+            is_merged: true,
+            latest_document_date: aggDoc.created_at || "",
+            previous_document_date: "", // Not available in aggregated, could fetch separately if needed
+          };
+        }
+      } else {
+        processedData = null;
+      }
+
+      setDocumentData(processedData);
+    } catch (err: unknown) {
+      console.error("Error fetching document data:", err);
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectSuggestion = (suggestion: string) => {
-    setSearchTerm(suggestion);
-    setIsDropdownOpen(false);
-    // Focus input after selection
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-    }, 10);
-  };
+  // Handle verify toggle with API call
+  const handleVerifyToggle = async () => {
+    if (documentData?.allVerified) return; // Already all verified, no action
 
-  // Handle input focus
-  const handleInputFocus = () => {
-    if (searchTerm.trim() !== "" && (suggestions.patientNames.length > 0 || suggestions.claimNumbers.length > 0)) {
-      setIsDropdownOpen(true);
+    setIsVerified((prev) => !prev);
+    if (!isVerified) {
+      if (!selectedPatient || !documentData) {
+        setError("No patient data available to verify.");
+        setIsVerified(false);
+        return;
+      }
+
+      try {
+        setVerifyLoading(true);
+        const verifyParams = new URLSearchParams({
+          patient_name:
+            selectedPatient.patientName || selectedPatient.name || "",
+          dob: selectedPatient.dob,
+          doi: selectedPatient.doi,
+        });
+
+        const response = await fetch(`/api/verify-document?${verifyParams}`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to verify document: ${response.status}`);
+        }
+
+        const verifyData = await response.json();
+        console.log("Verification response:", verifyData);
+
+        // Optionally refetch document data to update status
+        await fetchDocumentData(selectedPatient);
+
+        const d = new Date();
+        const opts: Intl.DateTimeFormatOptions = {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        };
+        setVerifyTime(d.toLocaleString(undefined, opts));
+      } catch (err: unknown) {
+        console.error("Error verifying document:", err);
+        setError(err instanceof Error ? err.message : "Verification failed");
+        setIsVerified(false); // Revert on error
+      } finally {
+        setVerifyLoading(false);
+      }
     }
   };
 
-  // Handle input blur
-  const handleInputBlur = () => {
-    // Small delay to allow for click events on dropdown items
-    setTimeout(() => {
-      if (!isDropdownOpen) {
-        setIsDropdownOpen(false);
-      }
-    }, 150);
-  };
-
-  // Handle key navigation for dropdown and input
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSearch();
-      setIsDropdownOpen(false);
-    } else if (e.key === "Escape") {
-      setIsDropdownOpen(false);
-      if (inputRef.current) {
-        inputRef.current.blur();
-      }
-    } else if (e.key === "ArrowDown" && (suggestions.patientNames.length > 0 || suggestions.claimNumbers.length > 0)) {
-      e.preventDefault();
-      setIsDropdownOpen(true);
-      // Focus first dropdown item
-      const firstItem = document.querySelector(
-        "[data-suggestion-item]"
-      ) as HTMLElement;
-      if (firstItem) {
-        firstItem.focus();
-      }
+  // Handle copy text
+  const handleCopy = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Optional: Show toast or feedback
+      console.log(`${fieldName} copied to clipboard`);
+    } catch (err) {
+      console.error("Failed to copy text:", err);
     }
   };
 
-  // Handle input change with better state management
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
+  // Handle section copy
+  const handleSectionCopy = async (
+    sectionId: string,
+    snapshotIndex?: number
+  ) => {
+    let text = "";
+    const doc = documentData;
 
-    // Close dropdown when clearing input
-    if (value.trim() === "") {
-      setIsDropdownOpen(false);
+    switch (sectionId) {
+      case "section-snapshot":
+        const snapshots = doc?.summary_snapshots || [];
+        const currentIdx = snapshotIndex || 0;
+        const currentSnap = snapshots[currentIdx];
+        if (currentSnap) {
+          text = `Summary Snapshot\nDx: ${
+            currentSnap.dx || "Not specified"
+          }\nKey Concern: ${
+            currentSnap.keyConcern || "Not specified"
+          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+        }
+        break;
+      case "section-whatsnew":
+        text = "What's New Since Last Visit\n";
+        const wn = doc?.whats_new;
+        if (wn) {
+          Object.entries(wn).forEach(([key, value]) => {
+            if (value && value.trim() !== "" && value.trim() !== " ") {
+              const label = key.toUpperCase().replace(/_/g, " ");
+              text += `${label}: ${value}\n`;
+            }
+          });
+        }
+        if (!text.includes(":")) {
+          text += "No significant changes since last visit";
+        }
+        break;
+      case "section-adl":
+        text = `ADL / Work Status\nADLs Affected: ${
+          doc?.adl?.adls_affected || "Not specified"
+        }\nWork Restrictions: ${
+          doc?.adl?.work_restrictions || "Not specified"
+        }`;
+        break;
+      default:
+        if (sectionId.startsWith("section-summary-")) {
+          const index = parseInt(sectionId.split("-")[2]);
+          const summary = doc?.document_summaries?.[index];
+          if (summary) {
+            text = `${summary.type} - ${formatDate(summary.date)}\n${
+              summary.summary
+            }`;
+          }
+        }
+        break;
+    }
+
+    if (!text) return;
+
+    await handleCopy(text, sectionId);
+
+    // Clear previous timer if any
+    if (timersRef.current[sectionId]) {
+      clearTimeout(timersRef.current[sectionId]);
+      delete timersRef.current[sectionId];
+    }
+
+    // Set copied state
+    setCopied((prev) => ({ ...prev, [sectionId]: true }));
+
+    // Set timer to reset
+    timersRef.current[sectionId] = setTimeout(() => {
+      setCopied((prev) => {
+        const newCopied = { ...prev };
+        delete newCopied[sectionId];
+        return newCopied;
+      });
+      delete timersRef.current[sectionId];
+    }, 2000);
+  };
+
+  // Handle show previous summary
+  const handleShowPrevious = (type: string) => {
+    const previous = documentData?.previous_summaries?.[type];
+    if (previous) {
+      setPreviousSummary(previous);
+      setShowPreviousSummary(true);
+      setShowModal(false);
     }
   };
 
-  const latestDocumentAlert = documentAlerts.reduce<DocumentAlert | null>(
-    (latest, current) => {
-      if (!latest) {
-        return current;
+  // Handle modal open
+  const openModal = (briefSummary: string) => {
+    setSelectedBriefSummary(briefSummary);
+    setShowModal(true);
+    setShowPreviousSummary(false);
+  };
+
+  // Close recommendations when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setShowRecommendations(false);
       }
-      return new Date(current.createdAt) > new Date(latest.createdAt)
-        ? current
-        : latest;
-    },
-    null
-  );
-
-  const latestDocumentId = latestDocumentAlert?.id ?? null;
-
-  // Transform document alerts into new items format
-  const newItems = documentAlerts.map((doc) => {
-    const shortSummary = doc.summary.length > 0 ? doc.summary.slice(0, 2) : [];
-    const fullSummary = doc.summary.length > 0 ? doc.summary.join(" ") : "";
-
-    return {
-      id: doc.id,
-      icon: <FileText className="w-4 h-4" />,
-      type: doc.reportTitle.includes("MRI")
-        ? "MRI"
-        : doc.reportTitle.includes("Ortho")
-          ? "Ortho Consult"
-          : doc.reportTitle.includes("UR") || doc.reportTitle.includes("Denial")
-            ? "UR Denial"
-            : "Report",
-      title: doc.reportTitle,
-      date: new Date(
-        currentDate.getTime() - doc.daysOld * 24 * 60 * 60 * 1000
-      ).toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "2-digit",
-      }),
-      hasSummary: doc.summary.length > 0,
-      isAlert: doc.urgent,
-      summary: {
-        short: shortSummary,
-        full: fullSummary,
-      },
-      patientName: doc.patientName,
-      gcsFileLink: doc.gcsFileLink,
-      lastChanges: doc.lastchanges,
-      showLastChanges: latestDocumentId ? doc.id === latestDocumentId : false,
     };
-  });
 
-  // Transform work status alerts and referrals into orders format
-  const pendingOrders = [
-    ...workStatusAlerts.filter(alert => alert.status !== 'COMPLETED').map((alert, index) => ({
-      id: `alert-${index + 1}`,
-      type: alert.status,
-      status: `${alert.daysOverdue} days overdue`,
-      title: alert.title,
-      color: alert.severity === 'critical' ? 'red' : 'yellow'
-    })),
-    ...referrals.map((referral, index) => ({
-      id: `referral-${index + 1}`,
-      type: `${referral.specialty} Referral`,
-      title: referral.reason,
-      status: `due ${new Date(referral.due_date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}`,
-      color: 'yellow'
-    }))
-  ];
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
-  const completedOrders = workStatusAlerts.filter(alert => alert.status === 'COMPLETED').map((alert, index) => ({
-    id: `completed-${index + 1}`,
-    type: alert.status,
-    status: `completed ${alert.lastUpdate}`,
-    title: alert.title,
-    color: 'green'
-  }));
+  // Auto-set verified if all documents are verified
+  useEffect(() => {
+    if (documentData?.allVerified) {
+      setIsVerified(true);
+    }
+  }, [documentData?.allVerified]);
 
-  const orders = {
-    pending: pendingOrders,
-    completed: completedOrders
+  // Handle theme switch
+  const switchTheme = (val: "clinical" | "standard") => {
+    setTheme(val);
   };
 
-  // Transform compliance nudges and deadline alerts into compliance items
-  const complianceItems = [
-    ...complianceNudges.map((nudge) => ({
-      id: nudge.nudge_id,
-      text: `${nudge.reason} - Due ${new Date(nudge.due_date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}`,
-      urgent: true
-    })),
-    ...deadlineAlerts.map((alert) => ({
-      id: alert.id,
-      text: `${alert.title} - ${alert.patientName}`,
-      urgent: true
-    }))
-  ];
+  // Format date from ISO string to MM/DD/YYYY
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return "—";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
 
-  // Get current patient data
-  const currentPatient = patients.length > 0 ? patients[0] : null;
+  // Format date for display (Visit date)
+  const getVisitDate = (): string => {
+    return documentData?.created_at ? formatDate(documentData.created_at) : "—";
+  };
+
+  // Get current patient info for display
+  const getCurrentPatientInfo = (): Patient => {
+    if (documentData) {
+      return {
+        patientName: documentData.patient_name || "Select a patient",
+        dob: documentData.dob || "—",
+        doi: documentData.doi || "—",
+        claimNumber: documentData.claim_number || "—",
+      };
+    }
+    if (selectedPatient) {
+      return {
+        patientName:
+          selectedPatient.patientName ||
+          selectedPatient.name ||
+          "Select a patient",
+        dob: selectedPatient.dob || "—",
+        doi: selectedPatient.doi || "—",
+        claimNumber: selectedPatient.claimNumber || "—",
+      };
+    }
+    return {
+      patientName: "Select a patient",
+      dob: "—",
+      doi: "—",
+      claimNumber: "—",
+    };
+  };
+
+  const currentPatient = getCurrentPatientInfo();
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Patient Dashboard</h1>
-              <p className="text-gray-600">Welcome back. Here&apos;s what&apos;s happening today.</p>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Search Bar in Header */}
-              <div className="relative" ref={dropdownRef}>
-                <div className="relative flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10" />
-                    <Input
-                      ref={inputRef}
-                      placeholder="Search patients or claim numbers..."
-                      value={searchTerm}
-                      onChange={handleInputChange}
-                      onFocus={handleInputFocus}
-                      onBlur={handleInputBlur}
-                      onKeyDown={handleKeyDown}
-                      className="pl-10 h-9 w-64 rounded-lg border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white shadow-sm transition-all duration-200 relative z-20 text-sm"
-                      disabled={loading}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSearch}
-                    className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors duration-200 text-sm"
-                    disabled={loading}
-                  >
-                    {loading ? "..." : "Search"}
-
-                  </Button>
+    <>
+      <div
+        className={`min-h-screen p-6 font-sans ${
+          theme === "standard" ? "bg-gray-100" : "bg-blue-50"
+        } text-gray-900`}
+      >
+        <div className="max-w-5xl mx-auto">
+          {/* Search Bar */}
+          <div className="mb-6" ref={searchRef}>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search patient by name..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={() => searchQuery && setShowRecommendations(true)}
+                className="w-full p-4 border border-blue-200 rounded-2xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {searchLoading && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                 </div>
+              )}
 
-                {/* Custom Dropdown Implementation */}
-                {isDropdownOpen && (suggestions.patientNames.length > 0 || suggestions.claimNumbers.length > 0) && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-64 overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
-                    <div className="p-1">
-                      {suggestions.patientNames.length > 0 && (
-                        <div>
-                          <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            Patients
-                          </div>
-                          {suggestions.patientNames.map((suggestion) => (
-                            <button
-                              key={`patient-${suggestion}`}
-                              data-suggestion-item
-                              onClick={() => handleSelectSuggestion(suggestion)}
-                              onMouseDown={(e) => e.preventDefault()}
-                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors duration-150 focus:bg-blue-50 focus:text-blue-700 focus:outline-none"
-                              tabIndex={0}
-                            >
-                              <span className="font-medium truncate">
-                                {suggestion}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {suggestions.claimNumbers.length > 0 && (
-                        <div>
-                          <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            Claim Numbers
-                          </div>
-                          {suggestions.claimNumbers.map((suggestion) => (
-                            <button
-                              key={`claim-${suggestion}`}
-                              data-suggestion-item
-                              onClick={() => handleSelectSuggestion(suggestion)}
-                              onMouseDown={(e) => e.preventDefault()}
-                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors duration-150 focus:bg-blue-50 focus:text-blue-700 focus:outline-none"
-                              tabIndex={0}
-                            >
-                              <span className="font-medium truncate">
-                                {suggestion}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <Bell className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900" />
-              <Settings className="w-6 h-6 text-gray-600 cursor-pointer hover:text-gray-900" />
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                AD
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        {/* hide scrollbar thumb and track */}
-        <main className="flex-1 p-6 overflow-y-auto scrollbar-hide">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Patient Snapshot Header */}
-            {currentPatient && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-semibold">{currentPatient.name}</h2>
-                    <span className="text-gray-500">|</span>
-                    <span className="text-gray-600">DOI: {new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}</span>
-                    <span className="text-gray-500">|</span>
-                    <span className="text-gray-600">Claim #{currentPatient.claimNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-gray-900">Work Status: Current</span>
-                    </div>
-                    <span className="text-gray-500">|</span>
-                    <span className="text-sm text-gray-600">Last Visit: {new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-600 text-center">{error}</p>
-              </div>
-            )}
-
-            {/* What's New Since Last Visit */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-purple-600" />
-                    What&apos;s New Since Last Visit
-                  </h3>
-                  <button
-                    onClick={() => setExpandedNewItems(!expandedNewItems)}
-                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
-                  >
-                    {expandedNewItems ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    {expandedNewItems ? 'Collapse' : 'Expand to view more new items'}
-                  </button>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-3">
-                  {loading && (
-                    <p className="text-sm text-gray-500 text-center">Loading...</p>
-                  )}
-                  {!loading && newItems.length === 0 && searchTerm.trim() !== "" && (
-                    <p className="text-sm text-gray-500 text-center">No new items found</p>
-                  )}
-                  {!loading && newItems.slice(0, expandedNewItems ? newItems.length : 3).map((item) => (
-                    <div key={item.id} className={`flex items-center gap-3 p-3 rounded-lg ${item.isAlert ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
-                      <div className="flex-1">
-
-                        {item.showLastChanges && item.lastChanges && item.lastChanges.length > 0 && (
-                          <ul className="mt-2 ml-6 list-disc space-y-1 text-sm text-gray-700">
-                            {item.lastChanges.map((change: string, idx: number) => (
-                              <li key={idx}>{change}</li>
-                            ))}
-                          </ul>
-                        )}
+              {/* Recommendations Dropdown */}
+              {showRecommendations && recommendations.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border border-blue-200 rounded-2xl shadow-lg mt-2 max-h-80 overflow-y-auto z-50">
+                  {recommendations.map((patient, index) => (
+                    <div
+                      key={patient.id || index}
+                      onClick={() => handlePatientSelect(patient)}
+                      className="p-4 hover:bg-blue-50 cursor-pointer border-b border-blue-100 last:border-b-0 transition-colors duration-150"
+                    >
+                      <div className="font-semibold text-gray-900">
+                        {patient.patientName || patient.name}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        <span className="inline-block mr-4">
+                          <strong>DOB:</strong> {formatDate(patient.dob)}
+                        </span>
+                        <span className="inline-block mr-4">
+                          <strong>DOI:</strong> {formatDate(patient.doi)}
+                        </span>
+                        <span className="inline-block">
+                          <strong>Claim:</strong> {patient.claimNumber}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
+
+              {showRecommendations &&
+                searchQuery &&
+                recommendations.length === 0 &&
+                !searchLoading && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-blue-200 rounded-2xl shadow-lg mt-2 p-4 text-gray-500 text-center">
+                    No patients found
+                  </div>
+                )}
             </div>
-
-            {/* Report Summaries */}
-            {newItems.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    Report Summaries
-                  </h3>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-6">
-                    {newItems.map((item) => (
-                      <div key={item.id} className="border-l-4 border-blue-200 pl-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              {item.icon}
-                              <span className="font-semibold">{item.type} {item.title} ({item.date}):</span>
-                            </div>
-                            <ul className="space-y-1 mb-3">
-                              {item.summary.short.map((point, idx) => (
-                                <li key={idx} className="flex items-start gap-2">
-                                  <span className="text-blue-600 mt-1">•</span>
-                                  <span className="text-gray-700">{point}</span>
-                                </li>
-                              ))}
-                            </ul>
-                            {expandedSummaries[item.id] && (
-                              <div className="bg-gray-50 p-4 rounded-lg mb-3">
-                                <p className="text-gray-700 leading-relaxed">{item.summary.full}</p>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-4">
-                              <button
-                                onClick={() => toggleSummary(item.id)}
-                                className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                              >
-                                {expandedSummaries[item.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                                {expandedSummaries[item.id] ? 'Collapse summary' : 'Expand for full summary'}
-                              </button>
-                              <a
-                                href={item.gcsFileLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                                View Report
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Orders & Referrals Summary */}
-            {(orders.pending.length > 0 || orders.completed.length > 0) && (
-              <div className="bg-white rounded-lg border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-green-600" />
-                    Orders & Referrals Summary
-                  </h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium mb-3 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-yellow-600" />
-                        Pending:
-                      </h4>
-                      <div className="space-y-2">
-                        {orders.pending.map((order) => (
-                          <div key={order.id} className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                            <span className="font-medium">{order.type}</span>
-                            <span className="text-gray-600">-- {order.status}</span>
-                            <p className="text-gray-600"> {order.title}</p>
-                          </div>
-                        ))}
-                        {orders.pending.length === 0 && (
-                          <p className="text-sm text-gray-500">No pending orders</p>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="font-medium mb-3 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        Completed:
-                      </h4>
-                      <div className="space-y-2">
-                        {orders.completed.map((order) => (
-                          <div key={order.id} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span className="font-medium">{order.type}</span>
-                            <span className="text-gray-600">-- {order.status}</span>
-                          </div>
-                        ))}
-                        {orders.completed.length === 0 && (
-                          <p className="text-sm text-gray-500">No completed orders</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700">
-                      <ChevronRight className="w-4 h-4" />
-                      View More
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Compliance Nudges */}
-            {complianceItems.length > 0 && (
-              <div className="bg-white rounded-lg border border-red-200">
-                <div className="p-6 border-b border-red-200 bg-red-50">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 text-red-800">
-                    <AlertCircle className="w-5 h-5" />
-                    Compliance Nudges
-                  </h3>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-3">
-                    {complianceItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <AlertTriangle className="w-5 h-5 text-red-600" />
-                        <span className="font-medium text-red-800">{item.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Show message when no data is available */}
-            {!loading && searchTerm.trim() === "" && (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Search for a Patient or Claim</h3>
-                <p className="text-gray-600">Use the search bar above to find patient information by name or claim number and view their dashboard.</p>
-              </div>
-            )}
           </div>
-        </main>
-      </div>
-    </div>
-  );
-};
 
-export default Dashboard;
+          {/* Loading State */}
+          {loading && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <p className="text-gray-600">Loading patient data...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+              <div className="text-red-500 font-semibold mb-2">Error</div>
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={() =>
+                  selectedPatient && fetchDocumentData(selectedPatient)
+                }
+                className="mt-2 bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 text-sm"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mb-4 gap-2">
+            <div className="font-bold">
+              Kebilo Physician Card — Final Mockup
+            </div>
+            <select
+              id="theme"
+              className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
+              value={theme}
+              onChange={(e) =>
+                switchTheme(e.target.value as "clinical" | "standard")
+              }
+            >
+              <option value="clinical">Clinical Light (Print‑ready)</option>
+              <option value="standard">Standard Light</option>
+            </select>
+          </div>
+
+          {!selectedPatient && !documentData ? (
+            <div className="bg-white border border-blue-200 rounded-2xl shadow-sm p-8 text-center">
+              <div className="text-gray-500 text-lg mb-4">
+                👆 Search for a patient above to get started
+              </div>
+              <p className="text-gray-400">
+                Type a patient name in the search bar to view their physician
+                card
+              </p>
+            </div>
+          ) : (
+            <div
+              className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden"
+              role="region"
+              aria-label="Physician-facing card"
+            >
+              {/* Header with merge indicator */}
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 bg-blue-50 border-b border-blue-200">
+                <div
+                  className="flex flex-wrap gap-x-4 gap-y-2"
+                  aria-label="Patient summary"
+                >
+                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    Patient: <b>{currentPatient.patientName}</b>
+                  </div>
+                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    DOB: {formatDate(currentPatient.dob)}
+                  </div>
+                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    Claim #: {currentPatient.claimNumber}
+                  </div>
+                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    DOI: {formatDate(currentPatient.doi)}
+                  </div>
+                  {documentData?.merge_metadata?.is_merged && (
+                    <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-sm">
+                      🔄 Combined{" "}
+                      {documentData.merge_metadata.total_documents_merged}{" "}
+                      visits
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="bg-blue-100 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
+                    PR‑2
+                  </span>
+                  <span className="bg-indigo-50 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
+                    Visit: {getVisitDate()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Physician Verified Row */}
+              <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
+                <div className="flex gap-2 items-center text-sm">
+                  <label
+                    className="relative inline-block w-14 h-8"
+                    aria-label="Physician Verified"
+                  >
+                    <input
+                      id="verifyToggle"
+                      type="checkbox"
+                      className="opacity-0 w-0 h-0"
+                      checked={isVerified}
+                      onChange={handleVerifyToggle}
+                      disabled={verifyLoading || documentData?.allVerified}
+                    />
+                    <span
+                      className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
+                        isVerified ? "bg-green-100 border-green-300" : ""
+                      } ${
+                        verifyLoading || documentData?.allVerified
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      <span
+                        className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
+                          isVerified ? "translate-x-6" : ""
+                        } shadow`}
+                      ></span>
+                    </span>
+                  </label>
+                  {verifyLoading && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                  )}
+                  <span
+                    id="verifyBadge"
+                    className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
+                      isVerified ? "inline-block" : "hidden"
+                    }`}
+                  >
+                    Verified ✓
+                  </span>
+                </div>
+                <div className="text-gray-600 text-sm">
+                  Last verified: <span id="verifyTime">{verifyTime}</span>
+                </div>
+              </div>
+
+              {/* Render Sub-Components */}
+              <SummarySnapshotSection
+                documentData={documentData}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+              />
+              <WhatsNewSection
+                documentData={documentData}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+              />
+              <ADLSection
+                documentData={documentData}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+              />
+              <DocumentSummarySection
+                documentData={documentData}
+                openModal={openModal}
+                handleShowPrevious={handleShowPrevious}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+              />
+            </div>
+          )}
+
+          {/* Refresh button - only show when patient is selected */}
+          {selectedPatient && (
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => fetchDocumentData(selectedPatient)}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
+                disabled={loading}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {loading ? "Refreshing..." : "Refresh Data"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Brief Summary Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Brief Summary</h3>
+              <p className="text-gray-700 whitespace-pre-wrap mb-6">
+                {selectedBriefSummary}
+              </p>
+              <button
+                onClick={() => setShowModal(false)}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Previous Summary Modal */}
+      {showPreviousSummary && previousSummary && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">
+                Previous {previousSummary.type} Summary
+              </h3>
+              <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
+                <div className="text-gray-600 text-xs">Date</div>
+                <div>{formatDate(previousSummary.date)}</div>
+              </div>
+              <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
+                <div className="text-gray-600 text-xs">Summary</div>
+                <div>{previousSummary.summary}</div>
+              </div>
+              <button
+                onClick={() => openModal(previousSummary.brief_summary || "")}
+                className="mr-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+              >
+                View Brief
+              </button>
+              <button
+                onClick={() => setShowPreviousSummary(false)}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
