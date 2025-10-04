@@ -583,6 +583,7 @@ export default function ClinicDocuments() {
     setUploading(true);
 
     const formData = new FormData();
+    // formData.append("physicianId", session?.user?.physicianId);
     selectedFiles.forEach((file) => {
       formData.append("documents", file);
     });
@@ -590,7 +591,7 @@ export default function ClinicDocuments() {
     try {
       // ✅ Add user info as headers
       const response = await fetch(
-        "http://localhost:8000/api/extract-documents",
+        `http://localhost:8000/api/extract-documents?physicianId=${session?.user?.physicianId}`,
         {
           method: "POST",
           body: formData,

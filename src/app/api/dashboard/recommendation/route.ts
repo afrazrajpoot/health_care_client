@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get("patientName");
     const claimNumber = searchParams.get("claimNumber");
+    const physicianId = searchParams.get("physicianId");
 
     if (!patientName && !claimNumber) {
       return NextResponse.json(
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
     }
 
     const whereClause: Prisma.DocumentWhereInput = {
+      physicianId: physicianId || undefined,
       OR: orConditions,
     };
 

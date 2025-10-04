@@ -73,6 +73,13 @@ const navigationItems: NavigationItem[] = [
     description: "Upload and process documents",
     roles: ["Staff"], // ✅ Staff only
   },
+  {
+    name: "Add Staff",
+    href: "/add-staff",
+    icon: Upload,
+    description: "Add new staff members",
+    roles: ["Physician"], // ✅ Staff only
+  },
 ];
 
 export function Sidebar({ className }: SidebarProps) {

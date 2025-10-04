@@ -15,6 +15,7 @@ declare module "next-auth" {
       role?: string;
       firstName?: string;
       lastName?: string;
+      physicianId?: string | null;
     };
   }
 
@@ -26,6 +27,7 @@ declare module "next-auth" {
     firstName?: string;
     lastName?: string;
     image?: string;
+    physicianId?: string | null;
   }
 }
 
@@ -35,6 +37,7 @@ declare module "next-auth/jwt" {
     role?: string;
     firstName?: string;
     lastName?: string;
+    physicianId?: string | null;
   }
 }
 
@@ -82,6 +85,7 @@ export const authOptions: AuthOptions = {
           lastName: user.lastName,
           role: user.role,
           image: user.image,
+          physicianId: user.physicianId,
         };
       },
     }),
@@ -100,6 +104,8 @@ export const authOptions: AuthOptions = {
         token.role = user.role;
         token.firstName = user.firstName;
         token.lastName = user.lastName;
+        // token.image = user.image;
+        token.physicianId = user.physicianId;
       }
       return token;
     },
@@ -110,6 +116,7 @@ export const authOptions: AuthOptions = {
         session.user.role = token.role as string;
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
+        session.user.physicianId = token.physicianId as string;
       }
       return session;
     },

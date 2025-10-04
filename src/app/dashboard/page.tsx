@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // Define TypeScript interfaces for data structures
@@ -536,6 +537,8 @@ export default function PhysicianCard() {
   const [recommendations, setRecommendations] = useState<Patient[]>([]);
   const [showRecommendations, setShowRecommendations] =
     useState<boolean>(false);
+  const { data: session, status } = useSession();
+  console.log("Session data:", session);
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -546,8 +549,22 @@ export default function PhysicianCard() {
   const [previousSummary, setPreviousSummary] =
     useState<DocumentSummary | null>(null);
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
+  const [files, setFiles] = useState<File[]>([]);
+  const [toasts, setToasts] = useState<
+    { id: number; message: string; type: "success" | "error" }[]
+  >([]);
   const searchRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  // Toast management
+  const addToast = useCallback((message: string, type: "success" | "error") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
 
   // Debounce function
   const debounce = <T extends (...args: any[]) => void>(
@@ -561,6 +578,65 @@ export default function PhysicianCard() {
     };
   };
 
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
+    }
+  };
+
+  // Handle upload and queue
+  const handleUpload = async () => {
+    if (files.length === 0) return;
+
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("documents", file);
+    });
+
+    try {
+      setLoading(true);
+      const response = await fetch("/api/extract-documents", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        addToast(`Failed to queue files: ${errorText}`, "error");
+        return;
+      }
+
+      const data = await response.json();
+      const taskIds = data.task_ids || [];
+      files.forEach((file, index) => {
+        const taskId = taskIds[index] || "unknown";
+        addToast(
+          `File "${file.name}" successfully queued for processing. Task ID: ${taskId}`,
+          "success"
+        );
+      });
+
+      // Clear files
+      setFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (err: unknown) {
+      addToast("Network error uploading files", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Compute physician ID safely
+  const getPhysicianId = (): string | null => {
+    if (!session?.user) return null;
+    return session.user.role === "Physician"
+      ? session.user.id
+      : session.user.physicianId;
+  };
+
   // Fetch recommendations from your patients API
   const fetchRecommendations = async (query: string) => {
     if (!query.trim()) {
@@ -569,10 +645,19 @@ export default function PhysicianCard() {
       return;
     }
 
+    const physicianId = getPhysicianId();
+    if (!physicianId) {
+      console.error("No physician ID available for search");
+      addToast("Session not ready. Please refresh.", "error");
+      return;
+    }
+
     try {
       setSearchLoading(true);
       const response = await fetch(
-        `/api/dashboard/recommendation?patientName=${encodeURIComponent(query)}`
+        `/api/dashboard/recommendation?patientName=${encodeURIComponent(
+          query
+        )}&physicianId=${encodeURIComponent(physicianId)}`
       );
 
       if (!response.ok) {
@@ -614,7 +699,7 @@ export default function PhysicianCard() {
     debounce((query: string) => {
       fetchRecommendations(query);
     }, 300),
-    []
+    [session] // Depend on session to refetch if session changes
   );
 
   // Handle search input change
@@ -699,6 +784,13 @@ export default function PhysicianCard() {
 
   // Fetch document data from API
   const fetchDocumentData = async (patientInfo: Patient) => {
+    const physicianId = getPhysicianId();
+    if (!physicianId) {
+      console.error("No physician ID available for document fetch");
+      setError("Session not ready. Please refresh.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -708,6 +800,7 @@ export default function PhysicianCard() {
         dob: patientInfo.dob,
         doi: patientInfo.doi,
         claim_number: patientInfo.claimNumber,
+        physicianId: physicianId,
       });
 
       console.log("Fetching document data with params:", params.toString());
@@ -723,50 +816,51 @@ export default function PhysicianCard() {
       const data: any = await response.json();
       console.log("Document data received:", data);
 
-      let processedData: DocumentData;
+      if (!data.documents || data.documents.length === 0) {
+        setDocumentData(null);
+        setError(
+          "No documents found. The document may not have complete patient information (patient name, DOB, DOI, claim number)."
+        );
+        return;
+      }
 
-      // Handle aggregated single document
-      if (data.documents && data.documents.length > 0) {
-        const aggDoc = data.documents[0];
-        processedData = { ...aggDoc };
+      const aggDoc = data.documents[0];
+      const processedData: DocumentData = { ...aggDoc };
 
-        // Compute allVerified based on status
-        processedData.allVerified =
-          !!aggDoc.status && aggDoc.status.toLowerCase() === "verified";
+      // Compute allVerified based on status
+      processedData.allVerified =
+        !!aggDoc.status && aggDoc.status.toLowerCase() === "verified";
 
-        // Process grouped summaries
-        const { document_summaries, previous_summaries } =
-          processAggregatedSummaries(
-            aggDoc.document_summary || {},
-            aggDoc.brief_summary || {}
-          );
-        processedData.document_summaries = document_summaries;
-        processedData.previous_summaries = previous_summaries;
+      // Process grouped summaries
+      const { document_summaries, previous_summaries } =
+        processAggregatedSummaries(
+          aggDoc.document_summary || {},
+          aggDoc.brief_summary || {}
+        );
+      processedData.document_summaries = document_summaries;
+      processedData.previous_summaries = previous_summaries;
 
-        // Handle summary_snapshots array
-        processedData.summary_snapshots = aggDoc.summary_snapshots || [];
+      // Handle summary_snapshots array
+      processedData.summary_snapshots = aggDoc.summary_snapshots || [];
 
-        // Handle adl - set history if needed, but since aggregated from latest medical, no previous here
-        if (processedData.adl) {
-          const adlData = processedData.adl;
-          adlData.adls_affected_history =
-            adlData.adls_affected || "Not specified";
-          adlData.work_restrictions_history =
-            adlData.work_restrictions || "Not specified";
-          adlData.has_changes = false;
-        }
+      // Handle adl - set history if needed, but since aggregated from latest medical, no previous here
+      if (processedData.adl) {
+        const adlData = processedData.adl;
+        adlData.adls_affected_history =
+          adlData.adls_affected || "Not specified";
+        adlData.work_restrictions_history =
+          adlData.work_restrictions || "Not specified";
+        adlData.has_changes = false;
+      }
 
-        // Set merge_metadata if total_documents >1
-        if (data.total_documents > 1) {
-          processedData.merge_metadata = {
-            total_documents_merged: data.total_documents,
-            is_merged: true,
-            latest_document_date: aggDoc.created_at || "",
-            previous_document_date: "", // Not available in aggregated, could fetch separately if needed
-          };
-        }
-      } else {
-        processedData = null;
+      // Set merge_metadata if total_documents >1
+      if (data.total_documents > 1) {
+        processedData.merge_metadata = {
+          total_documents_merged: data.total_documents,
+          is_merged: true,
+          latest_document_date: aggDoc.created_at || "",
+          previous_document_date: "", // Not available in aggregated, could fetch separately if needed
+        };
       }
 
       setDocumentData(processedData);
@@ -1016,6 +1110,22 @@ export default function PhysicianCard() {
 
   const currentPatient = getCurrentPatientInfo();
 
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Please sign in to access the physician card.</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div
@@ -1078,6 +1188,48 @@ export default function PhysicianCard() {
                   </div>
                 )}
             </div>
+          </div>
+
+          {/* Upload Section */}
+          <div className="mb-6">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 mr-4"
+              disabled={loading}
+            >
+              {loading ? "Uploading..." : "Upload Documents"}
+            </button>
+            {files.length > 0 && (
+              <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
+                <span className="text-sm text-gray-600">
+                  Selected: {files.map((f) => f.name).join(", ")}
+                </span>
+                <button
+                  onClick={handleUpload}
+                  className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm"
+                  disabled={loading}
+                >
+                  Queue for Processing
+                </button>
+                <button
+                  onClick={() => {
+                    setFiles([]);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  className="text-red-500 hover:text-red-700 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Loading State */}
@@ -1173,53 +1325,55 @@ export default function PhysicianCard() {
                 </div>
               </div>
 
-              {/* Physician Verified Row */}
-              <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
-                <div className="flex gap-2 items-center text-sm">
-                  <label
-                    className="relative inline-block w-14 h-8"
-                    aria-label="Physician Verified"
-                  >
-                    <input
-                      id="verifyToggle"
-                      type="checkbox"
-                      className="opacity-0 w-0 h-0"
-                      checked={isVerified}
-                      onChange={handleVerifyToggle}
-                      disabled={verifyLoading || documentData?.allVerified}
-                    />
+              {/* Physician Verified Row - Only show for Physicians */}
+              {session.user.role === "Physician" && (
+                <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
+                  <div className="flex gap-2 items-center text-sm">
+                    <label
+                      className="relative inline-block w-14 h-8"
+                      aria-label="Physician Verified"
+                    >
+                      <input
+                        id="verifyToggle"
+                        type="checkbox"
+                        className="opacity-0 w-0 h-0"
+                        checked={isVerified}
+                        onChange={handleVerifyToggle}
+                        disabled={verifyLoading || documentData?.allVerified}
+                      />
+                      <span
+                        className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
+                          isVerified ? "bg-green-100 border-green-300" : ""
+                        } ${
+                          verifyLoading || documentData?.allVerified
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <span
+                          className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
+                            isVerified ? "translate-x-6" : ""
+                          } shadow`}
+                        ></span>
+                      </span>
+                    </label>
+                    {verifyLoading && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                    )}
                     <span
-                      className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
-                        isVerified ? "bg-green-100 border-green-300" : ""
-                      } ${
-                        verifyLoading || documentData?.allVerified
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
+                      id="verifyBadge"
+                      className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
+                        isVerified ? "inline-block" : "hidden"
                       }`}
                     >
-                      <span
-                        className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
-                          isVerified ? "translate-x-6" : ""
-                        } shadow`}
-                      ></span>
+                      Verified ✓
                     </span>
-                  </label>
-                  {verifyLoading && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                  )}
-                  <span
-                    id="verifyBadge"
-                    className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
-                      isVerified ? "inline-block" : "hidden"
-                    }`}
-                  >
-                    Verified ✓
-                  </span>
+                  </div>
+                  <div className="text-gray-600 text-sm">
+                    Last verified: <span id="verifyTime">{verifyTime}</span>
+                  </div>
                 </div>
-                <div className="text-gray-600 text-sm">
-                  Last verified: <span id="verifyTime">{verifyTime}</span>
-                </div>
-              </div>
+              )}
 
               {/* Render Sub-Components */}
               <SummarySnapshotSection
@@ -1273,6 +1427,20 @@ export default function PhysicianCard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Toasts */}
+      <div className="fixed top-4 right-4 space-y-2 z-50">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.type === "success" ? "bg-green-500" : "bg-red-500"
+            } animate-in slide-in-from-top-2 duration-300`}
+          >
+            {toast.message}
+          </div>
+        ))}
       </div>
 
       {/* Brief Summary Modal */}
