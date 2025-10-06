@@ -160,9 +160,11 @@ const adlMap = {
 
 export default function Page() {
   const searchParams = useSearchParams();
-  const patientName = searchParams.get("patientName") || "Unknown";
-  const dob = searchParams.get("dob") || "Unknown";
-  const doi = searchParams.get("doi") || "Unknown";
+  const token = searchParams.get("token");
+
+  const [patientName, setPatientName] = useState("Unknown");
+  const [dob, setDob] = useState("Unknown");
+  const [doi, setDoi] = useState("Unknown");
 
   const [lang, setLang] = useState<"en" | "es">("en");
   const [newAppt, setNewAppt] = useState("no");
@@ -188,40 +190,68 @@ export default function Page() {
   }, [lang]);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (patientName === "Unknown" || dob === "Unknown" || doi === "Unknown") {
+    const initialize = async () => {
+      setLoading(true);
+      if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(
-          `/api/submit-quiz?patientName=${patientName}&dob=${dob}&doi=${doi}`
+        // Step 1: Decrypt token to get patient details
+        const decryptResponse = await fetch(
+          "http://127.0.0.1:8000/api/proxy-decrypt",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          }
         );
-        if (response.ok) {
-          const data = await response.json();
-          setLang(data.lang as "en" | "es");
-          setNewAppt(data.newAppt);
-          setAppts(data.appts || []);
-          setPain(data.pain);
-          setWorkDiff(data.workDiff);
-          setTrend(data.trend);
-          setWorkAbility(data.workAbility);
-          setBarrier(data.barrier);
-          setAdl(Array.isArray(data.adl) ? data.adl : []);
+
+        if (!decryptResponse.ok) {
+          throw new Error("Decryption failed");
+        }
+
+        const decryptData = await decryptResponse.json();
+        if (!decryptData.success) {
+          throw new Error("Invalid token");
+        }
+
+        // Set patient details from decrypted data
+        setPatientName(decryptData.data.patientName);
+        setDob(decryptData.data.dob); // Assuming ISO string, e.g., "2023-01-01"
+        setDoi(decryptData.data.doi);
+
+        // Step 2: Load existing quiz data using decrypted patient details
+        const loadResponse = await fetch(
+          `/api/submit-quiz?patientName=${decryptData.data.patientName}&dob=${decryptData.data.dob}&doi=${decryptData.data.doi}`
+        );
+
+        if (loadResponse.ok) {
+          const quizData = await loadResponse.json();
+          setLang(quizData.lang as "en" | "es");
+          setNewAppt(quizData.newAppt);
+          setAppts(quizData.appts || []);
+          setPain(quizData.pain);
+          setWorkDiff(quizData.workDiff);
+          setTrend(quizData.trend);
+          setWorkAbility(quizData.workAbility);
+          setBarrier(quizData.barrier);
+          setAdl(Array.isArray(quizData.adl) ? quizData.adl : []);
           setHasExistingData(true);
-          // Optionally compute and show results
+          // Compute results after loading
           computeResults();
         }
       } catch (error) {
-        console.error("Load error:", error);
+        console.error("Initialization error:", error);
+        setSubmitMessage("Failed to load patient data. Please check the URL.");
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, [patientName, dob, doi]);
+    initialize();
+  }, [token]);
 
   useEffect(() => {
     if (newAppt === "yes" && appts.length === 0) {

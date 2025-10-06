@@ -80,6 +80,13 @@ const navigationItems: NavigationItem[] = [
     description: "Add new staff members",
     roles: ["Physician"], // ✅ Staff only
   },
+  {
+    name: "Attorney Dashboard",
+    href: "/attorney-dashboard",
+    icon: Upload,
+    description: "Attorney specific dashboard",
+    roles: ["Attorney"], // ✅ Staff only
+  },
 ];
 
 export function Sidebar({ className }: SidebarProps) {

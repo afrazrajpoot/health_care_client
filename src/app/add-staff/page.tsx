@@ -32,7 +32,7 @@ import {
 import { useSession } from "next-auth/react";
 
 // ✅ 1. Update Zod schema to include role
-const addStaffSchema = z
+const addStaffSchema: any = z
   .object({
     firstName: z.string().min(2, "First name must be at least 2 characters"),
     lastName: z.string().min(2, "Last name must be at least 2 characters"),
@@ -40,7 +40,7 @@ const addStaffSchema = z
     phoneNumber: z.string().optional(),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string(),
-    role: z.enum(["Physician", "Staff"], {
+    role: z.enum(["Attorney", "Staff"], {
       required_error: "Please select a role",
     }),
   })
@@ -231,7 +231,7 @@ export default function AddStaffPage() {
                             className="pl-10 h-12 w-full border rounded-md border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                           >
                             <option value="">Select role</option>
-                            {/* <option value="Physician">Physician</option> */}
+                            <option value="Attorney">Attorney</option>
                             <option value="Staff">Staff</option>
                           </select>
                         </div>

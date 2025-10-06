@@ -6,7 +6,6 @@ import { Prisma } from "@prisma/client";
 
 export async function GET(request: Request) {
   try {
-    // ✅ Verify user session
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json(
@@ -15,11 +14,15 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ Extract search params
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get("patientName");
     const claimNumber = searchParams.get("claimNumber");
-    const physicianId = searchParams.get("physicianId");
+    let physicianId = searchParams.get("physicianId");
+
+    // ✅ Normalize physicianId
+    if (physicianId === "null" || physicianId === "undefined" || physicianId === "") {
+      physicianId = null;
+    }
 
     if (!patientName && !claimNumber) {
       return NextResponse.json(
@@ -28,7 +31,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ Build OR filter (case-insensitive contains)
+    // ✅ Build OR conditions
     const orConditions: Prisma.DocumentWhereInput[] = [];
 
     if (patientName) {
@@ -49,12 +52,12 @@ export async function GET(request: Request) {
       });
     }
 
+    // ✅ Apply physicianId only if valid
     const whereClause: Prisma.DocumentWhereInput = {
-      physicianId: physicianId || undefined,
       OR: orConditions,
+      ...(physicianId ? { physicianId } : {}),
     };
 
-    // ✅ Fetch distinct suggestions
     const results = await prisma.document.findMany({
       where: whereClause,
       select: {
@@ -71,36 +74,27 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ Prepare suggestions
     const patientNames = Array.from(
-      new Set(
-        results
-          .map((r: { patientName: string | null }) => r.patientName)
-          .filter(Boolean)
-      )
+      new Set(results.map(r => r.patientName).filter(Boolean))
     );
     const claimNumbers = Array.from(
-      new Set(
-        results
-          .map((r: { claimNumber: string | null }) => r.claimNumber)
-          .filter(Boolean)
-      )
+      new Set(results.map(r => r.claimNumber).filter(Boolean))
     );
 
-    // ✅ Audit log
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
         email: session.user.email,
         action: `Searched suggestions: patientName="${
           patientName ?? ""
-        }", claimNumber="${claimNumber ?? ""}"`,
+        }", claimNumber="${claimNumber ?? ""}"${
+          physicianId ? `, physicianId="${physicianId}"` : ""
+        }`,
         path: "/api/patients",
         method: "GET",
       },
     });
 
-    // ✅ Return suggestions
     return NextResponse.json({
       success: true,
       data: {
