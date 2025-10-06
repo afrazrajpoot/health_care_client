@@ -19,9 +19,9 @@ model User {
   updatedAt     DateTime  @updatedAt
   emailVerified DateTime?
   image         String?
+  physicianId    String?
   accounts      Account[]
   sessions      Session[]
-  physicianId   String?
 }
 
 model Account {
@@ -60,27 +60,25 @@ model VerificationToken {
 }
 
 model Document {
-  id              String             @id @default(cuid())
-  dob             DateTime
-  doi             DateTime
-  patientName     String
-  status          String
-  claimNumber     String            
-  gcsFileLink     String
-  briefSummary    String?
-  whatsNew        Json?
+id              String             @id @default(cuid())
+dob             DateTime
+doi             DateTime
+patientName     String
+status          String
+claimNumber     String
+gcsFileLink     String
+briefSummary    String?
+whatsNew        Json?
 
-  // Relations
-  summarySnapshot SummarySnapshot?
-  adl             ADL?
-  documentSummary DocumentSummary?
-  physicianId     String?
-
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
+patientQuizPage String?
+// Relations
+summarySnapshot SummarySnapshot?
+adl             ADL?
+documentSummary DocumentSummary?
+physicianId     String?
+createdAt       DateTime           @default(now())
+updatedAt       DateTime           @updatedAt
 }
-
 model SummarySnapshot {
   id           String    @id @default(cuid())
   dx           String
@@ -123,4 +121,26 @@ model AuditLog {
   path      String?
   method    String?
   timestamp DateTime @default(now())
+}
+
+
+model PatientQuiz {
+id          String   @id @default(cuid())
+
+patientName String?
+dob         String?
+doi         String?
+lang        String
+newAppt     String
+appts       Json?
+pain        Int
+workDiff    String
+trend       String
+workAbility String
+barrier     String
+adl         Json     // Array stored as JSON for flexibility
+
+createdAt   DateTime @default(now())
+updatedAt   DateTime @updatedAt
+
 }
