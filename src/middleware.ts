@@ -37,6 +37,15 @@ export default withAuth(
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
+    // ✅ Attorney-only route
+    if (
+      (pathname === "/attorney-dashboard" ||
+        pathname.startsWith("/attorney-dashboard")) &&
+      token.role !== "Attorney"
+    ) {
+      return NextResponse.redirect(new URL("/attorney-dashboard", req.url));
+    }
+
     return NextResponse.next();
   },
   {
@@ -58,5 +67,7 @@ export const config = {
     "/upload/:path*",
     "/documents",
     "/documents/:path*",
+    "/attorney-dashboard",
+    "/attorney-dashboard/:path*", // 👈 Add this to protect attorney routes
   ],
 };
