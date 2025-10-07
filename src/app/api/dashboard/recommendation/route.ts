@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get("patientName");
-    const claimNumber = searchParams.get("claimNumber");
+    const claimNumber = searchParams.get("claimNumber"); // Still capture, but ignore for matching
     let physicianId = searchParams.get("physicianId");
 
     // ✅ Normalize physicianId
@@ -24,70 +24,59 @@ export async function GET(request: Request) {
       physicianId = null;
     }
 
-    if (!patientName && !claimNumber) {
+    if (!patientName && !physicianId) {
       return NextResponse.json(
-        { error: "Either patientName or claimNumber is required" },
+        { error: "At least one of patientName or physicianId is required for search" },
         { status: 400 }
       );
     }
 
-    // ✅ Build OR conditions
-    const orConditions: Prisma.DocumentWhereInput[] = [];
+    // ✅ Build where clause with AND for patientName and physicianId (match both if provided)
+    const whereClause: Prisma.DocumentWhereInput = {};
 
     if (patientName) {
-      orConditions.push({
-        patientName: {
-          contains: patientName,
-          mode: "insensitive",
-        },
-      });
+      whereClause.patientName = {
+        contains: patientName,
+        mode: "insensitive",
+      };
     }
 
-    if (claimNumber) {
-      orConditions.push({
-        claimNumber: {
-          contains: claimNumber,
-          mode: "insensitive",
-        },
-      });
+    if (physicianId) {
+      whereClause.physicianId = physicianId;
     }
 
-    // ✅ Apply physicianId only if valid
-    const whereClause: Prisma.DocumentWhereInput = {
-      OR: orConditions,
-      ...(physicianId ? { physicianId } : {}),
-    };
-
+    // Get all matching documents (no distinct to return all)
     const results = await prisma.document.findMany({
       where: whereClause,
       select: {
         patientName: true,
         claimNumber: true,
+        dob: true,
+        doi: true,
+        id: true,  // Include ID to differentiate duplicates
       },
-      distinct: ["patientName", "claimNumber"],
+      // distinct: ["patientName"],  // Removed to get all
+      take: 20,  // Optional limit to avoid overload
+      orderBy: { createdAt: "desc" },  // Sort by newest
     });
 
     if (results.length === 0) {
       return NextResponse.json(
-        { message: "No matching patients or claims found" },
+        { message: "No matching patients found" },
         { status: 404 }
       );
     }
 
+    // Extract unique patientNames, but include all docs in response if needed
     const patientNames = Array.from(
       new Set(results.map(r => r.patientName).filter(Boolean))
-    );
-    const claimNumbers = Array.from(
-      new Set(results.map(r => r.claimNumber).filter(Boolean))
     );
 
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
         email: session.user.email,
-        action: `Searched suggestions: patientName="${
-          patientName ?? ""
-        }", claimNumber="${claimNumber ?? ""}"${
+        action: `Searched patient names: patientName="${patientName ?? ''}"${
           physicianId ? `, physicianId="${physicianId}"` : ""
         }`,
         path: "/api/patients",
@@ -99,11 +88,12 @@ export async function GET(request: Request) {
       success: true,
       data: {
         patientNames,
-        claimNumbers,
+        allMatchingDocuments: results,  // Full list of matching docs (e.g., all 4 for Jon Smith) with dob and doi
+        totalCount: results.length,
       },
     });
   } catch (error) {
-    console.error("Error fetching patient/claim suggestions:", error);
+    console.error("Error fetching patient name suggestions:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

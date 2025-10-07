@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -13,6 +13,7 @@ import {
   Edit,
   MoreHorizontal,
   Plus,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,14 +33,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { LayoutWrapper } from "@/components/layout/layout-wrapper";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+
+function useDebounce(value: string, delay: number): string {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 interface Patient {
   id: string;
   name: string;
   claimNo: string;
   doi: string;
-  workStatus: "TTD" | "MODIFIED" | "REGULAR";
+  workStatus: string;
   workStatusUpdatedAt: string;
   lastActivity: string;
   priority: "low" | "medium" | "high";
@@ -47,112 +75,173 @@ interface Patient {
 }
 
 const PatientsPage = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(
+    searchParams.get("search") ?? ""
+  );
+  const [copied, setCopied] = useState(false);
 
-  // Mock patient data
-  const patients: Patient[] = [
-    {
-      id: "1",
-      name: "John Smith",
-      claimNo: "C1234",
-      doi: "01/15/2023",
-      workStatus: "TTD",
-      workStatusUpdatedAt: "07/15/2024",
-      lastActivity: "2 days ago",
-      priority: "high",
-      overdueDays: 45,
-    },
-    {
-      id: "2",
-      name: "Emily White",
-      claimNo: "C5678",
-      doi: "03/22/2023",
-      workStatus: "MODIFIED",
-      workStatusUpdatedAt: "08/01/2024",
-      lastActivity: "5 days ago",
-      priority: "medium",
-      overdueDays: 20,
-    },
-    {
-      id: "3",
-      name: "Michael Brown",
-      claimNo: "C9101",
-      doi: "05/10/2023",
-      workStatus: "REGULAR",
-      workStatusUpdatedAt: "09/10/2024",
-      lastActivity: "1 week ago",
-      priority: "low",
-    },
-    {
-      id: "4",
-      name: "Sarah Johnson",
-      claimNo: "C1122",
-      doi: "02/28/2023",
-      workStatus: "TTD",
-      workStatusUpdatedAt: "06/15/2024",
-      lastActivity: "3 days ago",
-      priority: "high",
-      overdueDays: 60,
-    },
-    {
-      id: "5",
-      name: "David Wilson",
-      claimNo: "C3344",
-      doi: "04/05/2023",
-      workStatus: "MODIFIED",
-      workStatusUpdatedAt: "08/20/2024",
-      lastActivity: "1 day ago",
-      priority: "medium",
-    },
-  ];
+  const handleCopy = (textToCopy) => {
+    navigator.clipboard
+      .writeText(textToCopy)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000); // hide tick after 2s
+      })
+      .catch((err) => console.error("Copy failed:", err));
+  };
+  const { data: session } = useSession();
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") ?? "all"
+  );
+  const [priorityFilter, setPriorityFilter] = useState(
+    searchParams.get("priority") ?? "all"
+  );
+  const [patients, setPatients] = useState<Patient[]>([]);
+  console.log("PatientsPage session:", patients);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const getStatusBadge = (
-    status: Patient["workStatus"],
-    overdueDays?: number
-  ) => {
-    const isOverdue = overdueDays && overdueDays > 30;
+  const physicianId = session?.user?.physicianId;
 
-    switch (status) {
-      case "TTD":
-        return (
-          <Badge
-            variant={isOverdue ? "destructive" : "outline"}
-            className={`gap-1 font-medium ${
-              isOverdue
-                ? "bg-red-50 text-red-700 border-red-200"
-                : "bg-blue-50 text-blue-700 border-blue-200"
-            }`}
-          >
-            {isOverdue && <AlertTriangle className="w-3 h-3" />}
-            TTD {isOverdue && `(${overdueDays}d)`}
-          </Badge>
-        );
-      case "MODIFIED":
-        return (
-          <Badge
-            variant={isOverdue ? "destructive" : "outline"}
-            className={`gap-1 font-medium ${
-              isOverdue
-                ? "bg-red-50 text-red-700 border-red-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            }`}
-          >
-            {isOverdue && <AlertTriangle className="w-3 h-3" />}
-            Modified {isOverdue && `(${overdueDays}d)`}
-          </Badge>
-        );
-      case "REGULAR":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-green-50 text-green-700 border-green-200 font-medium"
-          >
-            Regular
-          </Badge>
-        );
+  const pageSize = 10;
+  const page = parseInt(searchParams.get("page") ?? "1", 10);
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  const createQueryString = useCallback(
+    (changes: Record<string, string | number>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(changes).forEach(([key, value]) => {
+        if (value === undefined || value === "") {
+          params.delete(key);
+        } else {
+          params.set(key, value.toString());
+        }
+      });
+      return params.toString();
+    },
+    [searchParams]
+  );
+
+  useEffect(() => {
+    setSearchTerm(searchParams.get("search") ?? "");
+    setStatusFilter(searchParams.get("status") ?? "all");
+    setPriorityFilter(searchParams.get("priority") ?? "all");
+  }, [searchParams]);
+
+  // Update URL when debounced search term changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== searchParams.get("search")) {
+      router.replace(
+        `?${createQueryString({ search: debouncedSearchTerm, page: 1 })}`,
+        {
+          scroll: false,
+        }
+      );
     }
+  }, [debouncedSearchTerm, createQueryString, router, searchParams]);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      if (!physicianId) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          physicianId,
+          page: page.toString(),
+          limit: pageSize.toString(),
+          ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
+          ...(statusFilter !== "all" && { status: statusFilter }),
+          ...(priorityFilter !== "all" && { priority: priorityFilter }),
+        });
+
+        const response = await fetch(`/api/get-patient?${params}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch patients");
+        }
+        const result = await response.json();
+        const now = new Date();
+        const mapped = result.data.map((doc: any) => {
+          const updated = new Date(doc.updatedAt);
+          const daysDiff = Math.floor(
+            (now.getTime() - updated.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          let lastActivity = daysDiff === 0 ? "today" : `${daysDiff} days ago`;
+          if (daysDiff >= 7) lastActivity = "1 week ago";
+          let overdueDays: number | undefined = undefined;
+          let priority: Patient["priority"] = "low";
+          if (doc.status === "Urgent") {
+            overdueDays = daysDiff;
+            if (daysDiff > 45) priority = "high";
+            else if (daysDiff > 20) priority = "medium";
+          }
+          const doiDate = new Date(doc.doi);
+          const doiFormatted = `${(doiDate.getMonth() + 1)
+            .toString()
+            .padStart(2, "0")}/${doiDate
+            .getDate()
+            .toString()
+            .padStart(2, "0")}/${doiDate.getFullYear()}`;
+          return {
+            id: doc.id,
+            name: doc.patientName,
+            claimNo: doc.claimNumber,
+            doi: doiFormatted,
+            workStatus: doc.status,
+            workStatusUpdatedAt: doc.updatedAt,
+            lastActivity,
+            priority,
+            overdueDays,
+            adlLink: doc.patientQuizPage,
+          };
+        });
+        setPatients(mapped);
+        setTotal(result.total);
+      } catch (error) {
+        console.error("Error fetching patients:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatients();
+  }, [physicianId, page, debouncedSearchTerm, statusFilter, priorityFilter]);
+
+  const getStatusBadge = (status: string, overdueDays?: number) => {
+    let variant = "outline";
+    let className = "bg-gray-50 text-gray-700 border-gray-200 font-medium";
+    let icon = null;
+    let text = status.charAt(0).toUpperCase() + status.slice(1);
+
+    if (status === "Urgent") {
+      className = "bg-red-50 text-red-700 border-red-200";
+      variant = "destructive";
+      icon = <AlertTriangle className="w-3 h-3" />;
+    } else if (status === "normal") {
+      className = "bg-green-50 text-green-700 border-green-200";
+      text = "Normal";
+    }
+
+    const isOverdue = overdueDays && overdueDays > 30;
+    if (isOverdue) {
+      className = "bg-red-50 text-red-700 border-red-200";
+      variant = "destructive";
+      if (!icon) icon = <AlertTriangle className="w-3 h-3" />;
+      text += ` (${overdueDays}d)`;
+    }
+
+    return (
+      <Badge variant={variant} className={`gap-1 font-medium ${className}`}>
+        {icon}
+        {text}
+      </Badge>
+    );
   };
 
   const getPriorityBadge = (priority: Patient["priority"]) => {
@@ -187,17 +276,132 @@ const PatientsPage = () => {
     }
   };
 
-  const filteredPatients = patients.filter((patient) => {
-    const matchesSearch =
-      patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.claimNo.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || patient.workStatus === statusFilter;
-    const matchesPriority =
-      priorityFilter === "all" || patient.priority === priorityFilter;
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+  };
 
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    router.replace(`?${createQueryString({ status: value, page: 1 })}`, {
+      scroll: false,
+    });
+  };
+
+  const handlePriorityChange = (value: string) => {
+    setPriorityFilter(value);
+    router.replace(`?${createQueryString({ priority: value, page: 1 })}`, {
+      scroll: false,
+    });
+  };
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  const renderPagination = () => {
+    const items: React.ReactNode[] = [];
+
+    // Previous
+    items.push(
+      <PaginationItem key="previous">
+        <PaginationPrevious
+          asChild
+          className={page === 1 ? "pointer-events-none opacity-50" : ""}
+        >
+          <Link
+            href={page > 1 ? `?${createQueryString({ page: page - 1 })}` : "#"}
+          >
+            Previous
+          </Link>
+        </PaginationPrevious>
+      </PaginationItem>
+    );
+
+    // Page numbers with ellipsis
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink asChild isActive={i === page}>
+              <Link href={`?${createQueryString({ page: i })}`}>{i}</Link>
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      // First page
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink asChild>
+            <Link href={`?${createQueryString({ page: 1 })}`}>1</Link>
+          </PaginationLink>
+        </PaginationItem>
+      );
+      if (page > 3) {
+        items.push(
+          <PaginationItem key="ellipsis1">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+      // Current pages
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+      for (let i = start; i <= end; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink asChild isActive={i === page}>
+              <Link href={`?${createQueryString({ page: i })}`}>{i}</Link>
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+      if (page < totalPages - 2) {
+        items.push(
+          <PaginationItem key="ellipsis2">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+        // Last page
+        items.push(
+          <PaginationItem key={totalPages}>
+            <PaginationLink asChild>
+              <Link href={`?${createQueryString({ page: totalPages })}`}>
+                {totalPages}
+              </Link>
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    }
+
+    // Next
+    items.push(
+      <PaginationItem key="next">
+        <PaginationNext
+          asChild
+          className={
+            page === totalPages ? "pointer-events-none opacity-50" : ""
+          }
+        >
+          <Link
+            href={
+              page < totalPages
+                ? `?${createQueryString({ page: page + 1 })}`
+                : "#"
+            }
+          >
+            Next
+          </Link>
+        </PaginationNext>
+      </PaginationItem>
+    );
+
+    return (
+      <Pagination>
+        <PaginationContent>{items}</PaginationContent>
+      </Pagination>
+    );
+  };
 
   return (
     <LayoutWrapper>
@@ -234,117 +438,15 @@ const PatientsPage = () => {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <Input
-                    placeholder="Search patients by name or claim number..."
+                    placeholder="Search patients by name..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="pl-11 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-48 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="TTD">TTD</SelectItem>
-                    <SelectItem value="MODIFIED">Modified</SelectItem>
-                    <SelectItem value="REGULAR">Regular</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={priorityFilter}
-                  onValueChange={setPriorityFilter}
-                >
-                  <SelectTrigger className="w-full sm:w-48 h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Priority</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>
-
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="shadow-sm border-0 bg-white">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Users className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">
-                      Total Patients
-                    </p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {patients.length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-sm border-0 bg-white">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">
-                      High Priority
-                    </p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {patients.filter((p) => p.priority === "high").length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-sm border-0 bg-white">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Overdue</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {
-                        patients.filter(
-                          (p) => p.overdueDays && p.overdueDays > 30
-                        ).length
-                      }
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-sm border-0 bg-white">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">
-                      Recent Activity
-                    </p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {
-                        patients.filter((p) => p.lastActivity.includes("day"))
-                          .length
-                      }
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Patients List */}
           <Card className="shadow-sm border-0 bg-white">
@@ -352,85 +454,36 @@ const PatientsPage = () => {
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
                 <CardTitle className="text-xl font-semibold text-gray-900">
-                  Patients ({filteredPatients.length})
+                  Patients ({total})
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-4">
-                {filteredPatients.map((patient) => (
-                  <div
-                    key={patient.id}
-                    className="flex items-center justify-between p-5 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-200 transition-all duration-200"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <Avatar className="w-12 h-12">
-                        <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
-                          {patient.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-gray-900">
-                            {patient.name}
-                          </h3>
-                          {getPriorityBadge(patient.priority)}
+                {loading ? (
+                  Array.from({ length: pageSize }).map((_, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-5 border border-gray-100 rounded-xl animate-pulse"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                         </div>
-                        <p className="text-sm text-gray-600 font-medium mb-1">
-                          {patient.claimNo} • DOI: {patient.doi}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Last activity: {patient.lastActivity}
-                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="h-6 w-20 bg-gray-200 rounded"></div>
+                        <div className="flex gap-2">
+                          <div className="w-20 h-8 bg-gray-200 rounded"></div>
+                          <div className="w-8 h-8 bg-gray-200 rounded"></div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-4">
-                      {getStatusBadge(patient.workStatus, patient.overdueDays)}
-
-                      <div className="flex items-center gap-2">
-                        <Link href={`/patients/${patient.id}`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
-                          >
-                            <Eye className="w-4 h-4" />
-                            View
-                          </Button>
-                        </Link>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:bg-gray-100"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem className="gap-2">
-                              <Edit className="w-4 h-4" />
-                              Edit Patient
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Calendar className="w-4 h-4" />
-                              Update Status
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {filteredPatients.length === 0 && (
+                  ))
+                ) : patients.length === 0 ? (
                   <div className="text-center py-16">
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                       <Users className="w-10 h-10 text-gray-400" />
@@ -443,8 +496,103 @@ const PatientsPage = () => {
                       patients you're looking for.
                     </p>
                   </div>
+                ) : (
+                  patients.map((patient) => (
+                    <div
+                      key={patient.id}
+                      className="flex items-center justify-between p-5 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-200 transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <Avatar className="w-12 h-12">
+                          <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
+                            {patient.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-gray-900">
+                              {patient.name}
+                            </h3>
+                            {getPriorityBadge(patient.priority)}
+                          </div>
+                          <p className="text-sm text-gray-600 font-medium mb-1">
+                            {patient.claimNo} • DOI: {patient.doi}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Last activity: {patient.lastActivity}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        {getStatusBadge(
+                          patient.workStatus,
+                          patient.overdueDays
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          {/* <Link href={`/patients/${patient.id}`}> */}
+                          {/* <Link href={`${patient?.adlLink}`}> */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                            onClick={() => {
+                              handleCopy(patient?.adlLink);
+                            }}
+                          >
+                            {copied ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                            ADL Form Link
+                          </Button>
+
+                          {copied && (
+                            <span className="text-sm text-green-600 transition-opacity duration-300">
+                              Copied!
+                            </span>
+                          )}
+
+                          {/* </Link> */}
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:bg-gray-100"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem className="gap-2">
+                                <Edit className="w-4 h-4" />
+                                Edit Patient
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="gap-2">
+                                <Calendar className="w-4 h-4" />
+                                Update Status
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
+              {!loading && totalPages > 1 && (
+                <div className="flex justify-center mt-8">
+                  {renderPagination()}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
