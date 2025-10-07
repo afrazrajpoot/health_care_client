@@ -1,6 +1,7 @@
 // pages/PhysicianCard.tsx (or app/physician-card/page.tsx)
 "use client";
 
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 import SearchBar from "@/components/SearchBar";
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -1008,7 +1009,7 @@ export default function PhysicianCard() {
   const physicianId = getPhysicianId();
 
   return (
-    <>
+    <LayoutWrapper>
       <div
         className={`min-h-screen p-6 font-sans ${
           theme === "standard" ? "bg-gray-100" : "bg-blue-50"
@@ -1326,6 +1327,6 @@ export default function PhysicianCard() {
           </div>
         </div>
       )}
-    </>
+    </LayoutWrapper>
   );
 }

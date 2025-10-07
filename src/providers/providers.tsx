@@ -10,7 +10,9 @@ import { ThemeProvider } from "./theme-provider";
 import { Session } from "inspector/promises";
 import { SessionProvider } from "next-auth/react";
 import { ReduxProvider } from "./redux-provider";
-import { LayoutWrapper } from "@/components/layout/layout-wrapper";
+// import { LayoutWrapper } from "@/components/layout/layout-wrapper";
+
+import { SocketProvider } from "./SocketProvider";
 
 export function Providers({ children }: { children: ReactNode }) {
   // const [queryClient] = useState(() => new QueryClient());
@@ -18,16 +20,20 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     // <QueryClientProvider client={queryClient}>
     <SessionProvider>
-      <ReduxProvider>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          <TooltipProvider>
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
-            <Sonner />
-          </TooltipProvider>
-        </ThemeProvider>
-      </ReduxProvider>
+      <SocketProvider>
+        <ReduxProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+          >
+            <TooltipProvider>
+             {children}
+              <Sonner />
+            </TooltipProvider>
+          </ThemeProvider>
+        </ReduxProvider>
+      </SocketProvider>
     </SessionProvider>
     // </QueryClientProvider>
   );

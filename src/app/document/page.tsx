@@ -1,5 +1,6 @@
 "use client";
 
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // Define TypeScript interfaces for data structures
@@ -999,7 +1000,7 @@ export default function PhysicianCard() {
   const currentPatient = getCurrentPatientInfo();
 
   return (
-    <>
+    <LayoutWrapper>
       <div
         className={`min-h-screen p-6 font-sans ${
           theme === "standard" ? "bg-gray-100" : "bg-blue-50"
@@ -1309,6 +1310,6 @@ export default function PhysicianCard() {
           </div>
         </div>
       )}
-    </>
+    </LayoutWrapper>
   );
 }

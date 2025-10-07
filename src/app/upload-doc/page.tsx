@@ -45,6 +45,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSession } from "next-auth/react";
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 
 const newDocuments = [
   {
@@ -591,7 +592,7 @@ export default function ClinicDocuments() {
     try {
       // ✅ Add user info as headers
       const response = await fetch(
-        `http://localhost:8000/api/extract-documents?physicianId=${session?.user?.physicianId}`,
+        `http://localhost:8000/api/extract-documents?physicianId=${session?.user?.physicianId}&userId=${session?.user?.id}`,
         {
           method: "POST",
           body: formData,
@@ -702,493 +703,495 @@ export default function ClinicDocuments() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/30 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <Toaster position="top-right" richColors />
+    <LayoutWrapper>
+      <div className="min-h-screen bg-gray-50/30 p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <Toaster position="top-right" richColors />
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Document Management
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Upload and process healthcare documents using AI-powered
-              extraction
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search documents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-72 text-red-600 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-              />
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Document Management
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Upload and process healthcare documents using AI-powered
+                extraction
+              </p>
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowUpload(!showUpload)}
-              className="border-gray-300 hover:bg-gray-50"
-            >
-              <Upload className="h-4 w-4" />
-            </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              New Upload
-            </Button>
-          </div>
-        </div>
-
-        {/* Enhanced Document Upload Zone */}
-        <Card className="border border-gray-200/80 shadow-sm bg-white">
-          <CardContent className="pt-6">
-            {showUpload ? (
-              <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
-                  selectedFiles.length > 0
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : isDragOver
-                    ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
-                    : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
-                }`}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-72 text-red-600 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowUpload(!showUpload)}
+                className="border-gray-300 hover:bg-gray-50"
               >
-                {uploading ? (
-                  <div className="space-y-6">
-                    <div className="relative">
-                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                        <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                <Upload className="h-4 w-4" />
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                New Upload
+              </Button>
+            </div>
+          </div>
+
+          {/* Enhanced Document Upload Zone */}
+          <Card className="border border-gray-200/80 shadow-sm bg-white">
+            <CardContent className="pt-6">
+              {showUpload ? (
+                <div
+                  className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${
+                    selectedFiles.length > 0
+                      ? "border-emerald-300 bg-emerald-50/50"
+                      : isDragOver
+                      ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
+                      : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
+                  }`}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                >
+                  {uploading ? (
+                    <div className="space-y-6">
+                      <div className="relative">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                          <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        Processing Documents...
-                      </h3>
-                      <p className="text-gray-600">
-                        {selectedFiles.length} file(s) being processed
-                      </p>
-                      <div className="mt-4 max-w-xs mx-auto">
-                        <Progress value={65} className="h-2" />
-                        <p className="text-xs text-gray-500 mt-2">
-                          Extracting text and analyzing content...
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                          Processing Documents...
+                        </h3>
+                        <p className="text-gray-600">
+                          {selectedFiles.length} file(s) being processed
                         </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : selectedFiles.length > 0 ? (
-                  <div className="space-y-6">
-                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
-                      <Check className="h-8 w-8 text-emerald-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        Ready to Process {selectedFiles.length} File(s)
-                      </h3>
-                      <div className="text-gray-700 font-medium">
-                        {selectedFiles.map((file, index) => (
-                          <p key={index} className="text-sm">
-                            {file.name} ({formatSize(file.size)})
+                        <div className="mt-4 max-w-xs mx-auto">
+                          <Progress value={65} className="h-2" />
+                          <p className="text-xs text-gray-500 mt-2">
+                            Extracting text and analyzing content...
                           </p>
-                        ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-3 justify-center">
-                      <Button
-                        className="bg-blue-600 hover:bg-blue-700 px-6"
-                        onClick={handleUpload}
-                        disabled={uploading}
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Extract Content
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedFiles([]);
-                          setUploadResults([]);
-                        }}
-                        className="border-gray-300 hover:bg-gray-50"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div
-                      className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${
-                        isDragOver
-                          ? "bg-blue-200 border-2 border-blue-400 scale-110"
-                          : "bg-blue-100 border border-blue-200"
-                      }`}
-                    >
-                      <Upload
-                        className={`h-8 w-8 transition-colors duration-300 ${
-                          isDragOver ? "text-blue-700" : "text-blue-600"
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        {isDragOver
-                          ? "Drop files here"
-                          : "Drop your medical documents here"}
-                      </h3>
-                      <p className="text-gray-600 mb-6">
-                        {isDragOver
-                          ? "Release to select your files for processing"
-                          : "Drag & drop multiple files here or use the button below • PDF, DOCX, JPG, PNG up to 40MB each"}
-                      </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <label htmlFor="file-upload" className="cursor-pointer">
-                        <Input
-                          id="file-upload"
-                          type="file"
-                          accept=".pdf,.docx,.jpg,.jpeg,.png"
-                          onChange={handleFileChange}
-                          multiple
-                          className="hidden"
-                          disabled={uploading}
-                        />
+                  ) : selectedFiles.length > 0 ? (
+                    <div className="space-y-6">
+                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
+                        <Check className="h-8 w-8 text-emerald-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                          Ready to Process {selectedFiles.length} File(s)
+                        </h3>
+                        <div className="text-gray-700 font-medium">
+                          {selectedFiles.map((file, index) => (
+                            <p key={index} className="text-sm">
+                              {file.name} ({formatSize(file.size)})
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-3 justify-center">
                         <Button
                           className="bg-blue-600 hover:bg-blue-700 px-6"
+                          onClick={handleUpload}
                           disabled={uploading}
-                          asChild
                         >
-                          <span>
-                            {isDragOver ? "Drop Files Here" : "Choose Files"}
-                          </span>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Extract Content
                         </Button>
-                      </label>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowUpload(false)}
-                        disabled={uploading}
-                        className="border-gray-300 hover:bg-gray-50"
-                      >
-                        Close
-                      </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedFiles([]);
+                            setUploadResults([]);
+                          }}
+                          className="border-gray-300 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${
-                  isDragOver
-                    ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
-                    : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
-                }`}
-                onClick={() => setShowUpload(true)}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-              >
-                <div
-                  className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${
-                    isDragOver
-                      ? "bg-blue-200 border-2 border-blue-400 scale-110"
-                      : "bg-blue-100 border border-blue-200"
-                  }`}
-                >
-                  <Upload
-                    className={`h-8 w-8 transition-colors duration-300 ${
-                      isDragOver ? "text-blue-700" : "text-blue-600"
-                    }`}
-                  />
+                  ) : (
+                    <div className="space-y-6">
+                      <div
+                        className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${
+                          isDragOver
+                            ? "bg-blue-200 border-2 border-blue-400 scale-110"
+                            : "bg-blue-100 border border-blue-200"
+                        }`}
+                      >
+                        <Upload
+                          className={`h-8 w-8 transition-colors duration-300 ${
+                            isDragOver ? "text-blue-700" : "text-blue-600"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                          {isDragOver
+                            ? "Drop files here"
+                            : "Drop your medical documents here"}
+                        </h3>
+                        <p className="text-gray-600 mb-6">
+                          {isDragOver
+                            ? "Release to select your files for processing"
+                            : "Drag & drop multiple files here or use the button below • PDF, DOCX, JPG, PNG up to 40MB each"}
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <label htmlFor="file-upload" className="cursor-pointer">
+                          <Input
+                            id="file-upload"
+                            type="file"
+                            accept=".pdf,.docx,.jpg,.jpeg,.png"
+                            onChange={handleFileChange}
+                            multiple
+                            className="hidden"
+                            disabled={uploading}
+                          />
+                          <Button
+                            className="bg-blue-600 hover:bg-blue-700 px-6"
+                            disabled={uploading}
+                            asChild
+                          >
+                            <span>
+                              {isDragOver ? "Drop Files Here" : "Choose Files"}
+                            </span>
+                          </Button>
+                        </label>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowUpload(false)}
+                          disabled={uploading}
+                          className="border-gray-300 hover:bg-gray-50"
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {isDragOver
-                    ? "Drop files here"
-                    : "Drop medical documents here"}
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  {isDragOver
-                    ? "Release to upload your files"
-                    : "Drag & drop multiple files here or click to browse • PDF, DOCX, JPG, PNG up to 40MB each"}
-                </p>
-                <Button className="bg-blue-600 hover:bg-blue-700 px-6">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {isDragOver ? "Drop Files Here" : "Upload Files"}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Professional Text Preview for Multiple Results */}
-        {uploadResults.length > 0 && (
-          <div className="space-y-6">
-            {uploadResults.map((result, index) => (
-              <div key={index}>
-                <ProfessionalTextPreview result={result} />
-                <div className="flex justify-end mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyResults(result)}
-                    className="text-xs border-gray-300 hover:bg-gray-50"
+              ) : (
+                <div
+                  className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${
+                    isDragOver
+                      ? "border-blue-500 bg-blue-50 scale-[1.02] shadow-lg"
+                      : "border-gray-300 hover:border-blue-400 hover:bg-blue-50/30"
+                  }`}
+                  onClick={() => setShowUpload(true)}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                >
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${
+                      isDragOver
+                        ? "bg-blue-200 border-2 border-blue-400 scale-110"
+                        : "bg-blue-100 border border-blue-200"
+                    }`}
                   >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Copy Results JSON
+                    <Upload
+                      className={`h-8 w-8 transition-colors duration-300 ${
+                        isDragOver ? "text-blue-700" : "text-blue-600"
+                      }`}
+                    />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    {isDragOver
+                      ? "Drop files here"
+                      : "Drop medical documents here"}
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    {isDragOver
+                      ? "Release to upload your files"
+                      : "Drag & drop multiple files here or click to browse • PDF, DOCX, JPG, PNG up to 40MB each"}
+                  </p>
+                  <Button className="bg-blue-600 hover:bg-blue-700 px-6">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {isDragOver ? "Drop Files Here" : "Upload Files"}
                   </Button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="border border-gray-200/80 shadow-sm bg-white">
-            <CardHeader className="pb-4 border-b border-gray-100">
-              <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <div className="p-1 bg-emerald-50 rounded border border-emerald-200/50">
-                  <FileText className="h-4 w-4 text-emerald-600" />
-                </div>
-                New Since Check-in
-                <Badge
-                  variant="secondary"
-                  className="ml-auto bg-blue-100 text-blue-700 border border-blue-200"
-                >
-                  {newDocuments.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-3">
-                {newDocuments.map((doc, index) => (
-                  <div
-                    key={index}
-                    className="group p-4 border border-gray-200 rounded-lg hover:bg-gray-50/50 hover:border-gray-300 transition-all duration-200"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-3 h-3 rounded-full ${getDocTypeColor(
-                            doc.color,
-                            "light"
-                          )}`}
-                        ></div>
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">
-                            {doc.type}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            ID: {doc.id}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-500 font-medium">
-                        {doc.date}
-                      </span>
-                    </div>
-                    <div className="flex gap-1.5">
-                      {doc.actions.map((action, actionIndex) => (
-                        <Button
-                          key={actionIndex}
-                          size="sm"
-                          variant="ghost"
-                          className="text-xs px-3 py-1.5 h-auto hover:bg-gray-100 text-gray-700"
-                        >
-                          {action}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200/80 shadow-sm bg-white lg:col-span-2">
-            <CardHeader className="pb-4 border-b border-gray-100">
-              <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <div className="p-1 bg-blue-50 rounded border border-blue-200/50">
-                  <FileText className="h-4 w-4 text-blue-600" />
-                </div>
-                All Correspondence
-                <Badge
-                  variant="secondary"
-                  className="ml-auto bg-gray-100 text-gray-700 border border-gray-200"
-                >
-                  {allCorrespondence.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-3">
-                {allCorrespondence.map((doc, index) => (
-                  <div
-                    key={index}
-                    className="group p-5 border border-gray-200 rounded-lg hover:bg-gray-50/50 hover:border-gray-300 transition-all duration-200"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div
-                          className={`w-4 h-4 rounded-full mt-1 ${getDocTypeColor(
-                            doc.color,
-                            "light"
-                          )}`}
-                        ></div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <p className="font-semibold text-gray-900">
-                              {doc.type}
-                            </p>
-                            {doc.confidence && (
-                              <Badge
-                                variant="secondary"
-                                className="text-xs bg-blue-50 text-blue-700 border border-blue-200"
-                              >
-                                <Bot className="h-3 w-3 mr-1" />
-                                {doc.confidence}
-                              </Badge>
-                            )}
-                            <span className="text-xs text-gray-500 ml-auto">
-                              {doc.date}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            {doc.summary}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5 flex-shrink-0">
-                        {doc.actions.map((action, actionIndex) => (
-                          <Button
-                            key={actionIndex}
-                            size="sm"
-                            variant="outline"
-                            className="text-xs px-3 py-1.5 h-auto border-gray-300 hover:bg-gray-50"
-                          >
-                            {action}
-                          </Button>
-                        ))}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto w-8 p-0 hover:bg-gray-100"
-                        >
-                          <MoreVertical className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border border-gray-200/80 shadow-sm bg-white">
-          <CardHeader className="pb-4 border-b border-gray-100">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <div className="p-1 bg-green-50 rounded border border-green-200/50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              </div>
-              Active Tasks
-              <Badge
-                variant="secondary"
-                className="ml-auto bg-green-100 text-green-700 border border-green-200"
-              >
-                {tasks.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-3">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="group p-5 border border-gray-200 rounded-lg hover:bg-gray-50/50 hover:border-gray-300 transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {task.title}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <p className="text-sm text-gray-600 flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {task.assignee}
-                          </p>
-                          <p className="text-sm text-gray-600 flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Due {task.dueDate}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant="secondary"
-                        className="text-xs bg-amber-50 text-amber-700 border border-amber-200"
-                      >
-                        <Clock className="h-3 w-3 mr-1" />
-                        {task.priority}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-gray-300 hover:bg-gray-50"
-                      >
-                        View Task
-                      </Button>
-                    </div>
+          {/* Professional Text Preview for Multiple Results */}
+          {uploadResults.length > 0 && (
+            <div className="space-y-6">
+              {uploadResults.map((result, index) => (
+                <div key={index}>
+                  <ProfessionalTextPreview result={result} />
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopyResults(result)}
+                      className="text-xs border-gray-300 hover:bg-gray-50"
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy Results JSON
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
 
-        <Card className="border border-gray-200/80 shadow-sm bg-white">
-          <CardHeader className="pb-4 border-b border-gray-100">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <div className="p-1 bg-purple-50 rounded border border-purple-200/50">
-                <Clock className="h-4 w-4 text-purple-600" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="border border-gray-200/80 shadow-sm bg-white">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="p-1 bg-emerald-50 rounded border border-emerald-200/50">
+                    <FileText className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  New Since Check-in
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto bg-blue-100 text-blue-700 border border-blue-200"
+                  >
+                    {newDocuments.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-3">
+                  {newDocuments.map((doc, index) => (
+                    <div
+                      key={index}
+                      className="group p-4 border border-gray-200 rounded-lg hover:bg-gray-50/50 hover:border-gray-300 transition-all duration-200"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-3 h-3 rounded-full ${getDocTypeColor(
+                              doc.color,
+                              "light"
+                            )}`}
+                          ></div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">
+                              {doc.type}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              ID: {doc.id}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">
+                          {doc.date}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {doc.actions.map((action, actionIndex) => (
+                          <Button
+                            key={actionIndex}
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs px-3 py-1.5 h-auto hover:bg-gray-100 text-gray-700"
+                          >
+                            {action}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-gray-200/80 shadow-sm bg-white lg:col-span-2">
+              <CardHeader className="pb-4 border-b border-gray-100">
+                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="p-1 bg-blue-50 rounded border border-blue-200/50">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                  </div>
+                  All Correspondence
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto bg-gray-100 text-gray-700 border border-gray-200"
+                  >
+                    {allCorrespondence.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-3">
+                  {allCorrespondence.map((doc, index) => (
+                    <div
+                      key={index}
+                      className="group p-5 border border-gray-200 rounded-lg hover:bg-gray-50/50 hover:border-gray-300 transition-all duration-200"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4 flex-1">
+                          <div
+                            className={`w-4 h-4 rounded-full mt-1 ${getDocTypeColor(
+                              doc.color,
+                              "light"
+                            )}`}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="font-semibold text-gray-900">
+                                {doc.type}
+                              </p>
+                              {doc.confidence && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs bg-blue-50 text-blue-700 border border-blue-200"
+                                >
+                                  <Bot className="h-3 w-3 mr-1" />
+                                  {doc.confidence}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-gray-500 ml-auto">
+                                {doc.date}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                              {doc.summary}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          {doc.actions.map((action, actionIndex) => (
+                            <Button
+                              key={actionIndex}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs px-3 py-1.5 h-auto border-gray-300 hover:bg-gray-50"
+                            >
+                              {action}
+                            </Button>
+                          ))}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-auto w-8 p-0 hover:bg-gray-100"
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border border-gray-200/80 shadow-sm bg-white">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <div className="p-1 bg-green-50 rounded border border-green-200/50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                </div>
+                Active Tasks
+                <Badge
+                  variant="secondary"
+                  className="ml-auto bg-green-100 text-green-700 border border-green-200"
+                >
+                  {tasks.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="space-y-3">
+                {tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="group p-5 border border-gray-200 rounded-lg hover:bg-gray-50/50 hover:border-gray-300 transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <p className="text-sm text-gray-600 flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {task.assignee}
+                            </p>
+                            <p className="text-sm text-gray-600 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Due {task.dueDate}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant="secondary"
+                          className="text-xs bg-amber-50 text-amber-700 border border-amber-200"
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          {task.priority}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-gray-300 hover:bg-gray-50"
+                        >
+                          View Task
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              Date Tracking
-              <Badge
-                variant="secondary"
-                className="ml-auto bg-gray-100 text-gray-700 border border-gray-200"
-              >
-                0
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
-                <Clock className="h-8 w-8 text-gray-400" />
+            </CardContent>
+          </Card>
+
+          <Card className="border border-gray-200/80 shadow-sm bg-white">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <div className="p-1 bg-purple-50 rounded border border-purple-200/50">
+                  <Clock className="h-4 w-4 text-purple-600" />
+                </div>
+                Date Tracking
+                <Badge
+                  variant="secondary"
+                  className="ml-auto bg-gray-100 text-gray-700 border border-gray-200"
+                >
+                  0
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
+                  <Clock className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No tracking items
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Date tracking items will appear here when available
+                </p>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Tracking Item
+                </Button>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No tracking items
-              </h3>
-              <p className="text-gray-500 mb-4">
-                Date tracking items will appear here when available
-              </p>
-              <Button
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Tracking Item
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </LayoutWrapper>
   );
 }
