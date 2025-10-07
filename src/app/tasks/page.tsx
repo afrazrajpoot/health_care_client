@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 
 interface Task {
     id: string;
@@ -217,66 +218,87 @@ const TaskCard = ({ task }: { task: Task }) => {
     const isOverdue = new Date(task.dueDate) < new Date();
 
     return (
+      <LayoutWrapper>
         <Card className="shadow-sm border-0 bg-white hover:shadow-md transition-all duration-200 cursor-pointer">
-            <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                    <Badge
-                        variant="outline"
-                        className={`text-xs font-medium ${getPriorityColor(task.priority)}`}
-                    >
-                        {task.priority}
-                    </Badge>
-                    <div className={`flex items-center gap-1 text-xs font-medium ${isOverdue ? 'text-red-600' : 'text-gray-500'
-                        }`}>
-                        <Calendar className="w-3 h-3" />
-                        {new Date(task.dueDate).toLocaleDateString()}
-                    </div>
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-3">
+              <Badge
+                variant="outline"
+                className={`text-xs font-medium ${getPriorityColor(
+                  task.priority
+                )}`}
+              >
+                {task.priority}
+              </Badge>
+              <div
+                className={`flex items-center gap-1 text-xs font-medium ${
+                  isOverdue ? "text-red-600" : "text-gray-500"
+                }`}
+              >
+                <Calendar className="w-3 h-3" />
+                {new Date(task.dueDate).toLocaleDateString()}
+              </div>
+            </div>
+
+            <h4 className="font-semibold text-sm text-gray-900 mb-3 leading-relaxed">
+              {task.title}
+            </h4>
+
+            {task.patientName && (
+              <p className="text-xs text-gray-600 mb-3 font-medium">
+                Patient:{" "}
+                <span className="text-gray-900">{task.patientName}</span>
+              </p>
+            )}
+
+            {task.description && (
+              <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+                {task.description}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between text-xs mb-3">
+              <div className="flex items-center gap-2">
+                <User className="w-3 h-3 text-gray-400" />
+                <span className="font-medium text-gray-700">
+                  {task.assignee}
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-xs bg-gray-50 text-gray-700 border-gray-200 font-medium"
+              >
+                {task.type.replace("_", " ")}
+              </Badge>
+            </div>
+
+            {task.type === "WORK_STATUS_REVIEW" && (
+              <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="h-3 w-3 text-orange-600" />
+                  <span className="font-semibold text-orange-800 text-xs">
+                    Work Status Alert
+                  </span>
                 </div>
+                <p className="text-orange-700 text-xs leading-relaxed">
+                  Patient work status overdue - requires physician review
+                </p>
+              </div>
+            )}
 
-                <h4 className="font-semibold text-sm text-gray-900 mb-3 leading-relaxed">{task.title}</h4>
-
-                {task.patientName && (
-                    <p className="text-xs text-gray-600 mb-3 font-medium">
-                        Patient: <span className="text-gray-900">{task.patientName}</span>
-                    </p>
-                )}
-
-                {task.description && (
-                    <p className="text-xs text-gray-600 mb-4 leading-relaxed">{task.description}</p>
-                )}
-
-                <div className="flex items-center justify-between text-xs mb-3">
-                    <div className="flex items-center gap-2">
-                        <User className="w-3 h-3 text-gray-400" />
-                        <span className="font-medium text-gray-700">{task.assignee}</span>
-                    </div>
-                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200 font-medium">
-                        {task.type.replace('_', ' ')}
-                    </Badge>
+            {isOverdue && task.status !== "COMPLETED" && (
+              <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3 w-3 text-red-600" />
+                  <span className="font-semibold text-red-800 text-xs">
+                    Overdue
+                  </span>
                 </div>
-
-                {task.type === 'WORK_STATUS_REVIEW' && (
-                    <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                        <div className="flex items-center gap-2 mb-1">
-                            <AlertTriangle className="h-3 w-3 text-orange-600" />
-                            <span className="font-semibold text-orange-800 text-xs">Work Status Alert</span>
-                        </div>
-                        <p className="text-orange-700 text-xs leading-relaxed">
-                            Patient work status overdue - requires physician review
-                        </p>
-                    </div>
-                )}
-
-                {isOverdue && task.status !== 'COMPLETED' && (
-                    <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-200">
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-3 w-3 text-red-600" />
-                            <span className="font-semibold text-red-800 text-xs">Overdue</span>
-                        </div>
-                    </div>
-                )}
-            </CardContent>
+              </div>
+            )}
+          </CardContent>
         </Card>
+      </LayoutWrapper>
     );
 };
 

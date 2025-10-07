@@ -686,7 +686,8 @@ export default function Page() {
         <div className="card" role="form" aria-labelledby="title">
           <header>
             <div className="title" id="title">
-              {STR[lang].title} ({patientName}, DOB: {dob}, DOI: {doi})
+              {/* {STR[lang].title} ({patientName}, DOB: {dob}, DOI: {doi}) */}
+              ADL Form
             </div>
             <div className="lang" role="tablist" aria-label="Language">
               <button

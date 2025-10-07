@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import SearchBar from "@/components/SearchBar"; // Adjust path as needed
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 
 // Define TypeScript interfaces for data structures
 interface Patient {
@@ -188,145 +189,147 @@ const AttorneyCardPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-white px-6 py-10 pb-20 text-slate-900 font-sans antialiased leading-relaxed md:px-6">
-      <div className="mx-auto max-w-[900px]">
-        <SearchBar
-          physicianId={getPhysicianId()}
-          onPatientSelect={handlePatientSelect}
-        />
-        <div className="space-y-7">
-          {!selectedPatient ? (
-            <div className="bg-white border border-slate-200 rounded-[18px] shadow-xl p-8 text-center">
-              <h3 className="text-lg font-medium text-slate-700 mb-2">
-                Get Started
-              </h3>
-              <p className="text-slate-600">
-                Search for a patient to view the Attorney Card
-              </p>
-            </div>
-          ) : (
-            <article className="overflow-hidden rounded-[18px] bg-white/80 backdrop-blur-sm border border-slate-200 shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-blue-100/50 via-blue-50/30 to-transparent px-4.5 py-3.5">
-                <h2 className="m-0 text-base font-medium uppercase tracking-wide text-slate-600">
-                  Attorney Card — Essentials
-                </h2>
-                <span className="text-xs font-medium text-slate-500">
-                  Lean • With Snapshot Overview
-                </span>
+    <LayoutWrapper>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-white px-6 py-10 pb-20 text-slate-900 font-sans antialiased leading-relaxed md:px-6">
+        <div className="mx-auto max-w-[900px]">
+          <SearchBar
+            physicianId={getPhysicianId()}
+            onPatientSelect={handlePatientSelect}
+          />
+          <div className="space-y-7">
+            {!selectedPatient ? (
+              <div className="bg-white border border-slate-200 rounded-[18px] shadow-xl p-8 text-center">
+                <h3 className="text-lg font-medium text-slate-700 mb-2">
+                  Get Started
+                </h3>
+                <p className="text-slate-600">
+                  Search for a patient to view the Attorney Card
+                </p>
               </div>
-
-              <section className="px-4.5 py-4">
-                <h3 className="mb-2 text-base font-medium text-slate-700">
-                  Snapshot Overview
-                </h3>
-                <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                    <strong>Patient:</strong> {patientName}
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                    <strong>DOB:</strong> {dobFormatted}
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                    <strong>DOI:</strong> {doiFormatted}
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                    <strong>Work Status:</strong> {workStatus}
-                  </div>
-                  {latestSnapshot && (
-                    <>
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                        <strong>Diagnosis:</strong> {latestSnapshot.dx}
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                        <strong>Key Concern:</strong>{" "}
-                        {latestSnapshot.keyConcern}
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
-                        <strong>Next Key Action:</strong> {nextKeyAction}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </section>
-
-              <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
-                <h3 className="mb-2 text-base font-medium text-slate-700">
-                  What’s New Since Last Visit (Top 3)
-                </h3>
-                <ul className="m-0 list-disc pl-4.5 space-y-0.5 text-sm text-slate-600">
-                  {whatsNewItems.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </section>
-
-              <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
-                <h3 className="mb-2 text-base font-medium text-slate-700">
-                  Consultant Report Status
-                </h3>
-                <div className="flex items-center gap-3.5 text-xs text-slate-600">
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]"></span>
-                    Received
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-500 shadow-[0_0_0_2px_rgba(245,158,11,0.2)]"></span>
-                    Pending
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]"></span>
-                    Overdue
+            ) : (
+              <article className="overflow-hidden rounded-[18px] bg-white/80 backdrop-blur-sm border border-slate-200 shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-blue-100/50 via-blue-50/30 to-transparent px-4.5 py-3.5">
+                  <h2 className="m-0 text-base font-medium uppercase tracking-wide text-slate-600">
+                    Attorney Card — Essentials
+                  </h2>
+                  <span className="text-xs font-medium text-slate-500">
+                    Lean • With Snapshot Overview
                   </span>
                 </div>
-                <ul className="m-0 mt-2 list-disc pl-4.5 space-y-0.5 text-sm text-slate-600">
-                  {dynamicConsultantLis}
-                </ul>
-              </section>
 
-              <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
-                <h3 className="mb-2 text-base font-medium text-slate-700">
-                  Pending Reports (Inform Counsel)
-                </h3>
-                <div className="space-y-2.5">
-                  {pendingItems.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-[1.2fr_auto] items-center gap-2 rounded-xl border border-slate-200 bg-white/50 px-3 py-2.5 text-sm"
-                    >
-                      <div className="font-semibold text-slate-800">
-                        {item.name}
-                      </div>
-                      <div className="text-xs text-slate-600">{item.age}</div>
+                <section className="px-4.5 py-4">
+                  <h3 className="mb-2 text-base font-medium text-slate-700">
+                    Snapshot Overview
+                  </h3>
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                      <strong>Patient:</strong> {patientName}
                     </div>
-                  ))}
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                      <strong>DOB:</strong> {dobFormatted}
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                      <strong>DOI:</strong> {doiFormatted}
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                      <strong>Work Status:</strong> {workStatus}
+                    </div>
+                    {latestSnapshot && (
+                      <>
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                          <strong>Diagnosis:</strong> {latestSnapshot.dx}
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                          <strong>Key Concern:</strong>{" "}
+                          {latestSnapshot.keyConcern}
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white/50 px-2.5 py-1.5 text-xs text-slate-700">
+                          <strong>Next Key Action:</strong> {nextKeyAction}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </section>
+
+                <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
+                  <h3 className="mb-2 text-base font-medium text-slate-700">
+                    What’s New Since Last Visit (Top 3)
+                  </h3>
+                  <ul className="m-0 list-disc pl-4.5 space-y-0.5 text-sm text-slate-600">
+                    {whatsNewItems.map((item, idx) => (
+                      <li key={idx}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
+                  <h3 className="mb-2 text-base font-medium text-slate-700">
+                    Consultant Report Status
+                  </h3>
+                  <div className="flex items-center gap-3.5 text-xs text-slate-600">
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]"></span>
+                      Received
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-500 shadow-[0_0_0_2px_rgba(245,158,11,0.2)]"></span>
+                      Pending
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]"></span>
+                      Overdue
+                    </span>
+                  </div>
+                  <ul className="m-0 mt-2 list-disc pl-4.5 space-y-0.5 text-sm text-slate-600">
+                    {dynamicConsultantLis}
+                  </ul>
+                </section>
+
+                <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
+                  <h3 className="mb-2 text-base font-medium text-slate-700">
+                    Pending Reports (Inform Counsel)
+                  </h3>
+                  <div className="space-y-2.5">
+                    {pendingItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="grid grid-cols-[1.2fr_auto] items-center gap-2 rounded-xl border border-slate-200 bg-white/50 px-3 py-2.5 text-sm"
+                      >
+                        <div className="font-semibold text-slate-800">
+                          {item.name}
+                        </div>
+                        <div className="text-xs text-slate-600">{item.age}</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
+                  <h3 className="mb-2 text-base font-medium text-slate-700">
+                    Next Steps
+                  </h3>
+                  <ul className="m-0 list-disc pl-4.5 space-y-0.5 text-sm text-slate-600">
+                    {nextStepsItems.map((item, idx) => (
+                      <li key={idx}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+
+                <div className="mt-3 border-t border-slate-200 bg-white/50 px-4.5 py-3 text-xs text-slate-600">
+                  <strong className="font-medium text-slate-700">
+                    Disclaimer:
+                  </strong>{" "}
+                  This summary is for coordination only and not a legal filing
+                  or medical‑legal record. Do not use in deposition, hearing, or
+                  trial. Attorneys should verify status directly with consultant
+                  offices as needed.
                 </div>
-              </section>
-
-              <section className="border-t border-dashed border-slate-200 px-4.5 py-4">
-                <h3 className="mb-2 text-base font-medium text-slate-700">
-                  Next Steps
-                </h3>
-                <ul className="m-0 list-disc pl-4.5 space-y-0.5 text-sm text-slate-600">
-                  {nextStepsItems.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </section>
-
-              <div className="mt-3 border-t border-slate-200 bg-white/50 px-4.5 py-3 text-xs text-slate-600">
-                <strong className="font-medium text-slate-700">
-                  Disclaimer:
-                </strong>{" "}
-                This summary is for coordination only and not a legal filing or
-                medical‑legal record. Do not use in deposition, hearing, or
-                trial. Attorneys should verify status directly with consultant
-                offices as needed.
-              </div>
-            </article>
-          )}
+              </article>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </LayoutWrapper>
   );
 };
 

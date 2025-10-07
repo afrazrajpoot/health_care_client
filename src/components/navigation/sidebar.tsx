@@ -41,7 +41,7 @@ const navigationItems: NavigationItem[] = [
     href: "/dashboard",
     icon: Home,
     description: "Overview and analytics",
-    roles: ["Staff", "Physician"], // ✅ Both can access
+    roles: ["Staff", "Physician", "Attorney"], // ✅ Both can access
   },
   {
     name: "Documents",
