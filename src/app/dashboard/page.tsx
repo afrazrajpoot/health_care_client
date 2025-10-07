@@ -17,6 +17,28 @@ interface Patient {
   claimNumber: string;
 }
 
+interface PatientQuiz {
+  id: string;
+  patientName: string;
+  dob: string;
+  doi: string;
+  lang: string;
+  newAppt: string;
+  appts: Array<{
+    date: string;
+    type: string;
+    other: string;
+  }>;
+  pain: number;
+  workDiff: string;
+  trend: string;
+  workAbility: string;
+  barrier: string;
+  adl: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface SummarySnapshotItem {
   id: string;
   dx: string;
@@ -69,6 +91,7 @@ interface DocumentData {
   adl?: ADL;
   document_summary?: { [key: string]: { date: string; summary: string }[] };
   document_summaries?: DocumentSummary[];
+  patient_quiz?: PatientQuiz | null;
   merge_metadata?: {
     total_documents_merged: number;
     is_merged: boolean;
@@ -335,6 +358,184 @@ const ADLSection = ({
           {copied["section-adl"] ? <CheckIcon /> : <CopyIcon />}
           Copy Section
         </button>
+      </div>
+    </section>
+  );
+};
+
+// Patient Quiz Section
+const PatientQuizSection = ({
+  documentData,
+  copied,
+  onCopySection,
+}: {
+  documentData: DocumentData | null;
+  copied: { [key: string]: boolean };
+  onCopySection: (sectionId: string) => void;
+}) => {
+  const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
+  const accordionBodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bodyEl = accordionBodyRef.current;
+    if (bodyEl) {
+      bodyEl.style.maxHeight = isAccordionOpen
+        ? `${bodyEl.scrollHeight}px`
+        : "0px";
+    }
+  }, [isAccordionOpen, documentData]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (isAccordionOpen && accordionBodyRef.current) {
+        accordionBodyRef.current.style.maxHeight = `${accordionBodyRef.current.scrollHeight}px`;
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isAccordionOpen]);
+
+  const toggleAccordion = () => {
+    setIsAccordionOpen((prev) => !prev);
+  };
+
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return "—";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  const quiz = documentData?.patient_quiz;
+
+  if (!quiz) {
+    return null;
+  }
+
+  const sectionId = "section-patient-quiz";
+
+  return (
+    <section
+      className="p-5 bg-purple-50 border-b border-blue-200"
+      aria-labelledby="quiz-title"
+    >
+      <div
+        className="flex justify-between items-center cursor-pointer py-1"
+        role="button"
+        aria-expanded={isAccordionOpen}
+        aria-controls="quiz-body"
+        id="quiz-title"
+        onClick={toggleAccordion}
+      >
+        <h3 className="flex gap-2 items-center m-0 text-base font-semibold">
+          🧠 ADL Form
+        </h3>
+        <svg
+          className={`w-4 h-4 transition-transform duration-300 ${
+            isAccordionOpen ? "rotate-180" : "rotate-0"
+          }`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#475569"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <div
+        id="quiz-body"
+        className="overflow-hidden transition-all duration-300"
+        ref={accordionBodyRef}
+        role="region"
+        aria-label="Patient quiz details"
+      >
+        <div className="space-y-4 mt-4">
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">Language</div>
+            <div>{quiz.lang}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">New Appt</div>
+            <div>{quiz.newAppt === "yes" ? "Yes" : "No"}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">Pain Level</div>
+            <div>{quiz.pain}/10</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">
+              Work Difficulty
+            </div>
+            <div>{quiz.workDiff === "yes" ? "Yes" : "No"}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">Trend</div>
+            <div>{quiz.trend}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">
+              Work Ability
+            </div>
+            <div>{quiz.workAbility}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">Barrier</div>
+            <div>{quiz.barrier}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">
+              ADLs Affected
+            </div>
+            <div>{quiz.adl.join(", ") || "None"}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">
+              Upcoming Appts
+            </div>
+            <div>
+              {quiz.appts.length > 0 ? (
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  {quiz.appts.map((appt, idx) => (
+                    <li key={idx}>
+                      {formatDate(appt.date)} - {appt.type}
+                      {appt.other && ` (${appt.other})`}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                "None"
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">Created</div>
+            <div>{formatDate(quiz.createdAt)}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <div className="text-gray-600 text-xs font-medium">Updated</div>
+            <div>{formatDate(quiz.updatedAt)}</div>
+          </div>
+        </div>
+        <div className="flex justify-end mt-4">
+          <button
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${
+              copied[sectionId]
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-purple-200 bg-white text-gray-900"
+            }`}
+            onClick={() => onCopySection(sectionId)}
+            title="Copy Section"
+          >
+            {copied[sectionId] ? <CheckIcon /> : <CopyIcon />}
+            Copy Section
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -724,6 +925,9 @@ export default function PhysicianCard() {
       const aggDoc = data.documents[0];
       const processedData: DocumentData = { ...aggDoc };
 
+      // Set patient_quiz
+      processedData.patient_quiz = data.patient_quiz;
+
       // Compute allVerified based on status
       processedData.allVerified =
         !!aggDoc.status && aggDoc.status.toLowerCase() === "verified";
@@ -876,6 +1080,26 @@ export default function PhysicianCard() {
         }\nWork Restrictions: ${
           doc?.adl?.work_restrictions || "Not specified"
         }`;
+        break;
+      case "section-patient-quiz":
+        if (doc?.patient_quiz) {
+          const q = doc.patient_quiz;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
+            q.newAppt
+          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
+            q.trend
+          }\nWork Ability: ${q.workAbility}\nBarrier: ${
+            q.barrier
+          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          q.appts.forEach((appt) => {
+            text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
+          });
+          text += `Created: ${formatDate(q.createdAt)}\nUpdated: ${formatDate(
+            q.updatedAt
+          )}`;
+        } else {
+          text = "No patient quiz data available";
+        }
         break;
       default:
         if (sectionId.startsWith("section-summary-")) {
@@ -1219,6 +1443,11 @@ export default function PhysicianCard() {
                 onCopySection={handleSectionCopy}
               />
               <ADLSection
+                documentData={documentData}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+              />
+              <PatientQuizSection
                 documentData={documentData}
                 copied={copied}
                 onCopySection={handleSectionCopy}

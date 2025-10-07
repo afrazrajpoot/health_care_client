@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // Define TypeScript interfaces for data structures
 interface Patient {
-  id?: number;
+  id?: string;
   patientName: string;
   name?: string;
   dob: string;
@@ -16,11 +16,15 @@ interface Patient {
 interface RecommendationsResponse {
   success: boolean;
   data: {
-    patients?: Patient[];
     patientNames?: string[];
-    dobs?: string[];
-    dois?: string[];
-    claimNumbers?: string[];
+    allMatchingDocuments?: Array<{
+      id: string;
+      patientName: string;
+      claimNumber: string | null;
+      dob: Date | string | null;
+      doi: Date | string | null;
+    }>;
+    totalCount?: number;
   };
 }
 
@@ -50,6 +54,16 @@ const SearchBar = ({
     };
   };
 
+  // Helper to format date to YYYY-MM-DD string
+  const formatDateToString = (
+    date: Date | string | null | undefined
+  ): string => {
+    if (!date) return "";
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  };
+
   // Fetch recommendations from your patients API
   const fetchRecommendations = async (query: string) => {
     if (!query.trim()) {
@@ -63,7 +77,7 @@ const SearchBar = ({
       const response = await fetch(
         `/api/dashboard/recommendation?patientName=${encodeURIComponent(
           query
-        )}&physicianId=${encodeURIComponent(physicianId)}`
+        )}&physicianId=${encodeURIComponent(physicianId || "")}`
       );
 
       if (!response.ok) {
@@ -73,25 +87,21 @@ const SearchBar = ({
       const data: RecommendationsResponse = await response.json();
       console.log("Recommendations API response:", data);
 
-      if (data.success) {
-        if (data.data.patients) {
-          setRecommendations(data.data.patients);
-        } else if (data.data.patientNames) {
-          const patients: Patient[] = data.data.patientNames.map(
-            (name, index) => ({
-              id: index,
-              patientName: name,
-              dob: data.data.dobs?.[index] || "1980-01-01",
-              doi: data.data.dois?.[index] || "2024-01-01",
-              claimNumber:
-                data.data.claimNumbers?.[index] ||
-                `WC-${Math.floor(100000 + Math.random() * 900000)}`,
-            })
-          );
-          setRecommendations(patients);
-        }
-        setShowRecommendations(true);
+      if (data.success && data.data.allMatchingDocuments) {
+        const patients: Patient[] = data.data.allMatchingDocuments.map(
+          (doc) => ({
+            id: doc.id,
+            patientName: doc.patientName,
+            dob: formatDateToString(doc.dob),
+            doi: formatDateToString(doc.doi),
+            claimNumber: doc.claimNumber || "Not specified",
+          })
+        );
+        setRecommendations(patients);
+      } else {
+        setRecommendations([]);
       }
+      setShowRecommendations(true);
     } catch (err: unknown) {
       console.error("Error fetching recommendations:", err);
       setRecommendations([]);
@@ -129,12 +139,16 @@ const SearchBar = ({
     onPatientSelect(patient);
   };
 
-  // Format date from ISO string to MM/DD/YYYY
+  // Format date from YYYY-MM-DD string to MM/DD/YYYY
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "—";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString();
+      return date.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      });
     } catch {
       return dateString;
     }
