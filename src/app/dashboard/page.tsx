@@ -100,6 +100,8 @@ interface DocumentData {
   };
   previous_summaries?: { [key: string]: DocumentSummary };
   allVerified?: boolean;
+  gcs_file_link?: string; // Signed GCS URL for view file
+  blob_path?: string; // Blob path for preview (e.g., "uploads/filename.ext")
 }
 
 const CopyIcon = () => (
@@ -542,6 +544,7 @@ const PatientQuizSection = ({
 };
 
 // Document Summary Component
+// Document Summary Component
 const DocumentSummarySection = ({
   documentData,
   openModal,
@@ -609,6 +612,25 @@ const DocumentSummarySection = ({
   const uniqueSummaries = getUniqueLatestSummaries(
     documentData?.document_summaries
   );
+
+  // Function to handle file preview (opens in new tab) - direct to backend API
+  const handlePreviewFile = () => {
+    const blobPath = documentData?.blob_path;
+    if (blobPath) {
+      const previewUrl = `http://127.0.0.1:8000/api/preview/${encodeURIComponent(
+        blobPath
+      )}`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  // Function to handle view original file (e.g., download or open signed URL) - uses document-level gcs_file_link
+  const handleViewFile = () => {
+    const gcsUrl = documentData?.gcs_file_link;
+    if (gcsUrl) {
+      window.open(gcsUrl, "_blank", "noopener,noreferrer"); // Opens signed GCS URL (may download based on type)
+    }
+  };
 
   return (
     <section className="p-5 bg-gray-100" aria-labelledby="doc-title">
@@ -685,6 +707,22 @@ const DocumentSummarySection = ({
                       >
                         View Summary
                       </button>
+                      {documentData?.blob_path && ( // Use document-level blob_path
+                        <button
+                          onClick={handlePreviewFile}
+                          className="text-green-600 hover:text-green-800 text-sm"
+                        >
+                          Preview File
+                        </button>
+                      )}
+                      {documentData?.gcs_file_link && ( // Use document-level gcs_file_link (signed URL)
+                        <button
+                          onClick={handleViewFile}
+                          className="text-purple-600 hover:text-purple-800 text-sm"
+                        >
+                          Download File
+                        </button>
+                      )}
                       {hasPrevious && (
                         <button
                           onClick={() => handleShowPrevious(summary.type)}
@@ -720,7 +758,6 @@ const DocumentSummarySection = ({
     </section>
   );
 };
-
 export default function PhysicianCard() {
   const [theme, setTheme] = useState<"clinical" | "standard">("clinical");
   const [isVerified, setIsVerified] = useState<boolean>(false);
