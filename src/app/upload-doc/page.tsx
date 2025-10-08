@@ -64,7 +64,7 @@ const newDocuments = [
   },
   {
     type: "Attorney Letter",
-    id: "3/2/914",
+    id: "3/2:914",
     color: "doc-attorney",
     date: "5 hours ago",
     actions: ["Open PDF", "Draft Done"],
@@ -188,13 +188,11 @@ const ProfessionalTextPreview = ({ result }) => {
 
   const handleCopyText = () => {
     navigator.clipboard.writeText(result.text);
-    toast.success("Text copied to clipboard!");
   };
 
   const handleCopySummary = () => {
     if (result.summary) {
       navigator.clipboard.writeText(result.summary);
-      toast.success("Summary copied to clipboard!");
     }
   };
 
@@ -208,7 +206,6 @@ const ProfessionalTextPreview = ({ result }) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Text downloaded successfully!");
   };
 
   return (
@@ -552,17 +549,11 @@ export default function ClinicDocuments() {
     if (files.length > 0) {
       const validFiles = files.filter((file) => {
         if (file.size > 40 * 1024 * 1024) {
-          toast.error(`File too large: ${file.name}`, {
-            description: "Maximum file size is 40MB",
-          });
           return false;
         }
         const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
         const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
         if (!allowedTypes.includes(fileExtension)) {
-          toast.error(`Invalid file type: ${file.name}`, {
-            description: "Please upload PDF, DOCX, JPG, or PNG files only",
-          });
           return false;
         }
         return true;
@@ -571,9 +562,6 @@ export default function ClinicDocuments() {
       if (validFiles.length > 0) {
         setSelectedFiles(validFiles);
         setUploadResults([]);
-        toast.success(`${validFiles.length} file(s) selected`, {
-          description: validFiles.map((file) => file.name).join(", "),
-        });
       }
     }
   };
@@ -610,13 +598,11 @@ export default function ClinicDocuments() {
       const data = await response.json();
 
       setUploadResults(data);
-      toast.success("Processing Complete!", {
-        description: `Successfully processed ${data.length} document(s)`,
-      });
+      toast.success(
+        `Queued ${data.task_ids?.length || 0} task(s) for processing`
+      );
     } catch (error) {
-      toast.error("Processing Failed", {
-        description: error.message || "Failed to process documents",
-      });
+      // No toast for error
     } finally {
       setUploading(false);
       setSelectedFiles([]);
@@ -632,11 +618,6 @@ export default function ClinicDocuments() {
   const handleCopyResults = (result) => {
     if (result) {
       navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-      toast.success("Copied to Clipboard", {
-        description: `Results for ${
-          result.fileInfo?.originalName || "document"
-        } copied successfully`,
-      });
     }
   };
 
@@ -652,15 +633,9 @@ export default function ClinicDocuments() {
         const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
         const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
         if (!allowedTypes.includes(fileExtension)) {
-          toast.error(`Invalid file type: ${file.name}`, {
-            description: "Please upload PDF, DOCX, JPG, or PNG files only",
-          });
           return false;
         }
         if (file.size > 40 * 1024 * 1024) {
-          toast.error(`File too large: ${file.name}`, {
-            description: "Maximum file size is 40MB",
-          });
           return false;
         }
         return true;
@@ -670,11 +645,6 @@ export default function ClinicDocuments() {
         setSelectedFiles(validFiles);
         setUploadResults([]);
         setShowUpload(true);
-        toast.success(`${validFiles.length} file(s) ready for upload`, {
-          description: validFiles
-            .map((file) => `${file.name} (${formatSize(file.size)})`)
-            .join(", "),
-        });
       }
     }
   };
@@ -706,7 +676,8 @@ export default function ClinicDocuments() {
     <LayoutWrapper>
       <div className="min-h-screen bg-gray-50/30 p-6">
         <div className="max-w-7xl mx-auto space-y-8">
-          <Toaster position="top-right" richColors />
+          {/* ✅ Centered Toaster */}
+          {/* <Toaster position="top-center" richColors /> */}
 
           {/* Header */}
           <div className="flex items-center justify-between">

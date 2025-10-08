@@ -3,6 +3,13 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { toast } from "sonner"; // ✅ Import Sonner toast
 import { useSession } from "next-auth/react"; // ✅ Import useSession for getting user from session
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"; // ✅ Import ShadCN Dialog components (adjust path as needed)
 
 const SOCKET_URL = "http://localhost:8000";
 
@@ -17,6 +24,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<any>(null);
   const [taskStatus, setTaskStatus] = useState<any>(null);
   const { data: session, status } = useSession(); // ✅ Get session data
+
+  // ✅ Modal state for invalid documents
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState("Invalid Document");
+  const [modalDescription, setModalDescription] = useState("");
 
   useEffect(() => {
     // ✅ Wait for session to load before connecting
@@ -90,13 +102,26 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("✅ Task completed (received on client):", data);
       setTaskStatus(data);
 
-      // 🪄 Construct a specific message for the toast
-      const message = data?.filename
-        ? `Document "${data.filename}" processed successfully! (ID: ${data.document_id})`
-        : "Task completed successfully!";
+      if (data.status === "ignored") {
+        // ✅ Show modal for invalid documents
+        setModalTitle("Invalid Document");
+        setModalDescription(
+          data.reason ||
+            "This document could not be processed due to missing information."
+        );
+        setIsModalOpen(true);
+      } else if (data.status === "success") {
+        // 🪄 Construct a specific message for the toast
+        const message = data?.filename
+          ? `Document "${data.filename}" processed successfully! (ID: ${data.document_id})`
+          : "Task completed successfully!";
 
-      // 🪄 Show a global toast whenever task completes
-      toast.success(message);
+        // 🪄 Show a global toast for success
+        toast.success(message);
+      } else if (data.status === "skipped") {
+        // Optional: Handle skipped with toast
+        toast.info(`Document "${data.filename}" skipped: ${data.reason}`);
+      }
     });
 
     // 🔥 Listen for task errors (from backend)
@@ -116,9 +141,33 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [status, session?.user?.id]); // ✅ Depend on session status and user.id specifically for re-auth
 
+  // ✅ Close modal handler
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
   return (
     <SocketContext.Provider value={{ socket, taskStatus }}>
       {children}
+      {/* ✅ Global Modal for Invalid Documents (centered by default in ShadCN) */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-center">{modalTitle}</DialogTitle>
+            <DialogDescription className="text-center">
+              {modalDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center pt-4">
+            <button
+              onClick={handleCloseModal}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              OK
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SocketContext.Provider>
   );
 };
