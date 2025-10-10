@@ -56,9 +56,20 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // Deduplicate by composite key: patientName + claimNumber + dob + doi
+    // Preserve the first occurrence (newest due to orderBy)
+    const uniqueKeyMap = new Map<string, typeof documents[0]>();
+    documents.forEach(doc => {
+      const key = `${doc.patientName}-${doc.claimNumber || ''}-${doc.dob}-${doc.doi}`;
+      if (!uniqueKeyMap.has(key)) {
+        uniqueKeyMap.set(key, doc);
+      }
+    });
+    const uniqueDocuments = Array.from(uniqueKeyMap.values());
+
     return NextResponse.json({
-      data: documents,
-      total,
+      data: uniqueDocuments,
+      total: uniqueDocuments.length,  // Use deduplicated count (note: for multi-page, adjust logic if needed)
       page,
       limit,
     });

@@ -105,11 +105,27 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       if (data.status === "ignored") {
         // ✅ Show modal for invalid documents with filename and reason
         setModalTitle(`Invalid Document: ${data.filename}`);
-        setModalDescription(
+        let description =
           data.reason ||
-            "This document could not be processed due to missing information."
-        );
+          "This document could not be processed due to missing information.";
+
+        // ✅ Append claim numbers if available for better user guidance
+        if (
+          data.claim_numbers &&
+          Array.isArray(data.claim_numbers) &&
+          data.claim_numbers.length > 0
+        ) {
+          const claimsList = data.claim_numbers.join(", ");
+          description += `\n\nAvailable claim numbers: ${claimsList}\n\nPlease ensure the document specifies one of these claim numbers or contact staff to manually assign it.`;
+        }
+
+        setModalDescription(description);
         setIsModalOpen(true);
+
+        // ✅ Also show a toast for ignored status to notify quickly
+        toast.warning(
+          `Document "${data.filename}" could not be processed: ${data.reason}`
+        );
       } else if (data.status === "success") {
         // 🪄 Construct a specific message for the toast
         const message = data?.filename
