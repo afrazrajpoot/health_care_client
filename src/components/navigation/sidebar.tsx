@@ -58,14 +58,15 @@ const navigationItems: NavigationItem[] = [
     description: "Patient management",
     roles: ["Staff"], // ✅ Physician only
   },
-  // {
-  //   name: "Tasks",
-  //   href: "/tasks",
-  //   icon: CheckSquare,
-  //   badge: "8",
-  //   description: "Task management & assignments",
-  //   roles: ["Staff", "Physician"], // ✅ Both
-  // },
+  {
+    name: "Fail Documents",
+    href: "/fail-documents",
+
+    icon: CheckSquare,
+    badge: "8",
+    description: "Task management & assignments",
+    roles: ["Staff"], // ✅ Both
+  },
   {
     name: "Upload Documents",
     href: "/upload-doc",
