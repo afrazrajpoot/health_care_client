@@ -67,9 +67,20 @@ export async function GET(request: Request) {
       );
     }
 
+    // Deduplicate by composite key: patientName + claimNumber + dob + doi
+    // Preserve the first occurrence (newest due to orderBy)
+    const uniqueKeyMap = new Map<string, typeof results[0]>();
+    results.forEach(doc => {
+      const key = `${doc.patientName}-${doc.claimNumber || ''}-${doc.dob}-${doc.doi}`;
+      if (!uniqueKeyMap.has(key)) {
+        uniqueKeyMap.set(key, doc);
+      }
+    });
+    const uniqueResults = Array.from(uniqueKeyMap.values());
+
     // Extract unique patientNames, but include all docs in response if needed
     const patientNames = Array.from(
-      new Set(results.map(r => r.patientName).filter(Boolean))
+      new Set(uniqueResults.map(r => r.patientName).filter(Boolean))
     );
 
     await prisma.auditLog.create({
@@ -88,8 +99,8 @@ export async function GET(request: Request) {
       success: true,
       data: {
         patientNames,
-        allMatchingDocuments: results,  // Full list of matching docs (e.g., all 4 for Jon Smith) with dob and doi
-        totalCount: results.length,
+        allMatchingDocuments: uniqueResults,  // Deduplicated list of matching docs
+        totalCount: uniqueResults.length,
       },
     });
   } catch (error) {
