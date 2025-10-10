@@ -103,8 +103,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setTaskStatus(data);
 
       if (data.status === "ignored") {
-        // ✅ Show modal for invalid documents
-        setModalTitle("Invalid Document");
+        // ✅ Show modal for invalid documents with filename and reason
+        setModalTitle(`Invalid Document: ${data.filename}`);
         setModalDescription(
           data.reason ||
             "This document could not be processed due to missing information."
@@ -119,7 +119,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         // 🪄 Show a global toast for success
         toast.success(message);
       } else if (data.status === "skipped") {
-        // Optional: Handle skipped with toast
+        // Optional: Handle skipped with toast including filename and reason
         toast.info(`Document "${data.filename}" skipped: ${data.reason}`);
       }
     });
