@@ -61,8 +61,8 @@ model VerificationToken {
 
 model Document {
 id              String             @id @default(cuid())
-dob             DateTime
-doi             DateTime
+dob             String?
+doi             String
 patientName     String
 status          String
 claimNumber     String
@@ -76,6 +76,7 @@ fileName        String?
 summarySnapshot SummarySnapshot?
 adl             ADL?
 documentSummary DocumentSummary?
+reportDate      DateTime?
 physicianId     String?
 createdAt       DateTime           @default(now())
 updatedAt       DateTime           @updatedAt
