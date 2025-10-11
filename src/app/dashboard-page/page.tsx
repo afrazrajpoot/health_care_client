@@ -511,7 +511,6 @@ export default function Dashboard() {
     patientName: "",
     claimNumber: "",
     dob: null as Date | null,
-    doi: "",
   });
 
   useEffect(() => {
@@ -534,33 +533,20 @@ export default function Dashboard() {
 
   const handleRowClick = (doc: any) => {
     setSelectedDoc(doc);
-    // Handle DOB as string: if "Not specified" or invalid, set to null; else parse to Date
-    let parsedDob: Date | null = null;
-    if (
-      doc.dob &&
-      typeof doc.dob === "string" &&
-      doc.dob.toLowerCase() !== "not specified"
-    ) {
-      const date = new Date(doc.dob);
-      if (!isNaN(date.getTime())) {
-        parsedDob = date;
-      }
-    }
     setFormData({
       patientName: doc.patientName || "",
       claimNumber: doc.claimNumber || "",
-      dob: parsedDob,
-      doi: doc.doi || "", // DOI as string
+      dob: doc.dob ? new Date(doc.dob) : null,
     });
     setIsModalOpen(true);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === "dob") {
-      setFormData({ ...formData, dob: value ? new Date(value) : null });
+    if (e.target.name === "dob") {
+      const dateValue = e.target.value;
+      setFormData({ ...formData, dob: dateValue ? new Date(dateValue) : null });
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData({ ...formData, [e.target.name]: e.target.value });
     }
   };
 
@@ -568,26 +554,16 @@ export default function Dashboard() {
     if (!selectedDoc) return;
 
     try {
-      const updateData: any = {
-        patientName: formData.patientName,
-        claimNumber: formData.claimNumber,
-        doi: formData.doi, // DOI as string
-      };
-      // Handle DOB: only include if valid Date
-      if (formData.dob && !isNaN(formData.dob.getTime())) {
+      const updateData = { ...formData };
+      if (formData.dob) {
         updateData.dob = formData.dob.toISOString();
-      } else {
-        updateData.dob = null; // Or "Not specified" if DB expects string
       }
 
-      const response = await fetch(
-        `/api/get-failed-document/${selectedDoc.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        }
-      );
+      const response = await fetch(`/api/documents/${selectedDoc.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
 
       if (!response.ok) throw new Error("Update failed");
 
@@ -953,19 +929,6 @@ export default function Dashboard() {
                 }
                 onChange={handleInputChange}
                 className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="doi" className="text-right">
-                DOI
-              </Label>
-              <Input
-                id="doi"
-                name="doi"
-                value={formData.doi}
-                onChange={handleInputChange}
-                className="col-span-3"
-                placeholder="Enter DOI (string)"
               />
             </div>
           </div>
