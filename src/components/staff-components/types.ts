@@ -1,17 +1,20 @@
 // app/dashboard/data/config.ts
+// components/staff-components/types.ts
 export interface Task {
-    id: string;
-    dept: string;
-    overdue: boolean;
-    task: string;
-    statusText: string;
-    statusClass: string;
-    due: string;
-    patient: string | null;
-    notes: Note[];
-    assignee: string | null;
-    mode: 'wc' | 'gm' | undefined;
-  }
+  id: string;
+  task: string;
+  dept: string;
+  statusText: string;
+  statusClass: string;
+  due: string;
+  overdue: boolean;
+  patient: string;
+  assignee: string;
+  mode: "wc" | "gm";
+  notes: { ts: string; user: string; line: string }[];
+  actions: string[];
+  sourceDocument?: string;
+}
   
   export interface Note {
     ts: string;
@@ -130,3 +133,18 @@ export interface Task {
     { pane: 'gm-quality' as const, modes: ['gm'], text: 'Quality & Compliance' },
     { pane: 'gm-outreach' as const, modes: ['gm'], text: 'Patient Outreach' },
   ];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

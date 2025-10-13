@@ -22,7 +22,7 @@ export default function FailedDocuments({
 }: FailedDocumentsProps) {
   return (
     <div className="card">
-      <h2>❌ Failed & Unspecified Documents</h2>
+      <h2>Un-proccesed Documents & Action needed</h2>
       {documents.length === 0 ? (
         <p>No failed or unspecified documents found.</p>
       ) : (
