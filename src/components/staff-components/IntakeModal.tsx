@@ -115,6 +115,8 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
   };
 
   const generateLink = async () => {
+    console.log("Generating link...");
+
     setIsGenerating(true);
     try {
       const metadata = {
@@ -294,7 +296,7 @@ Thank you.`);
             onClick={generateLink}
             disabled={isGenerating || !formData.lkPatient || !formData.lkDob}
           >
-            {isGenerating ? "Generating..." : "Generate Link"}
+            {isGenerating ? "Generating..." : "Generate Link1"}
           </button>
           <input
             id="lkOutput"

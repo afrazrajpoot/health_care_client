@@ -77,6 +77,8 @@ const SearchBar = ({
       const response = await fetch(
         `/api/dashboard/recommendation?patientName=${encodeURIComponent(
           query
+        )}&claimNumber=${encodeURIComponent(query)}&dob=${encodeURIComponent(
+          query
         )}&physicianId=${encodeURIComponent(physicianId || "")}`
       );
 
