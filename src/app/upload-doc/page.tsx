@@ -16,7 +16,7 @@ import {
   tabs,
   Task,
 } from "@/components/staff-components/types";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Dialog,
@@ -27,8 +27,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+// API response interface
+interface ApiTask {
+  id: string;
+  description: string;
+  department: string;
+  status: string;
+  dueDate: string | null;
+  patient: string;
+  actions: string[];
+  sourceDocument?: string;
+  quickNotes?: any;
+  documentId?: string;
+  physicianId?: string;
+  createdAt: string;
+  updatedAt: string;
+  document?: any;
+}
+
 export default function Dashboard() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"wc" | "gm">("wc");
   const [currentPane, setCurrentPane] = useState<"all" | "overdue" | string>(
     "all"
@@ -65,6 +84,78 @@ export default function Dashboard() {
   const pulse = mode === "wc" ? PULSE_WC : PULSE_GM;
   const departments = mode === "wc" ? DEPARTMENTS_WC : DEPARTMENTS_GM;
 
+  // Transform API task to local Task type
+  const transformApiTask = (apiTask: ApiTask): Task => {
+    const dueDate = apiTask.dueDate ? new Date(apiTask.dueDate) : new Date();
+    const now = new Date();
+    const overdue = dueDate < now && apiTask.status !== "Done";
+
+    // Transform quick notes if available
+    const notes = apiTask.quickNotes
+      ? [
+          {
+            ts: new Date(apiTask.updatedAt).toLocaleString(),
+            user: "System",
+            line:
+              apiTask.quickNotes.one_line_note ||
+              apiTask.quickNotes.details ||
+              "Note added",
+          },
+        ]
+      : [];
+
+    return {
+      id: apiTask.id,
+      task: apiTask.description,
+      dept: apiTask.department,
+      statusText: apiTask.status,
+      statusClass: apiTask.status.toLowerCase().replace(/\s+/g, "-"),
+      due: dueDate.toLocaleDateString(),
+      overdue,
+      patient: apiTask.patient,
+      assignee: apiTask.actions.includes("Claimed") ? "You" : "Unclaimed",
+      mode: mode, // You might want to derive this from department or other fields
+      notes,
+      actions: apiTask.actions,
+      sourceDocument: apiTask.sourceDocument,
+    };
+  };
+
+  // Fetch tasks from API
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/tasks");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch tasks");
+      }
+
+      const apiTasks: ApiTask[] = await response.json();
+
+      // Transform API tasks to local Task format
+      const transformedTasks = apiTasks.map(transformApiTask);
+      setTasks(transformedTasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      showToast("❌ Error fetching tasks");
+      // Fallback to initial tasks if API fails
+      setTasks(initialTasks);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch tasks on component mount
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  // Refetch tasks when filters change (if you want real-time filtering from API)
+  // useEffect(() => {
+  //   fetchTasks();
+  // }, [filters, mode, currentPane]);
+
   const getBaseTasks = () =>
     tasks.filter((t) => {
       if (mode === "wc" && t.mode === "gm") return false;
@@ -89,20 +180,49 @@ export default function Dashboard() {
       f = f.filter(
         (t) =>
           t.task.toLowerCase().includes(q) ||
-          (t.patient && t.patient.toLowerCase().includes(q))
+          (t.patient && t.patient.toLowerCase().includes(q)) ||
+          (t.dept && t.dept.toLowerCase().includes(q))
       );
     }
     return f;
   };
 
-  const updateTask = (id: string, updates: Partial<Task>) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-    );
+  const updateTask = async (id: string, updates: Partial<Task>) => {
+    try {
+      // First update locally for immediate feedback
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      );
+
+      // Then send update to API
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // Map local updates to API fields
+          status: updates.statusText,
+          actions: updates.assignee === "You" ? ["Claimed"] : ["Unclaimed"],
+          // Add other field mappings as needed
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update task");
+      }
+
+      showToast("✅ Task updated successfully");
+    } catch (error) {
+      console.error("Error updating task:", error);
+      showToast("❌ Error updating task");
+      // Revert local changes if API call fails
+      fetchTasks();
+    }
   };
 
   const claimTask = (id: string) => {
-    updateTask(id, { assignee: "You" });
+    updateTask(id, { assignee: "You", actions: ["Claimed", "Complete"] });
     showToast("✅ Task claimed");
   };
 
@@ -111,7 +231,7 @@ export default function Dashboard() {
     showToast("🎉 Task marked complete");
   };
 
-  const saveNote = (e: React.MouseEvent, taskId: string) => {
+  const saveNote = async (e: React.MouseEvent, taskId: string) => {
     const wrap = (e.currentTarget as HTMLElement).closest(".qnote");
     if (!wrap) return;
     const t = (wrap.querySelector(".qtype") as HTMLSelectElement)?.value || "";
@@ -120,14 +240,48 @@ export default function Dashboard() {
     const line = [t, d, f].filter(Boolean).join(" · ");
     if (!line) return;
     const ts = new Date().toLocaleString();
-    updateTask(taskId, {
-      notes: [
-        ...(tasks.find((t) => t.id === taskId)?.notes || []),
-        { ts, user: "You", line },
-      ],
-    });
-    (wrap.querySelector(".qfree") as HTMLInputElement).value = "";
-    showToast("📝 Note saved");
+
+    try {
+      // Update local state first (notes only)
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                notes: [...(t.notes || []), { ts, user: "You", line }],
+              }
+            : t
+        )
+      );
+
+      // Update quickNotes in the database (single API call)
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          quickNotes: {
+            status_update: t,
+            details: d,
+            one_line_note: f,
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save note");
+      }
+
+      (wrap.querySelector(".qfree") as HTMLInputElement).value = "";
+      showToast("📝 Note saved");
+    } catch (error) {
+      console.error("Error saving note:", error);
+      showToast("❌ Error saving note");
+      // Revert local changes if API call fails
+      fetchTasks();
+    }
   };
 
   const showToast = (msg: string) => {
@@ -145,6 +299,7 @@ export default function Dashboard() {
       const response = await fetch("/api/get-failed-document");
       if (response.ok) {
         const data = await response.json();
+        console.log("Fetched failed documents:", data.documents); // Debug log
         setFailedDocuments(data.documents || []);
       }
     } catch (error) {
@@ -154,6 +309,7 @@ export default function Dashboard() {
   };
 
   const handleRowClick = (doc: any) => {
+    console.log("Row clicked, doc:", doc); // Debug log to check doc structure
     setSelectedDoc(doc);
     let parsedDob: Date | null = null;
     if (
@@ -188,7 +344,22 @@ export default function Dashboard() {
   };
 
   const handleUpdateSubmit = async () => {
-    if (!selectedDoc) return;
+    if (!selectedDoc) {
+      console.error("No selectedDoc found");
+      showToast("❌ No document selected");
+      return;
+    }
+
+    const docId = selectedDoc.id;
+    console.log("Updating document with ID:", docId); // Debug log for ID
+    console.log("Full selectedDoc:", selectedDoc); // Debug log for full object
+    console.log("Update data:", updateFormData); // Debug log for payload
+
+    if (!docId) {
+      console.error("Document ID is missing or undefined");
+      showToast("❌ Invalid document ID");
+      return;
+    }
 
     try {
       const updateData: any = {
@@ -202,19 +373,22 @@ export default function Dashboard() {
         updateData.dob = null;
       }
 
-      const response = await fetch(
-        `/api/get-failed-document/${selectedDoc.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        }
-      );
+      console.log("Sending PATCH to:", `/api/get-failed-document/${docId}`); // Debug log for URL
+
+      const response = await fetch(`/api/get-failed-document/${docId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      console.log("Update response status:", response.status); // Debug log for response
+      console.log("Update response:", await response.text()); // Debug log for response body
 
       if (!response.ok) throw new Error("Update failed");
 
       showToast("✅ Document updated successfully");
       setIsUpdateModalOpen(false);
+      setSelectedDoc(null); // Clear selection
       fetchFailedDocuments();
     } catch (error) {
       console.error("Update error:", error);
@@ -287,6 +461,9 @@ export default function Dashboard() {
       showToast(
         `✅ Queued ${data.task_ids?.length || 0} task(s) for processing`
       );
+
+      // Refresh tasks after successful upload
+      fetchTasks();
     } catch (error) {
       console.error("Upload error:", error);
       showToast("❌ Error uploading documents");
@@ -329,8 +506,9 @@ export default function Dashboard() {
       { name: "Mode toggle wired", pass: true },
       { name: "Pulse dept table populated", pass: pulse.deptRows.length > 0 },
       { name: "Dept dropdown filled", pass: departments.length > 0 },
+      { name: "Tasks loaded from API", pass: tasks.length > 0 },
     ]);
-  }, [mode, pulse, departments]);
+  }, [mode, pulse, departments, tasks]);
 
   return (
     <>
@@ -689,165 +867,190 @@ export default function Dashboard() {
               Create Intake Link
             </button>
             <button className="btn primary">+ Add Manual Task</button>
-          </div>
-        </div>
-        {/* Office Pulse */}
-        <div className="card">
-          <h2>📊 Office Pulse</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.4fr 1fr",
-              gap: "12px",
-              alignItems: "start",
-            }}
-          >
-            <div>
-              <table className="mini-table">
-                <thead>
-                  <tr>
-                    <th>Department</th>
-                    <th>Open</th>
-                    <th>Overdue</th>
-                    <th>Assigned</th>
-                    <th>Unclaimed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pulse.deptRows.map((row, index) => (
-                    <tr key={index}>
-                      <td>{row[0]}</td>
-                      <td>{row[1]}</td>
-                      <td>{row[2]}</td>
-                      <td>{row[3]}</td>
-                      <td>{row[4]}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="kpi">
-              {pulse.labels.map((label, index) => (
-                <div key={index} className="tile">
-                  <h4>{label}</h4>
-                  <div className="val">{pulse.vals[index]}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* Task & Workflow Tracker */}
-        <div className="card">
-          <h2>🧩 Task & Workflow Tracker</h2>
-          <div className="muted" style={{ marginBottom: "8px" }}>
-            Tabs keep this compact. Use Overdue to triage. Search filters by
-            task/patient. Quick Notes allow multiple timestamped entries per
-            task.
-          </div>
-          <div className="filters">
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {filteredTabs.map((tab) => (
-                <button
-                  key={tab.pane}
-                  className={`filter ttab ${
-                    currentPane === tab.pane ? "active" : ""
-                  }`}
-                  onClick={() => setCurrentPane(tab.pane)}
-                >
-                  {tab.text}
-                </button>
-              ))}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
+            <button
+              className="btn light"
+              onClick={fetchTasks}
+              disabled={loading}
             >
-              <input
-                placeholder="Search tasks/patients…"
-                value={filters.search}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, search: e.target.value }))
-                }
-                style={{
-                  padding: "6px 10px",
-                  border: "1px solid var(--border)",
-                  borderRadius: "999px",
-                  fontSize: "12px",
-                  minWidth: "220px",
-                }}
-              />
-              <button
-                className="filter"
-                onClick={() =>
-                  setFilters((p) => ({ ...p, overdueOnly: !p.overdueOnly }))
-                }
-              >
-                {filters.overdueOnly ? "Showing Overdue" : "Show Overdue Only"}
-              </button>
-              <span className="muted">Dept:</span>
-              <select
-                value={filters.dept}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, dept: e.target.value }))
-                }
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid var(--border)",
-                  borderRadius: "999px",
-                  fontSize: "12px",
-                }}
-              >
-                <option value="">All</option>
-                {departments.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="filter"
-                aria-pressed={filters.myDeptOnly ? "true" : "false"}
-                onClick={() =>
-                  setFilters((p) => ({ ...p, myDeptOnly: !p.myDeptOnly }))
-                }
-              >
-                {filters.myDeptOnly ? "Only My Dept ✓" : "Only My Dept"}
-              </button>
-              <button
-                className="filter"
-                onClick={() =>
-                  setFilters({
-                    search: "",
-                    overdueOnly: false,
-                    myDeptOnly: false,
-                    dept: "",
-                  })
-                }
-              >
-                Clear
-              </button>
+              {loading ? "Refreshing..." : "Refresh Tasks"}
+            </button>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="card">
+            <div style={{ textAlign: "center", padding: "20px" }}>
+              Loading tasks...
             </div>
           </div>
-          <TaskTable
-            currentPane={currentPane}
-            tasks={tasks}
-            filters={filters}
-            mode={mode}
-            onClaim={claimTask}
-            onComplete={completeTask}
-            onSaveNote={saveNote}
-            getPresets={getPresets}
-          />
-        </div>
-        {/* Failed Documents Component */}
-        <FailedDocuments
-          documents={failedDocuments}
-          onRowClick={handleRowClick}
-        />
+        )}
+
+        {/* Office Pulse */}
+        {!loading && (
+          <>
+            <div className="card">
+              <h2>📊 Office Pulse</h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.4fr 1fr",
+                  gap: "12px",
+                  alignItems: "start",
+                }}
+              >
+                <div>
+                  <table className="mini-table">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th>Open</th>
+                        <th>Overdue</th>
+                        <th>Assigned</th>
+                        <th>Unclaimed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pulse.deptRows.map((row, index) => (
+                        <tr key={index}>
+                          <td>{row[0]}</td>
+                          <td>{row[1]}</td>
+                          <td>{row[2]}</td>
+                          <td>{row[3]}</td>
+                          <td>{row[4]}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="kpi">
+                  {pulse.labels.map((label, index) => (
+                    <div key={index} className="tile">
+                      <h4>{label}</h4>
+                      <div className="val">{pulse.vals[index]}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Task & Workflow Tracker */}
+            <div className="card">
+              <h2>🧩 Task & Workflow Tracker</h2>
+              <div className="muted" style={{ marginBottom: "8px" }}>
+                Tabs keep this compact. Use Overdue to triage. Search filters by
+                task/patient. Quick Notes allow multiple timestamped entries per
+                task.
+              </div>
+              <div className="filters">
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {filteredTabs.map((tab) => (
+                    <button
+                      key={tab.pane}
+                      className={`filter ttab ${
+                        currentPane === tab.pane ? "active" : ""
+                      }`}
+                      onClick={() => setCurrentPane(tab.pane)}
+                    >
+                      {tab.text}
+                    </button>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <input
+                    placeholder="Search tasks/patients…"
+                    value={filters.search}
+                    onChange={(e) =>
+                      setFilters((p) => ({ ...p, search: e.target.value }))
+                    }
+                    style={{
+                      padding: "6px 10px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "999px",
+                      fontSize: "12px",
+                      minWidth: "220px",
+                    }}
+                  />
+                  <button
+                    className="filter"
+                    onClick={() =>
+                      setFilters((p) => ({ ...p, overdueOnly: !p.overdueOnly }))
+                    }
+                  >
+                    {filters.overdueOnly
+                      ? "Showing Overdue"
+                      : "Show Overdue Only"}
+                  </button>
+                  <span className="muted">Dept:</span>
+                  <select
+                    value={filters.dept}
+                    onChange={(e) =>
+                      setFilters((p) => ({ ...p, dept: e.target.value }))
+                    }
+                    style={{
+                      padding: "6px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "999px",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <option value="">All</option>
+                    {departments.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="filter"
+                    aria-pressed={filters.myDeptOnly ? "true" : "false"}
+                    onClick={() =>
+                      setFilters((p) => ({ ...p, myDeptOnly: !p.myDeptOnly }))
+                    }
+                  >
+                    {filters.myDeptOnly ? "Only My Dept ✓" : "Only My Dept"}
+                  </button>
+                  <button
+                    className="filter"
+                    onClick={() =>
+                      setFilters({
+                        search: "",
+                        overdueOnly: false,
+                        myDeptOnly: false,
+                        dept: "",
+                      })
+                    }
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <TaskTable
+                currentPane={currentPane}
+                tasks={getDisplayedTasks(currentPane)}
+                filters={filters}
+                mode={mode}
+                onClaim={claimTask}
+                onComplete={completeTask}
+                onSaveNote={saveNote}
+                getPresets={getPresets}
+              />
+            </div>
+
+            {/* Failed Documents Component */}
+            <FailedDocuments
+              documents={failedDocuments}
+              onRowClick={handleRowClick}
+            />
+          </>
+        )}
       </div>
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
       {/* Update Document Modal Component */}

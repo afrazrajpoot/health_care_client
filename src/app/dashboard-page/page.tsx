@@ -793,7 +793,7 @@ export default function Dashboard() {
 
         {/* Failed & Unspecified Documents */}
         <div className="card">
-          <h2>❌ Failed & Unspecified Documents</h2>
+          <h2>Un-proccesed Documents & Action needed</h2>
           {failedDocuments.length === 0 ? (
             <p>No failed or unspecified documents found.</p>
           ) : (
