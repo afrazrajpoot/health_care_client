@@ -10,17 +10,16 @@ const IntakePage: React.FC = () => {
   const [patientName, setPatientName] = useState("Unknown");
   const [dob, setDob] = useState("Unknown");
   const [doi, setDoi] = useState("Unknown");
-  const [patientParts, setPatientParts] = useState<string[]>([
-    "Right shoulder",
-    "Lumbar",
-  ]);
+  const [patientParts, setPatientParts] = useState<string[]>([]);
 
   const [showAuth, setShowAuth] = useState(true);
   const [authName, setAuthName] = useState("");
   const [authDob, setAuthDob] = useState("");
-  const [authDoi, setAuthDoi] = useState("");
   const [authError, setAuthError] = useState("");
   const [expectedPatientData, setExpectedPatientData] = useState<any>(null);
+
+  const [language, setLanguage] = useState<"en" | "es">("en");
+  const [loading, setLoading] = useState(true);
 
   const i18n = {
     en: {
@@ -50,9 +49,8 @@ const IntakePage: React.FC = () => {
       auth_title: "Patient Authentication",
       auth_name: "Full Name",
       auth_dob: "Date of Birth",
-      auth_doi: "Date of Injury",
       auth_submit: "Authenticate",
-      auth_error: "Invalid name, DOB, or DOI. Please try again.",
+      auth_error: "Invalid name or DOB. Please try again.",
     },
     es: {
       title: "Kebilo — Chequeo rápido",
@@ -81,14 +79,11 @@ const IntakePage: React.FC = () => {
       auth_title: "Autenticación del Paciente",
       auth_name: "Nombre Completo",
       auth_dob: "Fecha de Nacimiento",
-      auth_doi: "Fecha de Lesión",
       auth_submit: "Autenticar",
-      auth_error:
-        "Nombre, fecha de nacimiento o fecha de lesión inválidos. Intente de nuevo.",
+      auth_error: "Nombre o fecha de nacimiento inválidos. Intente de nuevo.",
     },
   };
 
-  const [language, setLanguage] = useState<"en" | "es">("en");
   const [translations, setTranslations] = useState(i18n.en);
 
   const [showS1Detail, setShowS1Detail] = useState(false);
@@ -116,17 +111,13 @@ const IntakePage: React.FC = () => {
   ];
 
   const [previewText, setPreviewText] = useState("");
-
-  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
-  const [hasExistingData, setHasExistingData] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [signalChips, setSignalChips] = useState<string[]>([]);
   const [rfaTextContent, setRfaTextContent] = useState("");
 
   useEffect(() => {
-    // Fill last 30 days for specDate
     const today = new Date();
     const options: { value: string; label: string }[] = [];
     for (let i = 0; i < 30; i++) {
@@ -152,37 +143,54 @@ const IntakePage: React.FC = () => {
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
+
       if (!token) {
+        console.log("No token provided");
         setLoading(false);
         setShowAuth(false);
         return;
       }
 
       try {
-        // Decrypt token to get expected patient details
-        const decryptResponse = await fetch(
-          "http://127.0.0.1:8000/api/proxy-decrypt",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
-          }
-        );
+        const decryptResponse = await fetch("/api/decrypt-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
 
         if (!decryptResponse.ok) {
-          throw new Error("Decryption failed");
+          throw new Error(`Decryption failed: ${decryptResponse.status}`);
         }
 
         const decryptData = await decryptResponse.json();
-        if (!decryptData.success) {
-          throw new Error("Invalid token");
+
+        if (!decryptData.valid) {
+          throw new Error(decryptData.error || "Invalid token");
         }
 
-        // Set expected patient details
-        setExpectedPatientData(decryptData.data);
+        const patientData = decryptData.patientData;
+        setExpectedPatientData(patientData);
+
+        console.log("Decrypted patient data:", patientData);
+
+        if (patientData.requireAuth === "no") {
+          setPatientName(patientData.patientName);
+          setDob(patientData.dateOfBirth);
+          setDoi(patientData.dateOfBirth);
+          setPatientParts(
+            patientData.bodyParts
+              ? patientData.bodyParts
+                  .split(",")
+                  .map((part: string) => part.trim())
+              : []
+          );
+          setLanguage(patientData.language as "en" | "es");
+          setShowAuth(false);
+        }
       } catch (error) {
         console.error("Initialization error:", error);
         setSubmitMessage("Failed to load patient data. Please check the URL.");
+        setShowAuth(false);
       } finally {
         setLoading(false);
       }
@@ -191,116 +199,84 @@ const IntakePage: React.FC = () => {
     initialize();
   }, [token]);
 
-  useEffect(() => {
-    const loadQuiz = async () => {
-      if (showAuth || patientName === "Unknown") return;
-      setLoading(true);
-      try {
-        // Load existing quiz data using patient details
-        const loadResponse = await fetch(
-          `/api/submit-quiz?patientName=${patientName}&dob=${dob}&doi=${doi}`
-        );
-
-        if (loadResponse.ok) {
-          const quizData = await loadResponse.json();
-          setLanguage(quizData.lang as "en" | "es");
-
-          // Fix: Use consistent data structure matching collect()
-          const loadedShowS1 = !!quizData.newAppt;
-          setShowS1Detail(loadedShowS1);
-          setSpec(quizData.newAppt?.specialist || "");
-          setSpecDate(quizData.newAppt?.date || "");
-
-          const loadedShowS2 = !!quizData.refill;
-          setShowS2Detail(loadedShowS2);
-          setMed(quizData.refill?.med || "");
-          setPrePain(quizData.refill?.pain?.pre || 0);
-          setPostPain(quizData.refill?.pain?.post || 0);
-
-          const loadedAdlTrend = quizData.adl?.trend || "";
-          setAdlTrend(loadedAdlTrend);
-          const loadedSelectedADLs = quizData.adl?.activities || [];
-          setSelectedADLs(loadedSelectedADLs);
-
-          setHasExistingData(true);
-
-          // Compute using loaded data to avoid setState async issues
-          const chips: string[] = [];
-          if (
-            loadedShowS1 &&
-            (quizData.newAppt?.specialist || quizData.newAppt?.date)
-          )
-            chips.push("apptYes");
-          if (loadedShowS2) chips.push("refill");
-
-          if (loadedAdlTrend === "worse" || loadedSelectedADLs.length > 3) {
-            chips.push("fce");
-          }
-
-          let adlSignal: string;
-          if (loadedAdlTrend === "worse") {
-            adlSignal = "tpd_tight";
-          } else {
-            adlSignal = "cont";
-          }
-          chips.push(adlSignal);
-
-          setSignalChips(chips);
-
-          let text = "";
-          if (loadedAdlTrend && loadedSelectedADLs.length > 0) {
-            const adls = loadedSelectedADLs.join(", ");
-            text = `Ongoing limitations in ${adls} ${
-              loadedAdlTrend === "worse" ? "worsening" : ""
-            }. FCE is recommended to quantify safe capacity.`;
-          }
-          setRfaTextContent(text);
-          setShowResults(true);
-        }
-      } catch (error) {
-        console.error("Load quiz error:", error);
-        setSubmitMessage(
-          "Failed to load patient data. Please check your details."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadQuiz();
-  }, [showAuth, patientName, dob, doi]);
-
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
 
     if (!expectedPatientData) {
-      setAuthError("No patient data available.");
+      setAuthError("No patient data available for verification.");
       return;
     }
 
     const expected = expectedPatientData;
-    const expectedDob = expected.dob.split("T")[0];
-    const expectedDoi = expected.doi.split("T")[0];
+
+    const expectedDob = expected.dateOfBirth.split("T")[0];
+
+    const normalizedAuthName = authName.trim().toLowerCase();
+    const normalizedExpectedName = expected.patientName.trim().toLowerCase();
+
+    console.log("Auth comparison:", {
+      authName: normalizedAuthName,
+      expectedName: normalizedExpectedName,
+      authDob,
+      expectedDob,
+    });
 
     if (
-      authName.trim().toLowerCase() ===
-        expected.patientName.trim().toLowerCase() &&
-      authDob === expectedDob &&
-      authDoi === expectedDoi
+      normalizedAuthName === normalizedExpectedName &&
+      authDob === expectedDob
     ) {
-      // Match successful
       setPatientName(expected.patientName);
       setDob(authDob);
-      setDoi(authDoi);
-      setPatientParts(expected.parts || ["Right shoulder", "Lumbar"]);
+      setDoi(expected.dateOfBirth.split("T")[0]);
+      setPatientParts(
+        expected.bodyParts
+          ? expected.bodyParts.split(",").map((part: string) => part.trim())
+          : []
+      );
+      setLanguage((expected.language as "en" | "es") || "en");
       setShowAuth(false);
       setAuthName("");
       setAuthDob("");
-      setAuthDoi("");
+      setAuthError("");
     } else {
       setAuthError(getText("auth_error"));
     }
+  };
+
+  const computeResultsWithData = (
+    showS1: boolean,
+    showS2: boolean,
+    adlTrend: string,
+    selectedADLs: string[]
+  ) => {
+    const chips: string[] = [];
+    if (showS1) chips.push("apptYes");
+    if (showS2) chips.push("refill");
+
+    if (adlTrend === "worse" || selectedADLs.length > 3) {
+      chips.push("fce");
+    }
+
+    let adlSignal: string;
+    if (adlTrend === "worse") {
+      adlSignal = "tpd_tight";
+    } else {
+      adlSignal = "cont";
+    }
+    chips.push(adlSignal);
+
+    setSignalChips(chips);
+
+    let text = "";
+    if (adlTrend && selectedADLs.length > 0) {
+      const adls = selectedADLs.join(", ");
+      text = `Ongoing limitations in ${adls} ${
+        adlTrend === "worse" ? "worsening" : ""
+      }. FCE is recommended to quantify safe capacity.`;
+    }
+    setRfaTextContent(text);
+    setShowResults(true);
   };
 
   const toggleS1Detail = (show: boolean) => {
@@ -351,33 +327,7 @@ const IntakePage: React.FC = () => {
   };
 
   const computeResults = () => {
-    const chips: string[] = [];
-    if (showS1Detail && (spec || specDate)) chips.push("apptYes");
-    if (showS2Detail) chips.push("refill");
-
-    if (adlTrend === "worse" || selectedADLs.length > 3) {
-      chips.push("fce");
-    }
-
-    let adlSignal: string;
-    if (adlTrend === "worse") {
-      adlSignal = "tpd_tight";
-    } else {
-      adlSignal = "cont";
-    }
-    chips.push(adlSignal);
-
-    setSignalChips(chips);
-
-    let text = "";
-    if (adlTrend && selectedADLs.length > 0) {
-      const adls = selectedADLs.join(", ");
-      text = `Ongoing limitations in ${adls} ${
-        adlTrend === "worse" ? "worsening" : ""
-      }. FCE is recommended to quantify safe capacity.`;
-    }
-    setRfaTextContent(text);
-    setShowResults(true);
+    computeResultsWithData(showS1Detail, showS2Detail, adlTrend, selectedADLs);
   };
 
   const showPreview = () => {
@@ -430,14 +380,8 @@ const IntakePage: React.FC = () => {
 
     console.log("Submitted data:", formData);
 
-    let url = "/api/submit-quiz";
-    let method = "POST";
-
-    // If existing data, use PUT to update latest
-    if (hasExistingData) {
-      url += `?patientName=${patientName}&dob=${dob}&doi=${doi}`;
-      method = "PUT";
-    }
+    const url = "/api/submit-quiz";
+    const method = "POST";
 
     try {
       const response = await fetch(url, {
@@ -450,7 +394,6 @@ const IntakePage: React.FC = () => {
 
       if (response.ok) {
         setSubmitMessage("Submission saved successfully!");
-        setHasExistingData(true);
         computeResults();
       } else {
         const error = await response.json();
@@ -645,21 +588,8 @@ const IntakePage: React.FC = () => {
                     required
                   />
                 </div>
-                <div className="field">
-                  <label htmlFor="authDoi">{getText("auth_doi")}</label>
-                  <input
-                    id="authDoi"
-                    type="date"
-                    value={authDoi}
-                    onChange={(e) => setAuthDoi(e.target.value)}
-                    required
-                  />
-                </div>
                 {authError && <div className="error">{authError}</div>}
-                <button
-                  type="submit"
-                  disabled={!authName || !authDob || !authDoi}
-                >
+                <button type="submit" disabled={!authName || !authDob}>
                   {getText("auth_submit")}
                 </button>
               </form>
@@ -964,14 +894,8 @@ const IntakePage: React.FC = () => {
           aria-label="Kebilo Patient Mini Intake"
         >
           <div className="header">
-            {/* <div className="title">
-              {getText("title")} ({patientName}, DOB: {dob}, DOI: {doi})
-            </div> */}
             <div>
               <span className="pill">Patient: {patientName}</span>
-              {/* <span className="pill">
-                Body parts: {patientParts.join(", ")}
-              </span> */}
             </div>
             <div className="lang">
               <label htmlFor="langSel" className="hint">

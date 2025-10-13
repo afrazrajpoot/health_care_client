@@ -67,10 +67,31 @@ export async function GET(request: Request) {
       );
     }
 
+    // ✅ Filter out incomplete documents: only include if all key fields are present and not "Not specified"
+    const completeResults = results.filter(doc => {
+      return (
+        doc.patientName &&
+        doc.patientName.toLowerCase() !== "not specified" &&
+        doc.claimNumber &&
+        doc.claimNumber.toLowerCase() !== "not specified" &&
+        doc.dob &&
+        doc.dob.toLowerCase() !== "not specified" &&
+        doc.doi &&
+        doc.doi.toLowerCase() !== "not specified"
+      );
+    });
+
+    if (completeResults.length === 0) {
+      return NextResponse.json(
+        { message: "No complete patient records found (missing fields in all matches)" },
+        { status: 404 }
+      );
+    }
+
     // Deduplicate by composite key: patientName + claimNumber + dob + doi
     // Preserve the first occurrence (newest due to orderBy)
-    const uniqueKeyMap = new Map<string, typeof results[0]>();
-    results.forEach(doc => {
+    const uniqueKeyMap = new Map<string, typeof completeResults[0]>();
+    completeResults.forEach(doc => {
       const key = `${doc.patientName}-${doc.claimNumber || ''}-${doc.dob}-${doc.doi}`;
       if (!uniqueKeyMap.has(key)) {
         uniqueKeyMap.set(key, doc);
@@ -99,7 +120,7 @@ export async function GET(request: Request) {
       success: true,
       data: {
         patientNames,
-        allMatchingDocuments: uniqueResults,  // Deduplicated list of matching docs
+        allMatchingDocuments: uniqueResults,  // Deduplicated list of complete matching docs
         totalCount: uniqueResults.length,
       },
     });
