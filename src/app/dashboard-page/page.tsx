@@ -805,6 +805,7 @@ export default function Dashboard() {
                   <th>Claim Number</th>
                   <th>File Name</th>
                   <th>Created At</th>
+                  <th>Update</th>
                 </tr>
               </thead>
               <tbody>
@@ -822,6 +823,9 @@ export default function Dashboard() {
                       {doc.createdAt
                         ? new Date(doc.createdAt).toLocaleDateString()
                         : "—"}
+                    </td>
+                    <td>
+                      <button>Update</button>
                     </td>
                   </tr>
                 ))}
