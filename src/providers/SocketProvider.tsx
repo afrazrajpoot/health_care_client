@@ -25,7 +25,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [taskStatus, setTaskStatus] = useState<any>(null);
   const { data: session, status } = useSession(); // ✅ Get session data
 
-  // ✅ Modal state for invalid documents
+  // ✅ Modal state for invalid/already processed documents
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("Invalid Document");
   const [modalDescription, setModalDescription] = useState("");
@@ -126,6 +126,18 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         toast.warning(
           `Document "${data.filename}" could not be processed: ${data.reason}`
         );
+      } else if (data.status === "skipped") {
+        // ✅ Show modal for already processed documents
+        setModalTitle(`Already Processed: ${data.filename}`);
+        const description =
+          data.reason ||
+          "This document has already been processed and does not need to be uploaded again.";
+
+        setModalDescription(description);
+        setIsModalOpen(true);
+
+        // ✅ Also show a toast for skipped status to notify quickly
+        toast.info(`Document "${data.filename}" skipped: ${data.reason}`);
       } else if (data.status === "success") {
         // 🪄 Construct a specific message for the toast
         const message = data?.filename
@@ -134,9 +146,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
         // 🪄 Show a global toast for success
         toast.success(message);
-      } else if (data.status === "skipped") {
-        // Optional: Handle skipped with toast including filename and reason
-        toast.info(`Document "${data.filename}" skipped: ${data.reason}`);
       }
     });
 
@@ -165,7 +174,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <SocketContext.Provider value={{ socket, taskStatus }}>
       {children}
-      {/* ✅ Global Modal for Invalid Documents (centered by default in ShadCN) */}
+      {/* ✅ Global Modal for Invalid/Already Processed Documents (centered by default in ShadCN) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     }
 
     const physicianId = session?.user?.physicianId; // Assuming session.user.id is the physicianId; adjust if needed (e.g., session.user.physicianId)
-    console.log('Physician ID from session:',  session?.user?.physicianId);
+
     if (!physicianId) {
       return NextResponse.json(
         { error: 'Physician ID not found in session' },
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         physicianId: physicianId,
         OR: [
           { status: 'failed' },
-          { claimNumber: 'Not specified' }
+     
         ]
       },
       include: {
