@@ -45,6 +45,19 @@ interface ApiTask {
   document?: any;
 }
 
+interface DeptPulse {
+  department: string;
+  open: number;
+  overdue: number;
+  unclaimed: number;
+}
+
+interface Pulse {
+  depts: DeptPulse[];
+  labels: string[];
+  vals: number[];
+}
+
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,9 +93,12 @@ export default function Dashboard() {
   // New state for file modal
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
+  // Add state for fetched pulse
+  const [fetchedPulse, setFetchedPulse] = useState<Pulse | null>(null);
+
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
-  const pulse = mode === "wc" ? PULSE_WC : PULSE_GM;
   const departments = mode === "wc" ? DEPARTMENTS_WC : DEPARTMENTS_GM;
+  const pulse = fetchedPulse || (mode === "wc" ? PULSE_WC : PULSE_GM);
 
   // Transform API task to local Task type
   const transformApiTask = (apiTask: ApiTask): Task => {
@@ -146,10 +162,32 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Fetch office pulse from separate API
+  const fetchOfficePulse = useCallback(async () => {
+    try {
+      const response = await fetch("/api/office-pulse");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch office pulse");
+      }
+
+      const data = await response.json();
+      setFetchedPulse(data.pulse);
+    } catch (error) {
+      console.error("Error fetching office pulse:", error);
+      setFetchedPulse(null);
+    }
+  }, []);
+
   // Fetch tasks on component mount
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Fetch office pulse on component mount
+  useEffect(() => {
+    fetchOfficePulse();
+  }, [fetchOfficePulse]);
 
   // Refetch tasks when filters change (if you want real-time filtering from API)
   // useEffect(() => {
@@ -201,9 +239,8 @@ export default function Dashboard() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // Map local updates to API fields
-          status: updates.statusText,
-          actions: updates.assignee === "You" ? ["Claimed"] : ["Unclaimed"],
+          ...(updates.statusText && { status: updates.statusText }),
+          ...(updates.actions && { actions: updates.actions }),
           // Add other field mappings as needed
         }),
       });
@@ -221,9 +258,15 @@ export default function Dashboard() {
     }
   };
 
-  const claimTask = (id: string) => {
-    updateTask(id, { assignee: "You", actions: ["Claimed", "Complete"] });
-    showToast("✅ Task claimed");
+  const toggleClaim = async (id: string) => {
+    const currentTask = tasks.find((t) => t.id === id);
+    if (!currentTask) return;
+
+    const isClaimed = currentTask.actions?.includes("Claimed") || false;
+    const newActions = isClaimed ? ["Unclaimed"] : ["Claimed", "Complete"];
+
+    await updateTask(id, { actions: newActions });
+    showToast(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed");
   };
 
   const completeTask = (id: string) => {
@@ -299,7 +342,6 @@ export default function Dashboard() {
       const response = await fetch("/api/get-failed-document");
       if (response.ok) {
         const data = await response.json();
-        console.log("Fetched failed documents:", data.documents); // Debug log
         setFailedDocuments(data.documents || []);
       }
     } catch (error) {
@@ -309,7 +351,6 @@ export default function Dashboard() {
   };
 
   const handleRowClick = (doc: any) => {
-    console.log("Row clicked, doc:", doc); // Debug log to check doc structure
     setSelectedDoc(doc);
     let parsedDob: Date | null = null;
     if (
@@ -344,22 +385,7 @@ export default function Dashboard() {
   };
 
   const handleUpdateSubmit = async () => {
-    if (!selectedDoc) {
-      console.error("No selectedDoc found");
-      showToast("❌ No document selected");
-      return;
-    }
-
-    const docId = selectedDoc.id;
-    console.log("Updating document with ID:", docId); // Debug log for ID
-    console.log("Full selectedDoc:", selectedDoc); // Debug log for full object
-    console.log("Update data:", updateFormData); // Debug log for payload
-
-    if (!docId) {
-      console.error("Document ID is missing or undefined");
-      showToast("❌ Invalid document ID");
-      return;
-    }
+    if (!selectedDoc) return;
 
     try {
       const updateData: any = {
@@ -373,22 +399,19 @@ export default function Dashboard() {
         updateData.dob = null;
       }
 
-      console.log("Sending PATCH to:", `/api/get-failed-document/${docId}`); // Debug log for URL
-
-      const response = await fetch(`/api/get-failed-document/${docId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateData),
-      });
-
-      console.log("Update response status:", response.status); // Debug log for response
-      console.log("Update response:", await response.text()); // Debug log for response body
+      const response = await fetch(
+        `/api/get-failed-document/${selectedDoc.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData),
+        }
+      );
 
       if (!response.ok) throw new Error("Update failed");
 
       showToast("✅ Document updated successfully");
       setIsUpdateModalOpen(false);
-      setSelectedDoc(null); // Clear selection
       fetchFailedDocuments();
     } catch (error) {
       console.error("Update error:", error);
@@ -504,11 +527,16 @@ export default function Dashboard() {
     console.log("Kebilo v6.3 self-tests:", [
       { name: "All tab present", pass: true },
       { name: "Mode toggle wired", pass: true },
-      { name: "Pulse dept table populated", pass: pulse.deptRows.length > 0 },
+      {
+        name: "Pulse dept table populated",
+        pass: fetchedPulse
+          ? fetchedPulse.depts.length > 0
+          : pulse.deptRows.length > 0,
+      },
       { name: "Dept dropdown filled", pass: departments.length > 0 },
       { name: "Tasks loaded from API", pass: tasks.length > 0 },
     ]);
-  }, [mode, pulse, departments, tasks]);
+  }, [mode, fetchedPulse, pulse, departments, tasks]);
 
   return (
     <>
@@ -906,30 +934,60 @@ export default function Dashboard() {
                         <th>Department</th>
                         <th>Open</th>
                         <th>Overdue</th>
-                        <th>Assigned</th>
                         <th>Unclaimed</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {pulse.deptRows.map((row, index) => (
-                        <tr key={index}>
-                          <td>{row[0]}</td>
-                          <td>{row[1]}</td>
-                          <td>{row[2]}</td>
-                          <td>{row[3]}</td>
-                          <td>{row[4]}</td>
-                        </tr>
-                      ))}
+                      {(fetchedPulse ? fetchedPulse.depts : pulse.deptRows).map(
+                        (rowOrObj, index) => {
+                          if (
+                            typeof rowOrObj === "object" &&
+                            "department" in rowOrObj
+                          ) {
+                            const dept = rowOrObj as DeptPulse;
+                            return (
+                              <tr key={index}>
+                                <td>{dept.department}</td>
+                                <td>{dept.open}</td>
+                                <td>{dept.overdue}</td>
+                                <td>{dept.unclaimed}</td>
+                              </tr>
+                            );
+                          } else {
+                            const row = rowOrObj as [
+                              string,
+                              number,
+                              number,
+                              number,
+                              number
+                            ];
+                            return (
+                              <tr key={index}>
+                                <td>{row[0]}</td>
+                                <td>{row[1]}</td>
+                                <td>{row[2]}</td>
+                                <td>{row[4]}</td>
+                              </tr>
+                            );
+                          }
+                        }
+                      )}
                     </tbody>
                   </table>
                 </div>
                 <div className="kpi">
-                  {pulse.labels.map((label, index) => (
-                    <div key={index} className="tile">
-                      <h4>{label}</h4>
-                      <div className="val">{pulse.vals[index]}</div>
-                    </div>
-                  ))}
+                  {(fetchedPulse ? fetchedPulse.labels : pulse.labels).map(
+                    (label, index) => (
+                      <div key={index} className="tile">
+                        <h4>{label}</h4>
+                        <div className="val">
+                          {fetchedPulse
+                            ? fetchedPulse.vals[index]
+                            : pulse.vals[index]}
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -1037,7 +1095,7 @@ export default function Dashboard() {
                 tasks={getDisplayedTasks(currentPane)}
                 filters={filters}
                 mode={mode}
-                onClaim={claimTask}
+                onClaim={toggleClaim}
                 onComplete={completeTask}
                 onSaveNote={saveNote}
                 getPresets={getPresets}

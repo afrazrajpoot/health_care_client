@@ -21,6 +21,7 @@ export function StandardRow({
 }: StandardRowProps) {
   const presets = getPresets(task.dept);
   const handleSave = (e: React.MouseEvent) => onSaveNote(e, task.id);
+  const isClaimed = task.actions?.includes("Claimed") || false;
 
   return (
     <tr data-taskid={task.id} data-dept={task.dept} data-overdue={task.overdue}>
@@ -60,10 +61,9 @@ export function StandardRow({
           </div>
         </div>
       </td>
-      <td data-assignee>{task.assignee || "—"}</td>
       <td>
         <button className="btn light" onClick={() => onClaim(task.id)}>
-          Claim
+          {isClaimed ? "Unclaim" : "Claim"}
         </button>{" "}
         <button className="btn primary" onClick={() => onComplete(task.id)}>
           Done
@@ -79,6 +79,8 @@ interface OverdueRowProps {
 }
 
 export function OverdueRow({ task, onClaim }: OverdueRowProps) {
+  const isClaimed = task.actions?.includes("Claimed") || false;
+
   return (
     <tr data-dept={task.dept} data-overdue="true">
       <td>{task.task}</td>
@@ -86,10 +88,9 @@ export function OverdueRow({ task, onClaim }: OverdueRowProps) {
         <span className="pill waiting">{task.dept}</span>
       </td>
       <td>{task.due}</td>
-      <td>{task.assignee || "—"}</td>
       <td>
         <button className="btn primary" onClick={() => onClaim(task.id)}>
-          Claim
+          {isClaimed ? "Unclaim" : "Claim"}
         </button>
       </td>
     </tr>

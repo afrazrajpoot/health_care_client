@@ -1,6 +1,4 @@
 // app/dashboard/components/TaskTable.tsx
-// import { StandardRow, OverdueRow } from "./TaskRows";
-
 import { OverdueRow, StandardRow } from "./TaskRows";
 import { Task } from "./types";
 
@@ -60,13 +58,12 @@ export default function TaskTable({
                 <th>Due</th>
                 <th>Patient</th>
                 <th>Quick Note</th>
-                <th>Assignee</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr id="aggEmpty">
-                <td colSpan={8}>
+                <td colSpan={7}>
                   No tasks yet. SnapLink a document or switch tabs to create
                   tasks, then return to All.
                 </td>
@@ -87,7 +84,6 @@ export default function TaskTable({
               <th>Due</th>
               <th>Patient</th>
               <th>Quick Note</th>
-              <th>Assignee</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -117,7 +113,6 @@ export default function TaskTable({
             <th>Task</th>
             <th>Dept</th>
             <th>Due</th>
-            <th>Assignee</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -140,7 +135,6 @@ export default function TaskTable({
           <th>Due</th>
           <th>Patient</th>
           <th>Quick Note</th>
-          <th>Assignee</th>
           <th>Actions</th>
         </tr>
       </thead>
