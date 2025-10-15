@@ -2,11 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/services/authSErvice';
+// import { authOptions } from '@/services/authService';
 import { prisma } from '@/lib/prisma';
-
-
-
+import { authOptions } from '@/services/authSErvice';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +17,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const physicianId = session?.user?.physicianId; // Assuming session.user.id is the physicianId; adjust if needed (e.g., session.user.physicianId)
+    const physicianId = session?.user?.physicianId; // Assuming session.user.physicianId is available
 
     if (!physicianId) {
       return NextResponse.json(
@@ -28,34 +26,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const documents = await prisma.document.findMany({
+    const failedDocs = await prisma.failDocs.findMany({
       where: {
         physicianId: physicianId,
-        OR: [
-          { status: 'failed' },
-     
-        ]
       },
-      include: {
-        summarySnapshot: true,
-        adl: true,
-        documentSummary: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    
     });
 
-    if (!documents || documents.length === 0) {
+    if (!failedDocs || failedDocs.length === 0) {
       return NextResponse.json(
-        { message: 'No failed or unspecified documents found', data: [] },
+        { message: 'No failed documents found', data: [] },
         { status: 200 }
       );
     }
 
     return NextResponse.json({
-      totalDocuments: documents.length,
-      documents,
+      totalDocuments: failedDocs.length,
+      documents: failedDocs,
     });
   } catch (error) {
     console.error('Error fetching failed documents:', error);

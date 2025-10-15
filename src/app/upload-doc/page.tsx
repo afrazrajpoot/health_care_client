@@ -121,15 +121,15 @@ export default function Dashboard() {
     // Transform quick notes if available
     const notes = apiTask.quickNotes
       ? [
-        {
-          ts: new Date(apiTask.updatedAt).toLocaleString(),
-          user: "System",
-          line:
-            apiTask.quickNotes.one_line_note ||
-            apiTask.quickNotes.details ||
-            "Note added",
-        },
-      ]
+          {
+            ts: new Date(apiTask.updatedAt).toLocaleString(),
+            user: "System",
+            line:
+              apiTask.quickNotes.one_line_note ||
+              apiTask.quickNotes.details ||
+              "Note added",
+          },
+        ]
       : [];
 
     return {
@@ -331,9 +331,9 @@ export default function Dashboard() {
         prev.map((t) =>
           t.id === taskId
             ? {
-              ...t,
-              notes: [...(t.notes || []), { ts, user: "You", line }],
-            }
+                ...t,
+                notes: [...(t.notes || []), { ts, user: "You", line }],
+              }
             : t
         )
       );
@@ -395,11 +395,11 @@ export default function Dashboard() {
     setSelectedDoc(doc);
     let parsedDob: Date | null = null;
     if (
-      doc.dob &&
-      typeof doc.dob === "string" &&
-      doc.dob.toLowerCase() !== "not specified"
+      doc.db &&
+      typeof doc.db === "string" &&
+      doc.db.toLowerCase() !== "not specified"
     ) {
-      const date = new Date(doc.dob);
+      const date = new Date(doc.db);
       if (!isNaN(date.getTime())) {
         parsedDob = date;
       }
@@ -430,22 +430,27 @@ export default function Dashboard() {
 
     try {
       const updateData: any = {
-        patientName: updateFormData.patientName,
-        claimNumber: updateFormData.claimNumber,
+        patient_name: updateFormData.patientName,
+        claim_number: updateFormData.claimNumber,
         doi: updateFormData.doi,
       };
       if (updateFormData.dob && !isNaN(updateFormData.dob.getTime())) {
-        updateData.dob = updateFormData.dob.toISOString();
+        updateData.dob = updateFormData.dob.toISOString().split("T")[0];
       } else {
         updateData.dob = null;
       }
 
       const response = await fetch(
-        `/api/get-failed-document/${selectedDoc.id}`,
+        `http://localhost:8000/api/update-fail-document`,
         {
-          method: "PATCH",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
+          body: JSON.stringify({
+            fail_doc_id: selectedDoc.id,
+            document_text: selectedDoc.documentText,
+            ...updateData,
+            user_id: session?.user?.id,
+          }),
         }
       );
 
@@ -454,6 +459,7 @@ export default function Dashboard() {
       showToast("✅ Document updated successfully");
       setIsUpdateModalOpen(false);
       fetchFailedDocuments();
+      fetchTasks();
     } catch (error) {
       console.error("Update error:", error);
       showToast("❌ Error updating document");
@@ -504,7 +510,8 @@ export default function Dashboard() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/extract-documents?physicianId=${session?.user?.physicianId || ""
+        `http://localhost:8000/api/extract-documents?physicianId=${
+          session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -990,14 +997,16 @@ export default function Dashboard() {
                 📊 Office Pulse
                 <button
                   className="btn light"
-                  onClick={() => setIsOfficePulseCollapsed(!isOfficePulseCollapsed)}
+                  onClick={() =>
+                    setIsOfficePulseCollapsed(!isOfficePulseCollapsed)
+                  }
                   style={{
-                    fontSize: '12px',
-                    padding: '4px 8px',
-                    minHeight: 'auto'
+                    fontSize: "12px",
+                    padding: "4px 8px",
+                    minHeight: "auto",
                   }}
                 >
-                  {isOfficePulseCollapsed ? '▼ Expand' : '▲ Collapse'}
+                  {isOfficePulseCollapsed ? "▼ Expand" : "▲ Collapse"}
                 </button>
               </h2>
               {!isOfficePulseCollapsed && (
@@ -1020,40 +1029,41 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(fetchedPulse ? fetchedPulse.depts : pulse.deptRows).map(
-                          (rowOrObj, index) => {
-                            if (
-                              typeof rowOrObj === "object" &&
-                              "department" in rowOrObj
-                            ) {
-                              const dept = rowOrObj as DeptPulse;
-                              return (
-                                <tr key={index}>
-                                  <td>{dept.department}</td>
-                                  <td>{dept.open}</td>
-                                  <td>{dept.overdue}</td>
-                                  <td>{dept.unclaimed}</td>
-                                </tr>
-                              );
-                            } else {
-                              const row = rowOrObj as [
-                                string,
-                                number,
-                                number,
-                                number,
-                                number
-                              ];
-                              return (
-                                <tr key={index}>
-                                  <td>{row[0]}</td>
-                                  <td>{row[1]}</td>
-                                  <td>{row[2]}</td>
-                                  <td>{row[4]}</td>
-                                </tr>
-                              );
-                            }
+                        {(fetchedPulse
+                          ? fetchedPulse.depts
+                          : pulse.deptRows
+                        ).map((rowOrObj, index) => {
+                          if (
+                            typeof rowOrObj === "object" &&
+                            "department" in rowOrObj
+                          ) {
+                            const dept = rowOrObj as DeptPulse;
+                            return (
+                              <tr key={index}>
+                                <td>{dept.department}</td>
+                                <td>{dept.open}</td>
+                                <td>{dept.overdue}</td>
+                                <td>{dept.unclaimed}</td>
+                              </tr>
+                            );
+                          } else {
+                            const row = rowOrObj as [
+                              string,
+                              number,
+                              number,
+                              number,
+                              number
+                            ];
+                            return (
+                              <tr key={index}>
+                                <td>{row[0]}</td>
+                                <td>{row[1]}</td>
+                                <td>{row[2]}</td>
+                                <td>{row[4]}</td>
+                              </tr>
+                            );
                           }
-                        )}
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1063,9 +1073,9 @@ export default function Dashboard() {
                       onClick={fetchWorkflowStats}
                       className="btn light absolute top-0 right-0"
                       style={{
-                        fontSize: '12px',
-                        padding: '4px 8px',
-                        minHeight: 'auto'
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        minHeight: "auto",
                       }}
                     >
                       🔄 Refresh
@@ -1074,9 +1084,7 @@ export default function Dashboard() {
                       workflowStats.labels.map((label, index) => (
                         <div key={index} className="text-gray-700">
                           <h4>{label}</h4>
-                          <div className="val">
-                            {workflowStats.vals[index]}
-                          </div>
+                          <div className="val">{workflowStats.vals[index]}</div>
                         </div>
                       ))
                     ) : (
@@ -1098,12 +1106,12 @@ export default function Dashboard() {
                   className="btn light"
                   onClick={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
                   style={{
-                    fontSize: '12px',
-                    padding: '4px 8px',
-                    minHeight: 'auto'
+                    fontSize: "12px",
+                    padding: "4px 8px",
+                    minHeight: "auto",
                   }}
                 >
-                  {isFiltersCollapsed ? '▼ Show Filters' : '▲ Hide Filters'}
+                  {isFiltersCollapsed ? "▼ Show Filters" : "▲ Hide Filters"}
                 </button>
               </h2>
               <div className="muted" style={{ marginBottom: "8px" }}>
@@ -1116,8 +1124,9 @@ export default function Dashboard() {
                   {filteredTabs.map((tab) => (
                     <button
                       key={tab.pane}
-                      className={`filter ttab ${currentPane === tab.pane ? "active" : ""
-                        }`}
+                      className={`filter ttab ${
+                        currentPane === tab.pane ? "active" : ""
+                      }`}
                       onClick={() => setCurrentPane(tab.pane)}
                     >
                       {tab.text}
@@ -1150,7 +1159,10 @@ export default function Dashboard() {
                     <button
                       className="filter"
                       onClick={() =>
-                        setFilters((p) => ({ ...p, overdueOnly: !p.overdueOnly }))
+                        setFilters((p) => ({
+                          ...p,
+                          overdueOnly: !p.overdueOnly,
+                        }))
                       }
                     >
                       {filters.overdueOnly
