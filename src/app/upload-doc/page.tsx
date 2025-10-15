@@ -96,6 +96,18 @@ export default function Dashboard() {
   // Add state for fetched pulse
   const [fetchedPulse, setFetchedPulse] = useState<Pulse | null>(null);
 
+  // Add state for workflow stats
+  const [workflowStats, setWorkflowStats] = useState<{
+    labels: string[];
+    vals: number[];
+    date: string;
+    hasData: boolean;
+  } | null>(null);
+
+  // Add state for collapsible sections
+  const [isOfficePulseCollapsed, setIsOfficePulseCollapsed] = useState(false);
+  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
+
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
   const departments = mode === "wc" ? DEPARTMENTS_WC : DEPARTMENTS_GM;
   const pulse = fetchedPulse || (mode === "wc" ? PULSE_WC : PULSE_GM);
@@ -109,15 +121,15 @@ export default function Dashboard() {
     // Transform quick notes if available
     const notes = apiTask.quickNotes
       ? [
-          {
-            ts: new Date(apiTask.updatedAt).toLocaleString(),
-            user: "System",
-            line:
-              apiTask.quickNotes.one_line_note ||
-              apiTask.quickNotes.details ||
-              "Note added",
-          },
-        ]
+        {
+          ts: new Date(apiTask.updatedAt).toLocaleString(),
+          user: "System",
+          line:
+            apiTask.quickNotes.one_line_note ||
+            apiTask.quickNotes.details ||
+            "Note added",
+        },
+      ]
       : [];
 
     return {
@@ -179,6 +191,30 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Fetch workflow stats from database
+  const fetchWorkflowStats = useCallback(async () => {
+    try {
+      const response = await fetch("/api/workflow-stats");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch workflow stats");
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setWorkflowStats({
+          labels: data.data.labels,
+          vals: data.data.vals,
+          date: data.data.date,
+          hasData: data.data.hasData,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching workflow stats:", error);
+      setWorkflowStats(null);
+    }
+  }, []);
+
   // Fetch tasks on component mount
   useEffect(() => {
     fetchTasks();
@@ -188,6 +224,11 @@ export default function Dashboard() {
   useEffect(() => {
     fetchOfficePulse();
   }, [fetchOfficePulse]);
+
+  // Fetch workflow stats on component mount
+  useEffect(() => {
+    fetchWorkflowStats();
+  }, [fetchWorkflowStats]);
 
   // Refetch tasks when filters change (if you want real-time filtering from API)
   // useEffect(() => {
@@ -290,9 +331,9 @@ export default function Dashboard() {
         prev.map((t) =>
           t.id === taskId
             ? {
-                ...t,
-                notes: [...(t.notes || []), { ts, user: "You", line }],
-              }
+              ...t,
+              notes: [...(t.notes || []), { ts, user: "You", line }],
+            }
             : t
         )
       );
@@ -463,8 +504,7 @@ export default function Dashboard() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/extract-documents?physicianId=${
-          session?.user?.physicianId || ""
+        `http://localhost:8000/api/extract-documents?physicianId=${session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -563,29 +603,31 @@ export default function Dashboard() {
         .wrap {
           max-width: 1280px;
           margin: 0 auto;
-          padding: 16px;
+          padding: 8px;
+          font-size: 12px;
         }
         .header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           position: sticky;
           top: 0;
           background: var(--bg);
           z-index: 5;
-          padding-bottom: 8px;
+          padding-bottom: 6px;
         }
         h1 {
-          font-size: 22px;
+          font-size: 20px;
           margin: 0;
         }
         .btn {
-          padding: 8px 12px;
+          padding: 6px 10px;
           border: none;
-          border-radius: 10px;
+          border-radius: 8px;
           font-weight: 600;
           cursor: pointer;
+          font-size: 12px;
         }
         .btn.primary {
           background: var(--accent);
@@ -611,14 +653,17 @@ export default function Dashboard() {
         .card {
           background: var(--panel);
           border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 16px;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-          margin-bottom: 16px;
+          border-radius: 8px;
+          padding: 12px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          margin-bottom: 8px;
         }
         h2 {
-          margin: 0 0 10px;
-          font-size: 18px;
+          margin: 0 0 8px;
+          font-size: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
         }
         table {
           width: 100%;
@@ -627,14 +672,14 @@ export default function Dashboard() {
         th,
         td {
           border-bottom: 1px solid var(--border);
-          padding: 8px;
+          padding: 6px 8px;
           text-align: left;
-          font-size: 14px;
-          vertical-align: top;
+          font-size: 11px;
         }
         th {
-          background: #f3f4f6;
+          background: #f8f9fa;
           font-weight: 600;
+          font-size: 11px;
         }
         .pill {
           display: inline-block;
@@ -752,13 +797,36 @@ export default function Dashboard() {
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 6px;
+        }
+        .collapse-btn {
+          font-size: 11px;
+          padding: 3px 6px;
+          min-height: auto;
+          background: transparent;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+        }
+        .kpi {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
           gap: 8px;
-          margin-bottom: 8px;
+        }
+        .kpi h4 {
+          font-size: 11px;
+          margin: 0 0 4px 0;
+          color: var(--muted);
+        }
+        .kpi .val {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--accent);
         }
         .tile {
-          padding: 8px;
+          padding: 6px;
           border: 1px solid var(--border);
-          border-radius: 8px;
+          border-radius: 6px;
           text-align: center;
         }
         .tile h4 {
@@ -789,8 +857,8 @@ export default function Dashboard() {
         }
         .mini-table th,
         .mini-table td {
-          padding: 4px 8px;
-          font-size: 12px;
+          padding: 3px 6px;
+          font-size: 11px;
         }
         /* Additional styles for failed docs */
         .failed-row {
@@ -918,83 +986,126 @@ export default function Dashboard() {
         {!loading && (
           <>
             <div className="card">
-              <h2>📊 Office Pulse</h2>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.4fr 1fr",
-                  gap: "12px",
-                  alignItems: "start",
-                }}
-              >
-                <div>
-                  <table className="mini-table">
-                    <thead>
-                      <tr>
-                        <th>Department</th>
-                        <th>Open</th>
-                        <th>Overdue</th>
-                        <th>Unclaimed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(fetchedPulse ? fetchedPulse.depts : pulse.deptRows).map(
-                        (rowOrObj, index) => {
-                          if (
-                            typeof rowOrObj === "object" &&
-                            "department" in rowOrObj
-                          ) {
-                            const dept = rowOrObj as DeptPulse;
-                            return (
-                              <tr key={index}>
-                                <td>{dept.department}</td>
-                                <td>{dept.open}</td>
-                                <td>{dept.overdue}</td>
-                                <td>{dept.unclaimed}</td>
-                              </tr>
-                            );
-                          } else {
-                            const row = rowOrObj as [
-                              string,
-                              number,
-                              number,
-                              number,
-                              number
-                            ];
-                            return (
-                              <tr key={index}>
-                                <td>{row[0]}</td>
-                                <td>{row[1]}</td>
-                                <td>{row[2]}</td>
-                                <td>{row[4]}</td>
-                              </tr>
-                            );
+              <h2>
+                📊 Office Pulse
+                <button
+                  className="btn light"
+                  onClick={() => setIsOfficePulseCollapsed(!isOfficePulseCollapsed)}
+                  style={{
+                    fontSize: '12px',
+                    padding: '4px 8px',
+                    minHeight: 'auto'
+                  }}
+                >
+                  {isOfficePulseCollapsed ? '▼ Expand' : '▲ Collapse'}
+                </button>
+              </h2>
+              {!isOfficePulseCollapsed && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.4fr 1fr",
+                    gap: "12px",
+                    alignItems: "start",
+                  }}
+                >
+                  <div>
+                    <table className="mini-table">
+                      <thead>
+                        <tr>
+                          <th>Department</th>
+                          <th>Open</th>
+                          <th>Overdue</th>
+                          <th>Unclaimed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(fetchedPulse ? fetchedPulse.depts : pulse.deptRows).map(
+                          (rowOrObj, index) => {
+                            if (
+                              typeof rowOrObj === "object" &&
+                              "department" in rowOrObj
+                            ) {
+                              const dept = rowOrObj as DeptPulse;
+                              return (
+                                <tr key={index}>
+                                  <td>{dept.department}</td>
+                                  <td>{dept.open}</td>
+                                  <td>{dept.overdue}</td>
+                                  <td>{dept.unclaimed}</td>
+                                </tr>
+                              );
+                            } else {
+                              const row = rowOrObj as [
+                                string,
+                                number,
+                                number,
+                                number,
+                                number
+                              ];
+                              return (
+                                <tr key={index}>
+                                  <td>{row[0]}</td>
+                                  <td>{row[1]}</td>
+                                  <td>{row[2]}</td>
+                                  <td>{row[4]}</td>
+                                </tr>
+                              );
+                            }
                           }
-                        }
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="kpi">
-                  {(fetchedPulse ? fetchedPulse.labels : pulse.labels).map(
-                    (label, index) => (
-                      <div key={index} className="tile">
-                        <h4>{label}</h4>
-                        <div className="val">
-                          {fetchedPulse
-                            ? fetchedPulse.vals[index]
-                            : pulse.vals[index]}
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="kpi relative">
+                    <button
+                      onClick={fetchWorkflowStats}
+                      className="btn light absolute top-0 right-0"
+                      style={{
+                        fontSize: '12px',
+                        padding: '4px 8px',
+                        minHeight: 'auto'
+                      }}
+                    >
+                      🔄 Refresh
+                    </button>
+                    {workflowStats ? (
+                      workflowStats.labels.map((label, index) => (
+                        <div key={index} className="text-gray-700">
+                          <h4>{label}</h4>
+                          <div className="val">
+                            {workflowStats.vals[index]}
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="tile">
+                        <h4>Loading...</h4>
+                        <div className="val">—</div>
                       </div>
-                    )
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Task & Workflow Tracker */}
             <div className="card">
-              <h2>🧩 Task & Workflow Tracker</h2>
+              <h2>
+                🧩 Task & Workflow Tracker
+                <button
+                  className="btn light"
+                  onClick={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
+                  style={{
+                    fontSize: '12px',
+                    padding: '4px 8px',
+                    minHeight: 'auto'
+                  }}
+                >
+                  {isFiltersCollapsed ? '▼ Show Filters' : '▲ Hide Filters'}
+                </button>
+              </h2>
               <div className="muted" style={{ marginBottom: "8px" }}>
                 Tabs keep this compact. Use Overdue to triage. Search filters by
                 task/patient. Quick Notes allow multiple timestamped entries per
@@ -1005,90 +1116,91 @@ export default function Dashboard() {
                   {filteredTabs.map((tab) => (
                     <button
                       key={tab.pane}
-                      className={`filter ttab ${
-                        currentPane === tab.pane ? "active" : ""
-                      }`}
+                      className={`filter ttab ${currentPane === tab.pane ? "active" : ""
+                        }`}
                       onClick={() => setCurrentPane(tab.pane)}
                     >
                       {tab.text}
                     </button>
                   ))}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "8px",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <input
-                    placeholder="Search tasks/patients…"
-                    value={filters.search}
-                    onChange={(e) =>
-                      setFilters((p) => ({ ...p, search: e.target.value }))
-                    }
+                {!isFiltersCollapsed && (
+                  <div
                     style={{
-                      padding: "6px 10px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "999px",
-                      fontSize: "12px",
-                      minWidth: "220px",
-                    }}
-                  />
-                  <button
-                    className="filter"
-                    onClick={() =>
-                      setFilters((p) => ({ ...p, overdueOnly: !p.overdueOnly }))
-                    }
-                  >
-                    {filters.overdueOnly
-                      ? "Showing Overdue"
-                      : "Show Overdue Only"}
-                  </button>
-                  <span className="muted">Dept:</span>
-                  <select
-                    value={filters.dept}
-                    onChange={(e) =>
-                      setFilters((p) => ({ ...p, dept: e.target.value }))
-                    }
-                    style={{
-                      padding: "6px 8px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "999px",
-                      fontSize: "12px",
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
                     }}
                   >
-                    <option value="">All</option>
-                    {departments.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="filter"
-                    aria-pressed={filters.myDeptOnly ? "true" : "false"}
-                    onClick={() =>
-                      setFilters((p) => ({ ...p, myDeptOnly: !p.myDeptOnly }))
-                    }
-                  >
-                    {filters.myDeptOnly ? "Only My Dept ✓" : "Only My Dept"}
-                  </button>
-                  <button
-                    className="filter"
-                    onClick={() =>
-                      setFilters({
-                        search: "",
-                        overdueOnly: false,
-                        myDeptOnly: false,
-                        dept: "",
-                      })
-                    }
-                  >
-                    Clear
-                  </button>
-                </div>
+                    <input
+                      placeholder="Search tasks/patients…"
+                      value={filters.search}
+                      onChange={(e) =>
+                        setFilters((p) => ({ ...p, search: e.target.value }))
+                      }
+                      style={{
+                        padding: "6px 10px",
+                        border: "1px solid var(--border)",
+                        borderRadius: "999px",
+                        fontSize: "12px",
+                        minWidth: "220px",
+                      }}
+                    />
+                    <button
+                      className="filter"
+                      onClick={() =>
+                        setFilters((p) => ({ ...p, overdueOnly: !p.overdueOnly }))
+                      }
+                    >
+                      {filters.overdueOnly
+                        ? "Showing Overdue"
+                        : "Show Overdue Only"}
+                    </button>
+                    <span className="muted">Dept:</span>
+                    <select
+                      value={filters.dept}
+                      onChange={(e) =>
+                        setFilters((p) => ({ ...p, dept: e.target.value }))
+                      }
+                      style={{
+                        padding: "6px 8px",
+                        border: "1px solid var(--border)",
+                        borderRadius: "999px",
+                        fontSize: "12px",
+                      }}
+                    >
+                      <option value="">All</option>
+                      {departments.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="filter"
+                      aria-pressed={filters.myDeptOnly ? "true" : "false"}
+                      onClick={() =>
+                        setFilters((p) => ({ ...p, myDeptOnly: !p.myDeptOnly }))
+                      }
+                    >
+                      {filters.myDeptOnly ? "Only My Dept ✓" : "Only My Dept"}
+                    </button>
+                    <button
+                      className="filter"
+                      onClick={() =>
+                        setFilters({
+                          search: "",
+                          overdueOnly: false,
+                          myDeptOnly: false,
+                          dept: "",
+                        })
+                      }
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
               </div>
               <TaskTable
                 currentPane={currentPane}

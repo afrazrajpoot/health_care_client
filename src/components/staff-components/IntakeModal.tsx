@@ -1,7 +1,7 @@
 // app/dashboard/components/IntakeModal.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface ModalField {
   id: string;
@@ -96,6 +96,29 @@ const modalFields: ModalField[] = [
   },
 ];
 
+interface Patient {
+  id?: string;
+  patientName: string;
+  name?: string;
+  dob: string;
+  claimNumber: string;
+}
+
+interface RecommendationsResponse {
+  success: boolean;
+  data: {
+    patientNames?: string[];
+    allMatchingDocuments?: Array<{
+      id: string;
+      patientName: string;
+      claimNumber: string | null;
+      dob: Date | string | null;
+      doi: Date | string | null;
+    }>;
+    totalCount?: number;
+  };
+}
+
 interface IntakeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -109,10 +132,129 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
   });
   const [outputLink, setOutputLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const patientInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   const handleChange = (id: string, value: string) => {
     setFormData((prev) => ({ ...prev, [id]: value }));
+
+    // Trigger patient search when typing in patient name field
+    if (id === "lkPatient") {
+      debouncedFetchPatients(value);
+    }
   };
+
+  // Debounce function to avoid too many API calls
+  const debounce = <T extends (...args: never[]) => void>(
+    func: T,
+    delay: number
+  ) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  // Fetch patient recommendations from API
+  const fetchPatientRecommendations = async (query: string) => {
+    if (!query.trim()) {
+      setPatientSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      setIsLoadingSuggestions(true);
+      const response = await fetch(
+        `/api/dashboard/recommendation?patientName=${encodeURIComponent(query)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch patient recommendations");
+      }
+
+      const data: RecommendationsResponse = await response.json();
+
+      if (data.success && data.data.allMatchingDocuments) {
+        const patients: Patient[] = data.data.allMatchingDocuments.map((doc) => ({
+          id: doc.id,
+          patientName: doc.patientName,
+          dob: formatDateForInput(doc.dob),
+          claimNumber: doc.claimNumber || "Not specified",
+        }));
+        setPatientSuggestions(patients);
+        setShowSuggestions(true);
+      } else {
+        setPatientSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (err: unknown) {
+      console.error("Error fetching patient recommendations:", err);
+      setPatientSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  // Helper function to format date for input field (YYYY-MM-DD)
+  const formatDateForInput = (date: Date | string | null | undefined): string => {
+    if (!date) return "";
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  };
+
+  // Debounced version of fetchPatientRecommendations
+  const debouncedFetchPatients = useCallback(
+    debounce((query: string) => {
+      fetchPatientRecommendations(query);
+    }, 300),
+    []
+  );
+
+  // Handle patient selection from suggestions
+  const handlePatientSelect = (patient: Patient) => {
+    setFormData((prev) => ({
+      ...prev,
+      lkPatient: patient.patientName,
+      lkDob: patient.dob,
+    }));
+    setShowSuggestions(false);
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        patientInputRef.current &&
+        !patientInputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Reset suggestions and copy status when modal is opened/closed
+  useEffect(() => {
+    if (!isOpen) {
+      setPatientSuggestions([]);
+      setShowSuggestions(false);
+      setCopyStatus("idle");
+    }
+  }, [isOpen]);
 
   const generateLink = async () => {
     console.log("Generating link...");
@@ -148,9 +290,29 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
         token
       )}`;
       setOutputLink(link);
-      navigator.clipboard.writeText(link).then(() => {
-        // toast here if needed
-      });
+      setCopyStatus("idle"); // Reset copy status when new link is generated
+
+      // Auto-copy the link when generated
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(link);
+          setCopyStatus("copied");
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement("textarea");
+          textArea.value = link;
+          textArea.style.position = "absolute";
+          textArea.style.left = "-999999px";
+          document.body.prepend(textArea);
+          textArea.select();
+          document.execCommand("copy");
+          textArea.remove();
+          setCopyStatus("copied");
+        }
+        setTimeout(() => setCopyStatus("idle"), 2000);
+      } catch (clipboardError) {
+        console.log("Auto-copy failed, user can copy manually:", clipboardError);
+      }
     } catch (error) {
       console.error("Token generation error:", error);
       // toast error if needed
@@ -159,12 +321,34 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
     }
   };
 
-  const copyLink = () => {
+  const copyLink = async () => {
     const link = outputLink || ""; // Fallback to empty if no link
-    if (link) {
-      navigator.clipboard.writeText(link).then(() => {
-        // toast
-      });
+    if (!link) return;
+
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(link);
+        setCopyStatus("copied");
+      } else {
+        // Fallback for older browsers or non-HTTPS
+        const textArea = document.createElement("textarea");
+        textArea.value = link;
+        textArea.style.position = "absolute";
+        textArea.style.left = "-999999px";
+        document.body.prepend(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+        setCopyStatus("copied");
+      }
+
+      // Reset copy status after 2 seconds
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (error) {
+      console.error("Failed to copy link:", error);
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
     }
   };
 
@@ -243,23 +427,104 @@ Thank you.`);
             <label
               key={field.id}
               className="muted"
-              style={field.fullWidth ? { gridColumn: "1 / -1" } : {}}
+              style={{
+                ...(field.fullWidth ? { gridColumn: "1 / -1" } : {}),
+                ...(field.id === "lkPatient" ? { position: "relative" } : {}),
+              }}
             >
               {field.label}
               {field.type === "input" ? (
-                <input
-                  id={field.id}
-                  type={field.id === "lkDob" ? "date" : "text"}
-                  value={formData[field.id]}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  placeholder={field.placeholder}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                  }}
-                />
+                <>
+                  <input
+                    ref={field.id === "lkPatient" ? patientInputRef : undefined}
+                    id={field.id}
+                    type={field.id === "lkDob" ? "date" : "text"}
+                    value={formData[field.id]}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    onFocus={() => {
+                      if (field.id === "lkPatient" && formData[field.id] && patientSuggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    placeholder={field.placeholder}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  {/* Patient suggestions dropdown */}
+                  {field.id === "lkPatient" && showSuggestions && (
+                    <div
+                      ref={suggestionsRef}
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: "0",
+                        right: "0",
+                        background: "#fff",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                        zIndex: "1000",
+                        marginTop: "4px",
+                      }}
+                    >
+                      {isLoadingSuggestions ? (
+                        <div
+                          style={{
+                            padding: "12px",
+                            textAlign: "center",
+                            color: "#666",
+                            fontSize: "14px",
+                          }}
+                        >
+                          Loading...
+                        </div>
+                      ) : patientSuggestions.length > 0 ? (
+                        patientSuggestions.map((patient, index) => (
+                          <div
+                            key={patient.id || index}
+                            onClick={() => handlePatientSelect(patient)}
+                            style={{
+                              padding: "12px",
+                              cursor: "pointer",
+                              borderBottom: index < patientSuggestions.length - 1 ? "1px solid #eee" : "none",
+                              fontSize: "14px",
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.target as HTMLElement).style.backgroundColor = "#f5f5f5";
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.target as HTMLElement).style.backgroundColor = "transparent";
+                            }}
+                          >
+                            <div style={{ fontWeight: "500", marginBottom: "4px" }}>
+                              {patient.patientName}
+                            </div>
+                            <div style={{ color: "#666", fontSize: "12px" }}>
+                              DOB: {patient.dob || "Not specified"} | Claim: {patient.claimNumber}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div
+                          style={{
+                            padding: "12px",
+                            textAlign: "center",
+                            color: "#666",
+                            fontSize: "14px",
+                          }}
+                        >
+                          No patients found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <select
                   id={field.id}
@@ -296,7 +561,7 @@ Thank you.`);
             onClick={generateLink}
             disabled={isGenerating || !formData.lkPatient || !formData.lkDob}
           >
-            {isGenerating ? "Generating..." : "Generate Link1"}
+            {isGenerating ? "Generating..." : "Generate Link"}
           </button>
           <input
             id="lkOutput"
@@ -314,22 +579,13 @@ Thank you.`);
             className="btn light"
             onClick={copyLink}
             disabled={!outputLink}
+            style={{
+              backgroundColor: copyStatus === "copied" ? "#22c55e" : copyStatus === "error" ? "#ef4444" : "",
+              color: copyStatus === "copied" || copyStatus === "error" ? "white" : "",
+              transition: "all 0.2s ease",
+            }}
           >
-            Copy
-          </button>
-          <button
-            className="btn light"
-            onClick={emailLink}
-            disabled={!outputLink}
-          >
-            Email
-          </button>
-          <button
-            className="btn light"
-            onClick={previewLink}
-            disabled={!outputLink}
-          >
-            Preview
+            {copyStatus === "copied" ? "Copied!" : copyStatus === "error" ? "Error" : "Copy"}
           </button>
         </div>
         <div className="muted" style={{ marginTop: "6px" }}>
