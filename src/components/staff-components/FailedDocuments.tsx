@@ -11,12 +11,17 @@ import {
 
 interface FailedDocument {
   id: string;
-  patientName: string;
-  claimNumber: string;
-  fileName: string;
-  createdAt: string;
-  dob?: string;
+  reasson: string;
+  db?: string;
   doi?: string;
+  claimNumber?: string;
+  patientName?: string;
+  documentText?: string;
+  physicianId?: string;
+  gcsFileLink?: string;
+  fileName: string;
+  fileHash?: string;
+  blobPath?: string;
 }
 
 interface FailedDocumentsProps {
@@ -28,6 +33,14 @@ export default function FailedDocuments({
   documents,
   onRowClick,
 }: FailedDocumentsProps) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       {/* Header */}
@@ -87,12 +100,24 @@ export default function FailedDocuments({
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      DOI
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     File Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
-                      Created At
+                      DOB
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Reason
                     </div>
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -134,6 +159,9 @@ export default function FailedDocuments({
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-4 text-sm text-gray-600">
+                      {doc.doi ? formatDate(doc.doi) : "—"}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2 max-w-xs">
                         <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -146,13 +174,18 @@ export default function FailedDocuments({
                       </div>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-600">
-                      {doc.createdAt
-                        ? new Date(doc.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
+                      {doc.db && doc.db !== "Not specified" ? (
+                        formatDate(doc.db)
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Not specified
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-red-600 font-medium">
+                        {doc.reasson}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-center">
                       <button
