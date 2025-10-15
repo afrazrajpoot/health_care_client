@@ -133,24 +133,132 @@ const CheckIcon = () => (
   </svg>
 );
 
-// Summary Snapshot Component
-const SummarySnapshotSection = ({
+
+
+// What's New Component
+const WhatsNewSection = ({
   documentData,
   copied,
   onCopySection,
+  isCollapsed,
+  onToggle,
+}: {
+  documentData: DocumentData | null;
+  copied: { [key: string]: boolean };
+  onCopySection: (sectionId: string) => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) => {
+  // Get summary of what's new for collapsed view
+  const getWhatsNewSummary = () => {
+    if (!documentData?.whats_new) return "No significant changes";
+    const entries = Object.entries(documentData.whats_new).filter(([_, value]) =>
+      value && value.trim() !== "" && value.trim() !== " "
+    );
+    if (entries.length === 0) return "No significant changes";
+    return entries.map(([key]) => key.toUpperCase().replace(/_/g, " ")).join(", ");
+  };
+
+  return (
+    <section
+      className="p-5 bg-amber-50 border-b border-blue-200"
+      aria-labelledby="whatsnew-title"
+    >
+      <h3
+        className="flex gap-2 items-center justify-between mb-3 text-base font-semibold cursor-pointer"
+        id="whatsnew-title"
+        onClick={onToggle}
+      >
+        <span className="flex gap-2 items-center">
+          ⚡ What's New Since Last Visit
+          {isCollapsed && (
+            <span className="text-sm font-normal text-gray-600">
+              ({getWhatsNewSummary()})
+            </span>
+          )}
+        </span>
+        <span className="text-sm">
+          {isCollapsed ? "▼" : "▲"}
+        </span>
+      </h3>
+      {!isCollapsed && (
+        <>
+          <ul className="m-0 p-0 grid gap-2 list-none" role="list">
+            {documentData?.whats_new &&
+              Object.entries(documentData.whats_new).map(([key, value]) => {
+                if (!value || value.trim() === "" || value.trim() === " ") {
+                  return null;
+                }
+                const label = key.toUpperCase().replace(/_/g, " ");
+                return (
+                  <li
+                    key={key}
+                    className="flex gap-2 items-start p-3 border border-dashed border-amber-300 bg-white rounded-lg"
+                  >
+                    <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-400 text-xs font-bold whitespace-nowrap flex-shrink-0">
+                      {label}
+                    </span>
+                    <div className="flex-1 min-w-0">{value}</div>
+                  </li>
+                );
+              })}
+            {(!documentData?.whats_new ||
+              Object.values(documentData.whats_new || {}).every(
+                (val) => !val || val.trim() === "" || val.trim() === " "
+              )) && (
+                <li className="p-3 text-gray-500 text-center">
+                  No significant changes since last visit
+                </li>
+              )}
+          </ul>
+          <div className="flex justify-end mt-4">
+            <button
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${copied["section-whatsnew"]
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-amber-200 bg-white text-gray-900"
+                }`}
+              onClick={() => onCopySection("section-whatsnew")}
+              title="Copy Section"
+            >
+              {copied["section-whatsnew"] ? <CheckIcon /> : <CopyIcon />}
+              Copy Section
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+};
+
+// Treatment History Snapshot Component (Using Summary Snapshot Data)
+const TreatmentHistorySection = ({
+  documentData,
+  copied,
+  onCopySection,
+  isCollapsed,
+  onToggle,
 }: {
   documentData: DocumentData | null;
   copied: { [key: string]: boolean };
   onCopySection: (sectionId: string, index?: number) => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }) => {
   const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
+  const [expandedSnapshots, setExpandedSnapshots] = useState<{ [key: number]: boolean }>({});
+
   const snapshots = documentData?.summary_snapshots || [];
 
   useEffect(() => {
     setCurrentSnapshotIndex(0); // Reset to latest on data change
   }, [documentData]);
 
-  const currentSnapshot = snapshots[currentSnapshotIndex];
+  const toggleSnapshot = (index: number) => {
+    setExpandedSnapshots(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   const handlePreviousSnapshot = () => {
     if (currentSnapshotIndex < snapshots.length - 1) {
@@ -162,143 +270,111 @@ const SummarySnapshotSection = ({
     setCurrentSnapshotIndex(0);
   };
 
-  const formatSnapshotText = () => {
-    if (!currentSnapshot) return "Not specified";
-    return `Dx: ${currentSnapshot.dx || "Not specified"}\nKey Concern: ${currentSnapshot.keyConcern || "Not specified"
-      }\nNext Step: ${currentSnapshot.nextStep || "Not specified"}`;
+  const getTreatmentSummary = () => {
+    if (snapshots.length === 0) return "No snapshots available";
+    const diagnoses = snapshots.map(snapshot => snapshot.dx).filter(dx => dx && dx.trim() !== "");
+    return diagnoses.length > 0 ? diagnoses.join(", ") : "No diagnoses specified";
   };
 
-  const sectionId = `section-snapshot-${currentSnapshotIndex}`;
-
   return (
     <section
-      className="p-5 bg-blue-100 border-b border-blue-200"
-      aria-labelledby="snapshot-title"
+      className="p-5 bg-blue-50 border-b border-blue-200"
+      aria-labelledby="treatment-title"
     >
       <h3
-        className="flex gap-2 items-center mb-3 text-base font-semibold"
-        id="snapshot-title"
+        className="flex gap-2 items-center justify-between mb-3 text-base font-semibold cursor-pointer"
+        id="treatment-title"
+        onClick={onToggle}
       >
-        📌 Summary (Snapshot)
-        {snapshots.length > 1 && (
-          <span className="text-xs bg-blue-200 text-blue-800 px-1 py-0.5 rounded">
-            {currentSnapshotIndex + 1} of {snapshots.length}
-          </span>
-        )}
-      </h3>
-      <div className="grid grid-cols-[170px_1fr] gap-x-4 gap-y-2 items-center mb-4">
-        <b>Dx</b>
-        <div>{currentSnapshot?.dx || "Not specified"}</div>
-
-        <b>Key Concern</b>
-        <div>{currentSnapshot?.keyConcern || "Not specified"}</div>
-
-        <b>Next Step</b>
-        <div>{currentSnapshot?.nextStep || "Not specified"}</div>
-      </div>
-      {snapshots.length > 1 && (
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={handleLatestSnapshot}
-            className={`px-3 py-1 text-sm rounded bg-blue-200 text-blue-800 hover:bg-blue-300 ${currentSnapshotIndex === 0 ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            disabled={currentSnapshotIndex === 0}
-          >
-            Latest
-          </button>
-          <button
-            onClick={handlePreviousSnapshot}
-            className={`px-3 py-1 text-sm rounded bg-blue-200 text-blue-800 hover:bg-blue-300 ${currentSnapshotIndex === snapshots.length - 1
-              ? "opacity-50 cursor-not-allowed"
-              : ""
-              }`}
-            disabled={currentSnapshotIndex === snapshots.length - 1}
-          >
-            Previous
-          </button>
-        </div>
-      )}
-      <div className="flex justify-end">
-        <button
-          className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${copied[sectionId]
-            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-            : "border-blue-200 bg-white text-gray-900"
-            }`}
-          onClick={() =>
-            onCopySection("section-snapshot", currentSnapshotIndex)
-          }
-          title="Copy Section"
-        >
-          {copied[sectionId] ? <CheckIcon /> : <CopyIcon />}
-          Copy Section
-        </button>
-      </div>
-    </section>
-  );
-};
-
-// What's New Component
-const WhatsNewSection = ({
-  documentData,
-  copied,
-  onCopySection,
-}: {
-  documentData: DocumentData | null;
-  copied: { [key: string]: boolean };
-  onCopySection: (sectionId: string) => void;
-}) => {
-  return (
-    <section
-      className="p-5 bg-amber-50 border-b border-blue-200"
-      aria-labelledby="whatsnew-title"
-    >
-      <h3
-        className="flex gap-2 items-center mb-3 text-base font-semibold"
-        id="whatsnew-title"
-      >
-        ⚡ What's New Since Last Visit
-      </h3>
-      <ul className="m-0 p-0 grid gap-2 list-none" role="list">
-        {documentData?.whats_new &&
-          Object.entries(documentData.whats_new).map(([key, value]) => {
-            if (!value || value.trim() === "" || value.trim() === " ") {
-              return null;
-            }
-            const label = key.toUpperCase().replace(/_/g, " ");
-            return (
-              <li
-                key={key}
-                className="flex gap-2 items-start p-3 border border-dashed border-amber-300 bg-white rounded-lg"
-              >
-                <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-400 text-xs font-bold whitespace-nowrap flex-shrink-0">
-                  {label}
-                </span>
-                <div className="flex-1 min-w-0">{value}</div>
-              </li>
-            );
-          })}
-        {(!documentData?.whats_new ||
-          Object.values(documentData.whats_new || {}).every(
-            (val) => !val || val.trim() === "" || val.trim() === " "
-          )) && (
-            <li className="p-3 text-gray-500 text-center">
-              No significant changes since last visit
-            </li>
+        <span className="flex gap-2 items-center">
+          📌 Treatment History Snapshot
+          {isCollapsed && (
+            <span className="text-sm font-normal text-gray-600">
+              ({getTreatmentSummary()})
+            </span>
           )}
-      </ul>
-      <div className="flex justify-end mt-4">
-        <button
-          className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${copied["section-whatsnew"]
-            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-            : "border-amber-200 bg-white text-gray-900"
-            }`}
-          onClick={() => onCopySection("section-whatsnew")}
-          title="Copy Section"
-        >
-          {copied["section-whatsnew"] ? <CheckIcon /> : <CopyIcon />}
-          Copy Section
-        </button>
-      </div>
+        </span>
+        <span className="text-sm">
+          {isCollapsed ? "▼" : "▲"}
+        </span>
+      </h3>
+      {!isCollapsed && (
+        <>
+          {snapshots.length > 1 && (
+            <div className="flex gap-2 mb-4">
+              <button
+                className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 text-sm disabled:opacity-50"
+                onClick={handleLatestSnapshot}
+                disabled={currentSnapshotIndex === 0}
+              >
+                Latest
+              </button>
+              <button
+                className="bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 text-sm disabled:opacity-50"
+                onClick={handlePreviousSnapshot}
+                disabled={currentSnapshotIndex >= snapshots.length - 1}
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600 self-center">
+                {currentSnapshotIndex + 1} of {snapshots.length}
+              </span>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {snapshots.map((snapshot, index) => (
+              <div key={snapshot.id || index} className="border border-blue-200 bg-white rounded-lg overflow-hidden">
+                <div
+                  className="p-3 bg-gray-100 cursor-pointer flex justify-between items-center"
+                  onClick={() => toggleSnapshot(index)}
+                >
+                  <span className="font-semibold text-gray-700">📍 {snapshot.dx || `Diagnosis ${index + 1}`}</span>
+                  <span className="text-sm">
+                    {expandedSnapshots[index] ? "▲" : "▼"}
+                  </span>
+                </div>
+                {expandedSnapshots[index] && (
+                  <div className="p-4 space-y-2">
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <span className="text-sm font-semibold text-gray-600">Dx:</span>
+                      <span className="text-sm">{snapshot.dx || "Not specified"}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <span className="text-sm font-semibold text-gray-600">Key Concern:</span>
+                      <span className="text-sm">{snapshot.keyConcern || "Not specified"}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <span className="text-sm font-semibold text-gray-600">Next Step:</span>
+                      <span className="text-sm">{snapshot.nextStep || "Not specified"}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {snapshots.length === 0 && (
+            <div className="text-center text-gray-500 py-4">
+              No treatment history snapshots available
+            </div>
+          )}
+
+          <div className="flex justify-end mt-4">
+            <button
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${copied[`section-treatment-${currentSnapshotIndex}`]
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-blue-200 bg-white text-gray-900"
+                }`}
+              onClick={() => onCopySection("section-treatment", currentSnapshotIndex)}
+              title="Copy Section"
+            >
+              {copied[`section-treatment-${currentSnapshotIndex}`] ? <CheckIcon /> : <CopyIcon />}
+              Copy Section
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 };
@@ -308,10 +384,14 @@ const ADLSection = ({
   documentData,
   copied,
   onCopySection,
+  isCollapsed,
+  onToggle,
 }: {
   documentData: DocumentData | null;
   copied: { [key: string]: boolean };
   onCopySection: (sectionId: string) => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }) => {
   return (
     <section
@@ -319,42 +399,57 @@ const ADLSection = ({
       aria-labelledby="adl-title"
     >
       <h3
-        className="flex gap-2 items-center mb-3 text-base font-semibold"
+        className="flex gap-2 items-center justify-between mb-3 text-base font-semibold cursor-pointer"
         id="adl-title"
+        onClick={onToggle}
       >
-        🧩 ADL / Work Status
+        <span className="flex gap-2 items-center">
+          🧩 ADL & Work Status
+          {isCollapsed && (
+            <span className="text-sm font-normal text-gray-600">
+              ({documentData?.adl?.adls_affected ? 'Restrictions' : 'No restrictions'})
+            </span>
+          )}
+        </span>
+        <span className="text-sm">
+          {isCollapsed ? "▼" : "▲"}
+        </span>
       </h3>
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="border border-green-200 bg-white rounded-lg p-3">
-          <h4 className="m-0 mb-2 text-sm text-green-800 font-semibold">
-            ADLs Affected
-          </h4>
-          <div className="whitespace-pre-wrap">
-            {documentData?.adl?.adls_affected || "Not specified"}
+      {!isCollapsed && (
+        <>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="border border-green-200 bg-white rounded-lg p-3">
+              <h4 className="m-0 mb-2 text-sm text-green-800 font-semibold">
+                ADLs Affected
+              </h4>
+              <div className="whitespace-pre-wrap">
+                {documentData?.adl?.adls_affected || "Not specified"}
+              </div>
+            </div>
+            <div className="border border-green-200 bg-white rounded-lg p-3">
+              <h4 className="m-0 mb-2 text-sm text-green-800 font-semibold">
+                Work Restrictions
+              </h4>
+              <div className="whitespace-pre-wrap">
+                {documentData?.adl?.work_restrictions || "Not specified"}
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="border border-green-200 bg-white rounded-lg p-3">
-          <h4 className="m-0 mb-2 text-sm text-green-800 font-semibold">
-            Work Restrictions
-          </h4>
-          <div className="whitespace-pre-wrap">
-            {documentData?.adl?.work_restrictions || "Not specified"}
+          <div className="flex justify-end">
+            <button
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${copied["section-adl"]
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-green-200 bg-white text-gray-900"
+                }`}
+              onClick={() => onCopySection("section-adl")}
+              title="Copy Section"
+            >
+              {copied["section-adl"] ? <CheckIcon /> : <CopyIcon />}
+              Copy Section
+            </button>
           </div>
-        </div>
-      </div>
-      <div className="flex justify-end">
-        <button
-          className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${copied["section-adl"]
-            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-            : "border-green-200 bg-white text-gray-900"
-            }`}
-          onClick={() => onCopySection("section-adl")}
-          title="Copy Section"
-        >
-          {copied["section-adl"] ? <CheckIcon /> : <CopyIcon />}
-          Copy Section
-        </button>
-      </div>
+        </>
+      )}
     </section>
   );
 };
@@ -543,12 +638,16 @@ const DocumentSummarySection = ({
   handleShowPrevious,
   copied,
   onCopySection,
+  isCollapsed,
+  onToggle,
 }: {
   documentData: DocumentData | null;
   openModal: (briefSummary: string) => void;
   handleShowPrevious: (type: string) => void;
   copied: { [key: string]: boolean };
   onCopySection: (sectionId: string) => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }) => {
   const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
   const accordionBodyRef = useRef<HTMLDivElement>(null);
@@ -624,6 +723,23 @@ const DocumentSummarySection = ({
     }
   };
 
+  const handleToggleAccordion = () => {
+    onToggle();
+    setIsAccordionOpen(!isAccordionOpen);
+  };
+
+  // Update isAccordionOpen based on isCollapsed prop
+  useEffect(() => {
+    setIsAccordionOpen(!isCollapsed);
+  }, [isCollapsed]);
+
+  const getDocumentSummary = () => {
+    const summaries = documentData?.document_summaries || [];
+    if (summaries.length === 0) return "No documents";
+    const types = [...new Set(summaries.map((s: any) => s.type))];
+    return `${summaries.length} documents (${types.join(', ')})`;
+  };
+
   return (
     <section className="p-5 bg-gray-100" aria-labelledby="doc-title">
       <div
@@ -632,10 +748,15 @@ const DocumentSummarySection = ({
         aria-expanded={isAccordionOpen}
         aria-controls="doc-body"
         id="doc-title"
-        onClick={toggleAccordion}
+        onClick={handleToggleAccordion}
       >
         <h3 className="flex gap-2 items-center m-0 text-base font-semibold">
           📄 Document Summary
+          {isCollapsed && (
+            <span className="text-sm font-normal text-gray-600">
+              ({getDocumentSummary()})
+            </span>
+          )}
           {documentData?.document_summaries &&
             documentData.document_summaries.length > 1 && (
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
@@ -770,6 +891,22 @@ export default function PhysicianCard() {
   >([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  // Collapsible section states
+  const [collapsedSections, setCollapsedSections] = useState<{ [key: string]: boolean }>({
+    whatsNew: false, // Start expanded to show initially
+    treatmentHistory: true, // Start collapsed
+    adlWorkStatus: true, // Start collapsed
+    documentSummary: true, // Start collapsed
+  });
+
+  // Toggle section collapse state
+  const toggleSection = (sectionKey: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
 
   const { data: session, status } = useSession();
   console.log("Session data:", session);
@@ -1438,31 +1575,39 @@ export default function PhysicianCard() {
                 </div>
               )}
 
-              {/* Render Sub-Components */}
-              <SummarySnapshotSection
-                documentData={documentData}
-                copied={copied}
-                onCopySection={handleSectionCopy}
-              />
+              {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
               <WhatsNewSection
                 documentData={documentData}
                 copied={copied}
                 onCopySection={handleSectionCopy}
+                isCollapsed={collapsedSections.whatsNew}
+                onToggle={() => toggleSection('whatsNew')}
+              />
+              <TreatmentHistorySection
+                documentData={documentData}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+                isCollapsed={collapsedSections.treatmentHistory}
+                onToggle={() => toggleSection('treatmentHistory')}
               />
               <ADLSection
                 documentData={documentData}
                 copied={copied}
                 onCopySection={handleSectionCopy}
-              />
-              <PatientQuizSection
-                documentData={documentData}
-                copied={copied}
-                onCopySection={handleSectionCopy}
+                isCollapsed={collapsedSections.adlWorkStatus}
+                onToggle={() => toggleSection('adlWorkStatus')}
               />
               <DocumentSummarySection
                 documentData={documentData}
                 openModal={openModal}
                 handleShowPrevious={handleShowPrevious}
+                copied={copied}
+                onCopySection={handleSectionCopy}
+                isCollapsed={collapsedSections.documentSummary}
+                onToggle={() => toggleSection('documentSummary')}
+              />
+              <PatientQuizSection
+                documentData={documentData}
                 copied={copied}
                 onCopySection={handleSectionCopy}
               />
