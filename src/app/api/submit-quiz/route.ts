@@ -1,7 +1,11 @@
-// app/api/submit-quiz/route.ts
+// app/api/submit-intake/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,16 +14,20 @@ export async function GET(request: NextRequest) {
     const dob = searchParams.get('dob');
     const doi = searchParams.get('doi');
 
-    if (!patientName || !dob || !doi) {
-      return NextResponse.json({ error: 'Patient Name, DOB, and DOI are required' }, { status: 400 });
+    if (!patientName) {
+      return NextResponse.json({ error: 'Patient Name is required' }, { status: 400 });
+    }
+
+    const whereClause: any = { patientName };
+    if (dob) {
+      whereClause.dob = dob;
+    }
+    if (doi) {
+      whereClause.doi = doi;
     }
 
     const submission = await prisma.patientQuiz.findFirst({
-      where: { 
-        patientName,
-        dob,
-        doi
-      },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -34,10 +42,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -45,19 +49,16 @@ export async function POST(request: NextRequest) {
       patientName,
       dob,
       doi,
-      lang,
-      newAppt,
-      appts,
-      pain,
-      workDiff,
-      trend,
-      workAbility,
-      barrier,
-      adl: inputAdl,
+      language,
+      bodyAreas,
+      newAppointments,
+      refill,
+      adl,
+      therapies,
     } = body;
 
-    if (!patientName || !dob || !doi) {
-      return NextResponse.json({ error: 'Patient Name, DOB, and DOI are required' }, { status: 400 });
+    if (!patientName || !language) {
+      return NextResponse.json({ error: 'Patient Name and Language are required' }, { status: 400 });
     }
 
     const submission = await prisma.patientQuiz.create({
@@ -65,15 +66,12 @@ export async function POST(request: NextRequest) {
         patientName,
         dob,
         doi,
-        lang,
-        newAppt,
-        appts,
-        pain,
-        workDiff,
-        trend,
-        workAbility,
-        barrier,
-        adl: inputAdl || [],
+        lang: language,
+        bodyAreas: bodyAreas || null,
+        newAppointments: newAppointments || null,
+        refill: refill || null,
+        adl: adl || { state: 'same', list: [] },
+        therapies: therapies || null,
       },
     });
 
@@ -92,24 +90,31 @@ export async function POST(request: NextRequest) {
     }
 
     const latestDocument = patientDocuments
-      .filter((doc:any) => doc.reportDate)
-      .sort((a:any, b:any) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())[0];
+      .filter((doc: any) => doc.reportDate)
+      .sort((a: any, b: any) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())[0];
 
     if (!latestDocument) {
       return NextResponse.json({ success: true, submission }, { status: 201 });
     }
 
+    // Prepare data for OpenAI prompt
+    const painLevel = refill ? `${refill.before || 'N/A'} -> ${refill.after || 'N/A'}` : 'N/A';
+    const symptomTrend = adl?.state || 'N/A';
+    const patientSelectedADLs = adl?.list || [];
+    const appointmentsAttended = newAppointments || [];
+    const therapyEffects = therapies || [];
+
     const prompt = `
-Based on the patient's form responses, determine which ADL activities are affected and what work restrictions apply.
+Based on the patient's intake form responses, determine which ADL activities are affected and what work restrictions apply.
 
 Patient Information:
-- Pain Level: ${pain || 'N/A'}
-- Work Difficulties: ${workDiff || 'N/A'}
-- Symptom Trend: ${trend || 'N/A'}
-- Work Ability: ${workAbility || 'N/A'}
-- Barriers to Recovery: ${barrier || 'N/A'}
-- Patient Selected ADLs: ${JSON.stringify(inputAdl || [])}
-- Appointments Attended: ${JSON.stringify(appts || [])}
+- Body Areas: ${bodyAreas || 'N/A'}
+- Language: ${language}
+- Pain Level (before -> after medication): ${painLevel}
+- Symptom Trend (from ADLs): ${symptomTrend}
+- Patient Selected ADLs: ${JSON.stringify(patientSelectedADLs)}
+- New Appointments: ${JSON.stringify(appointmentsAttended)}
+- Therapies and Effects: ${JSON.stringify(therapyEffects)}
 
 Task: Generate 2 lines based on the data above.
 
@@ -120,8 +125,9 @@ Rules:
 - Use ONLY short noun phrases separated by commas
 - NO complete sentences, NO words like "may", "patient", "restrictions in", "unable to"
 - Just list the activities/restrictions directly
-- If pain is high or work difficulties mentioned, include relevant restrictions
-- If patient selected specific ADLs, include those
+- Base affected ADLs on patient selected list and symptom trend (e.g., if "better", focus on improved ones; if "worse", emphasize impacts)
+- If pain is high (before > 5) or therapies show positive effects, adjust restrictions accordingly
+- Include body areas in restrictions if relevant (e.g., "neck strain" for neck issues)
 
 Example Output:
 bathing, dressing, prolonged walking
@@ -191,16 +197,20 @@ export async function PUT(request: NextRequest) {
     const dob = searchParams.get('dob');
     const doi = searchParams.get('doi');
 
-    if (!patientName || !dob || !doi) {
-      return NextResponse.json({ error: 'Patient Name, DOB, and DOI are required' }, { status: 400 });
+    if (!patientName) {
+      return NextResponse.json({ error: 'Patient Name is required' }, { status: 400 });
+    }
+
+    const whereClause: any = { patientName };
+    if (dob) {
+      whereClause.dob = dob;
+    }
+    if (doi) {
+      whereClause.doi = doi;
     }
 
     const existing = await prisma.patientQuiz.findFirst({
-      where: { 
-        patientName,
-        dob,
-        doi
-      },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -210,29 +220,23 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const {
-      lang,
-      newAppt,
-      appts,
-      pain,
-      workDiff,
-      trend,
-      workAbility,
-      barrier,
-      adl: inputAdl,
+      language,
+      bodyAreas,
+      newAppointments,
+      refill,
+      adl,
+      therapies,
     } = body;
 
     const submission = await prisma.patientQuiz.update({
       where: { id: existing.id },
       data: {
-        lang,
-        newAppt,
-        appts,
-        pain,
-        workDiff,
-        trend,
-        workAbility,
-        barrier,
-        adl: inputAdl || [],
+        lang: language || existing.lang,
+        bodyAreas: bodyAreas || existing.bodyAreas,
+        newAppointments: newAppointments || existing.newAppointments,
+        refill: refill || existing.refill,
+        adl: adl || existing.adl,
+        therapies: therapies || existing.therapies,
       },
     });
 
@@ -251,29 +255,35 @@ export async function PUT(request: NextRequest) {
     }
 
     const sortedDocuments = patientDocuments
-      .filter((doc:any) => doc.reportDate)
-      .sort((a:any, b:any) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+      .filter((doc: any) => doc.reportDate)
+      .sort((a: any, b: any) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
 
     if (sortedDocuments.length === 0) {
       return NextResponse.json({ success: true, submission }, { status: 200 });
     }
 
     const latestDocument = sortedDocuments[0];
-
     const previousAdl = sortedDocuments.length > 1 ? sortedDocuments[1].adl : null;
     const previousAdlText = previousAdl ? `Previous ADL: adlsAffected="${previousAdl.adlsAffected}", workRestrictions="${previousAdl.workRestrictions}"` : 'No previous ADL available';
 
+    // Prepare data for OpenAI prompt (same as POST but with previous)
+    const painLevel = refill ? `${refill.before || 'N/A'} -> ${refill.after || 'N/A'}` : 'N/A';
+    const symptomTrend = adl?.state || 'N/A';
+    const patientSelectedADLs = adl?.list || [];
+    const appointmentsAttended = newAppointments || [];
+    const therapyEffects = therapies || [];
+
     const prompt = `
-Based on the patient's current form responses and previous ADL data, determine updated ADL activities and work restrictions.
+Based on the patient's current intake form responses and previous ADL data, determine updated ADL activities and work restrictions.
 
 Current Patient Information:
-- Pain Level: ${pain || 'N/A'}
-- Work Difficulties: ${workDiff || 'N/A'}
-- Symptom Trend: ${trend || 'N/A'}
-- Work Ability: ${workAbility || 'N/A'}
-- Barriers to Recovery: ${barrier || 'N/A'}
-- Patient Selected ADLs: ${JSON.stringify(inputAdl || [])}
-- Appointments Attended: ${JSON.stringify(appts || [])}
+- Body Areas: ${bodyAreas || 'N/A'}
+- Language: ${language || existing.lang}
+- Pain Level (before -> after medication): ${painLevel}
+- Symptom Trend (from ADLs): ${symptomTrend}
+- Patient Selected ADLs: ${JSON.stringify(patientSelectedADLs)}
+- New Appointments: ${JSON.stringify(appointmentsAttended)}
+- Therapies and Effects: ${JSON.stringify(therapyEffects)}
 
 ${previousAdlText}
 
@@ -286,9 +296,9 @@ Rules:
 - Use ONLY short noun phrases separated by commas
 - NO complete sentences, NO words like "may", "patient", "restrictions in", "unable to"
 - Just list the activities/restrictions directly
-- If trend is "improving", consider reducing restrictions
-- If trend is "worsening", consider adding restrictions
-- If work difficulties mentioned, reflect those in restrictions
+- If trend is "better", consider reducing restrictions
+- If trend is "worse", consider adding restrictions
+- Base on therapies effects and pain changes
 
 Example Output:
 bathing, dressing, prolonged walking

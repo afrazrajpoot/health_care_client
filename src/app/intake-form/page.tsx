@@ -1,151 +1,153 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
-const IntakePage: React.FC = () => {
+const SPECIALISTS = [
+  "Orthopedics",
+  "Pain Management",
+  "Psychology",
+  "Neurosurgery",
+  "Physical Therapy",
+  "Chiropractic",
+  "Acupuncture",
+  "Neurology",
+  "Rheumatology",
+  "Diagnostics (MRI/CT/X-ray/Labs)",
+  "Other",
+];
+
+const ADLS = [
+  "Dressing",
+  "Bathing",
+  "Standing",
+  "Walking",
+  "Reaching",
+  "Lifting",
+  "Driving",
+  "Housework",
+  "Sleeping",
+  "Typing/Computer",
+];
+
+const RATINGS = ["Much Better", "Slightly Better", "No Change"];
+
+const TRANSLATIONS = {
+  en: {
+    title: "Patient Intake",
+    sub: "Please complete before your visit. 1–2 minutes.",
+    q1: "Any new appointments since your last visit?",
+    q1a: "Select specialist",
+    q1b: "Appointment date",
+    q2: "Do you need a medication refill?",
+    q2a: "Pain before medication (0–10)",
+    q2b: "Pain after medication (0–10)",
+    q3: "Since last visit, daily activities are:",
+    q3hint: "Select all that apply",
+    q4: "Therapies you are receiving (tap to rate effect)",
+    q5: "Review",
+    submitHint:
+      "After you submit, your care team will review this with your doctor.",
+    auth_title: "Patient Authentication",
+    auth_name: "Full Name",
+    auth_dob: "Date of Birth",
+    auth_submit: "Authenticate",
+    auth_error: "Invalid name or DOB. Please try again.",
+  },
+  es: {
+    title: "Ingreso del Paciente",
+    sub: "Complete antes de su cita. 1–2 minutos.",
+    q1: "¿Tuvo citas nuevas desde su última visita?",
+    q1a: "Seleccione especialista",
+    q1b: "Fecha de la cita",
+    q2: "¿Necesita renovar algún medicamento?",
+    q2a: "Dolor antes del medicamento (0–10)",
+    q2b: "Dolor después del medicamento (0–10)",
+    q3: "Desde la última visita, sus actividades diarias están:",
+    q3hint: "Seleccione todas las que correspondan",
+    q4: "Terapias que recibe (toque para calificar el efecto)",
+    q5: "Revisión",
+    submitHint: "Después de enviar, su equipo revisará esto con su médico.",
+    auth_title: "Autenticación del Paciente",
+    auth_name: "Nombre Completo",
+    auth_dob: "Fecha de Nacimiento",
+    auth_submit: "Autenticar",
+    auth_error: "Nombre o fecha de nacimiento inválidos. Intente de nuevo.",
+  },
+};
+
+interface Appointment {
+  type: string;
+  date: string;
+}
+
+interface TherapyRating {
+  therapy: string;
+  effect: string;
+}
+
+interface FormData {
+  newAppointments: Appointment[];
+  refill: {
+    needed: boolean;
+    before: string;
+    after: string;
+  };
+  adl: {
+    state: string;
+    list: string[];
+  };
+  therapies: TherapyRating[];
+}
+
+interface PatientData {
+  patientName: string;
+  dateOfBirth: string;
+  bodyParts: string;
+  language: string;
+  requireAuth: string;
+}
+
+export default function PatientIntake() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [patientName, setPatientName] = useState("Unknown");
-  const [dob, setDob] = useState("Unknown");
-  const [doi, setDoi] = useState("Unknown");
-  const [patientParts, setPatientParts] = useState<string[]>([]);
-
+  // Authentication state
   const [showAuth, setShowAuth] = useState(true);
   const [authName, setAuthName] = useState("");
   const [authDob, setAuthDob] = useState("");
   const [authError, setAuthError] = useState("");
-  const [expectedPatientData, setExpectedPatientData] = useState<any>(null);
-
-  const [language, setLanguage] = useState<"en" | "es">("en");
+  const [expectedPatientData, setExpectedPatientData] =
+    useState<PatientData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const i18n = {
-    en: {
-      title: "Kebilo — Check‑In",
-      language: "Language",
-      yes: "Yes",
-      no: "No",
-      s1_h: "Any new appointments since your last visit?",
-      s1_hint: "If yes, choose the specialist and date.",
-      s1_spec: "Specialist",
-      s1_date: "Date",
-      s2_h: "Do you need a refill?",
-      s2_hint: "If yes, pick the medicine and your pain before/after.",
-      med: "Medication",
-      pre: "Pain before (0–10)",
-      post: "Pain after (0–10)",
-      s3_h: "Daily activities since last visit?",
-      s3_hint: "Pick the change. If better/worse, choose which activities.",
-      better: "Better",
-      worse: "Worse",
-      same: "No change",
-      adl_list: "Activities affected",
-      multi_hint: "(Tap all that apply.)",
-      preview: "Preview",
-      clear: "Clear",
-      submit: "Submit",
-      auth_title: "Patient Authentication",
-      auth_name: "Full Name",
-      auth_dob: "Date of Birth",
-      auth_submit: "Authenticate",
-      auth_error: "Invalid name or DOB. Please try again.",
-    },
-    es: {
-      title: "Kebilo — Chequeo rápido",
-      language: "Idioma",
-      yes: "Sí",
-      no: "No",
-      s1_h: "¿Nuevas citas desde su última visita?",
-      s1_hint: "Si responde Sí, elija el especialista y la fecha.",
-      s1_spec: "Especialista",
-      s1_date: "Fecha",
-      s2_h: "¿Necesita reposición (refill)?",
-      s2_hint: "Si responde Sí, elija el medicamento y su dolor antes/después.",
-      med: "Medicamento",
-      pre: "Dolor antes (0–10)",
-      post: "Dolor después (0–10)",
-      s3_h: "¿Actividades diarias desde la última visita?",
-      s3_hint: "Elija el cambio. Si mejor/peor, seleccione cuáles actividades.",
-      better: "Mejor",
-      worse: "Peor",
-      same: "Sin cambios",
-      adl_list: "Actividades afectadas",
-      multi_hint: "(Toque todas las que apliquen.)",
-      preview: "Vista previa",
-      clear: "Limpiar",
-      submit: "Enviar",
-      auth_title: "Autenticación del Paciente",
-      auth_name: "Nombre Completo",
-      auth_dob: "Fecha de Nacimiento",
-      auth_submit: "Autenticar",
-      auth_error: "Nombre o fecha de nacimiento inválidos. Intente de nuevo.",
-    },
-  };
+  // Patient data
+  const [patient, setPatient] = useState("John Doe");
+  const [visit, setVisit] = useState("Follow-up");
+  const [bodyAreas, setBodyAreas] = useState("Back, Neck");
+  const [therapies, setTherapies] = useState(["Physical Therapy", "Massage"]);
 
-  const [translations, setTranslations] = useState(i18n.en);
-
-  const [showS1Detail, setShowS1Detail] = useState(false);
-  const [spec, setSpec] = useState("");
-  const [specDate, setSpecDate] = useState("");
-  const [specDateOptions, setSpecDateOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
-
-  const [showS2Detail, setShowS2Detail] = useState(false);
-  const [med, setMed] = useState("");
-  const [prePain, setPrePain] = useState(0);
-  const [postPain, setPostPain] = useState(0);
-
-  const [adlTrend, setAdlTrend] = useState("");
-  const [selectedADLs, setSelectedADLs] = useState<string[]>([]);
-  const adlOptions = [
-    "Dressing",
-    "Driving",
-    "Lifting",
-    "Sleeping",
-    "Standing",
-    "Walking",
-    "Overhead reach",
-  ];
-
-  const [previewText, setPreviewText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Form state
+  const [language, setLanguage] = useState<"en" | "es">("en");
+  const [showAppointments, setShowAppointments] = useState(false);
+  const [showRefill, setShowRefill] = useState(false);
+  const [showADL, setShowADL] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [refillData, setRefillData] = useState({ before: "0", after: "0" });
+  const [adlData, setAdlData] = useState({
+    state: "same",
+    list: [] as string[],
+  });
+  const [therapyRatings, setTherapyRatings] = useState<TherapyRating[]>([]);
+  const [summary, setSummary] = useState("—");
   const [submitMessage, setSubmitMessage] = useState("");
-  const [showResults, setShowResults] = useState(false);
-  const [signalChips, setSignalChips] = useState<string[]>([]);
-  const [rfaTextContent, setRfaTextContent] = useState("");
-
-  useEffect(() => {
-    const today = new Date();
-    const options: { value: string; label: string }[] = [];
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const label = d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      });
-      options.push({
-        value: d.toISOString().slice(0, 10),
-        label,
-      });
-    }
-    setSpecDateOptions(options);
-  }, []);
-
-  useEffect(() => {
-    setTranslations(language === "es" ? i18n.es : i18n.en);
-  }, [language]);
 
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
 
       if (!token) {
-        console.log("No token provided");
+        console.log("No token provided - using demo data");
         setLoading(false);
         setShowAuth(false);
         return;
@@ -174,17 +176,9 @@ const IntakePage: React.FC = () => {
         console.log("Decrypted patient data:", patientData);
 
         if (patientData.requireAuth === "no") {
-          setPatientName(patientData.patientName);
-          setDob(patientData.dateOfBirth);
-          setDoi(patientData.dateOfBirth);
-          setPatientParts(
-            patientData.bodyParts
-              ? patientData.bodyParts
-                  .split(",")
-                  .map((part: string) => part.trim())
-              : []
-          );
-          setLanguage(patientData.language as "en" | "es");
+          setPatient(patientData.patientName);
+          setBodyAreas(patientData.bodyParts || "Back, Neck");
+          setLanguage((patientData.language as "en" | "es") || "en");
           setShowAuth(false);
         }
       } catch (error) {
@@ -199,7 +193,16 @@ const IntakePage: React.FC = () => {
     initialize();
   }, [token]);
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Initialize therapies ratings
+    setTherapyRatings(
+      therapies.map((therapy) => ({ therapy, effect: "No Change" }))
+    );
+  }, [therapies]);
+
+  const t = TRANSLATIONS[language];
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
 
@@ -209,7 +212,6 @@ const IntakePage: React.FC = () => {
     }
 
     const expected = expectedPatientData;
-
     const expectedDob = expected.dateOfBirth.split("T")[0];
 
     const normalizedAuthName = authName.trim().toLowerCase();
@@ -226,685 +228,143 @@ const IntakePage: React.FC = () => {
       normalizedAuthName === normalizedExpectedName &&
       authDob === expectedDob
     ) {
-      setPatientName(expected.patientName);
-      setDob(authDob);
-      setDoi(expected.dateOfBirth.split("T")[0]);
-      setPatientParts(
-        expected.bodyParts
-          ? expected.bodyParts.split(",").map((part: string) => part.trim())
-          : []
-      );
+      setPatient(expected.patientName);
+      setBodyAreas(expected.bodyParts || "Back, Neck");
       setLanguage((expected.language as "en" | "es") || "en");
       setShowAuth(false);
       setAuthName("");
       setAuthDob("");
       setAuthError("");
     } else {
-      setAuthError(getText("auth_error"));
+      setAuthError(t.auth_error);
     }
   };
 
-  const computeResultsWithData = (
-    showS1: boolean,
-    showS2: boolean,
-    adlTrend: string,
-    selectedADLs: string[]
+  const addAppointment = () => {
+    setAppointments((prev) => [...prev, { type: SPECIALISTS[0], date: "" }]);
+  };
+
+  const removeAppointment = (index: number) => {
+    setAppointments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateAppointment = (
+    index: number,
+    field: keyof Appointment,
+    value: string
   ) => {
-    const chips: string[] = [];
-    if (showS1) chips.push("apptYes");
-    if (showS2) chips.push("refill");
-
-    if (adlTrend === "worse" || selectedADLs.length > 3) {
-      chips.push("fce");
-    }
-
-    let adlSignal: string;
-    if (adlTrend === "worse") {
-      adlSignal = "tpd_tight";
-    } else {
-      adlSignal = "cont";
-    }
-    chips.push(adlSignal);
-
-    setSignalChips(chips);
-
-    let text = "";
-    if (adlTrend && selectedADLs.length > 0) {
-      const adls = selectedADLs.join(", ");
-      text = `Ongoing limitations in ${adls} ${
-        adlTrend === "worse" ? "worsening" : ""
-      }. FCE is recommended to quantify safe capacity.`;
-    }
-    setRfaTextContent(text);
-    setShowResults(true);
-  };
-
-  const toggleS1Detail = (show: boolean) => {
-    setShowS1Detail(show);
-    if (!show) {
-      setSpec("");
-      setSpecDate("");
-    }
-  };
-
-  const toggleS2Detail = (show: boolean) => {
-    setShowS2Detail(show);
-    if (!show) {
-      setMed("");
-      setPrePain(0);
-      setPostPain(0);
-    }
-  };
-
-  const handleAdlTrendChange = (value: string) => {
-    setAdlTrend(value);
-    if (value !== "better" && value !== "worse") {
-      setSelectedADLs([]);
-    }
-  };
-
-  const toggleAdl = (adl: string) => {
-    setSelectedADLs((prev) =>
-      prev.includes(adl) ? prev.filter((a) => a !== adl) : [...prev, adl]
+    setAppointments((prev) =>
+      prev.map((appt, i) => (i === index ? { ...appt, [field]: value } : appt))
     );
   };
 
-  const collect = () => {
-    const data = {
-      patient: { name: patientName, parts: patientParts },
-      newAppt: showS1Detail
-        ? { specialist: spec || null, date: specDate || null }
-        : null,
-      refill: showS2Detail
-        ? {
-            med: med || null,
-            pain: { pre: prePain, post: postPain, delta: prePain - postPain },
-          }
-        : null,
-      adl: { trend: adlTrend || null, activities: selectedADLs },
-    };
-    return data;
+  const updateTherapyRating = (index: number, effect: string) => {
+    setTherapyRatings((prev) =>
+      prev.map((therapy, i) => (i === index ? { ...therapy, effect } : therapy))
+    );
   };
 
-  const computeResults = () => {
-    computeResultsWithData(showS1Detail, showS2Detail, adlTrend, selectedADLs);
+  const toggleAdlItem = (item: string) => {
+    setAdlData((prev) => ({
+      ...prev,
+      list: prev.list.includes(item)
+        ? prev.list.filter((i) => i !== item)
+        : [...prev.list, item],
+    }));
   };
 
-  const showPreview = () => {
-    const v = collect();
-    const lines: string[] = [];
-    if (v.newAppt && (v.newAppt.specialist || v.newAppt.date)) {
+  const buildSummary = () => {
+    const lines = [];
+    lines.push(`Patient: ${patient}`);
+    lines.push(`Visit: ${visit}`);
+    lines.push(`Areas: ${bodyAreas}`);
+
+    if (showAppointments && appointments.length > 0) {
+      appointments.forEach((appt, i) => {
+        lines.push(`Appointment ${i + 1}: ${appt.type} on ${appt.date || "—"}`);
+      });
+    }
+
+    lines.push(`Refill needed: ${showRefill ? "Yes" : "No"}`);
+    if (showRefill) {
       lines.push(
-        `New appointment: ${v.newAppt.specialist || ""} ${
-          v.newAppt.date || ""
-        }`.trim()
+        `Pain 0–10: before ${refillData.before}, after ${refillData.after}`
       );
     }
-    if (v.refill && v.refill.med) {
+
+    lines.push(`ADLs are: ${adlData.state}`);
+    if (adlData.state !== "same") {
+      lines.push(`ADLs impacted: ${adlData.list.join(", ") || "—"}`);
+    }
+
+    if (therapyRatings.length > 0) {
       lines.push(
-        `Refill: ${v.refill.med}; pain ${v.refill.pain.pre}→${v.refill.pain.post} (Δ ${v.refill.pain.delta})`
+        `Therapies: ${therapyRatings
+          .map((x) => `${x.therapy} → ${x.effect}`)
+          .join("; ")}`
       );
     }
-    if (v.adl.trend) {
-      lines.push(
-        `ADLs: ${v.adl.trend}${
-          v.adl.activities.length ? ` — ${v.adl.activities.join(", ")}` : ""
-        }`
-      );
-    }
-    setPreviewText(lines.join("\n") || "(No changes reported)");
+
+    return lines.join("\n");
   };
 
-  const clearAll = () => {
-    toggleS1Detail(false);
-    toggleS2Detail(false);
-    setAdlTrend("");
-    setSelectedADLs([]);
-    setPreviewText("");
-    setShowResults(false);
-    setSignalChips([]);
-    setRfaTextContent("");
+  const handlePreview = () => {
+    setSummary(buildSummary());
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setSubmitMessage("");
-
-    const formData = {
-      patientName,
-      dob,
-      doi,
-      lang: language,
-      ...collect(),
+    const formData: FormData = {
+      newAppointments: showAppointments ? appointments : [],
+      refill: {
+        needed: showRefill,
+        before: refillData.before,
+        after: refillData.after,
+      },
+      adl: adlData,
+      therapies: therapyRatings,
     };
 
-    console.log("Submitted data:", formData);
-
-    const url = "/api/submit-quiz";
-    const method = "POST";
+    console.log("Intake submitted:", formData);
 
     try {
-      const response = await fetch(url, {
-        method,
+      const response = await fetch("/api/submit-quiz", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          patientName: patient,
+          bodyAreas,
+          language,
+          ...formData,
+        }),
       });
 
       if (response.ok) {
-        setSubmitMessage("Submission saved successfully!");
-        computeResults();
+        setSubmitMessage("Submitted. Thank you!");
       } else {
-        const error = await response.json();
-        setSubmitMessage(`Error: ${error.error}`);
+        setSubmitMessage("Submission failed. Please try again.");
       }
     } catch (error) {
       console.error("Submission error:", error);
-      setSubmitMessage("Failed to submit. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      setSubmitMessage("Submission failed. Please try again.");
     }
-  };
 
-  const getText = (key: string) =>
-    translations[key as keyof typeof translations] || key;
-
-  const getPillClass = (chip: string): "good" | "warn" | "bad" => {
-    if (chip === "ttd") return "bad";
-    if (chip === "tpd_tight" || chip === "fce") return "warn";
-    return "good";
+    setSummary(buildSummary());
   };
 
   if (showAuth) {
     return (
-      <>
-        <style jsx global>{`
-          :root {
-            --bg: #f7fbff;
-            --panel: #ffffff;
-            --text: #0b1220;
-            --muted: #475569;
-            --border: #d8e5f5;
-            --accent: #2563eb;
-            --good: #10b981;
-            --warn: #f59e0b;
-            --bad: #ef4444;
-            --chip: #f3f4f6;
-            --radius: 16px;
-          }
-          * {
-            box-sizing: border-box;
-          }
-          body {
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
-              Helvetica, Arial;
-          }
-          .wrap {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 16px;
-          }
-          .wrap.auth-wrap {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .auth-card {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
-            overflow: hidden;
-            width: 100%;
-            max-width: 400px;
-          }
-          .auth-header {
-            padding: 24px 32px;
-            text-align: center;
-            background: #f2f7ff;
-            border-bottom: 1px solid var(--border);
-          }
-          .auth-title {
-            font-size: 20px;
-            font-weight: 800;
-            margin: 0 0 12px 0;
-          }
-          .auth-lang {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            justify-content: center;
-            margin-top: 8px;
-          }
-          select {
-            appearance: none;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 8px 10px;
-            font-weight: 600;
-            background: #fff;
-            color: var(--text);
-          }
-          .auth-section {
-            padding: 32px;
-          }
-          .field {
-            display: grid;
-            gap: 6px;
-            margin: 16px 0;
-          }
-          label {
-            font-size: 14px;
-            color: var(--muted);
-            font-weight: 600;
-          }
-          input {
-            appearance: none;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px 16px;
-            font-size: 16px;
-            background: #fff;
-            color: var(--text);
-          }
-          input[type="date"] {
-            padding: 12px;
-          }
-          input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-          }
-          button {
-            appearance: none;
-            border: none;
-            border-radius: 12px;
-            padding: 12px 24px;
-            font-weight: 600;
-            background: var(--accent);
-            color: #fff;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 8px;
-          }
-          button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-          .error {
-            background: rgba(239, 68, 68, 0.1);
-            color: #dc2626;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            padding: 12px;
-            border-radius: 8px;
-            margin: 12px 0;
-            font-size: 14px;
-          }
-          .hint {
-            font-size: 12px;
-            color: #64748b;
-          }
-        `}</style>
-        <div className="wrap auth-wrap">
-          <div className="auth-card">
-            <div className="auth-header">
-              <h1 className="auth-title">{getText("auth_title")}</h1>
-              <div className="auth-lang">
-                <label className="hint">{getText("language")}</label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as "en" | "es")}
-                >
-                  <option value="en">English</option>
-                  <option value="es">Español</option>
-                </select>
-              </div>
-            </div>
-            <div className="auth-section">
-              <form onSubmit={handleAuthSubmit}>
-                <div className="field">
-                  <label htmlFor="authName">{getText("auth_name")}</label>
-                  <input
-                    id="authName"
-                    type="text"
-                    value={authName}
-                    onChange={(e) => setAuthName(e.target.value)}
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="authDob">{getText("auth_dob")}</label>
-                  <input
-                    id="authDob"
-                    type="date"
-                    value={authDob}
-                    onChange={(e) => setAuthDob(e.target.value)}
-                    required
-                  />
-                </div>
-                {authError && <div className="error">{authError}</div>}
-                <button type="submit" disabled={!authName || !authDob}>
-                  {getText("auth_submit")}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (loading) {
-    return (
-      <>
-        <style jsx global>{`
-          :root {
-            --bg: #f7fbff;
-            --panel: #ffffff;
-            --text: #0b1220;
-            --muted: #475569;
-            --border: #d8e5f5;
-            --accent: #2563eb;
-            --good: #10b981;
-            --warn: #f59e0b;
-            --bad: #ef4444;
-            --chip: #f3f4f6;
-            --radius: 16px;
-          }
-          * {
-            box-sizing: border-box;
-          }
-          body {
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
-              Helvetica, Arial;
-          }
-          .wrap {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 16px;
-          }
-          .card {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
-            overflow: hidden;
-          }
-          .title {
-            font-weight: 800;
-          }
-        `}</style>
-        <div className="wrap">
-          <div className="card">
-            <div className="title">Loading patient data...</div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <style jsx global>{`
-        :root {
-          --bg: #f7fbff;
-          --panel: #ffffff;
-          --text: #0b1220;
-          --muted: #475569;
-          --border: #d8e5f5;
-          --accent: #2563eb;
-          --good: #10b981;
-          --warn: #f59e0b;
-          --bad: #ef4444;
-          --chip: #f3f4f6;
-          --radius: 16px;
-        }
-        * {
-          box-sizing: border-box;
-        }
-        body {
-          margin: 0;
-          background: var(--bg);
-          color: var(--text);
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
-            Helvetica, Arial;
-        }
-        .wrap {
-          max-width: 720px;
-          margin: 0 auto;
-          padding: 16px;
-        }
-        .card {
-          background: var(--panel);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
-          overflow: hidden;
-        }
-        .header {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 14px 16px;
-          background: #f2f7ff;
-          border-bottom: 1px solid var(--border);
-        }
-        .title {
-          font-weight: 800;
-        }
-        .lang {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-        }
-        select,
-        button {
-          appearance: none;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 8px 10px;
-          font-weight: 600;
-          background: #fff;
-          color: var(--text);
-        }
-        button.primary {
-          background: var(--accent);
-          color: #fff;
-          border-color: #1d4ed8;
-        }
-        button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .section {
-          padding: 16px;
-          border-bottom: 1px solid var(--border);
-        }
-        .section:last-child {
-          border-bottom: none;
-        }
-        .section h3 {
-          margin: 0 0 10px;
-          font-size: 16px;
-        }
-        .row {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 10px;
-          align-items: center;
-        }
-        .field {
-          display: grid;
-          gap: 6px;
-          margin: 8px 0;
-        }
-        label {
-          font-size: 14px;
-          color: var(--muted);
-        }
-        .pill {
-          display: inline-block;
-          padding: 6px 10px;
-          border-radius: 999px;
-          background: #eef2ff;
-          border: 1px solid var(--border);
-          font-weight: 700;
-          margin-right: 6px;
-        }
-        .hint {
-          font-size: 12px;
-          color: #64748b;
-        }
-        .footer {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 14px 16px;
-          background: #fafcff;
-          border-top: 1px solid var(--border);
-        }
-        .summary {
-          white-space: pre-wrap;
-          background: #f8fafc;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 10px;
-          margin: 12px 16px;
-        }
-        .results {
-          margin-top: 18px;
-          padding: 14px;
-          border-radius: 14px;
-          background: #f9fafb;
-          border: 1px solid rgba(0, 0, 0, 0.08);
-        }
-        .chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        .results .pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 10px;
-          border-radius: 999px;
-          font-weight: 800;
-        }
-        .results .pill.good {
-          background: rgba(16, 185, 129, 0.15);
-          color: #059669;
-        }
-        .results .pill.warn {
-          background: rgba(245, 158, 11, 0.15);
-          color: #d97706;
-        }
-        .results .pill.bad {
-          background: rgba(239, 68, 68, 0.15);
-          color: #dc2626;
-        }
-        .hidden {
-          display: none;
-        }
-        .slider-wrap {
-          display: grid;
-          gap: 6px;
-        }
-        input[type="range"] {
-          width: 100%;
-        }
-        .slider-labels {
-          display: flex;
-          justify-content: space-between;
-          font-size: 12px;
-          color: #64748b;
-        }
-        .kv {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-        .multi-select {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        .chip {
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 6px 10px;
-          cursor: pointer;
-          user-select: none;
-        }
-        .chip.active {
-          background: #e0f2fe;
-          border-color: #93c5fd;
-        }
-        @media (max-width: 640px) {
-          .row {
-            grid-template-columns: 1fr;
-          }
-        }
-        .grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-        @media (max-width: 640px) {
-          .grid {
-            grid-template-columns: 1fr;
-          }
-        }
-        button.ghost {
-          background: transparent;
-          color: var(--text);
-        }
-        .message {
-          padding: 10px;
-          border-radius: 8px;
-          margin: 10px 0;
-          font-size: 14px;
-        }
-        .message.success {
-          background: rgba(16, 185, 129, 0.1);
-          color: #059669;
-          border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-        .message.error {
-          background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
-          border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-      `}</style>
       <div className="wrap">
-        <div
-          className="card"
-          role="form"
-          aria-label="Kebilo Patient Mini Intake"
-        >
-          <div className="header">
-            <div>
-              <span className="pill">Patient: {patientName}</span>
-            </div>
-            <div className="lang">
-              <label htmlFor="langSel" className="hint">
-                {getText("language")}
-              </label>
+        <div className="card auth-card">
+          <div className="auth-header">
+            <h1>{t.auth_title}</h1>
+            <div className="inline">
+              <label className="muted language-label">Language</label>
               <select
-                id="langSel"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "es")}
+                className="language-select"
               >
                 <option value="en">English</option>
                 <option value="es">Español</option>
@@ -912,229 +372,604 @@ const IntakePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Step 1: New appointments */}
-          <div className="section" id="s1">
-            <h3>{getText("s1_h")}</h3>
-            <div className="row">
-              <div className="kv">
-                <button type="button" onClick={() => toggleS1Detail(true)}>
-                  {getText("yes")}
-                </button>
-                <button type="button" onClick={() => toggleS1Detail(false)}>
-                  {getText("no")}
+          <div className="section">
+            <form onSubmit={handleAuthSubmit}>
+              <div className="field">
+                <label>{t.auth_name}</label>
+                <input
+                  type="text"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>{t.auth_dob}</label>
+                <input
+                  type="date"
+                  value={authDob}
+                  onChange={(e) => setAuthDob(e.target.value)}
+                  required
+                />
+              </div>
+              {authError && <div className="error-message">{authError}</div>}
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={!authName || !authDob}
+              >
+                {t.auth_submit}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <style jsx>{`
+          .auth-card {
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 24px;
+          }
+
+          .auth-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+          }
+
+          .inline {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+          }
+
+          .muted {
+            color: var(--muted);
+            font-size: 12px;
+          }
+
+          .language-label {
+            font-weight: 600;
+            margin: 0;
+          }
+
+          .language-select {
+            min-width: 120px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+          }
+
+          .section {
+            margin: 16px 0 0;
+          }
+
+          .field {
+            margin-bottom: 20px;
+          }
+
+          .field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+          }
+
+          .field input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+          }
+
+          .error-message {
+            color: #dc2626;
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 12px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+          }
+
+          .btn.primary {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background-color 0.2s ease;
+          }
+
+          .btn.primary:hover:not(:disabled) {
+            background: #1d4ed8;
+          }
+
+          .btn.primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="wrap">
+        <div className="card">
+          <div className="section">
+            <h1>{t.title}</h1>
+            <div className="muted">Loading patient data...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wrap">
+      <div className="card">
+        <div className="inline header">
+          <div>
+            <h1>{t.title}</h1>
+            <div className="muted">{t.sub}</div>
+          </div>
+          <div className="inline">
+            <label className="muted language-label">Language</label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as "en" | "es")}
+              className="language-select"
+            >
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
+        </div>
+
+        <hr className="divider" />
+
+        <div className="inline pills">
+          <span className="pill">Patient: {patient}</span>
+          <span className="pill">Visit: {visit}</span>
+          <span className="pill">Areas: {bodyAreas}</span>
+        </div>
+
+        {/* Section 1: New appointments */}
+        <div className="section">
+          <label>{t.q1}</label>
+          <select
+            value={showAppointments ? "yes" : "no"}
+            onChange={(e) => {
+              const value = e.target.value === "yes";
+              setShowAppointments(value);
+              if (value && appointments.length === 0) {
+                addAppointment();
+              }
+            }}
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+          {showAppointments && (
+            <div className="appointments-detail">
+              <div className="appointments-wrap">
+                {appointments.map((appt, index) => (
+                  <div key={index} className="appointment-row">
+                    <div className="appointment-field">
+                      <label>{t.q1a}</label>
+                      <select
+                        value={appt.type}
+                        onChange={(e) =>
+                          updateAppointment(index, "type", e.target.value)
+                        }
+                      >
+                        {SPECIALISTS.map((specialist) => (
+                          <option key={specialist} value={specialist}>
+                            {specialist}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="appointment-field">
+                      <label>{t.q1b}</label>
+                      <input
+                        type="date"
+                        value={appt.date}
+                        onChange={(e) =>
+                          updateAppointment(index, "date", e.target.value)
+                        }
+                      />
+                    </div>
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        className="btn light remove-btn"
+                        onClick={() => removeAppointment(index)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="inline">
+                <button
+                  type="button"
+                  className="btn light"
+                  onClick={addAppointment}
+                >
+                  + Add appointment
                 </button>
               </div>
-              <div className="hint">{getText("s1_hint")}</div>
             </div>
-            {showS1Detail && (
-              <div id="s1_detail">
-                <div className="field">
-                  <label>{getText("s1_spec")}</label>
+          )}
+        </div>
+
+        {/* Section 2: Medications */}
+        <div className="section">
+          <label>{t.q2}</label>
+          <select
+            value={showRefill ? "yes" : "no"}
+            onChange={(e) => setShowRefill(e.target.value === "yes")}
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+          {showRefill && (
+            <div className="refill-detail">
+              <div className="row">
+                <div>
+                  <label>{t.q2a}</label>
                   <select
-                    id="spec"
-                    value={spec}
-                    onChange={(e) => setSpec(e.target.value)}
+                    value={refillData.before}
+                    onChange={(e) =>
+                      setRefillData((prev) => ({
+                        ...prev,
+                        before: e.target.value,
+                      }))
+                    }
                   >
-                    <option value="">—</option>
-                    <option>Orthopedic</option>
-                    <option>Pain Management</option>
-                    <option>Psychiatry</option>
-                    <option>Neurosurgeon</option>
-                    <option>Physical Therapy</option>
-                    <option>Acupuncture</option>
-                    <option>Other</option>
+                    {Array.from({ length: 11 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {i}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div className="field">
-                  <label>{getText("s1_date")}</label>
+                <div>
+                  <label>{t.q2b}</label>
                   <select
-                    id="specDate"
-                    value={specDate}
-                    onChange={(e) => setSpecDate(e.target.value)}
+                    value={refillData.after}
+                    onChange={(e) =>
+                      setRefillData((prev) => ({
+                        ...prev,
+                        after: e.target.value,
+                      }))
+                    }
                   >
-                    <option value="">—</option>
-                    {specDateOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                    {Array.from({ length: 11 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {i}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Step 2: Med refill + pain sliders */}
-          <div className="section" id="s2">
-            <h3>{getText("s2_h")}</h3>
-            <div className="row">
-              <div className="kv">
-                <button type="button" onClick={() => toggleS2Detail(true)}>
-                  {getText("yes")}
-                </button>
-                <button type="button" onClick={() => toggleS2Detail(false)}>
-                  {getText("no")}
-                </button>
-              </div>
-              <div className="hint">{getText("s2_hint")}</div>
             </div>
-            {showS2Detail && (
-              <div id="s2_detail">
-                <div className="field">
-                  <label>{getText("med")}</label>
-                  <select
-                    id="medSel"
-                    value={med}
-                    onChange={(e) => setMed(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    <option>Ibuprofen</option>
-                    <option>Naproxen</option>
-                    <option>Acetaminophen</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div className="grid">
-                  <div className="field slider-wrap">
-                    <label>{getText("pre")}</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      value={prePain}
-                      onInput={(e) =>
-                        setPrePain(Number((e.target as HTMLInputElement).value))
-                      }
-                    />
-                    <div className="slider-labels">
-                      <span>0</span>
-                      <span>{prePain}</span>
-                      <span>10</span>
-                    </div>
-                  </div>
-                  <div className="field slider-wrap">
-                    <label>{getText("post")}</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      value={postPain}
-                      onInput={(e) =>
-                        setPostPain(
-                          Number((e.target as HTMLInputElement).value)
-                        )
-                      }
-                    />
-                    <div className="slider-labels">
-                      <span>0</span>
-                      <span>{postPain}</span>
-                      <span>10</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Step 3: ADLs minimal */}
-          <div className="section" id="s3">
-            <h3>{getText("s3_h")}</h3>
-            <div className="row">
-              <select
-                id="adlTrend"
-                value={adlTrend}
-                onChange={(e) => handleAdlTrendChange(e.target.value)}
-              >
-                <option value="">—</option>
-                <option value="better">{getText("better")}</option>
-                <option value="worse">{getText("worse")}</option>
-                <option value="same">{getText("same")}</option>
-              </select>
-              <div className="hint">{getText("s3_hint")}</div>
-            </div>
-            {(adlTrend === "better" || adlTrend === "worse") && (
-              <div id="s3_detail">
-                <div className="field">
-                  <label>{getText("adl_list")}</label>
-                  <div id="adlMulti" className="multi-select">
-                    {adlOptions.map((adl) => (
-                      <div
-                        key={adl}
-                        className={`chip ${
-                          selectedADLs.includes(adl) ? "active" : ""
-                        }`}
-                        onClick={() => toggleAdl(adl)}
-                      >
-                        {adl}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="hint">{getText("multi_hint")}</div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="footer">
-            <button type="button" className="ghost" onClick={showPreview}>
-              {getText("preview")}
-            </button>
-            <div style={{ display: "flex", gap: "10px" }}>
-              <button type="button" className="ghost" onClick={clearAll}>
-                {getText("clear")}
-              </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Submitting..." : getText("submit")}
-              </button>
-            </div>
-          </div>
+          )}
         </div>
 
-        {previewText && <div className="summary">{previewText}</div>}
-
-        {submitMessage && (
-          <div
-            className={`message ${
-              submitMessage.includes("Error") ||
-              submitMessage.includes("Failed")
-                ? "error"
-                : "success"
-            }`}
+        {/* Section 3: ADL */}
+        <div className="section">
+          <label>{t.q3}</label>
+          <select
+            value={adlData.state}
+            onChange={(e) => {
+              const value = e.target.value;
+              setAdlData((prev) => ({ ...prev, state: value }));
+              setShowADL(value !== "same");
+            }}
           >
-            {submitMessage}
-          </div>
-        )}
+            <option value="same">Same</option>
+            <option value="better">Better</option>
+            <option value="worse">Worse</option>
+          </select>
+          {showADL && (
+            <div className="adl-detail">
+              <div className="muted">{t.q3hint}</div>
+              <div className="chkgrid">
+                {ADLS.map((activity) => (
+                  <label key={activity} className="inline checkbox-label">
+                    <input
+                      type="checkbox"
+                      value={activity}
+                      checked={adlData.list.includes(activity)}
+                      onChange={() => toggleAdlItem(activity)}
+                    />
+                    <span>{activity}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-        {showResults && (
-          <div className="results">
-            <h3>Summary</h3>
-            <div className="chips">
-              {signalChips.map((chip) => (
-                <span key={chip} className={`pill ${getPillClass(chip)}`}>
-                  {chip === "apptYes"
-                    ? "New appt reported"
-                    : chip === "refill"
-                    ? "Refill requested"
-                    : chip === "fce"
-                    ? "FCE Recommended"
-                    : chip === "tpd_tight"
-                    ? "Tighten restrictions"
-                    : "Continue"}
-                </span>
+        {/* Section 4: Therapies */}
+        {therapies.length > 0 && (
+          <div className="section">
+            <label>{t.q4}</label>
+            <div className="chkgrid">
+              {therapyRatings.map((therapy, index) => (
+                <div key={therapy.therapy} className="therapy-item">
+                  <div className="therapy-name">{therapy.therapy}</div>
+                  <select
+                    value={therapy.effect}
+                    onChange={(e) => updateTherapyRating(index, e.target.value)}
+                  >
+                    {RATINGS.map((rating) => (
+                      <option key={rating} value={rating}>
+                        {rating}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               ))}
             </div>
-            {rfaTextContent && <div className="hint">{rfaTextContent}</div>}
           </div>
         )}
-      </div>
-    </>
-  );
-};
 
-export default IntakePage;
+        {/* Review & Submit */}
+        <div className="section">
+          <label>{t.q5}</label>
+          <div className="summary">{summary}</div>
+        </div>
+
+        <div className="inline actions">
+          <button type="button" className="btn light" onClick={handlePreview}>
+            Preview Summary
+          </button>
+          <button
+            type="button"
+            className="btn primary submit-btn"
+            onClick={handleSubmit}
+          >
+            Submit
+          </button>
+        </div>
+
+        <div className="muted submit-hint">{submitMessage || t.submitHint}</div>
+      </div>
+
+      <style jsx>{`
+        :root {
+          --bg: #f7f7fb;
+          --panel: #ffffff;
+          --border: #e6e6ef;
+          --text: #111827;
+          --muted: #6b7280;
+          --accent: #2563eb;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+            Helvetica, Arial;
+          background: var(--bg);
+          color: var(--text);
+        }
+
+        .wrap {
+          max-width: 720px;
+          margin: 0 auto;
+          padding: 16px;
+        }
+
+        .card {
+          background: var(--panel);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 16px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+          font-size: 20px;
+          margin: 0 0 6px;
+        }
+
+        .muted {
+          color: var(--muted);
+          font-size: 12px;
+        }
+
+        label {
+          display: block;
+          margin: 10px 0 6px;
+          font-weight: 600;
+        }
+
+        select,
+        input[type="text"],
+        input[type="date"],
+        input[type="number"] {
+          width: 100%;
+          padding: 10px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          font-size: 14px;
+        }
+
+        .row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .btn {
+          border: none;
+          border-radius: 10px;
+          padding: 10px 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+        }
+
+        .btn.primary {
+          background: var(--accent);
+          color: #fff;
+        }
+
+        .btn.primary:hover:not(:disabled) {
+          background: #1d4ed8;
+        }
+
+        .btn.primary:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+        }
+
+        .btn.light {
+          background: #eef2ff;
+          color: #1e3a8a;
+          border: 1px solid #c7d2fe;
+        }
+
+        .btn.light:hover {
+          background: #e0e7ff;
+        }
+
+        .submit-btn {
+          min-width: 100px;
+          flex: 1;
+          max-width: 200px;
+        }
+
+        .pill {
+          display: inline-block;
+          background: #eef2ff;
+          border: 1px solid #c7d2fe;
+          color: #1e3a8a;
+          border-radius: 999px;
+          padding: 4px 8px;
+          font-size: 12px;
+        }
+
+        .section {
+          margin: 16px 0 0;
+        }
+
+        .inline {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .header {
+          justify-content: space-between;
+        }
+
+        .language-label {
+          font-weight: 600;
+          margin: 0;
+        }
+
+        .language-select {
+          min-width: 120px;
+        }
+
+        .divider {
+          border: none;
+          border-top: 1px solid var(--border);
+          margin: 12px 0;
+        }
+
+        .pills {
+          gap: 12px;
+        }
+
+        .appointment-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr auto;
+          gap: 10px;
+          align-items: end;
+          margin-top: 8px;
+        }
+
+        .appointment-field {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .remove-btn {
+          margin-bottom: 6px;
+        }
+
+        .chkgrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .checkbox-label {
+          gap: 8px;
+        }
+
+        .therapy-item {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .therapy-name {
+          font-weight: 600;
+        }
+
+        .summary {
+          background: #f9fafb;
+          border: 1px dashed var(--border);
+          border-radius: 12px;
+          padding: 12px;
+          white-space: pre-line;
+        }
+
+        .actions {
+          justify-content: space-between;
+          margin-top: 12px;
+        }
+
+        .submit-hint {
+          margin-top: 8px;
+        }
+
+        .appointments-detail {
+          margin-top: 8px;
+        }
+
+        .refill-detail {
+          margin-top: 8px;
+        }
+
+        .adl-detail {
+          margin-top: 8px;
+        }
+      `}</style>
+    </div>
+  );
+}
