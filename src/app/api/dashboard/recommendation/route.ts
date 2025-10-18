@@ -112,8 +112,8 @@ export async function GET(request: Request) {
         !!doc.claimNumber &&
         (typeof doc.claimNumber !== "string" ||
           doc.claimNumber.toLowerCase() !== "not specified") &&
-        !!doc.dob &&
-        !!doc.doi
+        !!doc.dob
+        // Note: Excluded doi from completeness check to allow matching without it
       );
     });
 
@@ -127,13 +127,14 @@ export async function GET(request: Request) {
       );
     }
 
-    // Deduplicate by composite key: patientName + claimNumber + dob + doi
+    // Deduplicate by composite key: patientName + claimNumber + dob
+    // (Excluded doi from key to avoid duplicates based on differing DOI)
     // Preserve the first occurrence (newest due to orderBy)
     const uniqueKeyMap = new Map<string, (typeof completeResults)[0]>();
     completeResults.forEach((doc: (typeof completeResults)[number]) => {
       const key = `${doc.patientName}-${doc.claimNumber || ""}-${String(
         doc.dob
-      )}-${String(doc.doi)}`;
+      )}`;
       if (!uniqueKeyMap.has(key)) {
         uniqueKeyMap.set(key, doc);
       }
