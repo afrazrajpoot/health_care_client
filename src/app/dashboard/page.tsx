@@ -61,6 +61,13 @@ interface WhatsNew {
   [key: string]: string;
 }
 
+interface QuickNoteSnapshot {
+  details: string;
+  timestamp: string;
+  one_line_note: string;
+  status_update: string;
+}
+
 interface ADL {
   adls_affected: string;
   adls_affected_history: string;
@@ -88,6 +95,7 @@ interface DocumentData {
   summary_snapshot?: SummarySnapshot;
   summary_snapshots?: SummarySnapshotItem[];
   whats_new?: WhatsNew;
+  quick_notes_snapshots?: QuickNoteSnapshot[]; // ✅ Added interface for quick notes snapshots
   adl?: ADL;
   document_summary?: { [key: string]: { date: string; summary: string }[] };
   document_summaries?: DocumentSummary[];
@@ -133,8 +141,6 @@ const CheckIcon = () => (
   </svg>
 );
 
-
-
 // What's New Component
 const WhatsNewSection = ({
   documentData,
@@ -152,11 +158,56 @@ const WhatsNewSection = ({
   // Get summary of what's new for collapsed view
   const getWhatsNewSummary = () => {
     if (!documentData?.whats_new) return "No significant changes";
-    const entries = Object.entries(documentData.whats_new).filter(([_, value]) =>
-      value && value.trim() !== "" && value.trim() !== " "
+    const entries = Object.entries(documentData.whats_new).filter(
+      ([_, value]) => value && value.trim() !== "" && value.trim() !== " "
     );
     if (entries.length === 0) return "No significant changes";
-    return entries.map(([key]) => key.toUpperCase().replace(/_/g, " ")).join(", ");
+    return entries
+      .map(([key]) => key.toUpperCase().replace(/_/g, " "))
+      .join(", ");
+  };
+
+  // ✅ Helper to format timestamp to readable date/time
+  const formatTimestamp = (timestamp: string): string => {
+    if (!timestamp) return "—";
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString(); // e.g., "10/18/2025, 9:52:51 AM"
+    } catch {
+      return timestamp;
+    }
+  };
+
+  // ✅ Get ALL quick notes (including previous/empty ones), sorted latest first
+  const getAllQuickNotes = () => {
+    const quickNotes = documentData?.quick_notes_snapshots || [];
+    return quickNotes.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    ); // Descending (latest first)
+  };
+
+  // ✅ Get quick notes summary for collapsed view (count all)
+  const getQuickNotesSummary = () => {
+    const allNotes = getAllQuickNotes();
+    if (allNotes.length === 0) return "No quick notes";
+    return `${allNotes.length} note${allNotes.length > 1 ? "s" : ""}`;
+  };
+
+  // ✅ State for quick notes dropdown
+  const [isQuickNotesOpen, setIsQuickNotesOpen] = useState(false);
+
+  const toggleQuickNotes = () => {
+    setIsQuickNotesOpen((prev) => !prev);
+  };
+
+  // ✅ Check if a note is empty
+  const isNoteEmpty = (note: QuickNoteSnapshot) => {
+    return (
+      !note.status_update?.trim() &&
+      !note.one_line_note?.trim() &&
+      !note.details?.trim()
+    );
   };
 
   return (
@@ -177,12 +228,11 @@ const WhatsNewSection = ({
             </span>
           )}
         </span>
-        <span className="text-sm">
-          {isCollapsed ? "▼" : "▲"}
-        </span>
+        <span className="text-sm">{isCollapsed ? "▼" : "▲"}</span>
       </h3>
       {!isCollapsed && (
         <>
+          {/* ✅ Existing Whats New Items */}
           <ul className="m-0 p-0 grid gap-2 list-none" role="list">
             {documentData?.whats_new &&
               Object.entries(documentData.whats_new).map(([key, value]) => {
@@ -206,17 +256,77 @@ const WhatsNewSection = ({
               Object.values(documentData.whats_new || {}).every(
                 (val) => !val || val.trim() === "" || val.trim() === " "
               )) && (
-                <li className="p-3 text-gray-500 text-center">
-                  No significant changes since last visit
-                </li>
-              )}
+              <li className="p-3 text-gray-500 text-center">
+                No significant changes since last visit
+              </li>
+            )}
           </ul>
+
+          {/* ✅ Quick Notes Dropdown - Show if any notes exist (including empty/previous) */}
+          {getAllQuickNotes().length > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={toggleQuickNotes}
+                className="flex items-center gap-2 w-full justify-between p-3 border border-amber-300 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors text-left"
+              >
+                <span className="text-sm font-semibold text-amber-800">
+                  📝 Quick Notes ({getAllQuickNotes().length})
+                </span>
+                <span
+                  className={`text-sm transition-transform ${
+                    isQuickNotesOpen ? "rotate-180" : ""
+                  }`}
+                >
+                  ▼
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden transition-all duration-300 ${
+                  isQuickNotesOpen ? "max-h-96" : "max-h-0"
+                }`}
+              >
+                <ul className="m-0 p-4 grid gap-2 list-none border border-amber-300 bg-white rounded-b-lg">
+                  {getAllQuickNotes().map((note, index) => (
+                    <li
+                      key={index}
+                      className={`p-3 border border-dashed border-amber-200 rounded-lg ${
+                        isNoteEmpty(note) ? "opacity-50 bg-gray-50" : ""
+                      }`}
+                    >
+                      <div className="text-xs text-gray-500 mb-1">
+                        {formatTimestamp(note.timestamp)}
+                      </div>
+                      <div className="font-semibold">
+                        {note.status_update ||
+                          (isNoteEmpty(note) ? "No Update" : "Note Added")}
+                      </div>
+                      {note.one_line_note && (
+                        <div className="text-sm mt-1">{note.one_line_note}</div>
+                      )}
+                      {note.details && (
+                        <div className="text-xs text-gray-600 mt-1 italic">
+                          {note.details}
+                        </div>
+                      )}
+                      {isNoteEmpty(note) && !note.status_update && (
+                        <div className="text-xs text-gray-400 mt-1 italic">
+                          No details added
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end mt-4">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${copied["section-whatsnew"]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-amber-200 bg-white text-gray-900"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${
+                copied["section-whatsnew"]
+                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                  : "border-amber-200 bg-white text-gray-900"
+              }`}
               onClick={() => onCopySection("section-whatsnew")}
               title="Copy Section"
             >
@@ -245,7 +355,9 @@ const TreatmentHistorySection = ({
   onToggle: () => void;
 }) => {
   const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
-  const [expandedSnapshots, setExpandedSnapshots] = useState<{ [key: number]: boolean }>({});
+  const [expandedSnapshots, setExpandedSnapshots] = useState<{
+    [key: number]: boolean;
+  }>({});
 
   const snapshots = documentData?.summary_snapshots || [];
 
@@ -254,9 +366,9 @@ const TreatmentHistorySection = ({
   }, [documentData]);
 
   const toggleSnapshot = (index: number) => {
-    setExpandedSnapshots(prev => ({
+    setExpandedSnapshots((prev) => ({
       ...prev,
-      [index]: !prev[index]
+      [index]: !prev[index],
     }));
   };
 
@@ -272,8 +384,12 @@ const TreatmentHistorySection = ({
 
   const getTreatmentSummary = () => {
     if (snapshots.length === 0) return "No snapshots available";
-    const diagnoses = snapshots.map(snapshot => snapshot.dx).filter(dx => dx && dx.trim() !== "");
-    return diagnoses.length > 0 ? diagnoses.join(", ") : "No diagnoses specified";
+    const diagnoses = snapshots
+      .map((snapshot) => snapshot.dx)
+      .filter((dx) => dx && dx.trim() !== "");
+    return diagnoses.length > 0
+      ? diagnoses.join(", ")
+      : "No diagnoses specified";
   };
 
   return (
@@ -294,9 +410,7 @@ const TreatmentHistorySection = ({
             </span>
           )}
         </span>
-        <span className="text-sm">
-          {isCollapsed ? "▼" : "▲"}
-        </span>
+        <span className="text-sm">{isCollapsed ? "▼" : "▲"}</span>
       </h3>
       {!isCollapsed && (
         <>
@@ -324,12 +438,17 @@ const TreatmentHistorySection = ({
 
           <div className="space-y-3">
             {snapshots.map((snapshot, index) => (
-              <div key={snapshot.id || index} className="border border-blue-200 bg-white rounded-lg overflow-hidden">
+              <div
+                key={snapshot.id || index}
+                className="border border-blue-200 bg-white rounded-lg overflow-hidden"
+              >
                 <div
                   className="p-3 bg-gray-100 cursor-pointer flex justify-between items-center"
                   onClick={() => toggleSnapshot(index)}
                 >
-                  <span className="font-semibold text-gray-700">📍 {snapshot.dx || `Diagnosis ${index + 1}`}</span>
+                  <span className="font-semibold text-gray-700">
+                    📍 {snapshot.dx || `Diagnosis ${index + 1}`}
+                  </span>
                   <span className="text-sm">
                     {expandedSnapshots[index] ? "▲" : "▼"}
                   </span>
@@ -337,16 +456,28 @@ const TreatmentHistorySection = ({
                 {expandedSnapshots[index] && (
                   <div className="p-4 space-y-2">
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                      <span className="text-sm font-semibold text-gray-600">Dx:</span>
-                      <span className="text-sm">{snapshot.dx || "Not specified"}</span>
+                      <span className="text-sm font-semibold text-gray-600">
+                        Dx:
+                      </span>
+                      <span className="text-sm">
+                        {snapshot.dx || "Not specified"}
+                      </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                      <span className="text-sm font-semibold text-gray-600">Key Concern:</span>
-                      <span className="text-sm">{snapshot.keyConcern || "Not specified"}</span>
+                      <span className="text-sm font-semibold text-gray-600">
+                        Key Concern:
+                      </span>
+                      <span className="text-sm">
+                        {snapshot.keyConcern || "Not specified"}
+                      </span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] gap-2">
-                      <span className="text-sm font-semibold text-gray-600">Next Step:</span>
-                      <span className="text-sm">{snapshot.nextStep || "Not specified"}</span>
+                      <span className="text-sm font-semibold text-gray-600">
+                        Next Step:
+                      </span>
+                      <span className="text-sm">
+                        {snapshot.nextStep || "Not specified"}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -362,14 +493,21 @@ const TreatmentHistorySection = ({
 
           <div className="flex justify-end mt-4">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${copied[`section-treatment-${currentSnapshotIndex}`]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-blue-200 bg-white text-gray-900"
-                }`}
-              onClick={() => onCopySection("section-treatment", currentSnapshotIndex)}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${
+                copied[`section-treatment-${currentSnapshotIndex}`]
+                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                  : "border-blue-200 bg-white text-gray-900"
+              }`}
+              onClick={() =>
+                onCopySection("section-treatment", currentSnapshotIndex)
+              }
               title="Copy Section"
             >
-              {copied[`section-treatment-${currentSnapshotIndex}`] ? <CheckIcon /> : <CopyIcon />}
+              {copied[`section-treatment-${currentSnapshotIndex}`] ? (
+                <CheckIcon />
+              ) : (
+                <CopyIcon />
+              )}
               Copy Section
             </button>
           </div>
@@ -407,13 +545,15 @@ const ADLSection = ({
           🧩 ADL & Work Status
           {isCollapsed && (
             <span className="text-sm font-normal text-gray-600">
-              ({documentData?.adl?.adls_affected ? 'Restrictions' : 'No restrictions'})
+              (
+              {documentData?.adl?.adls_affected
+                ? "Restrictions"
+                : "No restrictions"}
+              )
             </span>
           )}
         </span>
-        <span className="text-sm">
-          {isCollapsed ? "▼" : "▲"}
-        </span>
+        <span className="text-sm">{isCollapsed ? "▼" : "▲"}</span>
       </h3>
       {!isCollapsed && (
         <>
@@ -437,10 +577,11 @@ const ADLSection = ({
           </div>
           <div className="flex justify-end">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${copied["section-adl"]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-green-200 bg-white text-gray-900"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${
+                copied["section-adl"]
+                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                  : "border-green-200 bg-white text-gray-900"
+              }`}
               onClick={() => onCopySection("section-adl")}
               title="Copy Section"
             >
@@ -525,8 +666,9 @@ const PatientQuizSection = ({
           🧠 ADL Form
         </h3>
         <svg
-          className={`w-4 h-4 transition-transform duration-300 ${isAccordionOpen ? "rotate-180" : "rotate-0"
-            }`}
+          className={`w-4 h-4 transition-transform duration-300 ${
+            isAccordionOpen ? "rotate-180" : "rotate-0"
+          }`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#475569"
@@ -614,10 +756,11 @@ const PatientQuizSection = ({
         </div>
         <div className="flex justify-end mt-4">
           <button
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${copied[sectionId]
-              ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-              : "border-purple-200 bg-white text-gray-900"
-              }`}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${
+              copied[sectionId]
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-purple-200 bg-white text-gray-900"
+            }`}
             onClick={() => onCopySection(sectionId)}
             title="Copy Section"
           >
@@ -737,7 +880,7 @@ const DocumentSummarySection = ({
     const summaries = documentData?.document_summaries || [];
     if (summaries.length === 0) return "No documents";
     const types = [...new Set(summaries.map((s: any) => s.type))];
-    return `${summaries.length} documents (${types.join(', ')})`;
+    return `${summaries.length} documents (${types.join(", ")})`;
   };
 
   return (
@@ -765,8 +908,9 @@ const DocumentSummarySection = ({
             )}
         </h3>
         <svg
-          className={`w-4 h-4 transition-transform duration-300 ${isAccordionOpen ? "rotate-180" : "rotate-0"
-            }`}
+          className={`w-4 h-4 transition-transform duration-300 ${
+            isAccordionOpen ? "rotate-180" : "rotate-0"
+          }`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#475569"
@@ -844,10 +988,11 @@ const DocumentSummarySection = ({
                         </button>
                       )}
                       <button
-                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${copied[sectionId]
-                          ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                          : "border-blue-200 bg-white text-gray-900"
-                          }`}
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${
+                          copied[sectionId]
+                            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                            : "border-blue-200 bg-white text-gray-900"
+                        }`}
                         onClick={() => onCopySection(sectionId)}
                         title="Copy Section"
                       >
@@ -862,7 +1007,7 @@ const DocumentSummarySection = ({
           })
         ) : (
           <div className="text-gray-500 text-center p-3">
-            No document summaries available
+            No component summaries available
           </div>
         )}
       </div>
@@ -893,7 +1038,9 @@ export default function PhysicianCard() {
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   // Collapsible section states
-  const [collapsedSections, setCollapsedSections] = useState<{ [key: string]: boolean }>({
+  const [collapsedSections, setCollapsedSections] = useState<{
+    [key: string]: boolean;
+  }>({
     whatsNew: false, // Start expanded to show initially
     treatmentHistory: true, // Start collapsed
     adlWorkStatus: true, // Start collapsed
@@ -902,9 +1049,9 @@ export default function PhysicianCard() {
 
   // Toggle section collapse state
   const toggleSection = (sectionKey: string) => {
-    setCollapsedSections(prev => ({
+    setCollapsedSections((prev) => ({
       ...prev,
-      [sectionKey]: !prev[sectionKey]
+      [sectionKey]: !prev[sectionKey],
     }));
   };
 
@@ -1128,6 +1275,9 @@ export default function PhysicianCard() {
         };
       }
 
+      // ✅ Ensure quick_notes_snapshots is set (from API data)
+      processedData.quick_notes_snapshots = aggDoc.quick_notes_snapshots || [];
+
       setDocumentData(processedData);
     } catch (err: unknown) {
       console.error("Error fetching document data:", err);
@@ -1216,9 +1366,11 @@ export default function PhysicianCard() {
         const currentIdx = snapshotIndex || 0;
         const currentSnap = snapshots[currentIdx];
         if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${currentSnap.dx || "Not specified"
-            }\nKey Concern: ${currentSnap.keyConcern || "Not specified"
-            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+          text = `Summary Snapshot\nDx: ${
+            currentSnap.dx || "Not specified"
+          }\nKey Concern: ${
+            currentSnap.keyConcern || "Not specified"
+          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
         }
         break;
       case "section-whatsnew":
@@ -1235,19 +1387,44 @@ export default function PhysicianCard() {
         if (!text.includes(":")) {
           text += "No significant changes since last visit";
         }
+        // ✅ Append quick notes to copy text (sorted)
+        const sortedNotes = (doc?.quick_notes_snapshots || [])
+          .filter(
+            (note) =>
+              note.status_update?.trim() ||
+              note.one_line_note?.trim() ||
+              note.details?.trim()
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+        if (sortedNotes.length > 0) {
+          text += "\nQuick Notes:\n";
+          sortedNotes.forEach((note) => {
+            text += `- ${formatTimestamp(note.timestamp)}: ${
+              note.status_update || "Note"
+            } - ${note.one_line_note || ""} (${note.details || ""})\n`;
+          });
+        }
         break;
       case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${doc?.adl?.adls_affected || "Not specified"
-          }\nWork Restrictions: ${doc?.adl?.work_restrictions || "Not specified"
-          }`;
+        text = `ADL / Work Status\nADLs Affected: ${
+          doc?.adl?.adls_affected || "Not specified"
+        }\nWork Restrictions: ${
+          doc?.adl?.work_restrictions || "Not specified"
+        }`;
         break;
       case "section-patient-quiz":
         if (doc?.patient_quiz) {
           const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${q.newAppt
-            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${q.trend
-            }\nWork Ability: ${q.workAbility}\nBarrier: ${q.barrier
-            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
+            q.newAppt
+          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
+            q.trend
+          }\nWork Ability: ${q.workAbility}\nBarrier: ${
+            q.barrier
+          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
           q.appts.forEach((appt) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
@@ -1263,8 +1440,9 @@ export default function PhysicianCard() {
           const index = parseInt(sectionId.split("-")[2]);
           const summary = doc?.document_summaries?.[index];
           if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${summary.summary
-              }`;
+            text = `${summary.type} - ${formatDate(summary.date)}\n${
+              summary.summary
+            }`;
           }
         }
         break;
@@ -1334,6 +1512,17 @@ export default function PhysicianCard() {
     }
   };
 
+  // ✅ Helper for timestamp formatting (used in copy handler)
+  const formatTimestamp = (timestamp: string): string => {
+    if (!timestamp) return "—";
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    } catch {
+      return timestamp;
+    }
+  };
+
   // Format date for display (Visit date)
   const getVisitDate = (): string => {
     return documentData?.created_at ? formatDate(documentData.created_at) : "—";
@@ -1391,8 +1580,9 @@ export default function PhysicianCard() {
   return (
     <LayoutWrapper>
       <div
-        className={`min-h-screen p-6 font-sans ${theme === "standard" ? "bg-gray-100" : "bg-blue-50"
-          } text-gray-900`}
+        className={`min-h-screen p-6 font-sans ${
+          theme === "standard" ? "bg-gray-100" : "bg-blue-50"
+        } text-gray-900`}
       >
         <div className="max-w-5xl mx-auto">
           {/* Search Bar */}
@@ -1461,9 +1651,7 @@ export default function PhysicianCard() {
           )}
 
           <div className="flex justify-between items-center mb-4 gap-2">
-            <div className="font-bold">
-              Kebilo Physician Dashboard
-            </div>
+            <div className="font-bold">Kebilo Physician Dashboard</div>
             <select
               id="theme"
               className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
@@ -1546,15 +1734,18 @@ export default function PhysicianCard() {
                         disabled={verifyLoading || documentData?.allVerified}
                       />
                       <span
-                        className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${isVerified ? "bg-green-100 border-green-300" : ""
-                          } ${verifyLoading || documentData?.allVerified
+                        className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
+                          isVerified ? "bg-green-100 border-green-300" : ""
+                        } ${
+                          verifyLoading || documentData?.allVerified
                             ? "opacity-50 cursor-not-allowed"
                             : ""
-                          }`}
+                        }`}
                       >
                         <span
-                          className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${isVerified ? "translate-x-6" : ""
-                            } shadow`}
+                          className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
+                            isVerified ? "translate-x-6" : ""
+                          } shadow`}
                         ></span>
                       </span>
                     </label>
@@ -1563,8 +1754,9 @@ export default function PhysicianCard() {
                     )}
                     <span
                       id="verifyBadge"
-                      className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${isVerified ? "inline-block" : "hidden"
-                        }`}
+                      className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
+                        isVerified ? "inline-block" : "hidden"
+                      }`}
                     >
                       Verified ✓
                     </span>
@@ -1581,21 +1773,21 @@ export default function PhysicianCard() {
                 copied={copied}
                 onCopySection={handleSectionCopy}
                 isCollapsed={collapsedSections.whatsNew}
-                onToggle={() => toggleSection('whatsNew')}
+                onToggle={() => toggleSection("whatsNew")}
               />
               <TreatmentHistorySection
                 documentData={documentData}
                 copied={copied}
                 onCopySection={handleSectionCopy}
                 isCollapsed={collapsedSections.treatmentHistory}
-                onToggle={() => toggleSection('treatmentHistory')}
+                onToggle={() => toggleSection("treatmentHistory")}
               />
               <ADLSection
                 documentData={documentData}
                 copied={copied}
                 onCopySection={handleSectionCopy}
                 isCollapsed={collapsedSections.adlWorkStatus}
-                onToggle={() => toggleSection('adlWorkStatus')}
+                onToggle={() => toggleSection("adlWorkStatus")}
               />
               <DocumentSummarySection
                 documentData={documentData}
@@ -1604,7 +1796,7 @@ export default function PhysicianCard() {
                 copied={copied}
                 onCopySection={handleSectionCopy}
                 isCollapsed={collapsedSections.documentSummary}
-                onToggle={() => toggleSection('documentSummary')}
+                onToggle={() => toggleSection("documentSummary")}
               />
               <PatientQuizSection
                 documentData={documentData}
@@ -1647,8 +1839,9 @@ export default function PhysicianCard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
-              } animate-in slide-in-from-top-2 duration-300`}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.type === "success" ? "bg-green-500" : "bg-red-500"
+            } animate-in slide-in-from-top-2 duration-300`}
           >
             {toast.message}
           </div>
