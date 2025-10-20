@@ -134,21 +134,21 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 ease-in-out lg:relative lg:z-0 shadow-2xl",
+          "fixed left-0 top-0 z-50 h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 transition-all duration-300 ease-in-out lg:relative lg:z-0 shadow-2xl",
           isCollapsed ? "w-16" : "w-72",
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
+        <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <div
             className={cn(
               "flex items-center gap-3",
               isCollapsed && "justify-center"
             )}
           >
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-violet-500 rounded-xl flex items-center justify-center shadow-lg">
               <Activity className="w-5 h-5 text-white" />
             </div>
             {!isCollapsed && (
@@ -184,7 +184,7 @@ export function Sidebar({ className }: SidebarProps) {
             )}
           >
             <Avatar className="w-11 h-11 border-2 border-gray-700 shadow-lg">
-              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-semibold">
+              <AvatarFallback className="bg-gradient-to-br from-slate-500 to-violet-500 text-white font-semibold">
                 {session?.user?.firstName?.[0] || "U"}
               </AvatarFallback>
             </Avatar>
@@ -217,7 +217,7 @@ export function Sidebar({ className }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative",
                   isActive
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/25"
+                    ? "bg-gradient-to-r from-slate-500 to-violet-500 text-white shadow-lg shadow-slate-500/25"
                     : "text-gray-300 hover:text-white hover:bg-gray-800 hover:shadow-md",
                   isCollapsed && "justify-center px-2"
                 )}

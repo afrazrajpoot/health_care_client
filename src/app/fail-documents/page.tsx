@@ -21,7 +21,7 @@ import { Trash2, Eye, AlertCircle, FileX, Download } from "lucide-react";
 
 interface FailDoc {
   id: string;
-  reasson: string;
+  reason: string;
   blobPath: string;
   physicianId: string | null;
 }
@@ -222,7 +222,7 @@ export default function FailDocsPage() {
                               variant="destructive"
                               className="font-medium px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200"
                             >
-                              {doc.reasson}
+                              {doc.reason}
                             </Badge>
                           </TableCell>
                           <TableCell className="max-w-xs">

@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     const {
       patient,
       dob,
+      claim_number = "",
       visit = "Follow-up",
       lang = "en",
       mode = "tele",
@@ -57,6 +58,11 @@ export async function POST(request: NextRequest) {
     const payload: TokenPayload = {
       patient: patient.trim(),
       dob,
+      // include claim number in token payload if provided
+      // typing of TokenPayload doesn't include claimNumber yet but it's fine for ad-hoc addition
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      claimNumber: claim_number || "",
       visit,
       lang,
       mode,
@@ -87,6 +93,7 @@ export async function POST(request: NextRequest) {
         },
         data: {
           token,
+          claimNumber: claim_number || undefined,
           visitType: visit,
           language: lang,
           mode: mode,
@@ -107,6 +114,7 @@ export async function POST(request: NextRequest) {
           token,
           patientName: patient.trim(),
           dateOfBirth: dobDate,
+          claimNumber: claim_number || undefined,
           visitType: visit,
           language: lang,
           mode: mode,

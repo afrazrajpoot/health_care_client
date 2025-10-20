@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 const SPECIALISTS = [
@@ -109,6 +109,14 @@ interface PatientData {
 }
 
 export default function PatientIntake() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PatientIntakeContent />
+    </Suspense>
+  );
+}
+
+function PatientIntakeContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -334,6 +342,8 @@ export default function PatientIntake() {
         },
         body: JSON.stringify({
           patientName: patient,
+          dob: expectedPatientData?.dateOfBirth || undefined,
+          claimNumber: (expectedPatientData as any)?.claimNumber || undefined,
           bodyAreas,
           language,
           ...formData,
@@ -355,7 +365,7 @@ export default function PatientIntake() {
 
   if (showAuth) {
     return (
-      <div className="wrap">
+      <div className="wrap auth-wrap">
         <div className="card auth-card">
           <div className="auth-header">
             <h1>{t.auth_title}</h1>
@@ -406,9 +416,17 @@ export default function PatientIntake() {
         </div>
 
         <style jsx>{`
+          .auth-wrap{
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height:70vh;
+            padding:16px;
+          }
+
           .auth-card {
-            max-width: 400px;
-            margin: 40px auto;
+            max-width: 420px;
+            margin: 0;
             padding: 24px;
           }
 
@@ -488,11 +506,17 @@ export default function PatientIntake() {
             font-size: 14px;
             cursor: pointer;
             margin-top: 8px;
-            transition: background-color 0.2s ease;
+            transition: background-color 0.12s ease;
+          }
+
+          /* make sure primary color is visible without hover */
+          .btn.primary:not(:disabled) {
+            background: var(--accent);
+            color: #fff;
           }
 
           .btn.primary:hover:not(:disabled) {
-            background: #1d4ed8;
+            filter: brightness(0.95);
           }
 
           .btn.primary:disabled {
@@ -507,9 +531,10 @@ export default function PatientIntake() {
   if (loading) {
     return (
       <div className="wrap">
-        <div className="card">
-          <div className="section">
-            <h1>{t.title}</h1>
+        <div className="card loading-card">
+          <div className="section center">
+            <div className="spinner" aria-hidden="true"></div>
+            <h1 style={{ marginTop: 12 }}>{t.title}</h1>
             <div className="muted">Loading patient data...</div>
           </div>
         </div>
@@ -523,7 +548,7 @@ export default function PatientIntake() {
         <div className="inline header">
           <div>
             <h1>{t.title}</h1>
-            <div className="muted">{t.sub}</div>
+            <div className="">{t.sub}</div>
           </div>
           <div className="inline">
             <label className="muted language-label">Language</label>
@@ -742,7 +767,7 @@ export default function PatientIntake() {
           </button>
           <button
             type="button"
-            className="btn primary submit-btn"
+            className="bg-blue-800 text-white p-2 rounded-2xl submit-btn"
             onClick={handleSubmit}
           >
             Submit
@@ -786,6 +811,13 @@ export default function PatientIntake() {
           border-radius: 16px;
           padding: 16px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .loading-card {
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          min-height:220px;
         }
 
         h1 {
@@ -947,6 +979,20 @@ export default function PatientIntake() {
           border-radius: 12px;
           padding: 12px;
           white-space: pre-line;
+        }
+
+        /* Simple spinner */
+        .spinner {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 4px solid rgba(0,0,0,0.08);
+          border-top-color: var(--accent);
+          animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         .actions {

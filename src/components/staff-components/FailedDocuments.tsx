@@ -11,7 +11,7 @@ import {
 
 interface FailedDocument {
   id: string;
-  reasson: string;
+  reason: string;
   db?: string;
   doi?: string;
   claimNumber?: string;
@@ -184,7 +184,7 @@ export default function FailedDocuments({
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-sm text-red-600 font-medium">
-                        {doc.reasson}
+                        {doc.reason}
                       </div>
                     </td>
                     <td className="px-4 py-4 text-center">

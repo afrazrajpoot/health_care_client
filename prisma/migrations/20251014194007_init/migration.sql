@@ -139,7 +139,7 @@ CREATE TABLE "public"."PatientQuiz" (
 -- CreateTable
 CREATE TABLE "public"."FailDocs" (
     "id" TEXT NOT NULL,
-    "reasson" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
     "blobPath" TEXT NOT NULL,
     "physicianId" TEXT,
 
