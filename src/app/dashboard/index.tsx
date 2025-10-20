@@ -609,7 +609,7 @@ const DocumentSummarySection = ({
     const handlePreviewFile = () => {
         const blobPath = documentData?.blob_path;
         if (blobPath) {
-            const previewUrl = `http://127.0.0.1:8000/api/preview/${encodeURIComponent(
+            const previewUrl = `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/preview/${encodeURIComponent(
                 blobPath
             )}`;
             window.open(previewUrl, "_blank", "noopener,noreferrer");
@@ -931,7 +931,7 @@ export default function PhysicianCard() {
             console.log("Fetching document data with params:", params.toString());
 
             const response = await fetch(
-                `http://127.0.0.1:8000/api/document?${params}`
+                `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/document?${params}`
             );
 
             if (!response.ok) {
