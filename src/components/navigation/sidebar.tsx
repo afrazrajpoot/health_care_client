@@ -44,29 +44,21 @@ const navigationItems: NavigationItem[] = [
     roles: ["Staff", "Physician", "Attorney"], // ✅ Both can access
   },
   // {
-  //   name: "Documents",
-  //   href: "/documents",
-  //   icon: FileText,
-  //   badge: "12",
-  //   description: "Document processing & review",
-  //   roles: ["Staff"], // ✅ Staff only
+  //   name: "Patients",
+  //   href: "/patients",
+  //   icon: Users,
+  //   description: "Patient management",
+  //   roles: ["Staff"], // ✅ Physician only
   // },
-  {
-    name: "Patients",
-    href: "/patients",
-    icon: Users,
-    description: "Patient management",
-    roles: ["Staff"], // ✅ Physician only
-  },
-  {
-    name: "Fail Documents",
-    href: "/fail-documents",
+  // {
+  //   name: "Fail Documents",
+  //   href: "/fail-documents",
 
-    icon: CheckSquare,
-    badge: "8",
-    description: "Task management & assignments",
-    roles: ["Staff"], // ✅ Both
-  },
+  //   icon: CheckSquare,
+  //   badge: "8",
+  //   description: "Task management & assignments",
+  //   roles: ["Staff"], // ✅ Both
+  // },
   {
     name: "Upload Documents",
     href: "/upload-doc",
