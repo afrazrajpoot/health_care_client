@@ -33,14 +33,14 @@ export default function FailDocsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE_URL = "http://localhost:8000";
+  const API_BASE_URL = `${process.env.PYTHON_API_URL}`
 
   useEffect(() => {
     const fetchFailDocs = async () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `http://localhost:8000/api/fail-docs?physicianId=${session?.user?.physicianId}`
+          `${API_BASE_URL}/api/fail-docs?physicianId=${session?.user?.physicianId}`
         );
         if (!response.ok) {
           throw new Error("Failed to fetch failed documents");

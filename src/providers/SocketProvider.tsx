@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"; // ✅ Import ShadCN Dialog components (adjust path as needed)
 
-const SOCKET_URL = "http://localhost:8000";
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
 
 type SocketContextType = {
   socket: any;
@@ -153,8 +153,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     socketInstance.on("task_error", (data) => {
       console.error("❌ Task error (received on client):", data);
       toast.error(
-        `Task failed for "${data.filename || "unknown"}": ${
-          data.error || "Unknown error"
+        `Task failed for "${data.filename || "unknown"}": ${data.error || "Unknown error"
         }`
       );
     });
