@@ -280,36 +280,31 @@ const WhatsNewSection = ({
                 </span>
               </button>
               <div
-                className={`overflow-hidden transition-all duration-300 ${isQuickNotesOpen ? "max-h-96" : "max-h-0"
+                className={`overflow-hidden mt-[1vw] rounded-[1vw] transition-all duration-300 ${isQuickNotesOpen ? "max-h-96" : "max-h-0"
                   }`}
               >
-                <ul className="m-0 p-4 grid gap-2 list-none border border-amber-300 bg-white rounded-b-lg">
+                <ul className="m-0 p-4 grid gap-3 list-none border border-amber-300 bg-white rounded-b-lg">
                   {getAllQuickNotes().map((note, index) => (
                     <li
                       key={index}
-                      className={`p-3 border border-dashed border-amber-200 rounded-lg ${isNoteEmpty(note) ? "opacity-50 bg-gray-50" : ""
-                        }`}
+                      className={`p-4 rounded-lg ${isNoteEmpty(note) ? "opacity-60 bg-gray-50" : "border border-amber-100 hover:bg-amber-50"}
+                      `}
                     >
-                      <div className="text-xs text-gray-500 mb-1">
-                        {formatTimestamp(note.timestamp)}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs text-gray-500">{formatTimestamp(note.timestamp)}</div>
+                        <div className="text-xs text-gray-400">{isNoteEmpty(note) ? "Empty" : ""}</div>
                       </div>
-                      <div className="font-semibold">
-                        {note.status_update ||
-                          (isNoteEmpty(note) ? "No Update" : "Note Added")}
+
+                      <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
+                        <div className="text-xs text-gray-600">Details</div>
+                        <div className="text-sm text-gray-800 leading-snug">{note.details?.trim() || "—"}</div>
+
+                        <div className="text-xs text-gray-600">Summary</div>
+                        <div className="text-sm text-gray-800 leading-snug">{note.one_line_note?.trim() || "—"}</div>
+
+                        <div className="text-xs text-gray-600">Status</div>
+                        <div className="text-sm text-gray-800 leading-snug">{note.status_update?.trim() || "—"}</div>
                       </div>
-                      {note.one_line_note && (
-                        <div className="text-sm mt-1">{note.one_line_note}</div>
-                      )}
-                      {note.details && (
-                        <div className="text-xs text-gray-600 mt-1 italic">
-                          {note.details}
-                        </div>
-                      )}
-                      {isNoteEmpty(note) && !note.status_update && (
-                        <div className="text-xs text-gray-400 mt-1 italic">
-                          No details added
-                        </div>
-                      )}
                     </li>
                   ))}
                 </ul>
@@ -1678,7 +1673,7 @@ export default function PhysicianCard() {
                     Claim #: {currentPatient.claimNumber}
                   </div>
                   <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
-                    DOI: {formatDate(currentPatient.doi)}
+                    DOI: {formatDate(currentPatient.doi) === 'Invalid Date' ? 'not specified' : formatDate(currentPatient.doi)}
                   </div>
                   {documentData?.merge_metadata?.is_merged && (
                     <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-sm">
