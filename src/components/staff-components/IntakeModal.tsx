@@ -293,10 +293,8 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
       }
 
       const { token } = await response.json();
-      //   const link = `https://intake.kebilo.app/form?token=${encodeURIComponent(
-      //     token
-      //   )}`;
-      const link = `${process.env.NEXT_PUBLIC_URL}/intake-form?token=${encodeURIComponent(
+      const form_url = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+      const link = `${form_url}/intake-form?token=${encodeURIComponent(
         token
       )}`;
       setOutputLink(link);
