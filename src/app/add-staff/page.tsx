@@ -299,7 +299,7 @@ export default function AddStaffPage() {
                   {/* Submit Button */}
                   <Button
                     type="submit"
-                    className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white"
+                    className="w-full h-12 bg-gradient-to-br from-slate-500 to-violet-500 text-white"
                     disabled={isLoading}
                   >
                     {isLoading && (

@@ -26,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Sidebar } from "@/components/navigation/sidebar";
+import { toast } from "sonner";
 
 // API response interface
 interface ApiTask {
@@ -72,7 +74,6 @@ export default function Dashboard() {
     dept: "",
   });
   const [dense, setDense] = useState(false);
-  const [toast, setToast] = useState({ msg: "", visible: false });
   const [showModal, setShowModal] = useState(false);
   const snapInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,6 +90,7 @@ export default function Dashboard() {
     dob: null as Date | null,
     doi: "",
   });
+  const [updateLoading, setUpdateLoading] = useState(false);
 
   // New state for file modal
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
@@ -108,9 +110,12 @@ export default function Dashboard() {
   const [isOfficePulseCollapsed, setIsOfficePulseCollapsed] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
 
+  // Add sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
   const departments = mode === "wc" ? DEPARTMENTS_WC : DEPARTMENTS_GM;
-  const pulse = fetchedPulse || (mode === "wc" ? PULSE_WC : PULSE_GM);
+  const pulse = fetchedPulse;
 
   // Transform API task to local Task type
   const transformApiTask = (apiTask: ApiTask): Task => {
@@ -121,15 +126,15 @@ export default function Dashboard() {
     // Transform quick notes if available
     const notes = apiTask.quickNotes
       ? [
-        {
-          ts: new Date(apiTask.updatedAt).toLocaleString(),
-          user: "System",
-          line:
-            apiTask.quickNotes.one_line_note ||
-            apiTask.quickNotes.details ||
-            "Note added",
-        },
-      ]
+          {
+            ts: new Date(apiTask.updatedAt).toLocaleString(),
+            user: "System",
+            line:
+              apiTask.quickNotes.one_line_note ||
+              apiTask.quickNotes.details ||
+              "Note added",
+          },
+        ]
       : [];
 
     return {
@@ -166,9 +171,8 @@ export default function Dashboard() {
       setTasks(transformedTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
-      showToast("❌ Error fetching tasks");
-      // Fallback to initial tasks if API fails
-      setTasks(initialTasks);
+      toast.error("❌ Error fetching tasks");
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -230,6 +234,23 @@ export default function Dashboard() {
     fetchWorkflowStats();
   }, [fetchWorkflowStats]);
 
+  // Click outside to close sidebar
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        !e.target.closest(".sidebar-container") &&
+        !e.target.closest(".toggle-btn")
+      ) {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isSidebarOpen]);
+
   // Refetch tasks when filters change (if you want real-time filtering from API)
   // useEffect(() => {
   //   fetchTasks();
@@ -290,10 +311,10 @@ export default function Dashboard() {
         throw new Error("Failed to update task");
       }
 
-      showToast("✅ Task updated successfully");
+      toast.success("✅ Task updated successfully");
     } catch (error) {
       console.error("Error updating task:", error);
-      showToast("❌ Error updating task");
+      toast.error("❌ Error updating task");
       // Revert local changes if API call fails
       fetchTasks();
     }
@@ -307,12 +328,12 @@ export default function Dashboard() {
     const newActions = isClaimed ? ["Unclaimed"] : ["Claimed", "Complete"];
 
     await updateTask(id, { actions: newActions });
-    showToast(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed");
+    toast.success(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed");
   };
 
   const completeTask = (id: string) => {
     updateTask(id, { statusText: "Done", statusClass: "done" });
-    showToast("🎉 Task marked complete");
+    toast.success("🎉 Task marked complete");
   };
 
   const saveNote = async (e: React.MouseEvent, taskId: string) => {
@@ -331,9 +352,9 @@ export default function Dashboard() {
         prev.map((t) =>
           t.id === taskId
             ? {
-              ...t,
-              notes: [...(t.notes || []), { ts, user: "You", line }],
-            }
+                ...t,
+                notes: [...(t.notes || []), { ts, user: "You", line }],
+              }
             : t
         )
       );
@@ -359,18 +380,13 @@ export default function Dashboard() {
       }
 
       (wrap.querySelector(".qfree") as HTMLInputElement).value = "";
-      showToast("📝 Note saved");
+      toast.success("📝 Note saved");
     } catch (error) {
       console.error("Error saving note:", error);
-      showToast("❌ Error saving note");
+      toast.error("❌ Error saving note");
       // Revert local changes if API call fails
       fetchTasks();
     }
-  };
-
-  const showToast = (msg: string) => {
-    setToast({ msg, visible: true });
-    setTimeout(() => setToast((p) => ({ ...p, visible: false })), 2500);
   };
 
   // Integrated logic from second file
@@ -387,7 +403,7 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Error fetching failed documents:", error);
-      showToast("❌ Error fetching failed documents");
+      toast.error("❌ Error fetching failed documents");
     }
   };
 
@@ -428,6 +444,8 @@ export default function Dashboard() {
   const handleUpdateSubmit = async () => {
     if (!selectedDoc) return;
 
+    setUpdateLoading(true);
+
     try {
       const updateData: any = {
         patient_name: updateFormData.patientName,
@@ -456,13 +474,15 @@ export default function Dashboard() {
 
       if (!response.ok) throw new Error("Update failed");
 
-      showToast("✅ Document updated successfully");
+      toast.success("✅ Document updated successfully");
       setIsUpdateModalOpen(false);
       fetchFailedDocuments();
       fetchTasks();
     } catch (error) {
       console.error("Update error:", error);
-      showToast("❌ Error updating document");
+      toast.error("❌ Error updating document");
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
@@ -491,7 +511,7 @@ export default function Dashboard() {
         setSelectedFiles(validFiles);
         setIsFileModalOpen(true);
       } else {
-        showToast(
+        toast.error(
           "❌ No valid files selected. Please check file types and size (max 40MB)."
         );
       }
@@ -510,7 +530,10 @@ export default function Dashboard() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/extract-documents?physicianId=${session?.user?.physicianId || ""
+        `${
+          process.env.NEXT_PUBLIC_PYTHON_API_URL
+        }/api/extract-documents?physicianId=${
+          session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -527,7 +550,7 @@ export default function Dashboard() {
         throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
-      showToast(
+      toast.success(
         `✅ Queued ${data.task_ids?.length || 0} task(s) for processing`
       );
 
@@ -535,7 +558,7 @@ export default function Dashboard() {
       fetchTasks();
     } catch (error) {
       console.error("Upload error:", error);
-      showToast("❌ Error uploading documents");
+      toast.error("❌ Error uploading documents");
     } finally {
       setUploading(false);
       setSelectedFiles([]);
@@ -575,14 +598,12 @@ export default function Dashboard() {
       { name: "Mode toggle wired", pass: true },
       {
         name: "Pulse dept table populated",
-        pass: fetchedPulse
-          ? fetchedPulse.depts.length > 0
-          : pulse.deptRows.length > 0,
+        pass: fetchedPulse ? fetchedPulse.depts.length > 0 : false,
       },
       { name: "Dept dropdown filled", pass: departments.length > 0 },
       { name: "Tasks loaded from API", pass: tasks.length > 0 },
     ]);
-  }, [mode, fetchedPulse, pulse, departments, tasks]);
+  }, [mode, fetchedPulse, departments, tasks]);
 
   return (
     <>
@@ -763,7 +784,7 @@ export default function Dashboard() {
         .snaplink-btn {
           position: fixed;
           top: 24px;
-          left: 24px;
+          left: 5vw;
           background: linear-gradient(90deg, var(--accent), var(--accent2));
           color: #fff;
           font-weight: 700;
@@ -774,7 +795,7 @@ export default function Dashboard() {
           box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
           cursor: pointer;
           transition: all 0.25s ease;
-          z-index: 1000;
+          z-index: 10;
         }
         .snaplink-btn:hover {
           transform: translateY(-2px);
@@ -905,333 +926,418 @@ export default function Dashboard() {
           color: var(--text);
           border: 1px solid var(--border);
         }
+        .no-data {
+          text-align: center;
+          padding: 20px;
+          color: var(--muted);
+          font-style: italic;
+        }
       `}</style>
-      <button
-        className="snaplink-btn"
-        onClick={() => snapInputRef.current?.click()}
-      >
-        Create SnapLink
-      </button>
-      <input
-        type="file"
-        ref={snapInputRef}
-        multiple
-        className="hidden"
-        onChange={handleSnap}
-      />
-      {toast.visible && <div className="snap-toast">{toast.msg}</div>}
-      <div className="wrap">
-        <div className="header">
-          <h1>🧭 Kebilo Staff Dashboard — Mission Control v6.3</h1>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <label
-              className="muted"
-              style={{
-                display: "flex",
-                gap: "6px",
-                alignItems: "center",
-                fontSize: "12px",
-              }}
-            >
-              Mode:
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as "wc" | "gm")}
-                style={{
-                  padding: "6px 8px",
-                  border: "1px solid var(--border)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-              >
-                <option value="wc">Workers&apos; Comp</option>
-                <option value="gm">General Medicine</option>
-              </select>
-            </label>
-            <label
-              className="muted"
-              style={{
-                display: "flex",
-                gap: "6px",
-                alignItems: "center",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={dense}
-                onChange={(e) => setDense(e.target.checked)}
-              />
-              Dense
-            </label>
-            <button className="btn light">Dept Settings</button>
-            <button className="btn primary" onClick={() => setShowModal(true)}>
-              Create Intake Link
-            </button>
-            <button className="btn primary">+ Add Manual Task</button>
-            <button
-              className="btn light"
-              onClick={fetchTasks}
-              disabled={loading}
-            >
-              {loading ? "Refreshing..." : "Refresh Tasks"}
-            </button>
+      {/* Sidebar Toggle Indicator and Sidebar Component */}
+      <div className="flex min-h-screen relative">
+        {/* Sidebar Component with High Z-Index */}
+        <div
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="h-full">
+            <Sidebar onClose={() => setIsSidebarOpen(false)} />
           </div>
         </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="card">
-            <div style={{ textAlign: "center", padding: "20px" }}>
-              Loading tasks...
-            </div>
+        {/* Sidebar Toggle Button - Burger Icon */}
+        <div
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
+            isSidebarOpen
+              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+          }`}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
+        >
+          <div className="flex flex-col items-center justify-center w-4 h-4">
+            <div
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+              }`}
+            ></div>
+            <div
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "opacity-0" : ""
+              }`}
+            ></div>
+            <div
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
+                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+              }`}
+            ></div>
           </div>
-        )}
+        </div>
 
-        {/* Office Pulse */}
-        {!loading && (
-          <>
-            <div className="card">
-              <h2>
-                📊 Office Pulse
+        {/* Main Content */}
+        <div
+          className={`flex-1 transition-all duration-300 ${
+            isSidebarOpen ? "ml-0" : "ml-0"
+          }`}
+        >
+          <button
+            className="snaplink-btn"
+            onClick={() => snapInputRef.current?.click()}
+          >
+            Create SnapLink
+          </button>
+          <input
+            type="file"
+            ref={snapInputRef}
+            multiple
+            className="hidden"
+            onChange={handleSnap}
+          />
+          <div className="wrap">
+            <div className="header">
+              <h1>🧭 Kebilo Staff Dashboard — Mission Control v6.3</h1>
+              <div
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+              >
+                <label
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    alignItems: "center",
+                    fontSize: "12px",
+                  }}
+                >
+                  Mode:
+                  <select
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value as "wc" | "gm")}
+                    style={{
+                      padding: "6px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <option value="wc">Workers&apos; Comp</option>
+                    <option value="gm">General Medicine</option>
+                  </select>
+                </label>
+                <label
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    alignItems: "center",
+                    fontSize: "12px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={dense}
+                    onChange={(e) => setDense(e.target.checked)}
+                  />
+                  Dense
+                </label>
+                <button className="btn light">Dept Settings</button>
+                <button
+                  className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md"
+                  onClick={() => setShowModal(true)}
+                >
+                  Create Intake Link
+                </button>
+                <button className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md">
+                  + Add Manual Task
+                </button>
                 <button
                   className="btn light"
-                  onClick={() =>
-                    setIsOfficePulseCollapsed(!isOfficePulseCollapsed)
-                  }
-                  style={{
-                    fontSize: "12px",
-                    padding: "4px 8px",
-                    minHeight: "auto",
-                  }}
+                  onClick={fetchTasks}
+                  disabled={loading}
                 >
-                  {isOfficePulseCollapsed ? "▼ Expand" : "▲ Collapse"}
+                  {loading ? "Refreshing..." : "Refresh Tasks"}
                 </button>
-              </h2>
-              {!isOfficePulseCollapsed && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1.4fr 1fr",
-                    gap: "12px",
-                    alignItems: "start",
-                  }}
-                >
-                  <div>
-                    <table className="mini-table">
-                      <thead>
-                        <tr>
-                          <th>Department</th>
-                          <th>Open</th>
-                          <th>Overdue</th>
-                          <th>Unclaimed</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(fetchedPulse
-                          ? fetchedPulse.depts
-                          : pulse.deptRows
-                        ).map((rowOrObj, index) => {
-                          if (
-                            typeof rowOrObj === "object" &&
-                            "department" in rowOrObj
-                          ) {
-                            const dept = rowOrObj as DeptPulse;
-                            return (
-                              <tr key={index}>
-                                <td>{dept.department}</td>
-                                <td>{dept.open}</td>
-                                <td>{dept.overdue}</td>
-                                <td>{dept.unclaimed}</td>
-                              </tr>
-                            );
-                          } else {
-                            const row = rowOrObj as [
-                              string,
-                              number,
-                              number,
-                              number,
-                              number
-                            ];
-                            return (
-                              <tr key={index}>
-                                <td>{row[0]}</td>
-                                <td>{row[1]}</td>
-                                <td>{row[2]}</td>
-                                <td>{row[4]}</td>
-                              </tr>
-                            );
-                          }
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+              </div>
+            </div>
 
-                  <div className="kpi relative">
+            {/* Loading State */}
+            {loading && (
+              <div className="card">
+                <div style={{ textAlign: "center", padding: "20px" }}>
+                  Loading tasks...
+                </div>
+              </div>
+            )}
+
+            {/* Office Pulse */}
+            {!loading && (
+              <>
+                <div className="card">
+                  <h2>
+                    📊 Office Pulse
                     <button
-                      onClick={fetchWorkflowStats}
-                      className="btn light absolute top-0 right-0"
+                      className="btn light"
+                      onClick={() =>
+                        setIsOfficePulseCollapsed(!isOfficePulseCollapsed)
+                      }
                       style={{
                         fontSize: "12px",
                         padding: "4px 8px",
                         minHeight: "auto",
                       }}
                     >
-                      🔄 Refresh
+                      {isOfficePulseCollapsed ? "▼ Expand" : "▲ Collapse"}
                     </button>
-                    {workflowStats ? (
-                      workflowStats.labels.map((label, index) => (
-                        <div key={index} className="text-gray-700">
-                          <h4>{label}</h4>
-                          <div className="val">{workflowStats.vals[index]}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="tile">
-                        <h4>Loading...</h4>
-                        <div className="val">—</div>
+                  </h2>
+                  {!isOfficePulseCollapsed && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.4fr 1fr",
+                        gap: "12px",
+                        alignItems: "start",
+                      }}
+                    >
+                      <div>
+                        <table className="mini-table">
+                          <thead>
+                            <tr>
+                              <th>Department</th>
+                              <th>Open</th>
+                              <th>Overdue</th>
+                              <th>Unclaimed</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pulse ? (
+                              pulse.depts.map((rowOrObj, index) => {
+                                if (
+                                  typeof rowOrObj === "object" &&
+                                  "department" in rowOrObj
+                                ) {
+                                  const dept = rowOrObj as DeptPulse;
+                                  return (
+                                    <tr key={index}>
+                                      <td>{dept.department}</td>
+                                      <td>{dept.open}</td>
+                                      <td>{dept.overdue}</td>
+                                      <td>{dept.unclaimed}</td>
+                                    </tr>
+                                  );
+                                } else {
+                                  const row = rowOrObj as [
+                                    string,
+                                    number,
+                                    number,
+                                    number,
+                                    number
+                                  ];
+                                  return (
+                                    <tr key={index}>
+                                      <td>{row[0]}</td>
+                                      <td>{row[1]}</td>
+                                      <td>{row[2]}</td>
+                                      <td>{row[4]}</td>
+                                    </tr>
+                                  );
+                                }
+                              })
+                            ) : (
+                              <tr>
+                                <td colSpan={4} className="no-data">
+                                  No pulse data available
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="kpi relative">
+                        <button
+                          onClick={fetchWorkflowStats}
+                          className="btn light absolute top-0 right-0"
+                          style={{
+                            fontSize: "12px",
+                            padding: "4px 8px",
+                            minHeight: "auto",
+                          }}
+                        >
+                          🔄 Refresh
+                        </button>
+                        {workflowStats ? (
+                          workflowStats.labels.map((label, index) => (
+                            <div key={index} className="text-gray-700">
+                              <h4>{label}</h4>
+                              <div className="val">
+                                {workflowStats.vals[index]}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="tile">
+                            <h4>No Workflow Stats</h4>
+                            <div className="val">—</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Task & Workflow Tracker */}
+                <div className="card">
+                  <h2>
+                    🧩 Task & Workflow Tracker
+                    <button
+                      className="btn light"
+                      onClick={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
+                      style={{
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        minHeight: "auto",
+                      }}
+                    >
+                      {isFiltersCollapsed ? "▼ Show Filters" : "▲ Hide Filters"}
+                    </button>
+                  </h2>
+                  <div className="muted" style={{ marginBottom: "8px" }}>
+                    Tabs keep this compact. Use Overdue to triage. Search
+                    filters by task/patient. Quick Notes allow multiple
+                    timestamped entries per task.
+                  </div>
+                  <div className="filters">
+                    <div
+                      style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}
+                    >
+                      {filteredTabs.map((tab) => (
+                        <button
+                          key={tab.pane}
+                          className={`filter ttab ${
+                            currentPane === tab.pane ? "active" : ""
+                          }`}
+                          onClick={() => setCurrentPane(tab.pane)}
+                        >
+                          {tab.text}
+                        </button>
+                      ))}
+                    </div>
+                    {!isFiltersCollapsed && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <input
+                          placeholder="Search tasks/patients…"
+                          value={filters.search}
+                          onChange={(e) =>
+                            setFilters((p) => ({
+                              ...p,
+                              search: e.target.value,
+                            }))
+                          }
+                          style={{
+                            padding: "6px 10px",
+                            border: "1px solid var(--border)",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                            minWidth: "220px",
+                          }}
+                        />
+                        <button
+                          className="filter"
+                          onClick={() =>
+                            setFilters((p) => ({
+                              ...p,
+                              overdueOnly: !p.overdueOnly,
+                            }))
+                          }
+                        >
+                          {filters.overdueOnly
+                            ? "Showing Overdue"
+                            : "Show Overdue Only"}
+                        </button>
+                        <span className="muted">Dept:</span>
+                        <select
+                          value={filters.dept}
+                          onChange={(e) =>
+                            setFilters((p) => ({ ...p, dept: e.target.value }))
+                          }
+                          style={{
+                            padding: "6px 8px",
+                            border: "1px solid var(--border)",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                          }}
+                        >
+                          <option value="">All</option>
+                          {departments.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="filter"
+                          aria-pressed={filters.myDeptOnly ? "true" : "false"}
+                          onClick={() =>
+                            setFilters((p) => ({
+                              ...p,
+                              myDeptOnly: !p.myDeptOnly,
+                            }))
+                          }
+                        >
+                          {filters.myDeptOnly
+                            ? "Only My Dept ✓"
+                            : "Only My Dept"}
+                        </button>
+                        <button
+                          className="filter"
+                          onClick={() =>
+                            setFilters({
+                              search: "",
+                              overdueOnly: false,
+                              myDeptOnly: false,
+                              dept: "",
+                            })
+                          }
+                        >
+                          Clear
+                        </button>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Task & Workflow Tracker */}
-            <div className="card">
-              <h2>
-                🧩 Task & Workflow Tracker
-                <button
-                  className="btn light"
-                  onClick={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
-                  style={{
-                    fontSize: "12px",
-                    padding: "4px 8px",
-                    minHeight: "auto",
-                  }}
-                >
-                  {isFiltersCollapsed ? "▼ Show Filters" : "▲ Hide Filters"}
-                </button>
-              </h2>
-              <div className="muted" style={{ marginBottom: "8px" }}>
-                Tabs keep this compact. Use Overdue to triage. Search filters by
-                task/patient. Quick Notes allow multiple timestamped entries per
-                task.
-              </div>
-              <div className="filters">
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {filteredTabs.map((tab) => (
-                    <button
-                      key={tab.pane}
-                      className={`filter ttab ${currentPane === tab.pane ? "active" : ""
-                        }`}
-                      onClick={() => setCurrentPane(tab.pane)}
-                    >
-                      {tab.text}
-                    </button>
-                  ))}
-                </div>
-                {!isFiltersCollapsed && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <input
-                      placeholder="Search tasks/patients…"
-                      value={filters.search}
-                      onChange={(e) =>
-                        setFilters((p) => ({ ...p, search: e.target.value }))
-                      }
-                      style={{
-                        padding: "6px 10px",
-                        border: "1px solid var(--border)",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                        minWidth: "220px",
-                      }}
+                  {tasks.length === 0 ? (
+                    <div className="no-data">No tasks available</div>
+                  ) : (
+                    <TaskTable
+                      currentPane={currentPane}
+                      tasks={getDisplayedTasks(currentPane)}
+                      filters={filters}
+                      mode={mode}
+                      onClaim={toggleClaim}
+                      onComplete={completeTask}
+                      onSaveNote={saveNote}
+                      getPresets={getPresets}
                     />
-                    <button
-                      className="filter"
-                      onClick={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          overdueOnly: !p.overdueOnly,
-                        }))
-                      }
-                    >
-                      {filters.overdueOnly
-                        ? "Showing Overdue"
-                        : "Show Overdue Only"}
-                    </button>
-                    <span className="muted">Dept:</span>
-                    <select
-                      value={filters.dept}
-                      onChange={(e) =>
-                        setFilters((p) => ({ ...p, dept: e.target.value }))
-                      }
-                      style={{
-                        padding: "6px 8px",
-                        border: "1px solid var(--border)",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                      }}
-                    >
-                      <option value="">All</option>
-                      {departments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="filter"
-                      aria-pressed={filters.myDeptOnly ? "true" : "false"}
-                      onClick={() =>
-                        setFilters((p) => ({ ...p, myDeptOnly: !p.myDeptOnly }))
-                      }
-                    >
-                      {filters.myDeptOnly ? "Only My Dept ✓" : "Only My Dept"}
-                    </button>
-                    <button
-                      className="filter"
-                      onClick={() =>
-                        setFilters({
-                          search: "",
-                          overdueOnly: false,
-                          myDeptOnly: false,
-                          dept: "",
-                        })
-                      }
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
-              </div>
-              <TaskTable
-                currentPane={currentPane}
-                tasks={getDisplayedTasks(currentPane)}
-                filters={filters}
-                mode={mode}
-                onClaim={toggleClaim}
-                onComplete={completeTask}
-                onSaveNote={saveNote}
-                getPresets={getPresets}
-              />
-            </div>
+                  )}
+                </div>
 
-            {/* Failed Documents Component */}
-            <FailedDocuments
-              documents={failedDocuments}
-              onRowClick={handleRowClick}
-            />
-          </>
-        )}
+                {/* Failed Documents Component */}
+                <FailedDocuments
+                  documents={failedDocuments}
+                  onRowClick={handleRowClick}
+                />
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
       {/* Update Document Modal Component */}
       <UpdateDocumentModal
@@ -1241,6 +1347,7 @@ export default function Dashboard() {
         formData={updateFormData}
         onInputChange={handleUpdateInputChange}
         onSubmit={handleUpdateSubmit}
+        isLoading={updateLoading}
       />
       {/* File Submission Modal */}
       <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>

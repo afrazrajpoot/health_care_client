@@ -1,5 +1,4 @@
 // app/dashboard/components/TaskRows.tsx
-
 import { Task } from "./types";
 
 interface StandardRowProps {
@@ -49,7 +48,10 @@ export function StandardRow({
             ))}
           </select>
           <input className="qfree" placeholder="1‑line" />
-          <button className="save" onClick={handleSave}>
+          <button
+            className="bg-gradient-to-r from-green-600 to-green-500 text-white font-bold py-[0.5vw] px-[0.5vw] rounded-md"
+            onClick={handleSave}
+          >
             Save
           </button>
           <div className="muted" data-log>
@@ -62,10 +64,16 @@ export function StandardRow({
         </div>
       </td>
       <td>
-        <button className="btn light" onClick={() => onClaim(task.id)}>
+        <button
+          className="btn light w-full max-w-[10vw]"
+          onClick={() => onClaim(task.id)}
+        >
           {isClaimed ? "Unclaim" : "Claim"}
         </button>{" "}
-        <button className="btn primary" onClick={() => onComplete(task.id)}>
+        <button
+          className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.5vw] px-[0.5vw] rounded-md mt-[1vw] w-full max-w-[10vw]"
+          onClick={() => onComplete(task.id)}
+        >
           Done
         </button>
       </td>

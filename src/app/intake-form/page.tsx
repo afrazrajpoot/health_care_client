@@ -110,9 +110,25 @@ interface PatientData {
 
 export default function PatientIntake() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<Loader />}>
       <PatientIntakeContent />
     </Suspense>
+  );
+}
+
+function Loader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+          <h1 className="text-xl font-semibold text-gray-900">
+            Loading Patient Intake
+          </h1>
+          <p className="text-gray-500 text-sm">Please wait...</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -121,13 +137,13 @@ function PatientIntakeContent() {
   const token = searchParams.get("token");
 
   // Authentication state
-  const [showAuth, setShowAuth] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authDob, setAuthDob] = useState("");
   const [authError, setAuthError] = useState("");
   const [expectedPatientData, setExpectedPatientData] =
     useState<PatientData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Patient data
   const [patient, setPatient] = useState("John Doe");
@@ -149,14 +165,15 @@ function PatientIntakeContent() {
   const [therapyRatings, setTherapyRatings] = useState<TherapyRating[]>([]);
   const [summary, setSummary] = useState("—");
   const [submitMessage, setSubmitMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
-      setLoading(true);
+      setIsLoading(true);
 
       if (!token) {
         console.log("No token provided - using demo data");
-        setLoading(false);
+        setIsLoading(false);
         setShowAuth(false);
         return;
       }
@@ -188,13 +205,15 @@ function PatientIntakeContent() {
           setBodyAreas(patientData.bodyParts || "Back, Neck");
           setLanguage((patientData.language as "en" | "es") || "en");
           setShowAuth(false);
+        } else {
+          setShowAuth(true);
         }
       } catch (error) {
         console.error("Initialization error:", error);
         setSubmitMessage("Failed to load patient data. Please check the URL.");
         setShowAuth(false);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
@@ -321,6 +340,9 @@ function PatientIntakeContent() {
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitMessage("");
+
     const formData: FormData = {
       newAppointments: showAppointments ? appointments : [],
       refill: {
@@ -358,23 +380,35 @@ function PatientIntakeContent() {
     } catch (error) {
       console.error("Submission error:", error);
       setSubmitMessage("Submission failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
 
     setSummary(buildSummary());
   };
 
+  // Show loader while initializing
+  if (isLoading) {
+    return <Loader />;
+  }
+
+  // Show authentication form
   if (showAuth) {
     return (
-      <div className="wrap auth-wrap">
-        <div className="card auth-card">
-          <div className="auth-header">
-            <h1>{t.auth_title}</h1>
-            <div className="inline">
-              <label className="muted language-label">Language</label>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-xl font-semibold text-gray-900">
+              {t.auth_title}
+            </h1>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500">
+                Language
+              </label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "es")}
-                className="language-select"
+                className="min-w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="en">English</option>
                 <option value="es">Español</option>
@@ -382,180 +416,70 @@ function PatientIntakeContent() {
             </div>
           </div>
 
-          <div className="section">
-            <form onSubmit={handleAuthSubmit}>
-              <div className="field">
-                <label>{t.auth_name}</label>
-                <input
-                  type="text"
-                  value={authName}
-                  onChange={(e) => setAuthName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                />
+          <form onSubmit={handleAuthSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t.auth_name}
+              </label>
+              <input
+                type="text"
+                value={authName}
+                onChange={(e) => setAuthName(e.target.value)}
+                placeholder="Enter your full name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t.auth_dob}
+              </label>
+              <input
+                type="date"
+                value={authDob}
+                onChange={(e) => setAuthDob(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            {authError && (
+              <div className="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                {authError}
               </div>
-              <div className="field">
-                <label>{t.auth_dob}</label>
-                <input
-                  type="date"
-                  value={authDob}
-                  onChange={(e) => setAuthDob(e.target.value)}
-                  required
-                />
-              </div>
-              {authError && <div className="error-message">{authError}</div>}
-              <button
-                type="submit"
-                className="btn primary"
-                disabled={!authName || !authDob}
-              >
-                {t.auth_submit}
-              </button>
-            </form>
-          </div>
-        </div>
+            )}
 
-        <style jsx>{`
-          .auth-wrap{
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            min-height:70vh;
-            padding:16px;
-          }
-
-          .auth-card {
-            max-width: 420px;
-            margin: 0;
-            padding: 24px;
-          }
-
-          .auth-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-          }
-
-          .inline {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-          }
-
-          .muted {
-            color: var(--muted);
-            font-size: 12px;
-          }
-
-          .language-label {
-            font-weight: 600;
-            margin: 0;
-          }
-
-          .language-select {
-            min-width: 120px;
-            padding: 6px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 14px;
-          }
-
-          .section {
-            margin: 16px 0 0;
-          }
-
-          .field {
-            margin-bottom: 20px;
-          }
-
-          .field label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 14px;
-          }
-
-          .field input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            font-size: 14px;
-            box-sizing: border-box;
-          }
-
-          .error-message {
-            color: #dc2626;
-            font-size: 14px;
-            margin: 10px 0;
-            padding: 12px;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 8px;
-          }
-
-          .btn.primary {
-            width: 100%;
-            padding: 12px;
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: 14px;
-            cursor: pointer;
-            margin-top: 8px;
-            transition: background-color 0.12s ease;
-          }
-
-          /* make sure primary color is visible without hover */
-          .btn.primary:not(:disabled) {
-            background: var(--accent);
-            color: #fff;
-          }
-
-          .btn.primary:hover:not(:disabled) {
-            filter: brightness(0.95);
-          }
-
-          .btn.primary:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="wrap">
-        <div className="card loading-card">
-          <div className="section center">
-            <div className="spinner" aria-hidden="true"></div>
-            <h1 style={{ marginTop: 12 }}>{t.title}</h1>
-            <div className="muted">Loading patient data...</div>
-          </div>
+            <button
+              type="submit"
+              disabled={!authName || !authDob}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              {t.auth_submit}
+            </button>
+          </form>
         </div>
       </div>
     );
   }
 
+  // Show main intake form
   return (
-    <div className="wrap">
-      <div className="card">
-        <div className="inline header">
+    <div className="max-w-4xl mx-auto p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
           <div>
-            <h1>{t.title}</h1>
-            <div className="">{t.sub}</div>
+            <h1 className="text-2xl font-bold text-gray-900">{t.title}</h1>
+            <p className="text-gray-600 mt-1">{t.sub}</p>
           </div>
-          <div className="inline">
-            <label className="muted language-label">Language</label>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">
+              Language
+            </label>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as "en" | "es")}
-              className="language-select"
+              className="min-w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="en">English</option>
               <option value="es">Español</option>
@@ -563,17 +487,25 @@ function PatientIntakeContent() {
           </div>
         </div>
 
-        <hr className="divider" />
+        <hr className="my-6 border-gray-200" />
 
-        <div className="inline pills">
-          <span className="pill">Patient: {patient}</span>
-          <span className="pill">Visit: {visit}</span>
-          <span className="pill">Areas: {bodyAreas}</span>
+        <div className="flex flex-wrap gap-3 mb-6">
+          <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+            Patient: {patient}
+          </span>
+          <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+            Visit: {visit}
+          </span>
+          <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+            Areas: {bodyAreas}
+          </span>
         </div>
 
         {/* Section 1: New appointments */}
-        <div className="section">
-          <label>{t.q1}</label>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t.q1}
+          </label>
           <select
             value={showAppointments ? "yes" : "no"}
             onChange={(e) => {
@@ -583,22 +515,30 @@ function PatientIntakeContent() {
                 addAppointment();
               }
             }}
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="no">No</option>
             <option value="yes">Yes</option>
           </select>
+
           {showAppointments && (
-            <div className="appointments-detail">
-              <div className="appointments-wrap">
+            <div className="mt-4 space-y-4">
+              <div className="space-y-3">
                 {appointments.map((appt, index) => (
-                  <div key={index} className="appointment-row">
-                    <div className="appointment-field">
-                      <label>{t.q1a}</label>
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end"
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t.q1a}
+                      </label>
                       <select
                         value={appt.type}
                         onChange={(e) =>
                           updateAppointment(index, "type", e.target.value)
                         }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         {SPECIALISTS.map((specialist) => (
                           <option key={specialist} value={specialist}>
@@ -607,20 +547,23 @@ function PatientIntakeContent() {
                         ))}
                       </select>
                     </div>
-                    <div className="appointment-field">
-                      <label>{t.q1b}</label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t.q1b}
+                      </label>
                       <input
                         type="date"
                         value={appt.date}
                         onChange={(e) =>
                           updateAppointment(index, "date", e.target.value)
                         }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                     {index > 0 && (
                       <button
                         type="button"
-                        className="btn light remove-btn"
+                        className="md:col-span-2 px-4 py-2 text-red-600 hover:text-red-700 font-medium text-sm"
                         onClick={() => removeAppointment(index)}
                       >
                         Remove
@@ -629,34 +572,38 @@ function PatientIntakeContent() {
                   </div>
                 ))}
               </div>
-              <div className="inline">
-                <button
-                  type="button"
-                  className="btn light"
-                  onClick={addAppointment}
-                >
-                  + Add appointment
-                </button>
-              </div>
+              <button
+                type="button"
+                className="px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium rounded-lg transition-colors duration-200"
+                onClick={addAppointment}
+              >
+                + Add appointment
+              </button>
             </div>
           )}
         </div>
 
         {/* Section 2: Medications */}
-        <div className="section">
-          <label>{t.q2}</label>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t.q2}
+          </label>
           <select
             value={showRefill ? "yes" : "no"}
             onChange={(e) => setShowRefill(e.target.value === "yes")}
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="no">No</option>
             <option value="yes">Yes</option>
           </select>
+
           {showRefill && (
-            <div className="refill-detail">
-              <div className="row">
+            <div className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label>{t.q2a}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t.q2a}
+                  </label>
                   <select
                     value={refillData.before}
                     onChange={(e) =>
@@ -665,6 +612,7 @@ function PatientIntakeContent() {
                         before: e.target.value,
                       }))
                     }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {Array.from({ length: 11 }, (_, i) => (
                       <option key={i} value={i}>
@@ -674,7 +622,9 @@ function PatientIntakeContent() {
                   </select>
                 </div>
                 <div>
-                  <label>{t.q2b}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t.q2b}
+                  </label>
                   <select
                     value={refillData.after}
                     onChange={(e) =>
@@ -683,6 +633,7 @@ function PatientIntakeContent() {
                         after: e.target.value,
                       }))
                     }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {Array.from({ length: 11 }, (_, i) => (
                       <option key={i} value={i}>
@@ -697,8 +648,10 @@ function PatientIntakeContent() {
         </div>
 
         {/* Section 3: ADL */}
-        <div className="section">
-          <label>{t.q3}</label>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t.q3}
+          </label>
           <select
             value={adlData.state}
             onChange={(e) => {
@@ -706,24 +659,32 @@ function PatientIntakeContent() {
               setAdlData((prev) => ({ ...prev, state: value }));
               setShowADL(value !== "same");
             }}
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="same">Same</option>
             <option value="better">Better</option>
             <option value="worse">Worse</option>
           </select>
+
           {showADL && (
-            <div className="adl-detail">
-              <div className="muted">{t.q3hint}</div>
-              <div className="chkgrid">
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 mb-3">{t.q3hint}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {ADLS.map((activity) => (
-                  <label key={activity} className="inline checkbox-label">
+                  <label
+                    key={activity}
+                    className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
                     <input
                       type="checkbox"
                       value={activity}
                       checked={adlData.list.includes(activity)}
                       onChange={() => toggleAdlItem(activity)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <span>{activity}</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      {activity}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -733,15 +694,23 @@ function PatientIntakeContent() {
 
         {/* Section 4: Therapies */}
         {therapies.length > 0 && (
-          <div className="section">
-            <label>{t.q4}</label>
-            <div className="chkgrid">
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t.q4}
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {therapyRatings.map((therapy, index) => (
-                <div key={therapy.therapy} className="therapy-item">
-                  <div className="therapy-name">{therapy.therapy}</div>
+                <div
+                  key={therapy.therapy}
+                  className="p-4 border border-gray-200 rounded-lg"
+                >
+                  <div className="font-medium text-gray-900 mb-2">
+                    {therapy.therapy}
+                  </div>
                   <select
                     value={therapy.effect}
                     onChange={(e) => updateTherapyRating(index, e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {RATINGS.map((rating) => (
                       <option key={rating} value={rating}>
@@ -756,266 +725,44 @@ function PatientIntakeContent() {
         )}
 
         {/* Review & Submit */}
-        <div className="section">
-          <label>{t.q5}</label>
-          <div className="summary">{summary}</div>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t.q5}
+          </label>
+          <div className="p-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg whitespace-pre-line text-sm text-gray-700">
+            {summary}
+          </div>
         </div>
 
-        <div className="inline actions">
-          <button type="button" className="btn light" onClick={handlePreview}>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8">
+          <button
+            type="button"
+            className="w-full sm:w-auto px-6 py-3 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-lg transition-colors duration-200"
+            onClick={handlePreview}
+          >
             Preview Summary
           </button>
           <button
             type="button"
-            className="bg-blue-800 text-white p-2 rounded-2xl submit-btn"
+            disabled={isSubmitting}
+            className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 min-w-32"
             onClick={handleSubmit}
           >
-            Submit
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Submitting...</span>
+              </>
+            ) : (
+              "Submit"
+            )}
           </button>
         </div>
 
-        <div className="muted submit-hint">{submitMessage || t.submitHint}</div>
+        <div className="mt-4 text-sm text-gray-500 text-center">
+          {submitMessage || t.submitHint}
+        </div>
       </div>
-
-      <style jsx>{`
-        :root {
-          --bg: #f7f7fb;
-          --panel: #ffffff;
-          --border: #e6e6ef;
-          --text: #111827;
-          --muted: #6b7280;
-          --accent: #2563eb;
-        }
-
-        * {
-          box-sizing: border-box;
-        }
-
-        body {
-          margin: 0;
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
-            Helvetica, Arial;
-          background: var(--bg);
-          color: var(--text);
-        }
-
-        .wrap {
-          max-width: 720px;
-          margin: 0 auto;
-          padding: 16px;
-        }
-
-        .card {
-          background: var(--panel);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 16px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-
-        .loading-card {
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          min-height:220px;
-        }
-
-        h1 {
-          font-size: 20px;
-          margin: 0 0 6px;
-        }
-
-        .muted {
-          color: var(--muted);
-          font-size: 12px;
-        }
-
-        label {
-          display: block;
-          margin: 10px 0 6px;
-          font-weight: 600;
-        }
-
-        select,
-        input[type="text"],
-        input[type="date"],
-        input[type="number"] {
-          width: 100%;
-          padding: 10px;
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          font-size: 14px;
-        }
-
-        .row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-
-        .btn {
-          border: none;
-          border-radius: 10px;
-          padding: 10px 14px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-        }
-
-        .btn.primary {
-          background: var(--accent);
-          color: #fff;
-        }
-
-        .btn.primary:hover:not(:disabled) {
-          background: #1d4ed8;
-        }
-
-        .btn.primary:disabled {
-          background: #9ca3af;
-          cursor: not-allowed;
-        }
-
-        .btn.light {
-          background: #eef2ff;
-          color: #1e3a8a;
-          border: 1px solid #c7d2fe;
-        }
-
-        .btn.light:hover {
-          background: #e0e7ff;
-        }
-
-        .submit-btn {
-          min-width: 100px;
-          flex: 1;
-          max-width: 200px;
-        }
-
-        .pill {
-          display: inline-block;
-          background: #eef2ff;
-          border: 1px solid #c7d2fe;
-          color: #1e3a8a;
-          border-radius: 999px;
-          padding: 4px 8px;
-          font-size: 12px;
-        }
-
-        .section {
-          margin: 16px 0 0;
-        }
-
-        .inline {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-
-        .header {
-          justify-content: space-between;
-        }
-
-        .language-label {
-          font-weight: 600;
-          margin: 0;
-        }
-
-        .language-select {
-          min-width: 120px;
-        }
-
-        .divider {
-          border: none;
-          border-top: 1px solid var(--border);
-          margin: 12px 0;
-        }
-
-        .pills {
-          gap: 12px;
-        }
-
-        .appointment-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr auto;
-          gap: 10px;
-          align-items: end;
-          margin-top: 8px;
-        }
-
-        .appointment-field {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .remove-btn {
-          margin-bottom: 6px;
-        }
-
-        .chkgrid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
-        }
-
-        .checkbox-label {
-          gap: 8px;
-        }
-
-        .therapy-item {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .therapy-name {
-          font-weight: 600;
-        }
-
-        .summary {
-          background: #f9fafb;
-          border: 1px dashed var(--border);
-          border-radius: 12px;
-          padding: 12px;
-          white-space: pre-line;
-        }
-
-        /* Simple spinner */
-        .spinner {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          border: 4px solid rgba(0,0,0,0.08);
-          border-top-color: var(--accent);
-          animation: spin 0.9s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .actions {
-          justify-content: space-between;
-          margin-top: 12px;
-        }
-
-        .submit-hint {
-          margin-top: 8px;
-        }
-
-        .appointments-detail {
-          margin-top: 8px;
-        }
-
-        .refill-detail {
-          margin-top: 8px;
-        }
-
-        .adl-detail {
-          margin-top: 8px;
-        }
-      `}</style>
     </div>
   );
 }
