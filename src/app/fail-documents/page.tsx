@@ -33,7 +33,7 @@ export default function FailDocsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE_URL = `${process.env.PYTHON_API_URL}`
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_PYTHON_API_URL}`
 
   useEffect(() => {
     const fetchFailDocs = async () => {

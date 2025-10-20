@@ -621,7 +621,7 @@ export default function Dashboard() {
 
     try {
       const response = await fetch(
-        `${process.env.PYTHON_API_URL}/api/extract-documents?physicianId=${session?.user?.physicianId || ""
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/extract-documents?physicianId=${session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
