@@ -52,7 +52,7 @@ export default function UpdateDocumentModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] md:max-w-[700px] lg:max-w-[800px]">
-        <DialogHeader className="bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-t-lg -mx-6 -mt-6 px-6 py-4">
+        <DialogHeader className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-t-lg -mx-6 -mt-6 px-6 py-4">
           <DialogTitle className="text-white text-xl font-bold">
             Update Missing Document Info
           </DialogTitle>
@@ -112,6 +112,7 @@ export default function UpdateDocumentModal({
               <Input
                 id="doi"
                 name="doi"
+                type="date"
                 value={formData.doi}
                 onChange={onInputChange}
                 placeholder="Enter DOI (string)"
@@ -133,7 +134,7 @@ export default function UpdateDocumentModal({
             type="submit"
             onClick={onSubmit}
             disabled={isLoading}
-            className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold hover:from-blue-700 hover:to-blue-600 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-violet-600 to-purple-500 text-white font-bold hover:from-violet-700 hover:to-purple-600 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
