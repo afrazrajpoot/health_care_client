@@ -256,10 +256,10 @@ const WhatsNewSection = ({
               Object.values(documentData.whats_new || {}).every(
                 (val) => !val || val.trim() === "" || val.trim() === " "
               )) && (
-              <li className="p-3 text-gray-500 text-center">
-                No significant changes since last visit
-              </li>
-            )}
+                <li className="p-3 text-gray-500 text-center">
+                  No significant changes since last visit
+                </li>
+              )}
           </ul>
 
           {/* ✅ Quick Notes Dropdown - Show if any notes exist (including empty/previous) */}
@@ -273,25 +273,22 @@ const WhatsNewSection = ({
                   📝 Quick Notes ({getAllQuickNotes().length})
                 </span>
                 <span
-                  className={`text-sm transition-transform ${
-                    isQuickNotesOpen ? "rotate-180" : ""
-                  }`}
+                  className={`text-sm transition-transform ${isQuickNotesOpen ? "rotate-180" : ""
+                    }`}
                 >
                   ▼
                 </span>
               </button>
               <div
-                className={`overflow-hidden transition-all duration-300 ${
-                  isQuickNotesOpen ? "max-h-96" : "max-h-0"
-                }`}
+                className={`overflow-hidden transition-all duration-300 ${isQuickNotesOpen ? "max-h-96" : "max-h-0"
+                  }`}
               >
                 <ul className="m-0 p-4 grid gap-2 list-none border border-amber-300 bg-white rounded-b-lg">
                   {getAllQuickNotes().map((note, index) => (
                     <li
                       key={index}
-                      className={`p-3 border border-dashed border-amber-200 rounded-lg ${
-                        isNoteEmpty(note) ? "opacity-50 bg-gray-50" : ""
-                      }`}
+                      className={`p-3 border border-dashed border-amber-200 rounded-lg ${isNoteEmpty(note) ? "opacity-50 bg-gray-50" : ""
+                        }`}
                     >
                       <div className="text-xs text-gray-500 mb-1">
                         {formatTimestamp(note.timestamp)}
@@ -322,11 +319,10 @@ const WhatsNewSection = ({
 
           <div className="flex justify-end mt-4">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${
-                copied["section-whatsnew"]
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${copied["section-whatsnew"]
                   ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                   : "border-amber-200 bg-white text-gray-900"
-              }`}
+                }`}
               onClick={() => onCopySection("section-whatsnew")}
               title="Copy Section"
             >
@@ -493,11 +489,10 @@ const TreatmentHistorySection = ({
 
           <div className="flex justify-end mt-4">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${
-                copied[`section-treatment-${currentSnapshotIndex}`]
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${copied[`section-treatment-${currentSnapshotIndex}`]
                   ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                   : "border-blue-200 bg-white text-gray-900"
-              }`}
+                }`}
               onClick={() =>
                 onCopySection("section-treatment", currentSnapshotIndex)
               }
@@ -577,11 +572,10 @@ const ADLSection = ({
           </div>
           <div className="flex justify-end">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${
-                copied["section-adl"]
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${copied["section-adl"]
                   ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                   : "border-green-200 bg-white text-gray-900"
-              }`}
+                }`}
               onClick={() => onCopySection("section-adl")}
               title="Copy Section"
             >
@@ -666,9 +660,8 @@ const PatientQuizSection = ({
           🧠 ADL Form
         </h3>
         <svg
-          className={`w-4 h-4 transition-transform duration-300 ${
-            isAccordionOpen ? "rotate-180" : "rotate-0"
-          }`}
+          className={`w-4 h-4 transition-transform duration-300 ${isAccordionOpen ? "rotate-180" : "rotate-0"
+            }`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#475569"
@@ -756,11 +749,10 @@ const PatientQuizSection = ({
         </div>
         <div className="flex justify-end mt-4">
           <button
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${
-              copied[sectionId]
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${copied[sectionId]
                 ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                 : "border-purple-200 bg-white text-gray-900"
-            }`}
+              }`}
             onClick={() => onCopySection(sectionId)}
             title="Copy Section"
           >
@@ -908,9 +900,8 @@ const DocumentSummarySection = ({
             )}
         </h3>
         <svg
-          className={`w-4 h-4 transition-transform duration-300 ${
-            isAccordionOpen ? "rotate-180" : "rotate-0"
-          }`}
+          className={`w-4 h-4 transition-transform duration-300 ${isAccordionOpen ? "rotate-180" : "rotate-0"
+            }`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#475569"
@@ -988,11 +979,10 @@ const DocumentSummarySection = ({
                         </button>
                       )}
                       <button
-                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${
-                          copied[sectionId]
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${copied[sectionId]
                             ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                             : "border-blue-200 bg-white text-gray-900"
-                        }`}
+                          }`}
                         onClick={() => onCopySection(sectionId)}
                         title="Copy Section"
                       >
@@ -1306,6 +1296,7 @@ export default function PhysicianCard() {
             selectedPatient.patientName || selectedPatient.name || "",
           dob: selectedPatient.dob,
           doi: selectedPatient.doi,
+          claim_number: selectedPatient.claimNumber,
         });
 
         const response = await fetch(`/api/verify-document?${verifyParams}`, {
@@ -1366,11 +1357,9 @@ export default function PhysicianCard() {
         const currentIdx = snapshotIndex || 0;
         const currentSnap = snapshots[currentIdx];
         if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${
-            currentSnap.dx || "Not specified"
-          }\nKey Concern: ${
-            currentSnap.keyConcern || "Not specified"
-          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+          text = `Summary Snapshot\nDx: ${currentSnap.dx || "Not specified"
+            }\nKey Concern: ${currentSnap.keyConcern || "Not specified"
+            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
         }
         break;
       case "section-whatsnew":
@@ -1402,29 +1391,23 @@ export default function PhysicianCard() {
         if (sortedNotes.length > 0) {
           text += "\nQuick Notes:\n";
           sortedNotes.forEach((note) => {
-            text += `- ${formatTimestamp(note.timestamp)}: ${
-              note.status_update || "Note"
-            } - ${note.one_line_note || ""} (${note.details || ""})\n`;
+            text += `- ${formatTimestamp(note.timestamp)}: ${note.status_update || "Note"
+              } - ${note.one_line_note || ""} (${note.details || ""})\n`;
           });
         }
         break;
       case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${
-          doc?.adl?.adls_affected || "Not specified"
-        }\nWork Restrictions: ${
-          doc?.adl?.work_restrictions || "Not specified"
-        }`;
+        text = `ADL / Work Status\nADLs Affected: ${doc?.adl?.adls_affected || "Not specified"
+          }\nWork Restrictions: ${doc?.adl?.work_restrictions || "Not specified"
+          }`;
         break;
       case "section-patient-quiz":
         if (doc?.patient_quiz) {
           const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
-            q.newAppt
-          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
-            q.trend
-          }\nWork Ability: ${q.workAbility}\nBarrier: ${
-            q.barrier
-          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${q.newAppt
+            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${q.trend
+            }\nWork Ability: ${q.workAbility}\nBarrier: ${q.barrier
+            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
           q.appts.forEach((appt) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
@@ -1440,9 +1423,8 @@ export default function PhysicianCard() {
           const index = parseInt(sectionId.split("-")[2]);
           const summary = doc?.document_summaries?.[index];
           if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${
-              summary.summary
-            }`;
+            text = `${summary.type} - ${formatDate(summary.date)}\n${summary.summary
+              }`;
           }
         }
         break;
@@ -1580,9 +1562,8 @@ export default function PhysicianCard() {
   return (
     <LayoutWrapper>
       <div
-        className={`min-h-screen p-6 font-sans ${
-          theme === "standard" ? "bg-gray-100" : "bg-blue-50"
-        } text-gray-900`}
+        className={`min-h-screen p-6 font-sans ${theme === "standard" ? "bg-gray-100" : "bg-blue-50"
+          } text-gray-900`}
       >
         <div className="max-w-5xl mx-auto">
           {/* Search Bar */}
@@ -1734,18 +1715,15 @@ export default function PhysicianCard() {
                         disabled={verifyLoading || documentData?.allVerified}
                       />
                       <span
-                        className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
-                          isVerified ? "bg-green-100 border-green-300" : ""
-                        } ${
-                          verifyLoading || documentData?.allVerified
+                        className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${isVerified ? "bg-green-100 border-green-300" : ""
+                          } ${verifyLoading || documentData?.allVerified
                             ? "opacity-50 cursor-not-allowed"
                             : ""
-                        }`}
+                          }`}
                       >
                         <span
-                          className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
-                            isVerified ? "translate-x-6" : ""
-                          } shadow`}
+                          className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${isVerified ? "translate-x-6" : ""
+                            } shadow`}
                         ></span>
                       </span>
                     </label>
@@ -1754,9 +1732,8 @@ export default function PhysicianCard() {
                     )}
                     <span
                       id="verifyBadge"
-                      className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
-                        isVerified ? "inline-block" : "hidden"
-                      }`}
+                      className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${isVerified ? "inline-block" : "hidden"
+                        }`}
                     >
                       Verified ✓
                     </span>
@@ -1839,9 +1816,8 @@ export default function PhysicianCard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${
-              toast.type === "success" ? "bg-green-500" : "bg-red-500"
-            } animate-in slide-in-from-top-2 duration-300`}
+            className={`p-4 rounded-lg shadow-lg text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
+              } animate-in slide-in-from-top-2 duration-300`}
           >
             {toast.message}
           </div>

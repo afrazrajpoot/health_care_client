@@ -31,6 +31,14 @@ const modalFields: ModalField[] = [
     fullWidth: false,
   },
   {
+    id: "lkClaimNumber",
+    label: "Claim Number",
+    type: "input",
+    placeholder: "e.g., 123456789",
+    value: "",
+    fullWidth: false,
+  },
+  {
     id: "lkVisit",
     label: "Visit Type",
     type: "select",
@@ -224,6 +232,7 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
       ...prev,
       lkPatient: patient.patientName,
       lkDob: patient.dob,
+      lkClaimNumber: (patient as any).claimNumber || prev.lkClaimNumber || "",
     }));
     setShowSuggestions(false);
   };
@@ -264,6 +273,7 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
       const metadata = {
         patient: formData.lkPatient || "",
         dob: formData.lkDob || "",
+        claim_number: formData.lkClaimNumber || "",
         visit: formData.lkVisit || "",
         lang: formData.lkLang || "en",
         mode: formData.lkMode || "tele",

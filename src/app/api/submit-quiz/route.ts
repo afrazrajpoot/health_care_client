@@ -1,7 +1,7 @@
 // app/api/submit-intake/route.ts
-import { prisma } from '@/lib/prisma';
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -10,12 +10,15 @@ const openai = new OpenAI({
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const patientName = searchParams.get('patientName');
-    const dob = searchParams.get('dob');
-    const doi = searchParams.get('doi');
+    const patientName = searchParams.get("patientName");
+    const dob = searchParams.get("dob");
+    const doi = searchParams.get("doi");
 
     if (!patientName) {
-      return NextResponse.json({ error: 'Patient Name is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Patient Name is required" },
+        { status: 400 }
+      );
     }
 
     const whereClause: any = { patientName };
@@ -28,17 +31,23 @@ export async function GET(request: NextRequest) {
 
     const submission = await prisma.patientQuiz.findFirst({
       where: whereClause,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!submission) {
-      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Submission not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(submission);
   } catch (error) {
-    console.error('Error fetching submission:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error fetching submission:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -48,6 +57,7 @@ export async function POST(request: NextRequest) {
     const {
       patientName,
       dob,
+      claimNumber,
       doi,
       language,
       bodyAreas,
@@ -58,19 +68,23 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!patientName || !language) {
-      return NextResponse.json({ error: 'Patient Name and Language are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Patient Name and Language are required" },
+        { status: 400 }
+      );
     }
 
     const submission = await prisma.patientQuiz.create({
       data: {
         patientName,
         dob,
+        claimNumber: claimNumber || null,
         doi,
         lang: language,
         bodyAreas: bodyAreas || null,
         newAppointments: newAppointments || null,
         refill: refill || null,
-        adl: adl || { state: 'same', list: [] },
+        adl: adl || { state: "same", list: [] },
         therapies: therapies || null,
       },
     });
@@ -79,6 +93,7 @@ export async function POST(request: NextRequest) {
       where: {
         patientName,
         dob,
+        claimNumber: claimNumber || undefined,
       },
       include: {
         adl: true,
@@ -91,15 +106,20 @@ export async function POST(request: NextRequest) {
 
     const latestDocument = patientDocuments
       .filter((doc: any) => doc.reportDate)
-      .sort((a: any, b: any) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime())[0];
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()
+      )[0];
 
     if (!latestDocument) {
       return NextResponse.json({ success: true, submission }, { status: 201 });
     }
 
     // Prepare data for OpenAI prompt
-    const painLevel = refill ? `${refill.before || 'N/A'} -> ${refill.after || 'N/A'}` : 'N/A';
-    const symptomTrend = adl?.state || 'N/A';
+    const painLevel = refill
+      ? `${refill.before || "N/A"} -> ${refill.after || "N/A"}`
+      : "N/A";
+    const symptomTrend = adl?.state || "N/A";
     const patientSelectedADLs = adl?.list || [];
     const appointmentsAttended = newAppointments || [];
     const therapyEffects = therapies || [];
@@ -108,7 +128,7 @@ export async function POST(request: NextRequest) {
 Based on the patient's intake form responses, determine which ADL activities are affected and what work restrictions apply.
 
 Patient Information:
-- Body Areas: ${bodyAreas || 'N/A'}
+- Body Areas: ${bodyAreas || "N/A"}
 - Language: ${language}
 - Pain Level (before -> after medication): ${painLevel}
 - Symptom Trend (from ADLs): ${symptomTrend}
@@ -137,35 +157,44 @@ Output your 2 lines now:
     `;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: 'system',
-          content: 'You are a medical ADL analyzer. Output exactly 2 lines with comma-separated short phrases only. Analyze the patient data provided and list: Line 1 = affected daily activities, Line 2 = work restrictions. Use direct phrases like "lifting heavy objects" not sentences like "patient cannot lift".',
+          role: "system",
+          content:
+            'You are a medical ADL analyzer. Output exactly 2 lines with comma-separated short phrases only. Analyze the patient data provided and list: Line 1 = affected daily activities, Line 2 = work restrictions. Use direct phrases like "lifting heavy objects" not sentences like "patient cannot lift".',
         },
-        { role: 'user', content: prompt },
+        { role: "user", content: prompt },
       ],
       temperature: 0.1,
     });
 
-    let adlsAffected = '';
-    let workRestrictions = '';
+    let adlsAffected = "";
+    let workRestrictions = "";
     try {
       const content = completion.choices[0].message.content?.trim();
       if (!content) {
-        throw new Error('Empty response from OpenAI');
+        throw new Error("Empty response from OpenAI");
       }
-      const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+      const lines = content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line);
       if (lines.length >= 2) {
         adlsAffected = lines[0];
         workRestrictions = lines[1];
       } else {
-        throw new Error('Insufficient lines in response');
+        throw new Error("Insufficient lines in response");
       }
     } catch (parseError) {
-      console.error('OpenAI response parse error:', parseError, 'Raw content:', completion.choices[0].message.content);
-      adlsAffected = '';
-      workRestrictions = '';
+      console.error(
+        "OpenAI response parse error:",
+        parseError,
+        "Raw content:",
+        completion.choices[0].message.content
+      );
+      adlsAffected = "";
+      workRestrictions = "";
     }
 
     await prisma.aDL.upsert({
@@ -185,20 +214,26 @@ Output your 2 lines now:
 
     return NextResponse.json({ success: true, submission }, { status: 201 });
   } catch (error) {
-    console.error('Error creating submission:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error creating submission:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const patientName = searchParams.get('patientName');
-    const dob = searchParams.get('dob');
-    const doi = searchParams.get('doi');
+    const patientName = searchParams.get("patientName");
+    const dob = searchParams.get("dob");
+    const doi = searchParams.get("doi");
 
     if (!patientName) {
-      return NextResponse.json({ error: 'Patient Name is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Patient Name is required" },
+        { status: 400 }
+      );
     }
 
     const whereClause: any = { patientName };
@@ -211,22 +246,19 @@ export async function PUT(request: NextRequest) {
 
     const existing = await prisma.patientQuiz.findFirst({
       where: whereClause,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Submission not found" },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
-    const {
-      language,
-      bodyAreas,
-      newAppointments,
-      refill,
-      adl,
-      therapies,
-    } = body;
+    const { language, bodyAreas, newAppointments, refill, adl, therapies } =
+      body;
 
     const submission = await prisma.patientQuiz.update({
       where: { id: existing.id },
@@ -256,19 +288,27 @@ export async function PUT(request: NextRequest) {
 
     const sortedDocuments = patientDocuments
       .filter((doc: any) => doc.reportDate)
-      .sort((a: any, b: any) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()
+      );
 
     if (sortedDocuments.length === 0) {
       return NextResponse.json({ success: true, submission }, { status: 200 });
     }
 
     const latestDocument = sortedDocuments[0];
-    const previousAdl = sortedDocuments.length > 1 ? sortedDocuments[1].adl : null;
-    const previousAdlText = previousAdl ? `Previous ADL: adlsAffected="${previousAdl.adlsAffected}", workRestrictions="${previousAdl.workRestrictions}"` : 'No previous ADL available';
+    const previousAdl =
+      sortedDocuments.length > 1 ? sortedDocuments[1].adl : null;
+    const previousAdlText = previousAdl
+      ? `Previous ADL: adlsAffected="${previousAdl.adlsAffected}", workRestrictions="${previousAdl.workRestrictions}"`
+      : "No previous ADL available";
 
     // Prepare data for OpenAI prompt (same as POST but with previous)
-    const painLevel = refill ? `${refill.before || 'N/A'} -> ${refill.after || 'N/A'}` : 'N/A';
-    const symptomTrend = adl?.state || 'N/A';
+    const painLevel = refill
+      ? `${refill.before || "N/A"} -> ${refill.after || "N/A"}`
+      : "N/A";
+    const symptomTrend = adl?.state || "N/A";
     const patientSelectedADLs = adl?.list || [];
     const appointmentsAttended = newAppointments || [];
     const therapyEffects = therapies || [];
@@ -277,7 +317,7 @@ export async function PUT(request: NextRequest) {
 Based on the patient's current intake form responses and previous ADL data, determine updated ADL activities and work restrictions.
 
 Current Patient Information:
-- Body Areas: ${bodyAreas || 'N/A'}
+- Body Areas: ${bodyAreas || "N/A"}
 - Language: ${language || existing.lang}
 - Pain Level (before -> after medication): ${painLevel}
 - Symptom Trend (from ADLs): ${symptomTrend}
@@ -308,35 +348,44 @@ Output your 2 lines now:
     `;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: 'system',
-          content: 'You output exactly 2 lines. Each line contains only comma-separated short noun phrases, NO complete sentences, NO verbs like "may", "face", "include". Just the restriction names directly.',
+          role: "system",
+          content:
+            'You output exactly 2 lines. Each line contains only comma-separated short noun phrases, NO complete sentences, NO verbs like "may", "face", "include". Just the restriction names directly.',
         },
-        { role: 'user', content: prompt },
+        { role: "user", content: prompt },
       ],
       temperature: 0.1,
     });
 
-    let adlsAffected = '';
-    let workRestrictions = '';
+    let adlsAffected = "";
+    let workRestrictions = "";
     try {
       const content = completion.choices[0].message.content?.trim();
       if (!content) {
-        throw new Error('Empty response from OpenAI');
+        throw new Error("Empty response from OpenAI");
       }
-      const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+      const lines = content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line);
       if (lines.length >= 2) {
         adlsAffected = lines[0];
         workRestrictions = lines[1];
       } else {
-        throw new Error('Insufficient lines in response');
+        throw new Error("Insufficient lines in response");
       }
     } catch (parseError) {
-      console.error('OpenAI response parse error:', parseError, 'Raw content:', completion.choices[0].message.content);
-      adlsAffected = '';
-      workRestrictions = '';
+      console.error(
+        "OpenAI response parse error:",
+        parseError,
+        "Raw content:",
+        completion.choices[0].message.content
+      );
+      adlsAffected = "";
+      workRestrictions = "";
     }
 
     await prisma.aDL.upsert({
@@ -356,7 +405,10 @@ Output your 2 lines now:
 
     return NextResponse.json({ success: true, submission }, { status: 200 });
   } catch (error) {
-    console.error('Error updating submission:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error updating submission:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { NextRequest, NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
 
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-fallback-secret-for-development-only';
+const JWT_SECRET =
+  process.env.JWT_SECRET || "your-fallback-secret-for-development-only";
 
 interface DecodedToken {
   patient: string;
   dob: string;
+  claimNumber?: string;
   visit: string;
   lang: string;
   mode: string;
@@ -22,10 +23,7 @@ export async function POST(request: NextRequest) {
     const { token } = await request.json();
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Token is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
     // Verify and decrypt the token
@@ -35,9 +33,9 @@ export async function POST(request: NextRequest) {
     const currentTime = Math.floor(Date.now() / 1000);
     if (decoded.exp && decoded.exp < currentTime) {
       return NextResponse.json(
-        { 
-          error: 'Token has expired',
-          expired: true
+        {
+          error: "Token has expired",
+          expired: true,
         },
         { status: 401 }
       );
@@ -53,57 +51,54 @@ export async function POST(request: NextRequest) {
         language: decoded.lang,
         mode: decoded.mode,
         bodyParts: decoded.body,
+        claimNumber: decoded.claimNumber || null,
         expiresIn: decoded.exp,
         requireAuth: decoded.auth,
-        createdAt: decoded.createdAt
-      }
+        createdAt: decoded.createdAt,
+      },
     });
-
   } catch (error) {
-    console.error('Token decryption error:', error);
-    
+    console.error("Token decryption error:", error);
+
     if (error instanceof jwt.JsonWebTokenError) {
       return NextResponse.json(
-        { 
+        {
           valid: false,
-          error: 'Invalid token' 
+          error: "Invalid token",
         },
         { status: 401 }
       );
     }
-    
+
     if (error instanceof jwt.TokenExpiredError) {
       return NextResponse.json(
-        { 
+        {
           valid: false,
-          error: 'Token has expired',
-          expired: true
+          error: "Token has expired",
+          expired: true,
         },
         { status: 401 }
       );
     }
 
     return NextResponse.json(
-      { 
+      {
         valid: false,
-        error: 'Failed to decrypt token' 
+        error: "Failed to decrypt token",
       },
       { status: 500 }
     );
   }
 }
 
-
-
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const token = searchParams.get('token');
+    const token = searchParams.get("token");
 
     if (!token) {
       return NextResponse.json(
-        { error: 'Token parameter is required' },
+        { error: "Token parameter is required" },
         { status: 400 }
       );
     }
@@ -115,9 +110,9 @@ export async function GET(request: NextRequest) {
     const currentTime = Math.floor(Date.now() / 1000);
     if (decoded.exp && decoded.exp < currentTime) {
       return NextResponse.json(
-        { 
-          error: 'Token has expired',
-          expired: true
+        {
+          error: "Token has expired",
+          expired: true,
         },
         { status: 401 }
       );
@@ -133,39 +128,39 @@ export async function GET(request: NextRequest) {
         language: decoded.lang,
         mode: decoded.mode,
         bodyParts: decoded.body,
+        claimNumber: decoded.claimNumber || null,
         requireAuth: decoded.auth,
-        createdAt: decoded.createdAt
-      }
+        createdAt: decoded.createdAt,
+      },
     });
-
   } catch (error) {
-    console.error('Token decryption error:', error);
-    
+    console.error("Token decryption error:", error);
+
     if (error instanceof jwt.JsonWebTokenError) {
       return NextResponse.json(
-        { 
+        {
           valid: false,
-          error: 'Invalid token' 
+          error: "Invalid token",
         },
         { status: 401 }
       );
     }
-    
+
     if (error instanceof jwt.TokenExpiredError) {
       return NextResponse.json(
-        { 
+        {
           valid: false,
-          error: 'Token has expired',
-          expired: true
+          error: "Token has expired",
+          expired: true,
         },
         { status: 401 }
       );
     }
 
     return NextResponse.json(
-      { 
+      {
         valid: false,
-        error: 'Failed to decrypt token' 
+        error: "Failed to decrypt token",
       },
       { status: 500 }
     );
