@@ -121,15 +121,15 @@ export default function Dashboard() {
     // Transform quick notes if available
     const notes = apiTask.quickNotes
       ? [
-          {
-            ts: new Date(apiTask.updatedAt).toLocaleString(),
-            user: "System",
-            line:
-              apiTask.quickNotes.one_line_note ||
-              apiTask.quickNotes.details ||
-              "Note added",
-          },
-        ]
+        {
+          ts: new Date(apiTask.updatedAt).toLocaleString(),
+          user: "System",
+          line:
+            apiTask.quickNotes.one_line_note ||
+            apiTask.quickNotes.details ||
+            "Note added",
+        },
+      ]
       : [];
 
     return {
@@ -331,9 +331,9 @@ export default function Dashboard() {
         prev.map((t) =>
           t.id === taskId
             ? {
-                ...t,
-                notes: [...(t.notes || []), { ts, user: "You", line }],
-              }
+              ...t,
+              notes: [...(t.notes || []), { ts, user: "You", line }],
+            }
             : t
         )
       );
@@ -441,7 +441,7 @@ export default function Dashboard() {
       }
 
       const response = await fetch(
-        `http://localhost:8000/api/update-fail-document`,
+        `${process.env.PYTHON_API_URL}/api/update-fail-document`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -510,8 +510,7 @@ export default function Dashboard() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/extract-documents?physicianId=${
-          session?.user?.physicianId || ""
+        `${process.env.PYTHON_API_URL}/api/extract-documents?physicianId=${session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -1124,9 +1123,8 @@ export default function Dashboard() {
                   {filteredTabs.map((tab) => (
                     <button
                       key={tab.pane}
-                      className={`filter ttab ${
-                        currentPane === tab.pane ? "active" : ""
-                      }`}
+                      className={`filter ttab ${currentPane === tab.pane ? "active" : ""
+                        }`}
                       onClick={() => setCurrentPane(tab.pane)}
                     >
                       {tab.text}

@@ -45,7 +45,7 @@ export default function Landing() {
             <a href="#why" className="hover:text-indigo-400">Why Kebilo</a>
             <a href="#how" className="hover:text-indigo-400">How It Works</a>
           </nav>
-          <a href="http://localhost:3000/auth/sign-in" className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">
+          <a href={`${process.env.NEXTAUTH_URL}/auth/sign-in`} className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">
             Explore Kebilo
           </a>
         </div>
@@ -60,7 +60,7 @@ export default function Landing() {
           Kebilo transforms every fax, email, and report into clear, accountable workflow—without touching your EMR.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <a href="http://localhost:3000/auth/sign-in" className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-lg">
+          <a href={`${process.env.NEXTAUTH_URL}/auth/sign-in`} className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-lg">
             Start Now
           </a>
           <Link href="/demo" className="px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-800">
@@ -127,7 +127,7 @@ export default function Landing() {
           Modern workflow clarity for physicians, staff, and patients. Built for real medicine, not software demos.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <a href="http://localhost:3000/auth/sign-in" className="px-8 py-3 rounded-xl bg-white text-indigo-700 font-semibold hover:bg-indigo-50">
+          <a href={`${process.env.NEXTAUTH_URL}/auth/sign-in`} className="px-8 py-3 rounded-xl bg-white text-indigo-700 font-semibold hover:bg-indigo-50">
             Explore Kebilo
           </a>
           <Link href="/demo" className="px-8 py-3 rounded-xl border border-white text-white hover:bg-indigo-600">
