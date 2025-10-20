@@ -143,9 +143,12 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
   const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
   const patientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const handleChange = (id: string, value: string) => {
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -189,12 +192,14 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
       const data: RecommendationsResponse = await response.json();
 
       if (data.success && data.data.allMatchingDocuments) {
-        const patients: Patient[] = data.data.allMatchingDocuments.map((doc) => ({
-          id: doc.id,
-          patientName: doc.patientName,
-          dob: formatDateForInput(doc.dob),
-          claimNumber: doc.claimNumber || "Not specified",
-        }));
+        const patients: Patient[] = data.data.allMatchingDocuments.map(
+          (doc) => ({
+            id: doc.id,
+            patientName: doc.patientName,
+            dob: formatDateForInput(doc.dob),
+            claimNumber: doc.claimNumber || "Not specified",
+          })
+        );
         setPatientSuggestions(patients);
         setShowSuggestions(true);
       } else {
@@ -211,7 +216,9 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
   };
 
   // Helper function to format date for input field (YYYY-MM-DD)
-  const formatDateForInput = (date: Date | string | null | undefined): string => {
+  const formatDateForInput = (
+    date: Date | string | null | undefined
+  ): string => {
     if (!date) return "";
     const d = typeof date === "string" ? new Date(date) : date;
     if (isNaN(d.getTime())) return "";
@@ -256,6 +263,25 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
     };
   }, []);
 
+  // Close modal when clicking outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   // Reset suggestions and copy status when modal is opened/closed
   useEffect(() => {
     if (!isOpen) {
@@ -294,9 +320,7 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
 
       const { token } = await response.json();
       const form_url = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
-      const link = `${form_url}/intake-form?token=${encodeURIComponent(
-        token
-      )}`;
+      const link = `${form_url}/intake-form?token=${encodeURIComponent(token)}`;
       setOutputLink(link);
       setCopyStatus("idle"); // Reset copy status when new link is generated
 
@@ -319,7 +343,10 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
         }
         setTimeout(() => setCopyStatus("idle"), 2000);
       } catch (clipboardError) {
-        console.log("Auto-copy failed, user can copy manually:", clipboardError);
+        console.log(
+          "Auto-copy failed, user can copy manually:",
+          clipboardError
+        );
       }
     } catch (error) {
       console.error("Token generation error:", error);
@@ -398,6 +425,7 @@ Thank you.`);
       }}
     >
       <div
+        ref={modalRef}
         style={{
           background: "#fff",
           border: "1px solid var(--border)",
@@ -450,7 +478,11 @@ Thank you.`);
                     value={formData[field.id]}
                     onChange={(e) => handleChange(field.id, e.target.value)}
                     onFocus={() => {
-                      if (field.id === "lkPatient" && formData[field.id] && patientSuggestions.length > 0) {
+                      if (
+                        field.id === "lkPatient" &&
+                        formData[field.id] &&
+                        patientSuggestions.length > 0
+                      ) {
                         setShowSuggestions(true);
                       }
                     }}
@@ -500,21 +532,29 @@ Thank you.`);
                             style={{
                               padding: "12px",
                               cursor: "pointer",
-                              borderBottom: index < patientSuggestions.length - 1 ? "1px solid #eee" : "none",
+                              borderBottom:
+                                index < patientSuggestions.length - 1
+                                  ? "1px solid #eee"
+                                  : "none",
                               fontSize: "14px",
                             }}
                             onMouseEnter={(e) => {
-                              (e.target as HTMLElement).style.backgroundColor = "#f5f5f5";
+                              (e.target as HTMLElement).style.backgroundColor =
+                                "#f5f5f5";
                             }}
                             onMouseLeave={(e) => {
-                              (e.target as HTMLElement).style.backgroundColor = "transparent";
+                              (e.target as HTMLElement).style.backgroundColor =
+                                "transparent";
                             }}
                           >
-                            <div style={{ fontWeight: "500", marginBottom: "4px" }}>
+                            <div
+                              style={{ fontWeight: "500", marginBottom: "4px" }}
+                            >
                               {patient.patientName}
                             </div>
                             <div style={{ color: "#666", fontSize: "12px" }}>
-                              DOB: {patient.dob || "Not specified"} | Claim: {patient.claimNumber}
+                              DOB: {patient.dob || "Not specified"} | Claim:{" "}
+                              {patient.claimNumber}
                             </div>
                           </div>
                         ))
@@ -588,12 +628,24 @@ Thank you.`);
             onClick={copyLink}
             disabled={!outputLink}
             style={{
-              backgroundColor: copyStatus === "copied" ? "#22c55e" : copyStatus === "error" ? "#ef4444" : "",
-              color: copyStatus === "copied" || copyStatus === "error" ? "white" : "",
+              backgroundColor:
+                copyStatus === "copied"
+                  ? "#22c55e"
+                  : copyStatus === "error"
+                  ? "#ef4444"
+                  : "",
+              color:
+                copyStatus === "copied" || copyStatus === "error"
+                  ? "white"
+                  : "",
               transition: "all 0.2s ease",
             }}
           >
-            {copyStatus === "copied" ? "Copied!" : copyStatus === "error" ? "Error" : "Copy"}
+            {copyStatus === "copied"
+              ? "Copied!"
+              : copyStatus === "error"
+              ? "Error"
+              : "Copy"}
           </button>
         </div>
         <div className="muted" style={{ marginTop: "6px" }}>
