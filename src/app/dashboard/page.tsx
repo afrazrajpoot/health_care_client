@@ -320,8 +320,8 @@ const WhatsNewSection = ({
           <div className="flex justify-end mt-4">
             <button
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${copied["section-whatsnew"]
-                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                  : "border-amber-200 bg-white text-gray-900"
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-amber-200 bg-white text-gray-900"
                 }`}
               onClick={() => onCopySection("section-whatsnew")}
               title="Copy Section"
@@ -490,8 +490,8 @@ const TreatmentHistorySection = ({
           <div className="flex justify-end mt-4">
             <button
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${copied[`section-treatment-${currentSnapshotIndex}`]
-                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                  : "border-blue-200 bg-white text-gray-900"
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-blue-200 bg-white text-gray-900"
                 }`}
               onClick={() =>
                 onCopySection("section-treatment", currentSnapshotIndex)
@@ -573,8 +573,8 @@ const ADLSection = ({
           <div className="flex justify-end">
             <button
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${copied["section-adl"]
-                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                  : "border-green-200 bg-white text-gray-900"
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-green-200 bg-white text-gray-900"
                 }`}
               onClick={() => onCopySection("section-adl")}
               title="Copy Section"
@@ -750,8 +750,8 @@ const PatientQuizSection = ({
         <div className="flex justify-end mt-4">
           <button
             className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${copied[sectionId]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-purple-200 bg-white text-gray-900"
+              ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+              : "border-purple-200 bg-white text-gray-900"
               }`}
             onClick={() => onCopySection(sectionId)}
             title="Copy Section"
@@ -843,7 +843,7 @@ const DocumentSummarySection = ({
   const handlePreviewFile = () => {
     const blobPath = documentData?.blob_path;
     if (blobPath) {
-      const previewUrl = `http://127.0.0.1:8000/api/preview/${encodeURIComponent(
+      const previewUrl = `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/preview/${encodeURIComponent(
         blobPath
       )}`;
       window.open(previewUrl, "_blank", "noopener,noreferrer");
@@ -980,8 +980,8 @@ const DocumentSummarySection = ({
                       )}
                       <button
                         className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${copied[sectionId]
-                            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                            : "border-blue-200 bg-white text-gray-900"
+                          ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                          : "border-blue-200 bg-white text-gray-900"
                           }`}
                         onClick={() => onCopySection(sectionId)}
                         title="Copy Section"
@@ -1205,7 +1205,7 @@ export default function PhysicianCard() {
       console.log("Fetching document data with params:", params.toString());
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/document?${params}`
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/document?${params}`
       );
 
       if (!response.ok) {

@@ -104,7 +104,7 @@ const AttorneyCardPage = () => {
       if (physicianId) {
         params.append("physicianId", physicianId);
       }
-      const res = await fetch(`http://127.0.0.1:8000/api/document?${params}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/document?${params}`);
       if (res.ok) {
         const response = await res.json();
         setDocuments(response.documents || []);
