@@ -1,7 +1,6 @@
 // components/ProgressTracker.tsx
 import { useSocket } from "@/providers/SocketProvider";
 import React, { useEffect, useState } from "react";
-// import { useSocket } from "@/contexts/SocketContext";
 
 interface ProgressTrackerProps {
   onComplete?: () => void;
@@ -19,29 +18,41 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   } = useSocket();
   const [displayProgress, setDisplayProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const [pollCount, setPollCount] = useState(0); // DEBUG: Track poll calls
-  const [lastPollTime, setLastPollTime] = useState(Date.now()); // Track last poll
+  const [pollCount, setPollCount] = useState(0);
+  const [lastPollTime, setLastPollTime] = useState(Date.now());
 
-  // Check localStorage on mount for persisted visibility
+  // Check localStorage on mount for persisted visibility AND check if there's active progress
   useEffect(() => {
     const isOpen = localStorage.getItem("progressTrackerOpen");
-    if (isOpen === "true") {
+    const hasActiveProgress = isProcessing || progressData;
+
+    console.log("🔍 Mount check:", {
+      isOpen,
+      hasActiveProgress,
+      isProcessing,
+      progressData,
+    });
+
+    // Show if explicitly open OR if there's active processing
+    if (isOpen === "true" || hasActiveProgress) {
+      console.log("👁️ Setting visible on mount");
       setIsVisible(true);
     }
-  }, []);
+  }, [isProcessing, progressData]);
 
   // Save to localStorage when becoming visible
   useEffect(() => {
     if (isVisible) {
       localStorage.setItem("progressTrackerOpen", "true");
+      console.log("💾 Saved visibility to localStorage");
     }
   }, [isVisible]);
 
   // Force visibility if processing or data exists
   useEffect(() => {
     if (isProcessing || progressData) {
+      console.log("👁️ Forcing visibility - processing or data present");
       setIsVisible(true);
-      console.log("👁️ Forcing visibility - processing or data present"); // DEBUG
     }
   }, [isProcessing, progressData]);
 
@@ -67,13 +78,13 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   // Robust manual poll on mount if active - every 1s, with error handling
   useEffect(() => {
     if (activeTaskId && isProcessing) {
-      console.log("⏰ Starting tracker polling for task:", activeTaskId); // DEBUG
+      console.log("⏰ Starting tracker polling for task:", activeTaskId);
       const interval = setInterval(async () => {
         setPollCount((prev) => {
           const newCount = prev + 1;
           console.log(
             `⏱️ Tracker poll #${newCount} at ${new Date().toLocaleTimeString()}`
-          ); // DEBUG
+          );
           return newCount;
         });
 
@@ -89,15 +100,15 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
                     completed_steps: result.completed_steps,
                   }
                 : "null"
-            ); // DEBUG
+            );
           } catch (error) {
-            console.error("❌ Tracker poll error:", error); // DEBUG: Catch fetch errors
+            console.error("❌ Tracker poll error:", error);
           }
         }
       }, 1000); // Poll every 1s
 
       return () => {
-        console.log("🛑 Clearing tracker interval"); // DEBUG
+        console.log("🛑 Clearing tracker interval");
         clearInterval(interval);
       };
     }
@@ -106,7 +117,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   // Handle completion: trigger onComplete callback, but do not auto-hide
   useEffect(() => {
     if (progressData?.status === "completed" && onComplete) {
-      console.log("✅ Task completed - triggering onComplete callback"); // DEBUG
+      console.log("✅ Task completed - triggering onComplete callback");
       onComplete();
       setDisplayProgress(100); // Force 100% on completion
       // No auto-hide here - keep visible until user closes
@@ -116,7 +127,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   // Smooth progress animation
   useEffect(() => {
     if (progressData && isProcessing) {
-      console.log("🎬 Starting animation for progress:", progressData.progress); // DEBUG
+      console.log("🎬 Starting animation for progress:", progressData.progress);
       setIsVisible(true);
 
       // Animate progress bar smoothly
@@ -151,7 +162,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       progressData?.status !== "completed"
     ) {
       // After 30 polls (~30s)
-      console.log("⏰ Auto-hiding after 30 polls - task may be stuck"); // DEBUG
+      console.log("⏰ Auto-hiding after 30 polls - task may be stuck");
       setIsVisible(false);
       clearProgress();
     }
@@ -159,7 +170,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   const handleManualRefresh = () => {
     if (activeTaskId) {
-      console.log("🔄 Manual refresh for task:", activeTaskId); // DEBUG
+      console.log("🔄 Manual refresh for task:", activeTaskId);
       if (checkProgress) {
         checkProgress(activeTaskId);
       }
@@ -167,25 +178,44 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   };
 
   const handleClose = () => {
-    console.log("✕ Closing progress tracker"); // DEBUG
+    console.log("✕ Closing progress tracker");
     setIsVisible(false);
     localStorage.removeItem("progressTrackerOpen");
     setTimeout(() => clearProgress(), 300);
   };
 
-  if (!isVisible) {
-    if (isProcessing) {
-      console.log("⚠️ Visible=false but isProcessing=true - forcing visible"); // DEBUG
-      return (
-        <div className="fixed top-4 right-4 z-50 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 animate-in slide-in-from-right-5 duration-300">
-          <p>Loading progress... (Task started, waiting for update)</p>
-          <button onClick={handleManualRefresh} className="text-xs">
-            Refresh
+  // Don't hide if there's active processing, even if isVisible is false
+  if (!isVisible && !isProcessing && !progressData) {
+    return null;
+  }
+
+  // Show loading state if processing but no progress data yet
+  if (!progressData && isProcessing) {
+    return (
+      <div className="fixed top-4 right-4 z-50 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 animate-in slide-in-from-right-5 duration-300">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-800">
+            Document Processing
+          </h3>
+          <button
+            onClick={handleClose}
+            className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
+            title="Close"
+          >
+            ✕
           </button>
         </div>
-      ); // Show loading if processing but no data
-    }
-    return null;
+        <p className="text-sm text-gray-600">Loading progress...</p>
+        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+          <div className="h-2 rounded-full bg-blue-500 animate-pulse"></div>
+        </div>
+        {activeTaskId && (
+          <div className="mt-2 text-xs text-gray-500 truncate">
+            Task: {activeTaskId.substring(0, 8)}...
+          </div>
+        )}
+      </div>
+    );
   }
 
   const {
@@ -204,7 +234,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     total_files,
     failed_files,
     current_step,
-  }); // DEBUG
+  });
 
   const getStatusColor = () => {
     switch (status) {
