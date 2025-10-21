@@ -133,3 +133,44 @@
     scrollbar-width: none;
     /* Firefox */
 }
+
+/* styles/globals.css or your CSS file */
+@keyframes slideInFromRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.animate-in {
+    animation: slideInFromRight 0.3s ease-out;
+}
+
+/* Progress bar animations */
+.progress-bar {
+    transition: width 0.3s ease-in-out;
+}
+
+/* Custom scrollbar for failed files list */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
