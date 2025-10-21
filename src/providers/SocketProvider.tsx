@@ -1,4 +1,3 @@
-// providers/SocketProvider.tsx (enhanced mapToProgressData to force 100% and completed status if completed_steps >= total_steps)
 "use client";
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
@@ -43,6 +42,14 @@ interface ProgressData {
   current_step: number;
 }
 
+// Storage interface for persisting progress
+interface StoredProgress {
+  progressData: ProgressData | null;
+  activeTaskId: string | null;
+  isProcessing: boolean;
+  timestamp: number;
+}
+
 type SocketContextType = {
   socket: Socket | null;
   taskStatus: any;
@@ -67,7 +74,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [taskStatus, setTaskStatus] = useState<any>(null);
   const { data: session, status } = useSession();
 
-  // Progress tracking state
+  // Progress tracking state - initialize from localStorage
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -78,8 +85,110 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [modalTitle, setModalTitle] = useState("Invalid Document");
   const [modalDescription, setModalDescription] = useState("");
 
+  // Storage keys
+  const STORAGE_KEYS = {
+    PROGRESS: "progress_tracker_state",
+    TASK_ID: "active_task_id",
+    PROCESSING: "is_processing",
+  };
+
+  // Load persisted progress state on mount
+  useEffect(() => {
+    const loadPersistedProgress = () => {
+      try {
+        const storedProgress = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+        const storedTaskId = localStorage.getItem(STORAGE_KEYS.TASK_ID);
+        const storedProcessing = localStorage.getItem(STORAGE_KEYS.PROCESSING);
+
+        console.log("📦 Loading persisted progress state:", {
+          storedProgress: !!storedProgress,
+          storedTaskId,
+          storedProcessing,
+        });
+
+        if (storedProgress) {
+          const parsedProgress: StoredProgress = JSON.parse(storedProgress);
+
+          // Check if the stored progress is not too old (e.g., within last 1 hour)
+          const isRecent =
+            Date.now() - parsedProgress.timestamp < 60 * 60 * 1000; // 1 hour
+
+          if (isRecent && parsedProgress.progressData) {
+            console.log("🔄 Restoring progress state from localStorage");
+            setProgressData(parsedProgress.progressData);
+            setActiveTaskId(parsedProgress.activeTaskId);
+            setIsProcessing(parsedProgress.isProcessing);
+
+            // If still processing, restart polling
+            if (parsedProgress.isProcessing && parsedProgress.activeTaskId) {
+              console.log("🔄 Restarting polling for persisted task");
+              startProgressPolling(parsedProgress.activeTaskId);
+            }
+          } else {
+            console.log("🧹 Clearing stale progress data");
+            clearPersistedProgress();
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error loading persisted progress:", error);
+        clearPersistedProgress();
+      }
+    };
+
+    loadPersistedProgress();
+  }, []);
+
+  // Save progress state to localStorage whenever it changes
+  useEffect(() => {
+    const saveProgressState = () => {
+      try {
+        const stateToSave: StoredProgress = {
+          progressData,
+          activeTaskId,
+          isProcessing,
+          timestamp: Date.now(),
+        };
+
+        localStorage.setItem(
+          STORAGE_KEYS.PROGRESS,
+          JSON.stringify(stateToSave)
+        );
+
+        // Also save individual items for redundancy
+        if (activeTaskId) {
+          localStorage.setItem(STORAGE_KEYS.TASK_ID, activeTaskId);
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.TASK_ID);
+        }
+
+        localStorage.setItem(STORAGE_KEYS.PROCESSING, isProcessing.toString());
+
+        console.log("💾 Progress state saved to localStorage:", {
+          hasProgressData: !!progressData,
+          activeTaskId,
+          isProcessing,
+        });
+      } catch (error) {
+        console.error("❌ Error saving progress state:", error);
+      }
+    };
+
+    saveProgressState();
+  }, [progressData, activeTaskId, isProcessing]);
+
+  // Clear persisted progress from localStorage
+  const clearPersistedProgress = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PROGRESS);
+      localStorage.removeItem(STORAGE_KEYS.TASK_ID);
+      localStorage.removeItem(STORAGE_KEYS.PROCESSING);
+      console.log("🧹 Persisted progress cleared from localStorage");
+    } catch (error) {
+      console.error("❌ Error clearing persisted progress:", error);
+    }
+  };
+
   // ENHANCED Map backend data to frontend ProgressData with force 100% if all processed
-  // ENHANCED: Simple file-based progress calculation
   const mapToProgressData = (
     backendData: BackendProgressData
   ): ProgressData => {
@@ -137,23 +246,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Manual progress checking - ENHANCED with force in set
   const checkProgress = async (taskId: string) => {
-    console.log("🔍 Starting checkProgress for task:", taskId); // DEBUG: Entry point
+    console.log("🔍 Starting checkProgress for task:", taskId);
     try {
       const response = await fetch(`${SOCKET_URL}/api/progress/${taskId}`);
-      console.log("📡 Fetch response status:", response.status); // DEBUG: HTTP status
+      console.log("📡 Fetch response status:", response.status);
       if (response.ok) {
         const rawBackendProgress = await response.json();
         console.log(
           `📊 Raw polled backend data for ${taskId}:`,
           rawBackendProgress
-        ); // DEBUG: Raw JSON from API
+        );
 
         const mappedProgress = mapToProgressData(rawBackendProgress);
-        console.log("📊 Setting new progressData:", mappedProgress); // DEBUG: Before setState
+        console.log("📊 Setting new progressData:", mappedProgress);
 
         // EXTRA FORCE: If processed_count >= total_files, ensure 100% and stop processing
         if (mappedProgress.processed_count >= mappedProgress.total_files) {
-          console.log("🔧 Poll forcing final state"); // DEBUG
+          console.log("🔧 Poll forcing final state");
           const finalMapped = {
             ...mappedProgress,
             progress: 100,
@@ -169,7 +278,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setProgressData(mappedProgress); // Normal set
         }
 
-        console.log("📊 setProgressData called successfully"); // DEBUG: Confirm call
+        console.log("📊 setProgressData called successfully");
 
         if (
           rawBackendProgress.status === "completed" ||
@@ -177,7 +286,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         ) {
           console.log(
             `🛑 Poll detected end status: ${rawBackendProgress.status}`
-          ); // DEBUG
+          );
           setIsProcessing(false);
           stopProgressPolling();
 
@@ -195,17 +304,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         return rawBackendProgress;
       } else {
         const errorText = await response.text();
-        console.warn(`⚠️ Poll failed: ${response.status} - ${errorText}`); // DEBUG: Full error
+        console.warn(`⚠️ Poll failed: ${response.status} - ${errorText}`);
       }
     } catch (error) {
-      console.error("❌ Full poll error:", error); // DEBUG: Catch all
+      console.error("❌ Full poll error:", error);
     }
     return null;
   };
 
   // Progress polling - faster at 500ms
   const startProgressPolling = (taskId: string) => {
-    console.log(`🔄 Starting polling for task: ${taskId}`); // DEBUG
+    console.log(`🔄 Starting polling for task: ${taskId}`);
     stopProgressPolling();
 
     let tickCount = 0;
@@ -215,7 +324,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         `⏱️ Provider poll tick #${tickCount} for ${taskId} | Active: ${
           activeTaskId === taskId
         } | Processing: ${isProcessing}`
-      ); // DEBUG: Tick log
+      );
       if (activeTaskId === taskId && isProcessing) {
         const progress = await checkProgress(taskId);
         if (
@@ -228,13 +337,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             `🛑 Provider stopping poll: ${
               progress?.status || "full completion"
             }`
-          ); // DEBUG
+          );
           stopProgressPolling();
         }
       } else {
         console.log(
           `🛑 Provider mismatch - stopping (active: ${activeTaskId}, expected: ${taskId}, processing: ${isProcessing})`
-        ); // DEBUG
+        );
         stopProgressPolling();
       }
     }, 500); // Faster: 500ms
@@ -245,7 +354,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const stopProgressPolling = () => {
     if (pollingIntervalRef.current) {
-      console.log("🛑 Provider clearing polling interval"); // DEBUG
+      console.log("🛑 Provider clearing polling interval");
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
@@ -258,11 +367,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     filenames?: string[]
   ) => {
     if (!taskId) {
-      console.log("🧹 Provider clearing task"); // DEBUG
+      console.log("🧹 Provider clearing task");
       setActiveTaskId(null);
       setIsProcessing(false);
       setProgressData(null);
       stopProgressPolling();
+      clearPersistedProgress(); // Clear storage when manually clearing
       return;
     }
 
@@ -270,7 +380,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       `🎯 Provider setting active task: ${taskId}, total: ${
         totalFiles || "unknown"
       }`
-    ); // DEBUG
+    );
     setActiveTaskId(taskId);
     setIsProcessing(true);
 
@@ -286,18 +396,19 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       failed_files: [],
       current_step: 0,
     };
-    console.log("📊 Provider initial progressData:", initialData); // DEBUG
+    console.log("📊 Provider initial progressData:", initialData);
     setProgressData(initialData);
 
     startProgressPolling(taskId);
   };
 
   const clearProgress = () => {
-    console.log("🧹 Provider manual clear progress"); // DEBUG
+    console.log("🧹 Provider manual clear progress");
     setActiveTaskId(null);
     setIsProcessing(false);
     setProgressData(null);
     stopProgressPolling();
+    clearPersistedProgress(); // Clear storage when manually clearing
   };
 
   useEffect(() => {
@@ -346,7 +457,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     setSocket(socketInstance);
 
-    // Connection events (unchanged)
+    // Connection events
     socketInstance.on("connect", () => {
       console.log("✅ Socket connected successfully:", socketInstance.id);
 
@@ -358,6 +469,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           console.log("⚠️ Join response:", response);
         }
       });
+
+      // If we have a persisted active task, check its status
+      if (activeTaskId && isProcessing) {
+        console.log("🔄 Checking persisted task status after reconnect");
+        checkProgress(activeTaskId);
+      }
     });
 
     socketInstance.on("connect_error", (error) => {
@@ -378,6 +495,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       socketInstance.emit("join", `user_${userId}`, (response: any) => {
         console.log("Re-join response:", response);
       });
+
+      // Check persisted task status after reconnection
+      if (activeTaskId && isProcessing) {
+        console.log("🔄 Checking persisted task status after reconnect");
+        checkProgress(activeTaskId);
+      }
     });
 
     socketInstance.on("reconnect_attempt", (attempt) => {
@@ -410,12 +533,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (data.task_id === activeTaskId && data.progress) {
           const mappedProgress = mapToProgressData(data.progress);
-          console.log("📊 Socket setting progressData:", mappedProgress); // DEBUG: Socket update
+          console.log("📊 Socket setting progressData:", mappedProgress);
           setProgressData(mappedProgress);
 
           // ENHANCED: Force stop if all processed
           if (mappedProgress.processed_count >= mappedProgress.total_files) {
-            console.log("🎉 Socket forcing final state"); // DEBUG
+            console.log("🎉 Socket forcing final state");
             setIsProcessing(false);
             stopProgressPolling();
             toast.success(
@@ -432,7 +555,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Additional handling for task_complete event
       if (data.task_id === activeTaskId && data.status === "completed") {
-        console.log("🎉 task_complete event triggered 100% handling"); // DEBUG
+        console.log("🎉 task_complete event triggered 100% handling");
         const summary = data.summary || {};
         toast.success(
           `✅ Batch processing complete! ${summary.successful || 0}/${
@@ -460,7 +583,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         socketInstance.disconnect();
       }
     };
-  }, [status, session?.user?.id, activeTaskId, isProcessing]); // Added deps for re-handling events if needed
+  }, [status, session?.user?.id, activeTaskId, isProcessing]);
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -476,7 +599,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         isProcessing,
         setActiveTask,
         clearProgress,
-        checkProgress, // Expose checkProgress for Tracker manual calls
+        checkProgress,
       }}
     >
       {children}
