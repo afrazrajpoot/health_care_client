@@ -1,18 +1,16 @@
-// app/dashboard/page.tsx (updated)
+// app/dashboard/page.tsx (add useEffect for socket listener)
 "use client";
 
 import IntakeModal from "@/components/staff-components/IntakeModal";
 import TaskTable from "@/components/staff-components/TaskTable";
 import FailedDocuments from "@/components/staff-components/FailedDocuments";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
+import { ProgressTracker } from "@/components/ProgressTracker";
 import {
   DEPARTMENTS_GM,
   DEPARTMENTS_WC,
-  initialTasks,
   NOTE_PRESETS,
   paneToFilter,
-  PULSE_GM,
-  PULSE_WC,
   tabs,
   Task,
 } from "@/components/staff-components/types";
@@ -28,6 +26,8 @@ import {
 } from "@/components/ui/dialog";
 import { Sidebar } from "@/components/navigation/sidebar";
 import { toast } from "sonner";
+import { useSocket } from "@/providers/SocketProvider";
+// import { useSocket } from "@/contexts/SocketContext";
 
 // API response interface
 interface ApiTask {
@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const snapInputRef = useRef<HTMLInputElement>(null);
 
-  // New states from second file
+  // File upload states
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const { data: session } = useSession();
@@ -92,13 +92,14 @@ export default function Dashboard() {
   });
   const [updateLoading, setUpdateLoading] = useState(false);
 
-  // New state for file modal
+  // File modal state
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
-  // Add state for fetched pulse
-  const [fetchedPulse, setFetchedPulse] = useState<Pulse | null>(null);
+  // Progress tracking
+  const { setActiveTask } = useSocket();
 
-  // Add state for workflow stats
+  // Pulse and stats states
+  const [fetchedPulse, setFetchedPulse] = useState<Pulse | null>(null);
   const [workflowStats, setWorkflowStats] = useState<{
     labels: string[];
     vals: number[];
@@ -106,16 +107,18 @@ export default function Dashboard() {
     hasData: boolean;
   } | null>(null);
 
-  // Add state for collapsible sections
+  // UI states
   const [isOfficePulseCollapsed, setIsOfficePulseCollapsed] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
-
-  // Add sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
   const departments = mode === "wc" ? DEPARTMENTS_WC : DEPARTMENTS_GM;
   const pulse = fetchedPulse;
+
+  // Refs for API calls - initialize as null
+  const fetchTasksRef = useRef<any>(null);
+  const fetchFailedDocumentsRef = useRef<any>(null);
 
   // Transform API task to local Task type
   const transformApiTask = (apiTask: ApiTask): Task => {
@@ -147,7 +150,7 @@ export default function Dashboard() {
       overdue,
       patient: apiTask.patient,
       assignee: apiTask.actions.includes("Claimed") ? "You" : "Unclaimed",
-      mode: mode, // You might want to derive this from department or other fields
+      mode: mode,
       notes,
       actions: apiTask.actions,
       sourceDocument: apiTask.sourceDocument,
@@ -176,7 +179,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mode]); // Add mode dependency for refetch on mode change
 
   // Fetch office pulse from separate API
   const fetchOfficePulse = useCallback(async () => {
@@ -219,20 +222,70 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Fetch tasks on component mount
+  // Fetch failed documents
+  const fetchFailedDocuments = useCallback(async () => {
+    try {
+      const response = await fetch("/api/get-failed-document");
+      if (response.ok) {
+        const data = await response.json();
+        setFailedDocuments(data.documents || []);
+      }
+    } catch (error) {
+      console.error("Error fetching failed documents:", error);
+      toast.error("❌ Error fetching failed documents");
+    }
+  }, []);
+
+  // Update refs whenever the functions change
   useEffect(() => {
-    fetchTasks();
+    fetchTasksRef.current = fetchTasks;
   }, [fetchTasks]);
 
-  // Fetch office pulse on component mount
   useEffect(() => {
-    fetchOfficePulse();
-  }, [fetchOfficePulse]);
+    fetchFailedDocumentsRef.current = fetchFailedDocuments;
+  }, [fetchFailedDocuments]);
 
-  // Fetch workflow stats on component mount
+  // Fetch data on component mount
   useEffect(() => {
+    fetchTasks();
+    fetchOfficePulse();
     fetchWorkflowStats();
-  }, [fetchWorkflowStats]);
+    fetchFailedDocuments();
+  }, [fetchTasks, fetchOfficePulse, fetchWorkflowStats, fetchFailedDocuments]);
+
+  // 🆕 Real-time tasks update via socket
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTasksCreated = (data: any) => {
+      console.log("📡 Received 'tasks_created' event:", data);
+      if (data.user_id !== session?.user?.id) return; // Ensure for current user
+
+      // Transform new API-like tasks to local Task format
+      const newTransformedTasks = data.tasks.map((apiTask: ApiTask) =>
+        transformApiTask(apiTask)
+      );
+
+      // Append to existing tasks (avoid duplicates by checking IDs)
+      setTasks((prevTasks) => {
+        const existingIds = new Set(prevTasks.map((t) => t.id));
+        const uniqueNewTasks = newTransformedTasks.filter(
+          (t) => !existingIds.has(t.id)
+        );
+        if (uniqueNewTasks.length > 0) {
+          toast.success(`✅ Added ${uniqueNewTasks.length} new task(s)`);
+        }
+        return [...prevTasks, ...uniqueNewTasks];
+      });
+    };
+
+    socket.on("tasks_created", handleTasksCreated);
+
+    return () => {
+      socket.off("tasks_created", handleTasksCreated);
+    };
+  }, [socket, session?.user?.id, transformApiTask]);
 
   // Click outside to close sidebar
   useEffect(() => {
@@ -251,11 +304,7 @@ export default function Dashboard() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [isSidebarOpen]);
 
-  // Refetch tasks when filters change (if you want real-time filtering from API)
-  // useEffect(() => {
-  //   fetchTasks();
-  // }, [filters, mode, currentPane]);
-
+  // Task filtering logic
   const getBaseTasks = () =>
     tasks.filter((t) => {
       if (mode === "wc" && t.mode === "gm") return false;
@@ -287,6 +336,7 @@ export default function Dashboard() {
     return f;
   };
 
+  // Task operations
   const updateTask = async (id: string, updates: Partial<Task>) => {
     try {
       // First update locally for immediate feedback
@@ -303,7 +353,6 @@ export default function Dashboard() {
         body: JSON.stringify({
           ...(updates.statusText && { status: updates.statusText }),
           ...(updates.actions && { actions: updates.actions }),
-          // Add other field mappings as needed
         }),
       });
 
@@ -389,24 +438,7 @@ export default function Dashboard() {
     }
   };
 
-  // Integrated logic from second file
-  useEffect(() => {
-    fetchFailedDocuments();
-  }, []);
-
-  const fetchFailedDocuments = async () => {
-    try {
-      const response = await fetch("/api/get-failed-document");
-      if (response.ok) {
-        const data = await response.json();
-        setFailedDocuments(data.documents || []);
-      }
-    } catch (error) {
-      console.error("Error fetching failed documents:", error);
-      toast.error("❌ Error fetching failed documents");
-    }
-  };
-
+  // Failed documents operations
   const handleRowClick = (doc: any) => {
     setSelectedDoc(doc);
     let parsedDob: Date | null = null;
@@ -486,6 +518,7 @@ export default function Dashboard() {
     }
   };
 
+  // File upload operations
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -497,11 +530,13 @@ export default function Dashboard() {
     if (files.length > 0) {
       const validFiles = files.filter((file) => {
         if (file.size > 40 * 1024 * 1024) {
+          toast.error(`File ${file.name} is too large (max 40MB)`);
           return false;
         }
         const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
         const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
         if (!allowedTypes.includes(fileExtension)) {
+          toast.error(`File ${file.name} has unsupported format`);
           return false;
         }
         return true;
@@ -512,7 +547,7 @@ export default function Dashboard() {
         setIsFileModalOpen(true);
       } else {
         toast.error(
-          "❌ No valid files selected. Please check file types and size (max 40MB)."
+          "No valid files selected. Please check file types and size (max 40MB)."
         );
       }
     }
@@ -529,47 +564,63 @@ export default function Dashboard() {
     });
 
     try {
+      console.log(`🚀 Starting upload for ${selectedFiles.length} files`);
+
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL
+          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
         }/api/extract-documents?physicianId=${
           session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
           body: formDataUpload,
-          headers: {
-            "x-user-id": session?.user?.id || "",
-            "x-user-email": session?.user?.email || "",
-            "x-user-name": session?.user?.name || "",
-          },
         }
       );
 
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `HTTP error! status: ${response.status}, details: ${errorText}`
+        );
+      }
 
       const data = await response.json();
+      console.log("📦 Upload response:", data);
+
+      // FIXED: Pass payload_count as totalFiles to setActiveTask for correct initial total
+      if (data.task_id) {
+        setActiveTask(data.task_id, data.payload_count); // Now passes total_files correctly
+        console.log(
+          `🎯 Tracking progress for task: ${data.task_id} (total: ${data.payload_count})`
+        );
+      } else {
+        throw new Error("No task_id returned from server");
+      }
+
       toast.success(
-        `✅ Queued ${data.task_ids?.length || 0} task(s) for processing`
+        `✅ Started processing ${data.payload_count || 0} document(s)`
       );
 
-      // Refresh tasks after successful upload
-      fetchTasks();
+      // Close the file modal but keep progress tracker visible
+      setIsFileModalOpen(false);
+      setSelectedFiles([]);
+      if (snapInputRef.current) {
+        snapInputRef.current.value = "";
+      }
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("❌ Error uploading documents");
+      console.error("❌ Upload error:", error);
+      toast.error(`❌ Error uploading documents: ${error}`);
     } finally {
       setUploading(false);
-      setSelectedFiles([]);
-      snapInputRef.current!.value = "";
-      setIsFileModalOpen(false);
     }
   };
 
   const handleCancel = () => {
     setSelectedFiles([]);
-    snapInputRef.current!.value = "";
+    if (snapInputRef.current) {
+      snapInputRef.current.value = "";
+    }
     setIsFileModalOpen(false);
   };
 
@@ -584,6 +635,7 @@ export default function Dashboard() {
     );
   };
 
+  // Dense mode effect
   useEffect(() => {
     if (dense) {
       document.body.classList.add("dense");
@@ -592,6 +644,7 @@ export default function Dashboard() {
     }
   }, [dense]);
 
+  // Debug logging
   useEffect(() => {
     console.log("Kebilo v6.3 self-tests:", [
       { name: "All tab present", pass: true },
@@ -604,6 +657,12 @@ export default function Dashboard() {
       { name: "Tasks loaded from API", pass: tasks.length > 0 },
     ]);
   }, [mode, fetchedPulse, departments, tasks]);
+
+  // Callback for progress completion
+  const handleProgressComplete = useCallback(() => {
+    if (fetchTasksRef.current) fetchTasksRef.current();
+    if (fetchFailedDocumentsRef.current) fetchFailedDocumentsRef.current();
+  }, []);
 
   return (
     <>
@@ -933,9 +992,12 @@ export default function Dashboard() {
           font-style: italic;
         }
       `}</style>
-      {/* Sidebar Toggle Indicator and Sidebar Component */}
+      {/* Progress Tracker - Shows automatically when processing */}
+      <ProgressTracker onComplete={handleProgressComplete} />
+
+      {/* Sidebar and Main Content */}
       <div className="flex min-h-screen relative">
-        {/* Sidebar Component with High Z-Index */}
+        {/* Sidebar Component */}
         <div
           className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
             isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -946,7 +1008,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Sidebar Toggle Button - Burger Icon */}
+        {/* Sidebar Toggle Button */}
         <div
           className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
             isSidebarOpen
@@ -981,19 +1043,32 @@ export default function Dashboard() {
             isSidebarOpen ? "ml-0" : "ml-0"
           }`}
         >
-          <button
-            className="snaplink-btn"
-            onClick={() => snapInputRef.current?.click()}
-          >
-            Create SnapLink
-          </button>
-          <input
-            type="file"
-            ref={snapInputRef}
-            multiple
-            className="hidden"
-            onChange={handleSnap}
-          />
+          {/* Upload Button */}
+          <div className="p-6">
+            <button
+              className="snaplink-btn bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => snapInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </span>
+              ) : (
+                "📁 Upload Documents"
+              )}
+            </button>
+            <input
+              type="file"
+              ref={snapInputRef}
+              multiple
+              className="hidden"
+              onChange={handleSnap}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            />
+          </div>
+
           <div className="wrap">
             <div className="header">
               <h1>🧭 Kebilo Staff Dashboard — Mission Control v6.3</h1>
@@ -1042,12 +1117,12 @@ export default function Dashboard() {
                 </label>
                 <button className="btn light">Dept Settings</button>
                 <button
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md"
+                  className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
                   onClick={() => setShowModal(true)}
                 >
                   Create Intake Link
                 </button>
-                <button className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md">
+                <button className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200">
                   + Add Manual Task
                 </button>
                 <button
@@ -1064,6 +1139,7 @@ export default function Dashboard() {
             {loading && (
               <div className="card">
                 <div style={{ textAlign: "center", padding: "20px" }}>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                   Loading tasks...
                 </div>
               </div>
@@ -1338,8 +1414,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Modals */}
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
-      {/* Update Document Modal Component */}
+
       <UpdateDocumentModal
         open={isUpdateModalOpen}
         onOpenChange={setIsUpdateModalOpen}
@@ -1349,6 +1426,7 @@ export default function Dashboard() {
         onSubmit={handleUpdateSubmit}
         isLoading={updateLoading}
       />
+
       {/* File Submission Modal */}
       <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>
         <DialogContent className="max-w-md">
@@ -1358,27 +1436,47 @@ export default function Dashboard() {
               Review your selected files before submitting for processing.
             </DialogDescription>
           </DialogHeader>
-          <ul className="file-list">
-            {selectedFiles.map((file, index) => (
-              <li key={index} className="file-item">
-                {file.name} ({formatSize(file.size)})
-              </li>
-            ))}
-          </ul>
-          <DialogFooter>
+          <div className="max-h-60 overflow-y-auto">
+            <ul className="space-y-2">
+              {selectedFiles.map((file, index) => (
+                <li
+                  key={index}
+                  className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                >
+                  <span
+                    className="text-sm truncate flex-1 mr-2"
+                    title={file.name}
+                  >
+                    {file.name}
+                  </span>
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    ({formatSize(file.size)})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter className="flex space-x-2">
             <button
-              className="cancel-btn"
+              className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
               onClick={handleCancel}
               disabled={uploading}
             >
               Cancel
             </button>
             <button
-              className="submit-btn"
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50"
               onClick={handleSubmit}
               disabled={uploading}
             >
-              {uploading ? "Uploading..." : "Submit"}
+              {uploading ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </span>
+              ) : (
+                "Submit for Processing"
+              )}
             </button>
           </DialogFooter>
         </DialogContent>
