@@ -99,12 +99,12 @@ export default function FailedDocuments({
                       Claim Number
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  {/* <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
                       DOI
                     </div>
-                  </th>
+                  </th> */}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     File Name
                   </th>
@@ -159,9 +159,9 @@ export default function FailedDocuments({
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-600">
+                    {/* <td className="px-4 py-4 text-sm text-gray-600">
                       {doc.doi ? formatDate(doc.doi) : "—"}
-                    </td>
+                    </td> */}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2 max-w-xs">
                         <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
