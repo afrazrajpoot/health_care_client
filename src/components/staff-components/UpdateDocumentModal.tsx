@@ -52,7 +52,7 @@ export default function UpdateDocumentModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] md:max-w-[700px] lg:max-w-[800px]">
-        <DialogHeader className="bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-t-lg -mx-6 -mt-6 px-6 py-4">
+        <DialogHeader className="bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-t-lg -mx-6 -mt-6 px-6 py-4">
           <DialogTitle className="text-white text-xl font-bold">
             Update Missing Document Info
           </DialogTitle>
@@ -105,7 +105,7 @@ export default function UpdateDocumentModal({
                 className="w-full"
               />
             </div>
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label htmlFor="doi" className="text-sm font-medium">
                 DOI
               </Label>
@@ -118,7 +118,7 @@ export default function UpdateDocumentModal({
                 placeholder="Enter DOI (string)"
                 className="w-full"
               />
-            </div>
+            </div> */}
           </div>
         </div>
         <DialogFooter className="gap-3 bg-gray-50 -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
@@ -134,7 +134,7 @@ export default function UpdateDocumentModal({
             type="submit"
             onClick={onSubmit}
             disabled={isLoading}
-            className="bg-gradient-to-r from-violet-600 to-purple-500 text-white font-bold hover:from-violet-700 hover:to-purple-600 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold hover:from-blue-700 hover:to-blue-600 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
