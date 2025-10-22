@@ -129,15 +129,15 @@ export default function Dashboard() {
     // Transform quick notes if available
     const notes = apiTask.quickNotes
       ? [
-          {
-            ts: new Date(apiTask.updatedAt).toLocaleString(),
-            user: "System",
-            line:
-              apiTask.quickNotes.one_line_note ||
-              apiTask.quickNotes.details ||
-              "Note added",
-          },
-        ]
+        {
+          ts: new Date(apiTask.updatedAt).toLocaleString(),
+          user: "System",
+          line:
+            apiTask.quickNotes.one_line_note ||
+            apiTask.quickNotes.details ||
+            "Note added",
+        },
+      ]
       : [];
 
     return {
@@ -401,9 +401,9 @@ export default function Dashboard() {
         prev.map((t) =>
           t.id === taskId
             ? {
-                ...t,
-                notes: [...(t.notes || []), { ts, user: "You", line }],
-              }
+              ...t,
+              notes: [...(t.notes || []), { ts, user: "You", line }],
+            }
             : t
         )
       );
@@ -567,10 +567,8 @@ export default function Dashboard() {
       console.log(`🚀 Starting upload for ${selectedFiles.length} files`);
 
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
-        }/api/extract-documents?physicianId=${
-          session?.user?.physicianId || ""
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
+        }/api/extract-documents?physicianId=${session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -999,9 +997,8 @@ export default function Dashboard() {
       <div className="flex min-h-screen relative">
         {/* Sidebar Component */}
         <div
-          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <div className="h-full">
             <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -1010,38 +1007,33 @@ export default function Dashboard() {
 
         {/* Sidebar Toggle Button */}
         <div
-          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
-            isSidebarOpen
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
               ? "left-64 bg-transparent hover:bg-transparent shadow-none"
               : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
-          }`}
+            }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           <div className="flex flex-col items-center justify-center w-4 h-4">
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
-                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
-              }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+                }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
-                isSidebarOpen ? "opacity-0" : ""
-              }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "opacity-0" : ""
+                }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
-                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
-              }`}
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+                }`}
             ></div>
           </div>
         </div>
 
         {/* Main Content */}
         <div
-          className={`flex-1 transition-all duration-300 ${
-            isSidebarOpen ? "ml-0" : "ml-0"
-          }`}
+          className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0" : "ml-0"
+            }`}
         >
           {/* Upload Button */}
           <div className="p-6">
@@ -1289,9 +1281,8 @@ export default function Dashboard() {
                       {filteredTabs.map((tab) => (
                         <button
                           key={tab.pane}
-                          className={`filter ttab ${
-                            currentPane === tab.pane ? "active" : ""
-                          }`}
+                          className={`filter ttab ${currentPane === tab.pane ? "active" : ""
+                            }`}
                           onClick={() => setCurrentPane(tab.pane)}
                         >
                           {tab.text}
