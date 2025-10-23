@@ -2,7 +2,6 @@
 "use client";
 
 import IntakeModal from "@/components/staff-components/IntakeModal";
-// import ManualTaskModal from "@/components/staff-components/ManualTaskModal";
 import TaskTable from "@/components/staff-components/TaskTable";
 import FailedDocuments from "@/components/staff-components/FailedDocuments";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
@@ -29,7 +28,6 @@ import { Sidebar } from "@/components/navigation/sidebar";
 import { toast } from "sonner";
 import { useSocket } from "@/providers/SocketProvider";
 import ManualTaskModal from "@/components/ManualTaskModal";
-// import { useSocket } from "@/contexts/SocketContext";
 
 // API response interface
 interface ApiTask {
@@ -61,6 +59,101 @@ interface Pulse {
   labels: string[];
   vals: number[];
 }
+
+// Onboarding Tour Component
+const OnboardingTour = ({
+  isOpen,
+  onClose,
+  currentStep,
+  onNext,
+  onPrevious,
+  steps,
+  stepPositions,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentStep: number;
+  onNext: () => void;
+  onPrevious: () => void;
+  steps: any[];
+  stepPositions: any[];
+}) => {
+  if (!isOpen || currentStep >= steps.length) return null;
+
+  const currentStepData = steps[currentStep];
+  const position = stepPositions[currentStep] || { top: "50%", left: "50%" };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+      <div
+        className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 relative transition-all duration-300 ease-in-out"
+        style={{
+          position: "fixed",
+          top: position.top,
+          left: position.left,
+          transform: "translateX(-50%)",
+          zIndex: 101,
+          transition: "all 0.3s ease-in-out",
+        }}
+      >
+        {/* Arrow pointing to target element */}
+        <div
+          className="absolute w-4 h-4 bg-white rotate-45 transition-all duration-300 ease-in-out"
+          style={{
+            top: position.arrowTop || "-8px",
+            left: position.arrowLeft || "50%",
+            transform: "translateX(-50%)",
+          }}
+        ></div>
+
+        <div className="mb-4">
+          <h3 className="font-bold text-lg mb-2">{currentStepData.title}</h3>
+          <p className="text-gray-600 text-sm">{currentStepData.content}</p>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-500">
+            Step {currentStep + 1} of {steps.length}
+          </div>
+
+          <div className="flex gap-2">
+            {currentStep > 0 && (
+              <button
+                onClick={onPrevious}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"
+              >
+                Previous
+              </button>
+            )}
+
+            {currentStep < steps.length - 1 ? (
+              <button
+                onClick={onNext}
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={onClose}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200"
+              >
+                Finish Tour
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -115,6 +208,17 @@ export default function Dashboard() {
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Onboarding tour states
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepPositions, setStepPositions] = useState<any[]>([]);
+  const [prevStepPositions, setPrevStepPositions] = useState<any[]>([]);
+
+  // Refs for onboarding target elements
+  const createLinkButtonRef = useRef<HTMLButtonElement>(null);
+  const addManualTaskButtonRef = useRef<HTMLButtonElement>(null);
+  const createSnapLinkButtonRef = useRef<HTMLButtonElement>(null);
+
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
   const departments = [
     "Medical / Clinical Department",
@@ -127,6 +231,168 @@ export default function Dashboard() {
   // Refs for API calls - initialize as null
   const fetchTasksRef = useRef<any>(null);
   const fetchFailedDocumentsRef = useRef<any>(null);
+
+  // Onboarding steps configuration - filtered by user role
+  const onboardingSteps = [
+    {
+      title: "Create Intake Link",
+      content:
+        "Generate shareable links for patients to submit their intake forms and documents securely.",
+      target: createLinkButtonRef,
+      show: true, // Show for all roles
+    },
+    {
+      title: "Add Manual Task",
+      content:
+        "Create tasks manually for specific patients or workflows that require custom tracking.",
+      target: addManualTaskButtonRef,
+      show: session?.user?.role === "Physician", // Show only for Physicians
+    },
+    {
+      title: "Create Snap Link",
+      content:
+        "Quickly upload and process documents. The system will automatically extract information and create tasks.",
+      target: createSnapLinkButtonRef,
+      show: session?.user?.role === "Staff", // Show only for Staff
+    },
+  ].filter((step) => step.show);
+
+  // Calculate positions for onboarding steps
+  const calculateStepPositions = useCallback(() => {
+    const positions = [];
+
+    // Position for Create Intake Link button (in header)
+    if (createLinkButtonRef.current) {
+      const rect = createLinkButtonRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.bottom + 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    } else {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    // Position for Add Manual Task button (in header) - only if user is Physician
+    if (session?.user?.role === "Physician" && addManualTaskButtonRef.current) {
+      const rect = addManualTaskButtonRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.bottom + 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    } else if (session?.user?.role === "Physician") {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    // Position for Create Snap Link button (floating button) - only if user is Staff
+    if (session?.user?.role === "Staff" && createSnapLinkButtonRef.current) {
+      const rect = createSnapLinkButtonRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.bottom + 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    } else if (session?.user?.role === "Staff") {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    return positions;
+  }, [session?.user?.role]);
+
+  // Start onboarding tour
+  const startOnboarding = () => {
+    const positions = calculateStepPositions();
+    setPrevStepPositions(positions);
+    setStepPositions(positions);
+    setShowOnboarding(true);
+    setCurrentStep(0);
+  };
+
+  // Next step in onboarding
+  const nextStep = () => {
+    if (currentStep < onboardingSteps.length - 1) {
+      setPrevStepPositions(stepPositions);
+      setCurrentStep(currentStep + 1);
+
+      // Recalculate positions after a brief delay to ensure DOM is updated
+      setTimeout(() => {
+        const newPositions = calculateStepPositions();
+        setStepPositions(newPositions);
+      }, 50);
+    } else {
+      setShowOnboarding(false);
+      // Save to localStorage that user has completed onboarding
+      localStorage.setItem("onboardingCompleted", "true");
+    }
+  };
+
+  // Previous step in onboarding
+  const previousStep = () => {
+    if (currentStep > 0) {
+      setPrevStepPositions(stepPositions);
+      setCurrentStep(currentStep - 1);
+
+      // Recalculate positions after a brief delay to ensure DOM is updated
+      setTimeout(() => {
+        const newPositions = calculateStepPositions();
+        setStepPositions(newPositions);
+      }, 50);
+    }
+  };
+
+  // Close onboarding
+  const closeOnboarding = () => {
+    setShowOnboarding(false);
+    localStorage.setItem("onboardingCompleted", "true");
+  };
+
+  // Recalculate positions when step changes or user role changes
+  useEffect(() => {
+    if (showOnboarding) {
+      const positions = calculateStepPositions();
+      setPrevStepPositions(stepPositions);
+      setStepPositions(positions);
+    }
+  }, [
+    showOnboarding,
+    currentStep,
+    calculateStepPositions,
+    session?.user?.role,
+  ]);
+
+  // Check if onboarding should be shown on component mount
+  useEffect(() => {
+    const onboardingCompleted = localStorage.getItem("onboardingCompleted");
+    if (!onboardingCompleted) {
+      // Show onboarding after a short delay to ensure DOM is rendered
+      const timer = setTimeout(() => {
+        const positions = calculateStepPositions();
+        setPrevStepPositions(positions);
+        setStepPositions(positions);
+        setShowOnboarding(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [calculateStepPositions]);
 
   // Transform API task to local Task type
   const transformApiTask = (apiTask: ApiTask): Task => {
@@ -1042,9 +1308,52 @@ export default function Dashboard() {
           color: var(--muted);
           font-style: italic;
         }
+        /* Onboarding Help Button */
+        .onboarding-help-btn {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          background: var(--accent);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          font-size: 20px;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          z-index: 40;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .onboarding-help-btn:hover {
+          background: var(--accent2);
+          transform: scale(1.05);
+        }
       `}</style>
       {/* Progress Tracker - Shows automatically when processing */}
       <ProgressTracker onComplete={handleProgressComplete} />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isOpen={showOnboarding}
+        onClose={closeOnboarding}
+        currentStep={currentStep}
+        onNext={nextStep}
+        onPrevious={previousStep}
+        steps={onboardingSteps}
+        stepPositions={stepPositions}
+      />
+
+      {/* Onboarding Help Button */}
+      <button
+        className="onboarding-help-btn"
+        onClick={startOnboarding}
+        title="Show onboarding tour"
+      >
+        ?
+      </button>
 
       {/* Sidebar and Main Content */}
       <div className="flex min-h-screen relative">
@@ -1094,10 +1403,11 @@ export default function Dashboard() {
             isSidebarOpen ? "ml-0" : "ml-0"
           }`}
         >
-          {/* Upload Button */}
-          <div className="p-6">
-            {session?.user?.role == "Staff" && (
+          {/* Upload Button - Only show for Staff role */}
+          {session?.user?.role === "Staff" && (
+            <div className="p-6">
               <button
+                ref={createSnapLinkButtonRef}
                 className="snaplink-btn bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => snapInputRef.current?.click()}
                 disabled={uploading}
@@ -1111,16 +1421,16 @@ export default function Dashboard() {
                   "📁Create SnapLink"
                 )}
               </button>
-            )}
-            <input
-              type="file"
-              ref={snapInputRef}
-              multiple
-              className="hidden"
-              onChange={handleSnap}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            />
-          </div>
+              <input
+                type="file"
+                ref={snapInputRef}
+                multiple
+                className="hidden"
+                onChange={handleSnap}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              />
+            </div>
+          )}
 
           <div className="wrap">
             <div className="header">
@@ -1170,13 +1480,16 @@ export default function Dashboard() {
                 </label>
                 <button className="btn light">Dept Settings</button>
                 <button
+                  ref={createLinkButtonRef}
                   className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
                   onClick={() => setShowModal(true)}
                 >
                   Create Intake Link
                 </button>
+                {/* Only show Add Manual Task for Physician role */}
                 {session?.user?.role === "Physician" && (
                   <button
+                    ref={addManualTaskButtonRef}
                     className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
                     onClick={() => setShowTaskModal(true)}
                   >
