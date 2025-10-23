@@ -74,7 +74,7 @@ export default function TaskTable({
       );
     }
     return (
-      <div id="aggScroll">
+      <div id="">
         <table>
           <thead>
             <tr>
