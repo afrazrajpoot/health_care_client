@@ -4,7 +4,7 @@ import "./globals.css";
 import { Providers } from "@/providers/providers";
 
 // Force dynamic rendering for all pages to avoid useSearchParams issues
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,8 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Healthcare AI Assistant",
-  description: "AI-powered healthcare document processing and patient management system",
+  title: "Kabilo",
+  description:
+    "AI-powered healthcare asistant automates document classification and task creation for medical practices",
 };
 
 export default function RootLayout({

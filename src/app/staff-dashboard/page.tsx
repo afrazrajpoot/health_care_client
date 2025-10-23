@@ -86,19 +86,18 @@ const OnboardingTour = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
       <div
-        className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 relative transition-all duration-300 ease-in-out"
+        className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 relative"
         style={{
           position: "fixed",
           top: position.top,
           left: position.left,
           transform: "translateX(-50%)",
           zIndex: 101,
-          transition: "all 0.3s ease-in-out",
         }}
       >
         {/* Arrow pointing to target element */}
         <div
-          className="absolute w-4 h-4 bg-white rotate-45 transition-all duration-300 ease-in-out"
+          className="absolute w-4 h-4 bg-white rotate-45"
           style={{
             top: position.arrowTop || "-8px",
             left: position.arrowLeft || "50%",
@@ -120,7 +119,7 @@ const OnboardingTour = ({
             {currentStep > 0 && (
               <button
                 onClick={onPrevious}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Previous
               </button>
@@ -129,14 +128,14 @@ const OnboardingTour = ({
             {currentStep < steps.length - 1 ? (
               <button
                 onClick={onNext}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Next
               </button>
             ) : (
               <button
                 onClick={onClose}
-                className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200"
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
               >
                 Finish Tour
               </button>
@@ -146,7 +145,7 @@ const OnboardingTour = ({
 
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
         >
           ✕
         </button>
@@ -212,7 +211,6 @@ export default function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [stepPositions, setStepPositions] = useState<any[]>([]);
-  const [prevStepPositions, setPrevStepPositions] = useState<any[]>([]);
 
   // Refs for onboarding target elements
   const createLinkButtonRef = useRef<HTMLButtonElement>(null);
@@ -232,30 +230,27 @@ export default function Dashboard() {
   const fetchTasksRef = useRef<any>(null);
   const fetchFailedDocumentsRef = useRef<any>(null);
 
-  // Onboarding steps configuration - filtered by user role
+  // Onboarding steps configuration
   const onboardingSteps = [
     {
       title: "Create Intake Link",
       content:
         "Generate shareable links for patients to submit their intake forms and documents securely.",
       target: createLinkButtonRef,
-      show: true, // Show for all roles
     },
     {
       title: "Add Manual Task",
       content:
         "Create tasks manually for specific patients or workflows that require custom tracking.",
       target: addManualTaskButtonRef,
-      show: session?.user?.role === "Physician", // Show only for Physicians
     },
     {
       title: "Create Snap Link",
       content:
         "Quickly upload and process documents. The system will automatically extract information and create tasks.",
       target: createSnapLinkButtonRef,
-      show: session?.user?.role === "Staff", // Show only for Staff
     },
-  ].filter((step) => step.show);
+  ];
 
   // Calculate positions for onboarding steps
   const calculateStepPositions = useCallback(() => {
@@ -279,8 +274,8 @@ export default function Dashboard() {
       });
     }
 
-    // Position for Add Manual Task button (in header) - only if user is Physician
-    if (session?.user?.role === "Physician" && addManualTaskButtonRef.current) {
+    // Position for Add Manual Task button (in header)
+    if (addManualTaskButtonRef.current) {
       const rect = addManualTaskButtonRef.current.getBoundingClientRect();
       positions.push({
         top: `${rect.bottom + 10}px`,
@@ -288,7 +283,7 @@ export default function Dashboard() {
         arrowTop: "-8px",
         arrowLeft: "50%",
       });
-    } else if (session?.user?.role === "Physician") {
+    } else {
       positions.push({
         top: "50%",
         left: "50%",
@@ -297,8 +292,8 @@ export default function Dashboard() {
       });
     }
 
-    // Position for Create Snap Link button (floating button) - only if user is Staff
-    if (session?.user?.role === "Staff" && createSnapLinkButtonRef.current) {
+    // Position for Create Snap Link button (floating button)
+    if (createSnapLinkButtonRef.current) {
       const rect = createSnapLinkButtonRef.current.getBoundingClientRect();
       positions.push({
         top: `${rect.bottom + 10}px`,
@@ -306,7 +301,7 @@ export default function Dashboard() {
         arrowTop: "-8px",
         arrowLeft: "50%",
       });
-    } else if (session?.user?.role === "Staff") {
+    } else {
       positions.push({
         top: "50%",
         left: "50%",
@@ -316,12 +311,11 @@ export default function Dashboard() {
     }
 
     return positions;
-  }, [session?.user?.role]);
+  }, []);
 
   // Start onboarding tour
   const startOnboarding = () => {
     const positions = calculateStepPositions();
-    setPrevStepPositions(positions);
     setStepPositions(positions);
     setShowOnboarding(true);
     setCurrentStep(0);
@@ -330,14 +324,7 @@ export default function Dashboard() {
   // Next step in onboarding
   const nextStep = () => {
     if (currentStep < onboardingSteps.length - 1) {
-      setPrevStepPositions(stepPositions);
       setCurrentStep(currentStep + 1);
-
-      // Recalculate positions after a brief delay to ensure DOM is updated
-      setTimeout(() => {
-        const newPositions = calculateStepPositions();
-        setStepPositions(newPositions);
-      }, 50);
     } else {
       setShowOnboarding(false);
       // Save to localStorage that user has completed onboarding
@@ -348,14 +335,7 @@ export default function Dashboard() {
   // Previous step in onboarding
   const previousStep = () => {
     if (currentStep > 0) {
-      setPrevStepPositions(stepPositions);
       setCurrentStep(currentStep - 1);
-
-      // Recalculate positions after a brief delay to ensure DOM is updated
-      setTimeout(() => {
-        const newPositions = calculateStepPositions();
-        setStepPositions(newPositions);
-      }, 50);
     }
   };
 
@@ -365,19 +345,13 @@ export default function Dashboard() {
     localStorage.setItem("onboardingCompleted", "true");
   };
 
-  // Recalculate positions when step changes or user role changes
+  // Recalculate positions when step changes
   useEffect(() => {
     if (showOnboarding) {
       const positions = calculateStepPositions();
-      setPrevStepPositions(stepPositions);
       setStepPositions(positions);
     }
-  }, [
-    showOnboarding,
-    currentStep,
-    calculateStepPositions,
-    session?.user?.role,
-  ]);
+  }, [showOnboarding, currentStep, calculateStepPositions]);
 
   // Check if onboarding should be shown on component mount
   useEffect(() => {
@@ -386,7 +360,6 @@ export default function Dashboard() {
       // Show onboarding after a short delay to ensure DOM is rendered
       const timer = setTimeout(() => {
         const positions = calculateStepPositions();
-        setPrevStepPositions(positions);
         setStepPositions(positions);
         setShowOnboarding(true);
       }, 1000);
@@ -1403,9 +1376,9 @@ export default function Dashboard() {
             isSidebarOpen ? "ml-0" : "ml-0"
           }`}
         >
-          {/* Upload Button - Only show for Staff role */}
-          {session?.user?.role === "Staff" && (
-            <div className="p-6">
+          {/* Upload Button */}
+          <div className="p-6">
+            {session?.user?.role == "Staff" && (
               <button
                 ref={createSnapLinkButtonRef}
                 className="snaplink-btn bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1421,16 +1394,16 @@ export default function Dashboard() {
                   "📁Create SnapLink"
                 )}
               </button>
-              <input
-                type="file"
-                ref={snapInputRef}
-                multiple
-                className="hidden"
-                onChange={handleSnap}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              />
-            </div>
-          )}
+            )}
+            <input
+              type="file"
+              ref={snapInputRef}
+              multiple
+              className="hidden"
+              onChange={handleSnap}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            />
+          </div>
 
           <div className="wrap">
             <div className="header">
@@ -1486,7 +1459,6 @@ export default function Dashboard() {
                 >
                   Create Intake Link
                 </button>
-                {/* Only show Add Manual Task for Physician role */}
                 {session?.user?.role === "Physician" && (
                   <button
                     ref={addManualTaskButtonRef}

@@ -621,7 +621,10 @@ export default function Dashboard() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/extract-documents?physicianId=${session?.user?.physicianId || ""
+        `${
+          process.env.NEXT_PUBLIC_PYTHON_API_URL
+        }/api/extract-documents?physicianId=${
+          session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -852,7 +855,7 @@ export default function Dashboard() {
         className="snaplink-btn"
         onClick={() => document.getElementById("snapInput")?.click()}
       >
-        Create SnapLink
+        Create DocLatch
       </button>
       <input
         type="file"
