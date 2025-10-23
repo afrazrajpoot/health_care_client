@@ -61,7 +61,7 @@ const navigationItems: NavigationItem[] = [
   // },
   {
     name: "Upload Documents",
-    href: "/upload-doc",
+    href: "/staff-dashboard",
     icon: Upload,
     description: "Upload and process documents",
     roles: ["Staff"], // ✅ Staff only
