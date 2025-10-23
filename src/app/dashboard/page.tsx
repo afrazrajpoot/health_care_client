@@ -1149,6 +1149,151 @@ const DocumentSummarySection = ({
   );
 };
 
+// Onboarding Tour Component for Physician Card
+const PhysicianOnboardingTour = ({
+  isOpen,
+  onClose,
+  currentStep,
+  onNext,
+  onPrevious,
+  steps,
+  stepPositions,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentStep: number;
+  onNext: () => void;
+  onPrevious: () => void;
+  steps: any[];
+  stepPositions: any[];
+}) => {
+  if (!isOpen || currentStep >= steps.length) return null;
+
+  const currentStepData = steps[currentStep];
+  const position = stepPositions[currentStep] || { top: "50%", left: "50%" };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+      <div
+        className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 relative transition-all duration-300 ease-in-out"
+        style={{
+          position: "fixed",
+          top: position.top,
+          left: position.left,
+          transform: "translateX(-50%)",
+          zIndex: 101,
+        }}
+      >
+        {/* Arrow pointing to target element */}
+        <div
+          className="absolute w-4 h-4 bg-white rotate-45 transition-all duration-300 ease-in-out"
+          style={{
+            top: position.arrowTop || "-8px",
+            left: position.arrowLeft || "50%",
+            transform: "translateX(-50%)",
+          }}
+        ></div>
+
+        <div className="mb-4">
+          <h3 className="font-bold text-lg mb-2">{currentStepData.title}</h3>
+          <p className="text-gray-600 text-sm">{currentStepData.content}</p>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-500">
+            Step {currentStep + 1} of {steps.length}
+          </div>
+
+          <div className="flex gap-2">
+            {currentStep > 0 && (
+              <button
+                onClick={onPrevious}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"
+              >
+                Previous
+              </button>
+            )}
+
+            {currentStep < steps.length - 1 ? (
+              <button
+                onClick={onNext}
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={onClose}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200"
+              >
+                Finish Tour
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Welcome Modal Component
+const WelcomeModal = ({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4 relative">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">👋</span>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Welcome to Physician Dashboard!
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Get started by searching for a patient or take a quick tour to learn
+            about the features.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+            >
+              Get Started
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                // Start onboarding after welcome modal closes
+                setTimeout(() => {
+                  const event = new CustomEvent("start-onboarding");
+                  window.dispatchEvent(event);
+                }, 500);
+              }}
+              className="px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 transition-colors duration-200"
+            >
+              Take a Tour
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function PhysicianCard() {
   const [theme, setTheme] = useState<"clinical" | "standard">("clinical");
   const [isVerified, setIsVerified] = useState<boolean>(false);
@@ -1173,15 +1318,216 @@ export default function PhysicianCard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
+  // Onboarding states
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepPositions, setStepPositions] = useState<any[]>([]);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  // Refs for onboarding target elements
+  const staffButtonRef = useRef<HTMLAnchorElement>(null);
+  const searchBarRef = useRef<HTMLDivElement>(null);
+  const themeSelectorRef = useRef<HTMLSelectElement>(null);
+  const patientCardRef = useRef<HTMLDivElement>(null);
+
   // Collapsible section states
   const [collapsedSections, setCollapsedSections] = useState<{
     [key: string]: boolean;
   }>({
-    whatsNew: false, // Start expanded to show initially
-    treatmentHistory: true, // Start collapsed
-    adlWorkStatus: true, // Start collapsed
-    documentSummary: true, // Start collapsed
+    whatsNew: false,
+    treatmentHistory: true,
+    adlWorkStatus: true,
+    documentSummary: true,
   });
+
+  // Onboarding steps configuration
+  const onboardingSteps = [
+    {
+      title: "Staff Dashboard",
+      content:
+        "Switch to the Staff Dashboard to manage tasks, upload documents, and track workflow.",
+      target: staffButtonRef,
+    },
+    {
+      title: "Patient Search",
+      content:
+        "Search for patients by name to view their medical records and physician cards.",
+      target: searchBarRef,
+    },
+    // {
+    //   title: "Theme Selection",
+    //   content:
+    //     "Toggle between Clinical Light and Standard Light themes for better readability.",
+    //   target: themeSelectorRef,
+    // },
+    // {
+    //   title: "Patient Information",
+    //   content:
+    //     "View comprehensive patient data including visit history, treatment summaries, and ADL status.",
+    //   target: patientCardRef,
+    // },
+  ];
+
+  // Calculate positions for onboarding steps
+  const calculateStepPositions = useCallback(() => {
+    const positions = [];
+
+    // Position for Staff Dashboard button
+    if (staffButtonRef.current) {
+      const rect = staffButtonRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.bottom + 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    } else {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    // Position for Search Bar
+    if (searchBarRef.current) {
+      const rect = searchBarRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.bottom + 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    } else {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    // Position for Theme Selector
+    if (themeSelectorRef.current) {
+      const rect = themeSelectorRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.bottom + 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    } else {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    // Position for Patient Card
+    if (patientCardRef.current) {
+      const rect = patientCardRef.current.getBoundingClientRect();
+      positions.push({
+        top: `${rect.top - 10}px`,
+        left: `${rect.left + rect.width / 2}px`,
+        arrowTop: "100%",
+        arrowLeft: "50%",
+      });
+    } else {
+      positions.push({
+        top: "50%",
+        left: "50%",
+        arrowTop: "-8px",
+        arrowLeft: "50%",
+      });
+    }
+
+    return positions;
+  }, []);
+
+  // Start onboarding tour
+  const startOnboarding = () => {
+    const positions = calculateStepPositions();
+    setStepPositions(positions);
+    setShowOnboarding(true);
+    setCurrentStep(0);
+  };
+
+  // Next step in onboarding
+  const nextStep = () => {
+    if (currentStep < onboardingSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+
+      // Recalculate positions after a brief delay
+      setTimeout(() => {
+        const newPositions = calculateStepPositions();
+        setStepPositions(newPositions);
+      }, 50);
+    } else {
+      setShowOnboarding(false);
+      localStorage.setItem("physicianOnboardingCompleted", "true");
+    }
+  };
+
+  // Previous step in onboarding
+  const previousStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+
+      // Recalculate positions after a brief delay
+      setTimeout(() => {
+        const newPositions = calculateStepPositions();
+        setStepPositions(newPositions);
+      }, 50);
+    }
+  };
+
+  // Close onboarding
+  const closeOnboarding = () => {
+    setShowOnboarding(false);
+    localStorage.setItem("physicianOnboardingCompleted", "true");
+  };
+
+  // Recalculate positions when step changes
+  useEffect(() => {
+    if (showOnboarding) {
+      const positions = calculateStepPositions();
+      setStepPositions(positions);
+    }
+  }, [showOnboarding, currentStep, calculateStepPositions]);
+
+  // Check if onboarding should be shown on component mount
+  useEffect(() => {
+    const onboardingCompleted = localStorage.getItem(
+      "physicianOnboardingCompleted"
+    );
+    const welcomeShown = localStorage.getItem("physicianWelcomeShown");
+
+    if (!welcomeShown) {
+      setShowWelcomeModal(true);
+      localStorage.setItem("physicianWelcomeShown", "true");
+    } else if (!onboardingCompleted) {
+      // Show onboarding after a short delay if welcome was already shown
+      const timer = setTimeout(() => {
+        startOnboarding();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [calculateStepPositions]);
+
+  // Listen for start onboarding event
+  useEffect(() => {
+    const handleStartOnboarding = () => {
+      startOnboarding();
+    };
+
+    window.addEventListener("start-onboarding", handleStartOnboarding);
+    return () => {
+      window.removeEventListener("start-onboarding", handleStartOnboarding);
+    };
+  }, []);
 
   // Toggle section collapse state
   const toggleSection = (sectionKey: string) => {
@@ -1713,6 +2059,17 @@ export default function PhysicianCard() {
     </svg>
   );
 
+  // Onboarding Help Button
+  const OnboardingHelpButton = () => (
+    <button
+      className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center z-40"
+      onClick={startOnboarding}
+      title="Show onboarding tour"
+    >
+      ?
+    </button>
+  );
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1738,6 +2095,26 @@ export default function PhysicianCard() {
           theme === "standard" ? "bg-gray-100" : "bg-blue-50"
         } text-gray-900 relative`}
       >
+        {/* Onboarding Tour */}
+        <PhysicianOnboardingTour
+          isOpen={showOnboarding}
+          onClose={closeOnboarding}
+          currentStep={currentStep}
+          onNext={nextStep}
+          onPrevious={previousStep}
+          steps={onboardingSteps}
+          stepPositions={stepPositions}
+        />
+
+        {/* Welcome Modal */}
+        <WelcomeModal
+          isOpen={showWelcomeModal}
+          onClose={() => setShowWelcomeModal(false)}
+        />
+
+        {/* Onboarding Help Button */}
+        <OnboardingHelpButton />
+
         {/* Full-width header for burger at left edge */}
         <div className="w-full flex items-center justify-between px-6 py-4 bg-white border-b border-blue-200">
           <button
@@ -1751,7 +2128,7 @@ export default function PhysicianCard() {
             Kebilo Physician Dashboard
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/staff-dashboard">
+            <Link href="/staff-dashboard" ref={staffButtonRef}>
               <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
                 Staff Dashboard
               </button>
@@ -1764,6 +2141,7 @@ export default function PhysicianCard() {
               onChange={(e) =>
                 switchTheme(e.target.value as "clinical" | "standard")
               }
+              ref={themeSelectorRef}
             >
               <option value="clinical">Clinical Light</option>
               <option value="standard">Standard Light</option>
@@ -1774,10 +2152,12 @@ export default function PhysicianCard() {
         <div className="p-6">
           <div className="max-w-5xl mx-auto">
             {/* Search Bar */}
-            <SearchBar
-              physicianId={physicianId}
-              onPatientSelect={handlePatientSelect}
-            />
+            <div ref={searchBarRef}>
+              <SearchBar
+                physicianId={physicianId}
+                onPatientSelect={handlePatientSelect}
+              />
+            </div>
 
             {/* Upload Section */}
             <div className="mb-6">
@@ -1853,6 +2233,7 @@ export default function PhysicianCard() {
                 className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden"
                 role="region"
                 aria-label="Physician-facing card"
+                ref={patientCardRef}
               >
                 {/* Header with merge indicator */}
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 bg-blue-50 border-b border-blue-200">
