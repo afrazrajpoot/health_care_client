@@ -1,11 +1,8 @@
-// pages/api/tasks/index.ts or app/api/tasks/route.ts
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-// import prisma from "@/lib/prisma";
 import { authOptions } from "@/services/authSErvice";
 import { prisma } from "@/lib/prisma";
 
-// For App Router (app/api/tasks/route.ts)
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,17 +11,36 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const physicianId = session.user.physicianId;
+    const user = session.user;
+    let physicianId: string | null = null;
 
+    // 🧠 Determine physicianId based on role
+    if (user.role === "Physician") {
+      // The logged-in user *is* the physician
+      physicianId = user.id;
+    } else if (user.role === "Staff") {
+      // The logged-in user *works under* a physician
+      physicianId = user.physicianId;
+    } else {
+      return NextResponse.json(
+        { error: "Access denied: Invalid role" },
+        { status: 403 }
+      );
+    }
+
+    if (!physicianId) {
+      return NextResponse.json(
+        { error: "Physician ID not found for this user" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Fetch tasks for the determined physician
     const tasks = await prisma.task.findMany({
-      where: {
-        physicianId: physicianId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      where: { physicianId },
+      orderBy: { createdAt: "desc" },
       include: {
-        document: true, // if you want to include related document data
+        document: true, // Include related document info if available
       },
     });
 

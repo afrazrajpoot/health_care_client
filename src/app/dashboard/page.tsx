@@ -1,9 +1,10 @@
 // pages/PhysicianCard.tsx (or app/physician-card/page.tsx)
 "use client";
 
-import { LayoutWrapper } from "@/components/layout/layout-wrapper";
+import { Sidebar } from "@/components/navigation/sidebar";
 import SearchBar from "@/components/SearchBar";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 // import SearchBar from "@/components/SearchBar"; // Adjust path as needed
 
@@ -141,7 +142,6 @@ const CheckIcon = () => (
   </svg>
 );
 
-// What's New Component
 const WhatsNewSection = ({
   documentData,
   copied,
@@ -157,14 +157,20 @@ const WhatsNewSection = ({
 }) => {
   // Get summary of what's new for collapsed view
   const getWhatsNewSummary = () => {
-    if (!documentData?.whats_new) return "No significant changes";
-    const entries = Object.entries(documentData.whats_new).filter(
+    if (!documentData?.whats_new && !documentData?.document_summary)
+      return "No significant changes";
+    const entries = Object.entries(documentData.whats_new || {}).filter(
       ([_, value]) => value && value.trim() !== "" && value.trim() !== " "
     );
-    if (entries.length === 0) return "No significant changes";
-    return entries
+    const summaryTypes = Object.keys(documentData?.document_summary || {});
+    if (entries.length === 0 && summaryTypes.length === 0)
+      return "No significant changes";
+    const summary = entries
       .map(([key]) => key.toUpperCase().replace(/_/g, " "))
       .join(", ");
+    const summaryPreview =
+      summaryTypes.length > 0 ? ` + ${summaryTypes.join(", ")} summaries` : "";
+    return summary + summaryPreview;
   };
 
   // ✅ Helper to format timestamp to readable date/time
@@ -175,6 +181,17 @@ const WhatsNewSection = ({
       return date.toLocaleString(); // e.g., "10/18/2025, 9:52:51 AM"
     } catch {
       return timestamp;
+    }
+  };
+
+  // ✅ Format date from ISO string to MM/DD/YYYY
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return "—";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
     }
   };
 
@@ -210,6 +227,75 @@ const WhatsNewSection = ({
     );
   };
 
+  // ✅ Get grouped document summaries by type
+  const getGroupedDocumentSummaries = () => {
+    const docSummary = documentData?.document_summary || {};
+    const grouped: {
+      key: string;
+      summaries: Array<{ summary: string; date: string }>;
+    }[] = [];
+    Object.entries(docSummary).forEach(([type, entries]) => {
+      if (entries && entries.length > 0) {
+        // Sort by date descending
+        const sortedEntries = [...entries].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        const summaries = sortedEntries
+          .filter((entry) => entry && entry.summary)
+          .map((entry) => ({
+            summary: entry.summary,
+            date: entry.date,
+          }));
+        if (summaries.length > 0) {
+          grouped.push({ key: type, summaries });
+        }
+      }
+    });
+    return grouped;
+  };
+
+  // ✅ Function to handle file preview (opens in new tab) - direct to backend API
+  const handlePreviewFile = () => {
+    const blobPath = documentData?.blob_path;
+    if (blobPath) {
+      const previewUrl = `${
+        process.env.NEXT_PUBLIC_PYTHON_API_URL
+      }/api/preview/${encodeURIComponent(blobPath)}`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  // ✅ Combine whats_new and grouped document summaries
+  const getAllWhatsNewItems = () => {
+    const whatsNewItems: Array<
+      | { type: "whatsnew"; key: string; value: string }
+      | {
+          type: "document_group";
+          key: string;
+          summaries: Array<{ summary: string; date: string }>;
+        }
+    > = [];
+
+    // Add whats_new items
+    if (documentData?.whats_new) {
+      Object.entries(documentData.whats_new).forEach(([key, value]) => {
+        if (value && value.trim() !== "" && value.trim() !== " ") {
+          whatsNewItems.push({ type: "whatsnew", key, value });
+        }
+      });
+    }
+
+    // Add grouped document summaries
+    whatsNewItems.push(
+      ...getGroupedDocumentSummaries().map((group) => ({
+        type: "document_group" as const,
+        ...group,
+      }))
+    );
+
+    return whatsNewItems;
+  };
+
   return (
     <section
       className="p-5 bg-amber-50 border-b border-blue-200"
@@ -232,34 +318,75 @@ const WhatsNewSection = ({
       </h3>
       {!isCollapsed && (
         <>
-          {/* ✅ Existing Whats New Items */}
+          {/* ✅ Combined Whats New Items + Grouped Document Summaries */}
           <ul className="m-0 p-0 grid gap-2 list-none" role="list">
-            {documentData?.whats_new &&
-              Object.entries(documentData.whats_new).map(([key, value]) => {
-                if (!value || value.trim() === "" || value.trim() === " ") {
-                  return null;
-                }
-                const label = key.toUpperCase().replace(/_/g, " ");
+            {getAllWhatsNewItems().map((item, index) => {
+              if (item.type === "whatsnew") {
+                const label = item.key.toUpperCase().replace(/_/g, " ");
+                const bgColor = "bg-amber-100 border-amber-400 text-amber-800";
                 return (
                   <li
-                    key={key}
-                    className="flex gap-2 items-start p-3 border border-dashed border-amber-300 bg-white rounded-lg"
+                    key={`whatsnew-${item.key}-${index}`}
+                    className="flex gap-2 items-start p-3 border border-dashed bg-white rounded-lg"
                   >
-                    <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-400 text-xs font-bold whitespace-nowrap flex-shrink-0">
+                    <span
+                      className={`px-2 py-1 rounded-full ${bgColor} border text-xs font-bold whitespace-nowrap flex-shrink-0`}
+                    >
                       {label}
                     </span>
-                    <div className="flex-1 min-w-0">{value}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm">{item.value}</div>
+                    </div>
                   </li>
                 );
-              })}
-            {(!documentData?.whats_new ||
-              Object.values(documentData.whats_new || {}).every(
-                (val) => !val || val.trim() === "" || val.trim() === " "
-              )) && (
-                <li className="p-3 text-gray-500 text-center">
-                  No significant changes since last visit
-                </li>
-              )}
+              } else {
+                // document_group
+
+                const bgColor = "bg-blue-100 border-blue-400 text-blue-800";
+                return (
+                  <li
+                    key={`doc-${item.key}-${index}`}
+                    className="flex gap-2 items-start p-3 border border-dashed bg-white rounded-lg"
+                  >
+                    <span
+                      className={`px-2 py-1 rounded-full ${bgColor} border text-xs font-bold whitespace-nowrap flex-shrink-0`}
+                    >
+                      Summary
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <ul className="mt-2 space-y-2 list-disc list-outside pl-6">
+                        {item.summaries.map((summaryItem, sIndex) => (
+                          <li key={sIndex} className="text-sm">
+                            <div className="flex justify-between items-start">
+                              <span>{summaryItem.summary}</span>
+                              {documentData?.blob_path && (
+                                <button
+                                  onClick={handlePreviewFile}
+                                  className="text-green-600 hover:text-green-800 text-xs ml-2 flex-shrink-0 underline"
+                                  title="Preview File"
+                                >
+                                  Preview
+                                </button>
+                              )}
+                            </div>
+                            {summaryItem.date && (
+                              <div className="text-xs text-gray-500 mt-1 ml-6">
+                                {formatDate(summaryItem.date)}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </li>
+                );
+              }
+            })}
+            {getAllWhatsNewItems().length === 0 && (
+              <li className="p-3 text-gray-500 text-center">
+                No significant changes since last visit
+              </li>
+            )}
           </ul>
 
           {/* ✅ Quick Notes Dropdown - Show if any notes exist (including empty/previous) */}
@@ -273,37 +400,53 @@ const WhatsNewSection = ({
                   📝 Quick Notes ({getAllQuickNotes().length})
                 </span>
                 <span
-                  className={`text-sm transition-transform ${isQuickNotesOpen ? "rotate-180" : ""
-                    }`}
+                  className={`text-sm transition-transform ${
+                    isQuickNotesOpen ? "rotate-180" : ""
+                  }`}
                 >
                   ▼
                 </span>
               </button>
               <div
-                className={`overflow-hidden mt-[1vw] rounded-[1vw] transition-all duration-300 ${isQuickNotesOpen ? "max-h-96" : "max-h-0"
-                  }`}
+                className={`overflow-hidden mt-[1vw] rounded-[1vw] transition-all duration-300 ${
+                  isQuickNotesOpen ? "max-h-96" : "max-h-0"
+                }`}
               >
                 <ul className="m-0 p-4 grid gap-3 list-none border border-amber-300 bg-white rounded-b-lg">
                   {getAllQuickNotes().map((note, index) => (
                     <li
                       key={index}
-                      className={`p-4 rounded-lg ${isNoteEmpty(note) ? "opacity-60 bg-gray-50" : "border border-amber-100 hover:bg-amber-50"}
+                      className={`p-4 rounded-lg ${
+                        isNoteEmpty(note)
+                          ? "opacity-60 bg-gray-50"
+                          : "border border-amber-100 hover:bg-amber-50"
+                      }
                       `}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <div className="text-xs text-gray-500">{formatTimestamp(note.timestamp)}</div>
-                        <div className="text-xs text-gray-400">{isNoteEmpty(note) ? "Empty" : ""}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatTimestamp(note.timestamp)}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {isNoteEmpty(note) ? "Empty" : ""}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
                         <div className="text-xs text-gray-600">Details</div>
-                        <div className="text-sm text-gray-800 leading-snug">{note.details?.trim() || "—"}</div>
+                        <div className="text-sm text-gray-800 leading-snug">
+                          {note.details?.trim() || "—"}
+                        </div>
 
                         <div className="text-xs text-gray-600">Summary</div>
-                        <div className="text-sm text-gray-800 leading-snug">{note.one_line_note?.trim() || "—"}</div>
+                        <div className="text-sm text-gray-800 leading-snug">
+                          {note.one_line_note?.trim() || "—"}
+                        </div>
 
                         <div className="text-xs text-gray-600">Status</div>
-                        <div className="text-sm text-gray-800 leading-snug">{note.status_update?.trim() || "—"}</div>
+                        <div className="text-sm text-gray-800 leading-snug">
+                          {note.status_update?.trim() || "—"}
+                        </div>
                       </div>
                     </li>
                   ))}
@@ -314,10 +457,11 @@ const WhatsNewSection = ({
 
           <div className="flex justify-end mt-4">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${copied["section-whatsnew"]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-amber-200 bg-white text-gray-900"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-amber-200 transition-colors ${
+                copied["section-whatsnew"]
+                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                  : "border-amber-200 bg-white text-gray-900"
+              }`}
               onClick={() => onCopySection("section-whatsnew")}
               title="Copy Section"
             >
@@ -330,7 +474,6 @@ const WhatsNewSection = ({
     </section>
   );
 };
-
 // Treatment History Snapshot Component (Using Summary Snapshot Data)
 const TreatmentHistorySection = ({
   documentData,
@@ -395,11 +538,11 @@ const TreatmentHistorySection = ({
       >
         <span className="flex gap-2 items-center">
           📌 Treatment History Snapshot
-          {isCollapsed && (
+          {/* {isCollapsed && (
             <span className="text-sm font-normal text-gray-600">
               ({getTreatmentSummary()})
             </span>
-          )}
+          )} */}
         </span>
         <span className="text-sm">{isCollapsed ? "▼" : "▲"}</span>
       </h3>
@@ -438,7 +581,7 @@ const TreatmentHistorySection = ({
                   onClick={() => toggleSnapshot(index)}
                 >
                   <span className="font-semibold text-gray-700">
-                    📍 {snapshot.dx || `Diagnosis ${index + 1}`}
+                    📍 {snapshot.keyConcern || `Key Concern ${index + 1}`}
                   </span>
                   <span className="text-sm">
                     {expandedSnapshots[index] ? "▲" : "▼"}
@@ -484,10 +627,11 @@ const TreatmentHistorySection = ({
 
           <div className="flex justify-end mt-4">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${copied[`section-treatment-${currentSnapshotIndex}`]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-blue-200 bg-white text-gray-900"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-blue-200 transition-colors ${
+                copied[`section-treatment-${currentSnapshotIndex}`]
+                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                  : "border-blue-200 bg-white text-gray-900"
+              }`}
               onClick={() =>
                 onCopySection("section-treatment", currentSnapshotIndex)
               }
@@ -567,10 +711,11 @@ const ADLSection = ({
           </div>
           <div className="flex justify-end">
             <button
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${copied["section-adl"]
-                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                : "border-green-200 bg-white text-gray-900"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-green-200 transition-colors ${
+                copied["section-adl"]
+                  ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                  : "border-green-200 bg-white text-gray-900"
+              }`}
               onClick={() => onCopySection("section-adl")}
               title="Copy Section"
             >
@@ -655,8 +800,9 @@ const PatientQuizSection = ({
           🧠 ADL Form
         </h3>
         <svg
-          className={`w-4 h-4 transition-transform duration-300 ${isAccordionOpen ? "rotate-180" : "rotate-0"
-            }`}
+          className={`w-4 h-4 transition-transform duration-300 ${
+            isAccordionOpen ? "rotate-180" : "rotate-0"
+          }`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#475569"
@@ -744,10 +890,11 @@ const PatientQuizSection = ({
         </div>
         <div className="flex justify-end mt-4">
           <button
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${copied[sectionId]
-              ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-              : "border-purple-200 bg-white text-gray-900"
-              }`}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-purple-200 transition-colors ${
+              copied[sectionId]
+                ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                : "border-purple-200 bg-white text-gray-900"
+            }`}
             onClick={() => onCopySection(sectionId)}
             title="Copy Section"
           >
@@ -838,9 +985,9 @@ const DocumentSummarySection = ({
   const handlePreviewFile = () => {
     const blobPath = documentData?.blob_path;
     if (blobPath) {
-      const previewUrl = `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/preview/${encodeURIComponent(
-        blobPath
-      )}`;
+      const previewUrl = `${
+        process.env.NEXT_PUBLIC_PYTHON_API_URL
+      }/api/preview/${encodeURIComponent(blobPath)}`;
       window.open(previewUrl, "_blank", "noopener,noreferrer");
     }
   };
@@ -895,8 +1042,9 @@ const DocumentSummarySection = ({
             )}
         </h3>
         <svg
-          className={`w-4 h-4 transition-transform duration-300 ${isAccordionOpen ? "rotate-180" : "rotate-0"
-            }`}
+          className={`w-4 h-4 transition-transform duration-300 ${
+            isAccordionOpen ? "rotate-180" : "rotate-0"
+          }`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#475569"
@@ -974,10 +1122,11 @@ const DocumentSummarySection = ({
                         </button>
                       )}
                       <button
-                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${copied[sectionId]
-                          ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
-                          : "border-blue-200 bg-white text-gray-900"
-                          }`}
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors ${
+                          copied[sectionId]
+                            ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                            : "border-blue-200 bg-white text-gray-900"
+                        }`}
                         onClick={() => onCopySection(sectionId)}
                         title="Copy Section"
                       >
@@ -999,6 +1148,7 @@ const DocumentSummarySection = ({
     </section>
   );
 };
+
 export default function PhysicianCard() {
   const [theme, setTheme] = useState<"clinical" | "standard">("clinical");
   const [isVerified, setIsVerified] = useState<boolean>(false);
@@ -1019,6 +1169,7 @@ export default function PhysicianCard() {
   const [toasts, setToasts] = useState<
     { id: number; message: string; type: "success" | "error" }[]
   >([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
@@ -1352,9 +1503,11 @@ export default function PhysicianCard() {
         const currentIdx = snapshotIndex || 0;
         const currentSnap = snapshots[currentIdx];
         if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${currentSnap.dx || "Not specified"
-            }\nKey Concern: ${currentSnap.keyConcern || "Not specified"
-            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+          text = `Summary Snapshot\nDx: ${
+            currentSnap.dx || "Not specified"
+          }\nKey Concern: ${
+            currentSnap.keyConcern || "Not specified"
+          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
         }
         break;
       case "section-whatsnew":
@@ -1386,23 +1539,29 @@ export default function PhysicianCard() {
         if (sortedNotes.length > 0) {
           text += "\nQuick Notes:\n";
           sortedNotes.forEach((note) => {
-            text += `- ${formatTimestamp(note.timestamp)}: ${note.status_update || "Note"
-              } - ${note.one_line_note || ""} (${note.details || ""})\n`;
+            text += `- ${formatTimestamp(note.timestamp)}: ${
+              note.status_update || "Note"
+            } - ${note.one_line_note || ""} (${note.details || ""})\n`;
           });
         }
         break;
       case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${doc?.adl?.adls_affected || "Not specified"
-          }\nWork Restrictions: ${doc?.adl?.work_restrictions || "Not specified"
-          }`;
+        text = `ADL / Work Status\nADLs Affected: ${
+          doc?.adl?.adls_affected || "Not specified"
+        }\nWork Restrictions: ${
+          doc?.adl?.work_restrictions || "Not specified"
+        }`;
         break;
       case "section-patient-quiz":
         if (doc?.patient_quiz) {
           const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${q.newAppt
-            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${q.trend
-            }\nWork Ability: ${q.workAbility}\nBarrier: ${q.barrier
-            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
+            q.newAppt
+          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
+            q.trend
+          }\nWork Ability: ${q.workAbility}\nBarrier: ${
+            q.barrier
+          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
           q.appts.forEach((appt) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
@@ -1418,8 +1577,9 @@ export default function PhysicianCard() {
           const index = parseInt(sectionId.split("-")[2]);
           const summary = doc?.document_summaries?.[index];
           if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${summary.summary
-              }`;
+            text = `${summary.type} - ${formatDate(summary.date)}\n${
+              summary.summary
+            }`;
           }
         }
         break;
@@ -1536,6 +1696,23 @@ export default function PhysicianCard() {
 
   const currentPatient = getCurrentPatientInfo();
 
+  // Burger Icon Component
+  const BurgerIcon = () => (
+    <svg
+      className="w-6 h-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 6h16M4 12h16M4 18h16"
+      />
+    </svg>
+  );
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1555,79 +1732,31 @@ export default function PhysicianCard() {
   const physicianId = getPhysicianId();
 
   return (
-    <LayoutWrapper>
+    <>
       <div
-        className={`min-h-screen p-6 font-sans ${theme === "standard" ? "bg-gray-100" : "bg-blue-50"
-          } text-gray-900`}
+        className={`min-h-screen font-sans ${
+          theme === "standard" ? "bg-gray-100" : "bg-blue-50"
+        } text-gray-900 relative`}
       >
-        <div className="max-w-5xl mx-auto">
-          {/* Search Bar */}
-          <SearchBar
-            physicianId={physicianId}
-            onPatientSelect={handlePatientSelect}
-          />
-
-          {/* Upload Section */}
-          <div className="mb-6">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.doc,.docx,image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            {files.length > 0 && (
-              <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
-                <span className="text-sm text-gray-600">
-                  Selected: {files.map((f) => f.name).join(", ")}
-                </span>
-                <button
-                  onClick={handleUpload}
-                  className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm"
-                  disabled={loading}
-                >
-                  Queue for Processing
-                </button>
-                <button
-                  onClick={() => {
-                    setFiles([]);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className="text-red-500 hover:text-red-700 text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+        {/* Full-width header for burger at left edge */}
+        <div className="w-full flex items-center justify-between px-6 py-4 bg-white border-b border-blue-200">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <BurgerIcon />
+          </button>
+          <div className="font-bold absolute left-[5vw]">
+            Kebilo Physician Dashboard
           </div>
-
-          {/* Loading State */}
-          {loading && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading patient data...</p>
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
-              <div className="text-red-500 font-semibold mb-2">Error</div>
-              <p className="text-red-600">{error}</p>
-              <button
-                onClick={() =>
-                  selectedPatient && fetchDocumentData(selectedPatient)
-                }
-                className="mt-2 bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 text-sm"
-              >
-                Retry
+          <div className="flex items-center gap-4">
+            <Link href="/staff-dashboard">
+              <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
+                Staff Dashboard
               </button>
-            </div>
-          )}
+            </Link>
 
-          <div className="flex justify-between items-center mb-4 gap-2">
-            <div className="font-bold">Kebilo Physician Dashboard</div>
             <select
               id="theme"
               className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
@@ -1640,185 +1769,277 @@ export default function PhysicianCard() {
               <option value="standard">Standard Light</option>
             </select>
           </div>
+        </div>
 
-          {!selectedPatient && !documentData ? (
-            <div className="bg-white border border-blue-200 rounded-2xl shadow-sm p-8 text-center">
-              <div className="text-gray-500 text-lg mb-4">
-                👆 Search for a patient above to get started
-              </div>
-              <p className="text-gray-400">
-                Type a patient name in the search bar to view their physician
-                card
-              </p>
-            </div>
-          ) : (
-            <div
-              className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden"
-              role="region"
-              aria-label="Physician-facing card"
-            >
-              {/* Header with merge indicator */}
-              <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 bg-blue-50 border-b border-blue-200">
-                <div
-                  className="flex flex-wrap gap-x-4 gap-y-2"
-                  aria-label="Patient summary"
-                >
-                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
-                    Patient: <b>{currentPatient.patientName}</b>
-                  </div>
-                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
-                    DOB: {formatDate(currentPatient.dob)}
-                  </div>
-                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
-                    Claim #: {currentPatient.claimNumber}
-                  </div>
-                  <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
-                    DOI: {formatDate(currentPatient.doi) === 'Invalid Date' ? 'not specified' : formatDate(currentPatient.doi)}
-                  </div>
-                  {documentData?.merge_metadata?.is_merged && (
-                    <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-sm">
-                      🔄 Combined{" "}
-                      {documentData.merge_metadata.total_documents_merged}{" "}
-                      visits
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2 items-center">
-                  <span className="bg-blue-100 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
-                    PR‑2
-                  </span>
-                  <span className="bg-indigo-50 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
-                    Visit: {getVisitDate()}
-                  </span>
-                </div>
-              </div>
+        <div className="p-6">
+          <div className="max-w-5xl mx-auto">
+            {/* Search Bar */}
+            <SearchBar
+              physicianId={physicianId}
+              onPatientSelect={handlePatientSelect}
+            />
 
-              {/* Physician Verified Row - Only show for Physicians */}
-              {session.user.role === "Physician" && (
-                <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
-                  <div className="flex gap-2 items-center text-sm">
-                    <label
-                      className="relative inline-block w-14 h-8"
-                      aria-label="Physician Verified"
-                    >
-                      <input
-                        id="verifyToggle"
-                        type="checkbox"
-                        className="opacity-0 w-0 h-0"
-                        checked={isVerified}
-                        onChange={handleVerifyToggle}
-                        disabled={verifyLoading || documentData?.allVerified}
-                      />
-                      <span
-                        className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${isVerified ? "bg-green-100 border-green-300" : ""
-                          } ${verifyLoading || documentData?.allVerified
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                          }`}
-                      >
-                        <span
-                          className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${isVerified ? "translate-x-6" : ""
-                            } shadow`}
-                        ></span>
-                      </span>
-                    </label>
-                    {verifyLoading && (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                    )}
-                    <span
-                      id="verifyBadge"
-                      className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${isVerified ? "inline-block" : "hidden"
-                        }`}
-                    >
-                      Verified ✓
-                    </span>
-                  </div>
-                  <div className="text-gray-600 text-sm">
-                    Last verified: <span id="verifyTime">{verifyTime}</span>
-                  </div>
+            {/* Upload Section */}
+            <div className="mb-6">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {files.length > 0 && (
+                <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
+                  <span className="text-sm text-gray-600">
+                    Selected: {files.map((f) => f.name).join(", ")}
+                  </span>
+                  <button
+                    onClick={handleUpload}
+                    className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm"
+                    disabled={loading}
+                  >
+                    Queue for Processing
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFiles([]);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    Cancel
+                  </button>
                 </div>
               )}
-
-              {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
-              <WhatsNewSection
-                documentData={documentData}
-                copied={copied}
-                onCopySection={handleSectionCopy}
-                isCollapsed={collapsedSections.whatsNew}
-                onToggle={() => toggleSection("whatsNew")}
-              />
-              <TreatmentHistorySection
-                documentData={documentData}
-                copied={copied}
-                onCopySection={handleSectionCopy}
-                isCollapsed={collapsedSections.treatmentHistory}
-                onToggle={() => toggleSection("treatmentHistory")}
-              />
-              <ADLSection
-                documentData={documentData}
-                copied={copied}
-                onCopySection={handleSectionCopy}
-                isCollapsed={collapsedSections.adlWorkStatus}
-                onToggle={() => toggleSection("adlWorkStatus")}
-              />
-              <DocumentSummarySection
-                documentData={documentData}
-                openModal={openModal}
-                handleShowPrevious={handleShowPrevious}
-                copied={copied}
-                onCopySection={handleSectionCopy}
-                isCollapsed={collapsedSections.documentSummary}
-                onToggle={() => toggleSection("documentSummary")}
-              />
-              <PatientQuizSection
-                documentData={documentData}
-                copied={copied}
-                onCopySection={handleSectionCopy}
-              />
             </div>
-          )}
 
-          {/* Refresh button - only show when patient is selected */}
-          {selectedPatient && (
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => fetchDocumentData(selectedPatient)}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
-                disabled={loading}
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {/* Loading State */}
+            {loading && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                <p className="text-gray-600">Loading patient data...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                <div className="text-red-500 font-semibold mb-2">Error</div>
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={() =>
+                    selectedPatient && fetchDocumentData(selectedPatient)
+                  }
+                  className="mt-2 bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 text-sm"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                {loading ? "Refreshing..." : "Refresh Data"}
-              </button>
-            </div>
-          )}
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {!selectedPatient && !documentData ? (
+              <div className="bg-white border border-blue-200 rounded-2xl shadow-sm p-8 text-center">
+                <div className="text-gray-500 text-lg mb-4">
+                  👆 Search for a patient above to get started
+                </div>
+                <p className="text-gray-400">
+                  Type a patient name in the search bar to view their physician
+                  card
+                </p>
+              </div>
+            ) : (
+              <div
+                className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden"
+                role="region"
+                aria-label="Physician-facing card"
+              >
+                {/* Header with merge indicator */}
+                <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 bg-blue-50 border-b border-blue-200">
+                  <div
+                    className="flex flex-wrap gap-x-4 gap-y-2"
+                    aria-label="Patient summary"
+                  >
+                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                      Patient: <b>{currentPatient.patientName}</b>
+                    </div>
+                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                      DOB: {formatDate(currentPatient.dob)}
+                    </div>
+                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                      Claim #: {currentPatient.claimNumber}
+                    </div>
+                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                      DOI:{" "}
+                      {formatDate(currentPatient.doi) === "Invalid Date"
+                        ? "not specified"
+                        : formatDate(currentPatient.doi)}
+                    </div>
+                    {documentData?.merge_metadata?.is_merged && (
+                      <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-sm">
+                        🔄 Combined{" "}
+                        {documentData.merge_metadata.total_documents_merged}{" "}
+                        visits
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <span className="bg-blue-100 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
+                      PR‑2
+                    </span>
+                    <span className="bg-indigo-50 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
+                      Visit: {getVisitDate()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Physician Verified Row - Only show for Physicians */}
+                {session.user.role === "Physician" && (
+                  <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
+                    <div className="flex gap-2 items-center text-sm">
+                      <label
+                        className="relative inline-block w-14 h-8"
+                        aria-label="Physician Verified"
+                      >
+                        <input
+                          id="verifyToggle"
+                          type="checkbox"
+                          className="opacity-0 w-0 h-0"
+                          checked={isVerified}
+                          onChange={handleVerifyToggle}
+                          disabled={verifyLoading || documentData?.allVerified}
+                        />
+                        <span
+                          className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
+                            isVerified ? "bg-green-100 border-green-300" : ""
+                          } ${
+                            verifyLoading || documentData?.allVerified
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          <span
+                            className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
+                              isVerified ? "translate-x-6" : ""
+                            } shadow`}
+                          ></span>
+                        </span>
+                      </label>
+                      {verifyLoading && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                      )}
+                      <span
+                        id="verifyBadge"
+                        className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
+                          isVerified ? "inline-block" : "hidden"
+                        }`}
+                      >
+                        Verified ✓
+                      </span>
+                    </div>
+                    <div className="text-gray-600 text-sm">
+                      Last verified: <span id="verifyTime">{verifyTime}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
+                <WhatsNewSection
+                  documentData={documentData}
+                  copied={copied}
+                  onCopySection={handleSectionCopy}
+                  isCollapsed={collapsedSections.whatsNew}
+                  onToggle={() => toggleSection("whatsNew")}
+                />
+                <TreatmentHistorySection
+                  documentData={documentData}
+                  copied={copied}
+                  onCopySection={handleSectionCopy}
+                  isCollapsed={collapsedSections.treatmentHistory}
+                  onToggle={() => toggleSection("treatmentHistory")}
+                />
+                <ADLSection
+                  documentData={documentData}
+                  copied={copied}
+                  onCopySection={handleSectionCopy}
+                  isCollapsed={collapsedSections.adlWorkStatus}
+                  onToggle={() => toggleSection("adlWorkStatus")}
+                />
+                <DocumentSummarySection
+                  documentData={documentData}
+                  openModal={openModal}
+                  handleShowPrevious={handleShowPrevious}
+                  copied={copied}
+                  onCopySection={handleSectionCopy}
+                  isCollapsed={collapsedSections.documentSummary}
+                  onToggle={() => toggleSection("documentSummary")}
+                />
+                <PatientQuizSection
+                  documentData={documentData}
+                  copied={copied}
+                  onCopySection={handleSectionCopy}
+                />
+              </div>
+            )}
+
+            {/* Refresh button - only show when patient is selected */}
+            {selectedPatient && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => fetchDocumentData(selectedPatient)}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
+                  disabled={loading}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  {loading ? "Refreshing..." : "Refresh Data"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
+      {/* Sidebar Overlay - Closes on click */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      {/* Sidebar */}
+      <div
+        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="h-full">
+          <Sidebar onClose={() => setIsSidebarOpen(false)} />
+        </div>
+      </div>
       {/* Toasts */}
       <div className="fixed top-4 right-4 space-y-2 z-50">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
-              } animate-in slide-in-from-top-2 duration-300`}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.type === "success" ? "bg-green-500" : "bg-red-500"
+            } animate-in slide-in-from-top-2 duration-300`}
           >
             {toast.message}
           </div>
         ))}
       </div>
-
       {/* Brief Summary Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1838,7 +2059,6 @@ export default function PhysicianCard() {
           </div>
         </div>
       )}
-
       {/* Previous Summary Modal */}
       {showPreviousSummary && previousSummary && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1871,6 +2091,6 @@ export default function PhysicianCard() {
           </div>
         </div>
       )}
-    </LayoutWrapper>
+    </>
   );
 }

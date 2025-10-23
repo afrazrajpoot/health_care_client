@@ -1,7 +1,8 @@
-// app/dashboard/page.tsx (add useEffect for socket listener)
+// app/dashboard/page.tsx (full updated code)
 "use client";
 
 import IntakeModal from "@/components/staff-components/IntakeModal";
+// import ManualTaskModal from "@/components/staff-components/ManualTaskModal";
 import TaskTable from "@/components/staff-components/TaskTable";
 import FailedDocuments from "@/components/staff-components/FailedDocuments";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
@@ -27,6 +28,7 @@ import {
 import { Sidebar } from "@/components/navigation/sidebar";
 import { toast } from "sonner";
 import { useSocket } from "@/providers/SocketProvider";
+import ManualTaskModal from "@/components/ManualTaskModal";
 // import { useSocket } from "@/contexts/SocketContext";
 
 // API response interface
@@ -75,6 +77,7 @@ export default function Dashboard() {
   });
   const [dense, setDense] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const snapInputRef = useRef<HTMLInputElement>(null);
 
   // File upload states
@@ -113,7 +116,12 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
-  const departments = mode === "wc" ? DEPARTMENTS_WC : DEPARTMENTS_GM;
+  const departments = [
+    "Medical / Clinical Department",
+    "Scheduling & Coordination Department",
+    "Administrative / Compliance Department",
+    "Authorizations & Denials Department",
+  ];
   const pulse = fetchedPulse;
 
   // Refs for API calls - initialize as null
@@ -129,15 +137,15 @@ export default function Dashboard() {
     // Transform quick notes if available
     const notes = apiTask.quickNotes
       ? [
-        {
-          ts: new Date(apiTask.updatedAt).toLocaleString(),
-          user: "System",
-          line:
-            apiTask.quickNotes.one_line_note ||
-            apiTask.quickNotes.details ||
-            "Note added",
-        },
-      ]
+          {
+            ts: new Date(apiTask.updatedAt).toLocaleString(),
+            user: "System",
+            line:
+              apiTask.quickNotes.one_line_note ||
+              apiTask.quickNotes.details ||
+              "Note added",
+          },
+        ]
       : [];
 
     return {
@@ -401,9 +409,9 @@ export default function Dashboard() {
         prev.map((t) =>
           t.id === taskId
             ? {
-              ...t,
-              notes: [...(t.notes || []), { ts, user: "You", line }],
-            }
+                ...t,
+                notes: [...(t.notes || []), { ts, user: "You", line }],
+              }
             : t
         )
       );
@@ -567,8 +575,10 @@ export default function Dashboard() {
       console.log(`🚀 Starting upload for ${selectedFiles.length} files`);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
-        }/api/extract-documents?physicianId=${session?.user?.physicianId || ""
+        `${
+          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+        }/api/extract-documents?physicianId=${
+          session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
           method: "POST",
@@ -631,6 +641,49 @@ export default function Dashboard() {
       NOTE_PRESETS[dept] ||
       NOTE_PRESETS["Physician Review"] || { type: [], more: [] }
     );
+  };
+
+  // Manual Task Creation - Updated to handle documentId
+  const handleCreateManualTask = async (formData: {
+    patientName: string;
+    dueDate: string;
+    description: string;
+    department: string;
+    documentId?: string;
+  }) => {
+    try {
+      const response = await fetch("/api/add-manual-task", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: formData.description,
+          department: formData.department,
+          patient: formData.patientName, // Still send patient name as string (per schema)
+          dueDate: formData.dueDate,
+          status: "Open",
+          actions: ["Claimed", "Complete"],
+          documentId: formData.documentId, // Send documentId if selected from recommendation
+          mode: mode,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create task");
+      }
+
+      const newTask: ApiTask = await response.json();
+      const transformedTask = transformApiTask(newTask);
+
+      // Add to local state immediately
+      setTasks((prev) => [...prev, transformedTask]);
+
+      toast.success("✅ Manual task created successfully");
+    } catch (error) {
+      console.error("Error creating manual task:", error);
+      toast.error("❌ Error creating manual task");
+    }
   };
 
   // Dense mode effect
@@ -997,8 +1050,9 @@ export default function Dashboard() {
       <div className="flex min-h-screen relative">
         {/* Sidebar Component */}
         <div
-          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         >
           <div className="h-full">
             <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -1007,50 +1061,57 @@ export default function Dashboard() {
 
         {/* Sidebar Toggle Button */}
         <div
-          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
-            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
-            }`}
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
+            isSidebarOpen
+              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+          }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           <div className="flex flex-col items-center justify-center w-4 h-4">
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "opacity-0" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "opacity-0" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
+                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+              }`}
             ></div>
           </div>
         </div>
 
         {/* Main Content */}
         <div
-          className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0" : "ml-0"
-            }`}
+          className={`flex-1 transition-all duration-300 ${
+            isSidebarOpen ? "ml-0" : "ml-0"
+          }`}
         >
           {/* Upload Button */}
           <div className="p-6">
-            <button
-              className="snaplink-btn bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => snapInputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <span className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Uploading...
-                </span>
-              ) : (
-                "📁Create SnapLink"
-              )}
-            </button>
+            {session?.user?.role == "Staff" && (
+              <button
+                className="snaplink-btn bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => snapInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <span className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Uploading...
+                  </span>
+                ) : (
+                  "📁Create SnapLink"
+                )}
+              </button>
+            )}
             <input
               type="file"
               ref={snapInputRef}
@@ -1114,9 +1175,14 @@ export default function Dashboard() {
                 >
                   Create Intake Link
                 </button>
-                <button className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200">
-                  + Add Manual Task
-                </button>
+                {session?.user?.role === "Physician" && (
+                  <button
+                    className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
+                    onClick={() => setShowTaskModal(true)}
+                  >
+                    + Add Manual Task
+                  </button>
+                )}
                 <button
                   className="btn light"
                   onClick={fetchTasks}
@@ -1281,8 +1347,9 @@ export default function Dashboard() {
                       {filteredTabs.map((tab) => (
                         <button
                           key={tab.pane}
-                          className={`filter ttab ${currentPane === tab.pane ? "active" : ""
-                            }`}
+                          className={`filter ttab ${
+                            currentPane === tab.pane ? "active" : ""
+                          }`}
                           onClick={() => setCurrentPane(tab.pane)}
                         >
                           {tab.text}
@@ -1407,6 +1474,13 @@ export default function Dashboard() {
 
       {/* Modals */}
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
+
+      <ManualTaskModal
+        open={showTaskModal}
+        onOpenChange={setShowTaskModal}
+        departments={departments}
+        onSubmit={handleCreateManualTask}
+      />
 
       <UpdateDocumentModal
         open={isUpdateModalOpen}
