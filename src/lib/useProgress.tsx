@@ -36,7 +36,7 @@ export const useProgress = ({
 
     // Initialize socket connection
     const newSocket = io(
-      process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com",
+      process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000",
       {
         transports: ["websocket", "polling"],
       }

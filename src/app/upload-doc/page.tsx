@@ -567,7 +567,7 @@ export default function Dashboard() {
       console.log(`🚀 Starting upload for ${selectedFiles.length} files`);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
         }/api/extract-documents?physicianId=${session?.user?.physicianId || ""
         }&userId=${session?.user?.id || ""}`,
         {
@@ -1008,8 +1008,8 @@ export default function Dashboard() {
         {/* Sidebar Toggle Button */}
         <div
           className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
-              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
             }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
@@ -1048,7 +1048,7 @@ export default function Dashboard() {
                   Uploading...
                 </span>
               ) : (
-                "📁 Upload Documents"
+                "📁Create SnapLink"
               )}
             </button>
             <input
