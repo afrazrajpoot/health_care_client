@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const claimNumber = searchParams.get("claimNumber");
     const dobParam = searchParams.get("dob");
     let physicianId = searchParams.get("physicianId");
+    const mode = searchParams.get("mode");
 
     // ✅ Normalize physicianId
     if (
@@ -47,6 +48,19 @@ export async function GET(request: Request) {
     const whereClause: Prisma.DocumentWhereInput = {};
     const searchTerm = (patientName || claimNumber || dobParam)?.trim() ?? null;
 
+    // Start building AND conditions array
+    const andConditions: Prisma.DocumentWhereInput[] = [];
+
+    // Add mode condition if provided
+    if (mode) {
+      andConditions.push({ mode });
+    }
+
+    // Add physicianId condition if provided
+    if (physicianId) {
+      andConditions.push({ physicianId });
+    }
+
     if (searchTerm) {
       const term = searchTerm;
       const orConditions: Prisma.DocumentWhereInput[] = [
@@ -54,14 +68,20 @@ export async function GET(request: Request) {
         { claimNumber: { contains: term, mode: "insensitive" } },
       ];
 
-      if (physicianId) {
-        // Both physicianId must match and at least one of the OR conditions
-        whereClause.AND = [{ physicianId: physicianId }, { OR: orConditions }];
+      // If there are AND conditions, wrap OR inside AND
+      if (andConditions.length > 0) {
+        andConditions.push({ OR: orConditions });
       } else {
         whereClause.OR = orConditions;
       }
-    } else if (physicianId) {
-      whereClause.physicianId = physicianId;
+    }
+
+    // Set AND if conditions exist
+    if (andConditions.length > 0) {
+      whereClause.AND = andConditions;
+    } else if (!searchTerm && !physicianId && !mode) {
+      // Fallback if no conditions
+      whereClause.id = { not: null };
     }
 
     // Get all matching documents (no distinct to return all)
@@ -171,7 +191,7 @@ export async function GET(request: Request) {
           email: session.user.email,
           action: `Searched patient names: patientName="${patientName ?? ""}"${
             physicianId ? `, physicianId="${physicianId}"` : ""
-          }`,
+          }${mode ? `, mode="${mode}"` : ""}`,
           path: "/api/patients",
           method: "GET",
         },

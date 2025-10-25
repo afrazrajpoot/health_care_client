@@ -64,6 +64,7 @@ model Document {
   id              String           @id @default(cuid())
   dob             String?
   doi             String
+  mode            String? @default("wc")
   patientName     String
   status          String
   claimNumber     String
@@ -88,13 +89,20 @@ model Document {
 }
 
 model SummarySnapshot {
-  id         String   @id @default(cuid())
-  dx         String
-  keyConcern String
-  nextStep   String
-  documentId String   @unique
+  id                String   @id @default(cuid())
+  dx                String
+  keyConcern        String
+  nextStep          String
+  urDecision        String?   // corresponds to 'ur-decision'
+  recommended       String?   // recommended treatment plan
+  aiOutcome         String?   // AI-generated follow-up or summary
+  consultingDoctors String[]  // list of consulting doctors' names
+
+  // Relation back to Document
   document   Document @relation(fields: [documentId], references: [id])
+  documentId String   @unique
 }
+
 
 model ADL {
   id               String   @id @default(cuid())
@@ -205,4 +213,35 @@ model WorkflowStats {
   intakes_created    Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+
+model Subscription {
+  id           String   @id @default(cuid())
+  physicianId  String
+  plan         String   // 'basic', 'pro', 'premium'
+  amountTotal  Int      // Amount in cents
+  status       String   // 'active', 'canceled', 'past_due'
+  stripeCustomerId String?
+  stripeSubscriptionId String? // For recurring subscriptions
+  documentParse    Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+model CheckoutSession {
+  id              String   @id @default(uuid())
+  stripeSessionId String   @unique
+  physicianId     String
+  plan            String
+  amount          Int
+  status          String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([stripeSessionId])
+  @@index([physicianId])
 }
