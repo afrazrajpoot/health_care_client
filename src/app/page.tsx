@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Head from "next/head";
+import Link from "next/link";
 
 export default function Home() {
   useEffect(() => {
@@ -93,12 +94,12 @@ export default function Home() {
             </span>
           </div>
           <div className="reveal mt-8 flex flex-wrap justify-center gap-4">
-            <a
-              href="#cta"
+            <Link href = '/auth/sign-up'
+            
               className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-lg animate-pulse"
             >
               Start Now
-            </a>
+            </Link>
             <a
               href="#demo"
               className="px-6 py-3 rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-100"

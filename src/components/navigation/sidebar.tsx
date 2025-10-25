@@ -43,13 +43,13 @@ const navigationItems: NavigationItem[] = [
     description: "Overview and analytics",
     roles: ["Staff", "Physician", "Attorney"], // ✅ Both can access
   },
-  // {
-  //   name: "Patients",
-  //   href: "/patients",
-  //   icon: Users,
-  //   description: "Patient management",
-  //   roles: ["Staff"], // ✅ Physician only
-  // },
+  {
+    name: "Pricing",
+    href: "/pricing",
+    icon: Users,
+    description: "Pricing and billing",
+    roles: ["Physician"], // ✅ Physician only
+  },
   // {
   //   name: "Fail Documents",
   //   href: "/fail-documents",

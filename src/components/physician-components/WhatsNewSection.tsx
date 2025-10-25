@@ -1,112 +1,13 @@
 // components/WhatsNewSection.tsx
+import { DocumentData } from "@/app/custom-hooks/staff-hooks/physician-hooks/types";
 import {
   usePreviewFile,
   useQuickNotesToggle,
   useWhatsNewData,
 } from "@/app/custom-hooks/staff-hooks/physician-hooks/useWhatsNewData";
 import React from "react";
-// import {
-//   useWhatsNewData,
-//   useQuickNotesToggle,
-//   usePreviewFile,
-// } from "@/hooks/useWhatsNew";
 
-// Define TypeScript interfaces for data structures (only those needed for this component)
-
-interface PatientQuiz {
-  id: string;
-  patientName: string;
-  dob: string;
-  doi: string;
-  lang: string;
-  newAppt: string;
-  appts: Array<{
-    date: string;
-    type: string;
-    other: string;
-  }>;
-  pain: number;
-  workDiff: string;
-  trend: string;
-  workAbility: string;
-  barrier: string;
-  adl: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SummarySnapshotItem {
-  id: string;
-  dx: string;
-  keyConcern: string;
-  nextStep: string;
-  documentId: string;
-}
-
-interface SummarySnapshot {
-  diagnosis: string;
-  diagnosis_history: string;
-  key_concern: string;
-  key_concern_history: string;
-  next_step: string;
-  next_step_history: string;
-  has_changes: boolean;
-}
-
-interface WhatsNew {
-  [key: string]: string;
-}
-
-interface QuickNoteSnapshot {
-  details: string;
-  timestamp: string;
-  one_line_note: string;
-  status_update: string;
-}
-
-interface ADL {
-  adls_affected: string;
-  adls_affected_history: string;
-  work_restrictions: string;
-  work_restrictions_history: string;
-  has_changes: boolean;
-}
-
-interface DocumentSummary {
-  type: string;
-  date: string;
-  summary: string;
-  brief_summary?: string;
-  document_id?: string;
-}
-
-interface DocumentData {
-  patient_name?: string;
-  dob?: string;
-  doi?: string;
-  claim_number?: string;
-  created_at?: string;
-  status?: string;
-  brief_summary?: { [key: string]: string[] };
-  summary_snapshot?: SummarySnapshot;
-  summary_snapshots?: SummarySnapshotItem[];
-  whats_new?: WhatsNew;
-  quick_notes_snapshots?: QuickNoteSnapshot[]; // ✅ Added interface for quick notes snapshots
-  adl?: ADL;
-  document_summary?: { [key: string]: { date: string; summary: string }[] };
-  document_summaries?: DocumentSummary[];
-  patient_quiz?: PatientQuiz | null;
-  merge_metadata?: {
-    total_documents_merged: number;
-    is_merged: boolean;
-    latest_document_date: string;
-    previous_document_date: string;
-  };
-  previous_summaries?: { [key: string]: DocumentSummary };
-  allVerified?: boolean;
-  gcs_file_link?: string; // Signed GCS URL for view file
-  blob_path?: string; // Blob path for preview (e.g., "uploads/filename.ext")
-}
+// ... (keep all your existing interfaces - PatientQuiz, SummarySnapshotItem, etc.)
 
 const CopyIcon = () => (
   <svg
@@ -134,6 +35,52 @@ const CheckIcon = () => (
     strokeLinejoin="round"
   >
     <polyline points="20 6 9 17 4 12"></polyline>
+  </svg>
+);
+
+const MedicalIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="16" y1="13" x2="8" y2="13"></line>
+    <line x1="16" y1="17" x2="8" y2="17"></line>
+    <line x1="10" y1="9" x2="8" y2="9"></line>
+  </svg>
+);
+
+const ChevronDownIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4 transition-transform"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="6 9 12 15 18 9"></polyline>
+  </svg>
+);
+
+const ChevronRightIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4 transition-transform"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="9 18 15 12 9 6"></polyline>
   </svg>
 );
 
@@ -190,12 +137,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     <>
       <div className="section" onClick={handleSectionClick}>
         <div className="section-header">
-          <h3>
-            {isCollapsed ? "▶️" : "▼"} What’s New Since Last Visit{" "}
-            {isCollapsed && (
-              <span className="collapsed-text">({getWhatsNewSummary()})</span>
-            )}
-          </h3>
+          <div className="section-title">
+            <MedicalIcon />
+            <h3>What's New Since Last Visit</h3>
+          </div>
           <div className="header-actions">
             <span className="review-toggle" onClick={handleReviewClick}>
               Mark All Reviewed
@@ -209,56 +154,65 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             >
               {copied["section-whatsnew"] ? <CheckIcon /> : <CopyIcon />}
             </button>
+            <button
+              className="collapse-btn"
+              onClick={handleSectionClick}
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              {isCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+            </button>
           </div>
         </div>
         {!isCollapsed && (
-          <ul>
-            {getAllWhatsNewItems().map((item, index) => {
-              if (item.type === "whatsnew") {
-                return (
-                  <li key={`whatsnew-${item.key}-${index}`}>
-                    {item.value} <span className="status-approved">✅</span>
-                  </li>
-                );
-              } else {
-                // document_group
-                return item.summaries.map((summaryItem, sIndex) => (
-                  <li key={`doc-${item.key}-${sIndex}`}>
-                    {summaryItem.summary}
-                    {documentData?.blob_path && (
-                      <button
-                        onClick={handlePreviewClick}
-                        className="preview-link"
-                        title="Preview File"
-                      >
-                        Preview
-                      </button>
-                    )}
-                    {summaryItem.date && (
-                      <span className="date-text">
-                        {formatDate(summaryItem.date)}
-                      </span>
-                    )}{" "}
+          <div className="section-content">
+            <ul>
+              {getAllWhatsNewItems().map((item, index) => {
+                if (item.type === "whatsnew") {
+                  return (
+                    <li key={`whatsnew-${item.key}-${index}`}>
+                      {item.value} <span className="status-approved">✅</span>
+                    </li>
+                  );
+                } else {
+                  // document_group
+                  return item.summaries.map((summaryItem, sIndex) => (
+                    <li key={`doc-${item.key}-${sIndex}`}>
+                      {summaryItem.summary}
+                      {documentData?.blob_path && (
+                        <button
+                          onClick={handlePreviewClick}
+                          className="preview-link"
+                          title="Preview File"
+                        >
+                          Preview
+                        </button>
+                      )}
+                      {summaryItem.date && (
+                        <span className="date-text">
+                          {formatDate(summaryItem.date)}
+                        </span>
+                      )}{" "}
+                      <span className="status-pending">⏳</span>
+                    </li>
+                  ));
+                }
+              })}
+              {getAllQuickNotes().map((note, qIndex) => (
+                <li key={`quick-${qIndex}`}>
+                  {note.one_line_note || note.status_update || "Quick note"}{" "}
+                  {isNoteEmpty(note) ? (
                     <span className="status-pending">⏳</span>
-                  </li>
-                ));
-              }
-            })}
-            {getAllQuickNotes().map((note, qIndex) => (
-              <li key={`quick-${qIndex}`}>
-                {note.one_line_note || note.status_update || "Quick note"}{" "}
-                {isNoteEmpty(note) ? (
-                  <span className="status-pending">⏳</span>
-                ) : (
-                  <span className="status-approved">✅</span>
+                  ) : (
+                    <span className="status-approved">✅</span>
+                  )}
+                </li>
+              ))}
+              {getAllWhatsNewItems().length === 0 &&
+                getAllQuickNotes().length === 0 && (
+                  <li>No significant changes since last visit</li>
                 )}
-              </li>
-            ))}
-            {getAllWhatsNewItems().length === 0 &&
-              getAllQuickNotes().length === 0 && (
-                <li>No significant changes since last visit</li>
-              )}
-          </ul>
+            </ul>
+          </div>
         )}
       </div>
 
@@ -266,14 +220,23 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .section {
           padding: 20px;
           border-bottom: 1px solid #e5e7eb;
-          margin-bottom: 8px;
+
           cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .section:hover {
+          background-color: #f8fafc;
         }
         .section-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 14px;
+        }
+        .section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1;
         }
         h3 {
           margin: 0;
@@ -281,6 +244,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           display: flex;
           align-items: center;
           gap: 8px;
+          font-weight: 600;
+          color: #1f2937;
         }
         .collapsed-text {
           font-weight: normal;
@@ -292,6 +257,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           gap: 8px;
           align-items: center;
         }
+        .section-content {
+          margin-top: 12px;
+        }
         ul {
           margin: 0;
           padding-left: 20px;
@@ -300,51 +268,63 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         li {
           margin-bottom: 6px;
           font-size: 14px;
+          line-height: 1.4;
+          color: #374151;
         }
         .review-toggle {
-          font-size: 12px;
-          color: #475569;
-          background: #e2e8f0;
-          padding: 2px 6px;
-          border-radius: 6px;
-          cursor: pointer;
-        }
-        .status-approved {
-          color: green;
-        }
-        .status-pending {
-          color: orange;
-        }
-        .preview-link {
-          float: right;
-          color: green;
-          text-decoration: underline;
-          font-size: 12px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          margin-left: 10px;
-        }
-        .preview-link:hover {
-          color: darkgreen;
-        }
-        .date-text {
-          color: #6b7280;
-          font-size: 12px;
-          margin-left: 10px;
-        }
-        .copy-btn {
           font-size: 12px;
           color: #475569;
           background: #e2e8f0;
           padding: 4px 8px;
           border-radius: 6px;
           cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .review-toggle:hover {
+          background: #cbd5e1;
+        }
+        .status-approved {
+          color: #059669;
+          margin-left: 4px;
+        }
+        .status-pending {
+          color: #d97706;
+          margin-left: 4px;
+        }
+        .preview-link {
+          margin-left: 8px;
+          color: #059669;
+          text-decoration: underline;
+          font-size: 12px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 2px 4px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        }
+        .preview-link:hover {
+          color: #047857;
+          background-color: #d1fae5;
+        }
+        .date-text {
+          color: #6b7280;
+          font-size: 12px;
+          margin-left: 8px;
+          font-style: italic;
+        }
+        .copy-btn {
+          font-size: 12px;
+          color: #475569;
+          background: #e2e8f0;
+          padding: 6px 8px;
+          border-radius: 6px;
+          cursor: pointer;
           border: none;
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          transition: background 0.2s;
+          transition: all 0.2s;
         }
         .copy-btn:hover {
           background: #cbd5e1;
@@ -356,9 +336,29 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .copied:hover {
           background: #bbf7d0;
         }
+        .collapse-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 0.2s;
+          color: #6b7280;
+        }
+        .collapse-btn:hover {
+          background-color: #e5e7eb;
+          color: #374151;
+        }
         .w-3.5 {
           width: 0.875rem;
           height: 0.875rem;
+        }
+        .w-4 {
+          width: 1rem;
+          height: 1rem;
         }
       `}</style>
     </>
