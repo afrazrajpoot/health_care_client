@@ -1,4 +1,4 @@
-// app/dashboard/page.tsx (full updated code)
+// app/dashboard/page.tsx (complete fixed version)
 "use client";
 
 import IntakeModal from "@/components/staff-components/IntakeModal";
@@ -6,16 +6,10 @@ import TaskTable from "@/components/staff-components/TaskTable";
 import FailedDocuments from "@/components/staff-components/FailedDocuments";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
 import { ProgressTracker } from "@/components/ProgressTracker";
-import {
-  DEPARTMENTS_GM,
-  DEPARTMENTS_WC,
-  NOTE_PRESETS,
-  paneToFilter,
-  tabs,
-  Task,
-} from "@/components/staff-components/types";
-import { useState, useRef, useEffect, useCallback } from "react";
+
+import { useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -24,43 +18,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/navigation/sidebar";
-import { toast } from "sonner";
-import { useSocket } from "@/providers/SocketProvider";
 import ManualTaskModal from "@/components/ManualTaskModal";
-
-// API response interface
-interface ApiTask {
-  id: string;
-  description: string;
-  department: string;
-  status: string;
-  dueDate: string | null;
-  patient: string;
-  actions: string[];
-  sourceDocument?: string;
-  quickNotes?: any;
-  documentId?: string;
-  physicianId?: string;
-  createdAt: string;
-  updatedAt: string;
-  document?: any;
-}
-
-interface DeptPulse {
-  department: string;
-  open: number;
-  overdue: number;
-  unclaimed: number;
-}
-
-interface Pulse {
-  depts: DeptPulse[];
-  labels: string[];
-  vals: number[];
-}
-
-// Onboarding Tour Component
+import { useTasks } from "../custom-hooks/staff-hooks/useTasks";
+import { useOfficePulse } from "../custom-hooks/staff-hooks/useOfficePulse";
+import { useFailedDocuments } from "../custom-hooks/staff-hooks/useFailedDocuments";
+import useOnboarding from "../custom-hooks/staff-hooks/useOnboarding";
+import { useUIState } from "../custom-hooks/staff-hooks/useUIState";
+import { useFileUpload } from "../custom-hooks/staff-hooks/useFileUpload";
+import Link from "next/link";
+import { AlertCircle, X } from "lucide-react";
+// OnboardingTour component
 const OnboardingTour = ({
   isOpen,
   onClose,
@@ -95,7 +64,6 @@ const OnboardingTour = ({
           zIndex: 101,
         }}
       >
-        {/* Arrow pointing to target element */}
         <div
           className="absolute w-4 h-4 bg-white rotate-45"
           style={{
@@ -154,805 +122,197 @@ const OnboardingTour = ({
   );
 };
 
-export default function Dashboard() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<"wc" | "gm">("wc");
-  const [currentPane, setCurrentPane] = useState<"all" | "overdue" | string>(
-    "all"
+// Simple fallback PaymentErrorModal component
+// In app/dashboard/page.tsx - Update the PaymentErrorModal component
+
+const PaymentErrorModal = ({
+  isOpen,
+  onClose,
+  onUpgrade,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpgrade: () => void;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Header with close button */}
+        <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 p-6 pb-8">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 rounded-full p-3">
+              <AlertCircle className="text-white" size={24} />
+            </div>
+            <h2 className="text-xl font-bold text-white">
+              Document Limit Reached
+            </h2>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          <p className="text-gray-700 leading-relaxed">
+            Your current plan has reached its document processing limit. To
+            continue processing more documents, please upgrade to a higher plan
+            for additional capacity.
+          </p>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="text-sm text-blue-900 font-medium">
+              💡 Upgrading gives you:
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-blue-800">
+              <li>• Increased document limits</li>
+              <li>• Priority processing</li>
+              <li>• Advanced features</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-white transition-colors font-medium text-gray-700"
+          >
+            Got It
+          </button>
+          {/* <button
+            onClick={onUpgrade}
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+          >
+            Upgrade Plan
+          </button> */}
+        </div>
+      </div>
+    </div>
   );
-  const [filters, setFilters] = useState({
-    search: "",
-    overdueOnly: false,
-    myDeptOnly: false,
-    dept: "",
-  });
-  const [dense, setDense] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [showTaskModal, setShowTaskModal] = useState(false);
-  const snapInputRef = useRef<HTMLInputElement>(null);
+};
 
-  // File upload states
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
+// In the main Dashboard component, keep the PaymentErrorModal usage as before:
+
+export default function Dashboard() {
+  const router = useRouter();
   const { data: session } = useSession();
-  const [failedDocuments, setFailedDocuments] = useState<any[]>([]);
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<any>(null);
-  const [updateFormData, setUpdateFormData] = useState({
-    patientName: "",
-    claimNumber: "",
-    dob: null as Date | null,
-    doi: "",
-  });
-  const [updateLoading, setUpdateLoading] = useState(false);
+  const initialMode = "wc" as const;
+  const {
+    currentPane,
+    setCurrentPane,
+    filters,
+    setFilters,
+    dense,
+    setDense,
+    showModal,
+    setShowModal,
+    showTaskModal,
+    setShowTaskModal,
+    isOfficePulseCollapsed,
+    setIsOfficePulseCollapsed,
+    isFiltersCollapsed,
+    setIsFiltersCollapsed,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    modeState,
+    setModeState,
+    filteredTabs,
+    departments,
+    getDisplayedTasks,
+    getPresets,
+  } = useUIState(initialMode);
+  const {
+    selectedFiles,
+    uploading,
+    isFileModalOpen,
+    snapInputRef,
+    formatSize,
+    handleSnap,
+    handleCancel,
+    handleSubmit,
+    setIsFileModalOpen,
+    paymentError,
+    clearPaymentError,
+  } = useFileUpload(modeState);
+  const {
+    tasks,
+    loading,
+    fetchTasks,
+    toggleClaim,
+    completeTask,
+    saveNote,
+    handleCreateManualTask,
+  } = useTasks(initialMode);
+  const { pulse, workflowStats, fetchOfficePulse, fetchWorkflowStats } =
+    useOfficePulse();
+  const {
+    failedDocuments,
+    isUpdateModalOpen,
+    selectedDoc,
+    updateFormData,
+    updateLoading,
+    fetchFailedDocuments,
+    handleRowClick,
+    handleUpdateInputChange,
+    handleUpdateSubmit,
+    setIsUpdateModalOpen,
+  } = useFailedDocuments();
+  const {
+    showOnboarding,
+    currentStep,
+    stepPositions,
+    onboardingSteps,
+    createLinkButtonRef,
+    addManualTaskButtonRef,
+    createSnapLinkButtonRef,
+    startOnboarding,
+    nextStep,
+    previousStep,
+    closeOnboarding,
+  } = useOnboarding();
 
-  // File modal state
-  const [isFileModalOpen, setIsFileModalOpen] = useState(false);
-
-  // Progress tracking
-  const { setActiveTask } = useSocket();
-
-  // Pulse and stats states
-  const [fetchedPulse, setFetchedPulse] = useState<Pulse | null>(null);
-  const [workflowStats, setWorkflowStats] = useState<{
-    labels: string[];
-    vals: number[];
-    date: string;
-    hasData: boolean;
-  } | null>(null);
-
-  // UI states
-  const [isOfficePulseCollapsed, setIsOfficePulseCollapsed] = useState(false);
-  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Onboarding tour states
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [stepPositions, setStepPositions] = useState<any[]>([]);
-
-  // Refs for onboarding target elements
-  const createLinkButtonRef = useRef<HTMLButtonElement>(null);
-  const addManualTaskButtonRef = useRef<HTMLButtonElement>(null);
-  const createSnapLinkButtonRef = useRef<HTMLButtonElement>(null);
-
-  const filteredTabs = tabs.filter((tab) => tab.modes.includes(mode));
-  const departments = [
-    "Medical / Clinical Department",
-    "Scheduling & Coordination Department",
-    "Administrative / Compliance Department",
-    "Authorizations & Denials Department",
-  ];
-  const pulse = fetchedPulse;
-
-  // Refs for API calls - initialize as null
-  const fetchTasksRef = useRef<any>(null);
-  const fetchFailedDocumentsRef = useRef<any>(null);
-
-  // Onboarding steps configuration
-  const onboardingSteps = [
-    {
-      title: "Create Intake Link",
-      content:
-        "Generate shareable links for patients to submit their intake forms and documents securely.",
-      target: createLinkButtonRef,
-    },
-    {
-      title: "Add Manual Task",
-      content:
-        "Create tasks manually for specific patients or workflows that require custom tracking.",
-      target: addManualTaskButtonRef,
-    },
-    {
-      title: "Create Snap Link",
-      content:
-        "Quickly upload and process documents. The system will automatically extract information and create tasks.",
-      target: createSnapLinkButtonRef,
-    },
-  ];
-
-  // Calculate positions for onboarding steps
-  const calculateStepPositions = useCallback(() => {
-    const positions = [];
-
-    // Position for Create Intake Link button (in header)
-    if (createLinkButtonRef.current) {
-      const rect = createLinkButtonRef.current.getBoundingClientRect();
-      positions.push({
-        top: `${rect.bottom + 10}px`,
-        left: `${rect.left + rect.width / 2}px`,
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    } else {
-      positions.push({
-        top: "50%",
-        left: "50%",
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    }
-
-    // Position for Add Manual Task button (in header)
-    if (addManualTaskButtonRef.current) {
-      const rect = addManualTaskButtonRef.current.getBoundingClientRect();
-      positions.push({
-        top: `${rect.bottom + 10}px`,
-        left: `${rect.left + rect.width / 2}px`,
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    } else {
-      positions.push({
-        top: "50%",
-        left: "50%",
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    }
-
-    // Position for Create Snap Link button (floating button)
-    if (createSnapLinkButtonRef.current) {
-      const rect = createSnapLinkButtonRef.current.getBoundingClientRect();
-      positions.push({
-        top: `${rect.bottom + 10}px`,
-        left: `${rect.left + rect.width / 2}px`,
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    } else {
-      positions.push({
-        top: "50%",
-        left: "50%",
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    }
-
-    return positions;
-  }, []);
-
-  // Start onboarding tour
-  const startOnboarding = () => {
-    const positions = calculateStepPositions();
-    setStepPositions(positions);
-    setShowOnboarding(true);
-    setCurrentStep(0);
-  };
-
-  // Next step in onboarding
-  const nextStep = () => {
-    if (currentStep < onboardingSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      setShowOnboarding(false);
-      // Save to localStorage that user has completed onboarding
-      localStorage.setItem("onboardingCompleted", "true");
-    }
-  };
-
-  // Previous step in onboarding
-  const previousStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  // Close onboarding
-  const closeOnboarding = () => {
-    setShowOnboarding(false);
-    localStorage.setItem("onboardingCompleted", "true");
-  };
-
-  // Recalculate positions when step changes
-  useEffect(() => {
-    if (showOnboarding) {
-      const positions = calculateStepPositions();
-      setStepPositions(positions);
-    }
-  }, [showOnboarding, currentStep, calculateStepPositions]);
-
-  // Check if onboarding should be shown on component mount
-  useEffect(() => {
-    const onboardingCompleted = localStorage.getItem("onboardingCompleted");
-    if (!onboardingCompleted) {
-      // Show onboarding after a short delay to ensure DOM is rendered
-      const timer = setTimeout(() => {
-        const positions = calculateStepPositions();
-        setStepPositions(positions);
-        setShowOnboarding(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [calculateStepPositions]);
-
-  // Transform API task to local Task type
-  const transformApiTask = (apiTask: ApiTask): Task => {
-    const dueDate = apiTask.dueDate ? new Date(apiTask.dueDate) : new Date();
-    const now = new Date();
-    const overdue = dueDate < now && apiTask.status !== "Done";
-
-    // Transform quick notes if available
-    const notes = apiTask.quickNotes
-      ? [
-          {
-            ts: new Date(apiTask.updatedAt).toLocaleString(),
-            user: "System",
-            line:
-              apiTask.quickNotes.one_line_note ||
-              apiTask.quickNotes.details ||
-              "Note added",
-          },
-        ]
-      : [];
-
-    return {
-      id: apiTask.id,
-      task: apiTask.description,
-      dept: apiTask.department,
-      statusText: apiTask.status,
-      statusClass: apiTask.status.toLowerCase().replace(/\s+/g, "-"),
-      due: dueDate.toLocaleDateString(),
-      overdue,
-      patient: apiTask.patient,
-      assignee: apiTask.actions.includes("Claimed") ? "You" : "Unclaimed",
-      mode: mode,
-      notes,
-      actions: apiTask.actions,
-      sourceDocument: apiTask.sourceDocument,
-    };
-  };
-
-  // Fetch tasks from API
-  const fetchTasks = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/tasks");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tasks");
-      }
-
-      const apiTasks: ApiTask[] = await response.json();
-
-      // Transform API tasks to local Task format
-      const transformedTasks = apiTasks.map(transformApiTask);
-      setTasks(transformedTasks);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      toast.error("❌ Error fetching tasks");
-      setTasks([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [mode]); // Add mode dependency for refetch on mode change
-
-  // Fetch office pulse from separate API
-  const fetchOfficePulse = useCallback(async () => {
-    try {
-      const response = await fetch("/api/office-pulse");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch office pulse");
-      }
-
-      const data = await response.json();
-      setFetchedPulse(data.pulse);
-    } catch (error) {
-      console.error("Error fetching office pulse:", error);
-      setFetchedPulse(null);
-    }
-  }, []);
-
-  // Fetch workflow stats from database
-  const fetchWorkflowStats = useCallback(async () => {
-    try {
-      const response = await fetch("/api/workflow-stats");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch workflow stats");
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        setWorkflowStats({
-          labels: data.data.labels,
-          vals: data.data.vals,
-          date: data.data.date,
-          hasData: data.data.hasData,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching workflow stats:", error);
-      setWorkflowStats(null);
-    }
-  }, []);
-
-  // Fetch failed documents
-  const fetchFailedDocuments = useCallback(async () => {
-    try {
-      const response = await fetch("/api/get-failed-document");
-      if (response.ok) {
-        const data = await response.json();
-        setFailedDocuments(data.documents || []);
-      }
-    } catch (error) {
-      console.error("Error fetching failed documents:", error);
-      toast.error("❌ Error fetching failed documents");
-    }
-  }, []);
-
-  // Update refs whenever the functions change
-  useEffect(() => {
-    fetchTasksRef.current = fetchTasks;
-  }, [fetchTasks]);
+  const handleUpgrade = useCallback(() => {
+    clearPaymentError();
+    router.push("/packages");
+  }, [clearPaymentError, router]);
 
   useEffect(() => {
-    fetchFailedDocumentsRef.current = fetchFailedDocuments;
-  }, [fetchFailedDocuments]);
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchTasks();
+    fetchTasks(modeState);
     fetchOfficePulse();
     fetchWorkflowStats();
     fetchFailedDocuments();
-  }, [fetchTasks, fetchOfficePulse, fetchWorkflowStats, fetchFailedDocuments]);
+  }, [
+    modeState,
+    fetchTasks,
+    fetchOfficePulse,
+    fetchWorkflowStats,
+    fetchFailedDocuments,
+  ]);
 
-  // 🆕 Real-time tasks update via socket
-  const { socket } = useSocket();
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleTasksCreated = (data: any) => {
-      console.log("📡 Received 'tasks_created' event:", data);
-      if (data.user_id !== session?.user?.id) return; // Ensure for current user
-
-      // Transform new API-like tasks to local Task format
-      const newTransformedTasks = data.tasks.map((apiTask: ApiTask) =>
-        transformApiTask(apiTask)
-      );
-
-      // Append to existing tasks (avoid duplicates by checking IDs)
-      setTasks((prevTasks) => {
-        const existingIds = new Set(prevTasks.map((t) => t.id));
-        const uniqueNewTasks = newTransformedTasks.filter(
-          (t) => !existingIds.has(t.id)
-        );
-        if (uniqueNewTasks.length > 0) {
-          toast.success(`✅ Added ${uniqueNewTasks.length} new task(s)`);
-        }
-        return [...prevTasks, ...uniqueNewTasks];
-      });
-    };
-
-    socket.on("tasks_created", handleTasksCreated);
-
-    return () => {
-      socket.off("tasks_created", handleTasksCreated);
-    };
-  }, [socket, session?.user?.id, transformApiTask]);
-
-  // Click outside to close sidebar
-  useEffect(() => {
-    if (!isSidebarOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        !e.target.closest(".sidebar-container") &&
-        !e.target.closest(".toggle-btn")
-      ) {
-        setIsSidebarOpen(false);
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isSidebarOpen]);
-
-  // Task filtering logic
-  const getBaseTasks = () =>
-    tasks.filter((t) => {
-      if (mode === "wc" && t.mode === "gm") return false;
-      if (mode === "gm" && t.mode === "wc") return false;
-      return true;
-    });
-
-  const getFilteredTasks = (pane: string) => {
-    const base = getBaseTasks();
-    return base.filter(
-      paneToFilter[pane as keyof typeof paneToFilter] || (() => true)
-    );
-  };
-
-  const getDisplayedTasks = (pane: string) => {
-    let f = getFilteredTasks(pane);
-    if (filters.overdueOnly) f = f.filter((t) => t.overdue);
-    if (filters.myDeptOnly && filters.dept)
-      f = f.filter((t) => t.dept === filters.dept);
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      f = f.filter(
-        (t) =>
-          t.task.toLowerCase().includes(q) ||
-          (t.patient && t.patient.toLowerCase().includes(q)) ||
-          (t.dept && t.dept.toLowerCase().includes(q))
-      );
-    }
-    return f;
-  };
-
-  // Task operations
-  const updateTask = async (id: string, updates: Partial<Task>) => {
-    try {
-      // First update locally for immediate feedback
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-      );
-
-      // Then send update to API
-      const response = await fetch(`/api/tasks/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...(updates.statusText && { status: updates.statusText }),
-          ...(updates.actions && { actions: updates.actions }),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update task");
-      }
-
-      toast.success("✅ Task updated successfully");
-    } catch (error) {
-      console.error("Error updating task:", error);
-      toast.error("❌ Error updating task");
-      // Revert local changes if API call fails
-      fetchTasks();
-    }
-  };
-
-  const toggleClaim = async (id: string) => {
-    const currentTask = tasks.find((t) => t.id === id);
-    if (!currentTask) return;
-
-    const isClaimed = currentTask.actions?.includes("Claimed") || false;
-    const newActions = isClaimed ? ["Unclaimed"] : ["Claimed", "Complete"];
-
-    await updateTask(id, { actions: newActions });
-    toast.success(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed");
-  };
-
-  const completeTask = (id: string) => {
-    updateTask(id, { statusText: "Done", statusClass: "done" });
-    toast.success("🎉 Task marked complete");
-  };
-
-  const saveNote = async (e: React.MouseEvent, taskId: string) => {
-    const wrap = (e.currentTarget as HTMLElement).closest(".qnote");
-    if (!wrap) return;
-    const t = (wrap.querySelector(".qtype") as HTMLSelectElement)?.value || "";
-    const d = (wrap.querySelector(".qmore") as HTMLSelectElement)?.value || "";
-    const f = (wrap.querySelector(".qfree") as HTMLInputElement)?.value || "";
-    const line = [t, d, f].filter(Boolean).join(" · ");
-    if (!line) return;
-    const ts = new Date().toLocaleString();
-
-    try {
-      // Update local state first (notes only)
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? {
-                ...t,
-                notes: [...(t.notes || []), { ts, user: "You", line }],
-              }
-            : t
-        )
-      );
-
-      // Update quickNotes in the database (single API call)
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          quickNotes: {
-            status_update: t,
-            details: d,
-            one_line_note: f,
-            timestamp: new Date().toISOString(),
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save note");
-      }
-
-      (wrap.querySelector(".qfree") as HTMLInputElement).value = "";
-      toast.success("📝 Note saved");
-    } catch (error) {
-      console.error("Error saving note:", error);
-      toast.error("❌ Error saving note");
-      // Revert local changes if API call fails
-      fetchTasks();
-    }
-  };
-
-  // Failed documents operations
-  const handleRowClick = (doc: any) => {
-    setSelectedDoc(doc);
-    let parsedDob: Date | null = null;
-    if (
-      doc.db &&
-      typeof doc.db === "string" &&
-      doc.db.toLowerCase() !== "not specified"
-    ) {
-      const date = new Date(doc.db);
-      if (!isNaN(date.getTime())) {
-        parsedDob = date;
-      }
-    }
-    setUpdateFormData({
-      patientName: doc.patientName || "",
-      claimNumber: doc.claimNumber || "",
-      dob: parsedDob,
-      doi: doc.doi || "",
-    });
-    setIsUpdateModalOpen(true);
-  };
-
-  const handleUpdateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === "dob") {
-      setUpdateFormData({
-        ...updateFormData,
-        dob: value ? new Date(value) : null,
-      });
-    } else {
-      setUpdateFormData({ ...updateFormData, [name]: value });
-    }
-  };
-
-  const handleUpdateSubmit = async () => {
-    if (!selectedDoc) return;
-
-    setUpdateLoading(true);
-
-    try {
-      const updateData: any = {
-        patient_name: updateFormData.patientName,
-        claim_number: updateFormData.claimNumber,
-        doi: updateFormData.doi,
-      };
-      if (updateFormData.dob && !isNaN(updateFormData.dob.getTime())) {
-        updateData.dob = updateFormData.dob.toISOString().split("T")[0];
-      } else {
-        updateData.dob = null;
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/update-fail-document`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fail_doc_id: selectedDoc.id,
-            document_text: selectedDoc.documentText,
-            ...updateData,
-            user_id: session?.user?.id,
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Update failed");
-
-      toast.success("✅ Document updated successfully");
-      setIsUpdateModalOpen(false);
-      fetchFailedDocuments();
-      fetchTasks();
-    } catch (error) {
-      console.error("Update error:", error);
-      toast.error("❌ Error updating document");
-    } finally {
-      setUpdateLoading(false);
-    }
-  };
-
-  // File upload operations
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length > 0) {
-      const validFiles = files.filter((file) => {
-        if (file.size > 40 * 1024 * 1024) {
-          toast.error(`File ${file.name} is too large (max 40MB)`);
-          return false;
-        }
-        const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
-        const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
-        if (!allowedTypes.includes(fileExtension)) {
-          toast.error(`File ${file.name} has unsupported format`);
-          return false;
-        }
-        return true;
-      });
-
-      if (validFiles.length > 0) {
-        setSelectedFiles(validFiles);
-        setIsFileModalOpen(true);
-      } else {
-        toast.error(
-          "No valid files selected. Please check file types and size (max 40MB)."
-        );
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (selectedFiles.length === 0) return;
-
-    setUploading(true);
-
-    const formDataUpload = new FormData();
-    selectedFiles.forEach((file) => {
-      formDataUpload.append("documents", file);
-    });
-
-    try {
-      console.log(`🚀 Starting upload for ${selectedFiles.length} files`);
-
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
-        }/api/extract-documents?physicianId=${
-          session?.user?.physicianId || ""
-        }&userId=${session?.user?.id || ""}`,
-        {
-          method: "POST",
-          body: formDataUpload,
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, details: ${errorText}`
-        );
-      }
-
-      const data = await response.json();
-      console.log("📦 Upload response:", data);
-
-      // FIXED: Pass payload_count as totalFiles to setActiveTask for correct initial total
-      if (data.task_id) {
-        setActiveTask(data.task_id, data.payload_count); // Now passes total_files correctly
-        console.log(
-          `🎯 Tracking progress for task: ${data.task_id} (total: ${data.payload_count})`
-        );
-      } else {
-        throw new Error("No task_id returned from server");
-      }
-
-      toast.success(
-        `✅ Started processing ${data.payload_count || 0} document(s)`
-      );
-
-      // Close the file modal but keep progress tracker visible
-      setIsFileModalOpen(false);
-      setSelectedFiles([]);
-      if (snapInputRef.current) {
-        snapInputRef.current.value = "";
-      }
-    } catch (error) {
-      console.error("❌ Upload error:", error);
-      toast.error(`❌ Error uploading documents: ${error}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setSelectedFiles([]);
-    if (snapInputRef.current) {
-      snapInputRef.current.value = "";
-    }
-    setIsFileModalOpen(false);
-  };
-
-  const handleSnap = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFileChange(e);
-  };
-
-  const getPresets = (dept: string) => {
-    return (
-      NOTE_PRESETS[dept] ||
-      NOTE_PRESETS["Physician Review"] || { type: [], more: [] }
-    );
-  };
-
-  // Manual Task Creation - Updated to handle documentId
-  const handleCreateManualTask = async (formData: {
-    patientName: string;
-    dueDate: string;
-    description: string;
-    department: string;
-    documentId?: string;
-  }) => {
-    try {
-      const response = await fetch("/api/add-manual-task", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          description: formData.description,
-          department: formData.department,
-          patient: formData.patientName, // Still send patient name as string (per schema)
-          dueDate: formData.dueDate,
-          status: "Open",
-          actions: ["Claimed", "Complete"],
-          documentId: formData.documentId, // Send documentId if selected from recommendation
-          mode: mode,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create task");
-      }
-
-      const newTask: ApiTask = await response.json();
-      const transformedTask = transformApiTask(newTask);
-
-      // Add to local state immediately
-      setTasks((prev) => [...prev, transformedTask]);
-
-      toast.success("✅ Manual task created successfully");
-    } catch (error) {
-      console.error("Error creating manual task:", error);
-      toast.error("❌ Error creating manual task");
-    }
-  };
-
-  // Dense mode effect
-  useEffect(() => {
-    if (dense) {
-      document.body.classList.add("dense");
-    } else {
-      document.body.classList.remove("dense");
-    }
-  }, [dense]);
-
-  // Debug logging
   useEffect(() => {
     console.log("Kebilo v6.3 self-tests:", [
       { name: "All tab present", pass: true },
       { name: "Mode toggle wired", pass: true },
       {
         name: "Pulse dept table populated",
-        pass: fetchedPulse ? fetchedPulse.depts.length > 0 : false,
+        pass: pulse ? pulse.depts.length > 0 : false,
       },
       { name: "Dept dropdown filled", pass: departments.length > 0 },
       { name: "Tasks loaded from API", pass: tasks.length > 0 },
     ]);
-  }, [mode, fetchedPulse, departments, tasks]);
+  }, [modeState, pulse, departments, tasks]);
 
-  // Callback for progress completion
   const handleProgressComplete = useCallback(() => {
-    if (fetchTasksRef.current) fetchTasksRef.current();
-    if (fetchFailedDocumentsRef.current) fetchFailedDocumentsRef.current();
-  }, []);
+    fetchTasks(modeState);
+    fetchFailedDocuments();
+  }, [fetchTasks, modeState, fetchFailedDocuments]);
 
   return (
     <>
@@ -1305,10 +665,8 @@ export default function Dashboard() {
           transform: scale(1.05);
         }
       `}</style>
-      {/* Progress Tracker - Shows automatically when processing */}
       <ProgressTracker onComplete={handleProgressComplete} />
 
-      {/* Onboarding Tour */}
       <OnboardingTour
         isOpen={showOnboarding}
         onClose={closeOnboarding}
@@ -1319,7 +677,6 @@ export default function Dashboard() {
         stepPositions={stepPositions}
       />
 
-      {/* Onboarding Help Button */}
       <button
         className="onboarding-help-btn"
         onClick={startOnboarding}
@@ -1328,9 +685,7 @@ export default function Dashboard() {
         ?
       </button>
 
-      {/* Sidebar and Main Content */}
       <div className="flex min-h-screen relative">
-        {/* Sidebar Component */}
         <div
           className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
             isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -1341,7 +696,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Sidebar Toggle Button */}
         <div
           className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
             isSidebarOpen
@@ -1370,18 +724,16 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Main Content */}
         <div
           className={`flex-1 transition-all duration-300 ${
             isSidebarOpen ? "ml-0" : "ml-0"
           }`}
         >
-          {/* Upload Button */}
           <div className="p-6">
-            {session?.user?.role == "Staff" && (
+            {session?.user?.role === "Staff" && (
               <button
                 ref={createSnapLinkButtonRef}
-                className="snaplink-btn bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="snaplink-btn"
                 onClick={() => snapInputRef.current?.click()}
                 disabled={uploading}
               >
@@ -1422,8 +774,10 @@ export default function Dashboard() {
                 >
                   Mode:
                   <select
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as "wc" | "gm")}
+                    value={modeState}
+                    onChange={(e) =>
+                      setModeState(e.target.value as "wc" | "gm")
+                    }
                     style={{
                       padding: "6px 8px",
                       border: "1px solid var(--border)",
@@ -1470,7 +824,7 @@ export default function Dashboard() {
                 )}
                 <button
                   className="btn light"
-                  onClick={fetchTasks}
+                  onClick={() => fetchTasks(modeState)}
                   disabled={loading}
                 >
                   {loading ? "Refreshing..." : "Refresh Tasks"}
@@ -1478,7 +832,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Loading State */}
             {loading && (
               <div className="card">
                 <div style={{ textAlign: "center", padding: "20px" }}>
@@ -1488,7 +841,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Office Pulse */}
             {!loading && (
               <>
                 <div className="card">
@@ -1529,38 +881,40 @@ export default function Dashboard() {
                           </thead>
                           <tbody>
                             {pulse ? (
-                              pulse.depts.map((rowOrObj, index) => {
-                                if (
-                                  typeof rowOrObj === "object" &&
-                                  "department" in rowOrObj
-                                ) {
-                                  const dept = rowOrObj as DeptPulse;
-                                  return (
-                                    <tr key={index}>
-                                      <td>{dept.department}</td>
-                                      <td>{dept.open}</td>
-                                      <td>{dept.overdue}</td>
-                                      <td>{dept.unclaimed}</td>
-                                    </tr>
-                                  );
-                                } else {
-                                  const row = rowOrObj as [
-                                    string,
-                                    number,
-                                    number,
-                                    number,
-                                    number
-                                  ];
-                                  return (
-                                    <tr key={index}>
-                                      <td>{row[0]}</td>
-                                      <td>{row[1]}</td>
-                                      <td>{row[2]}</td>
-                                      <td>{row[4]}</td>
-                                    </tr>
-                                  );
+                              pulse.depts.map(
+                                (rowOrObj: any, index: number) => {
+                                  if (
+                                    typeof rowOrObj === "object" &&
+                                    "department" in rowOrObj
+                                  ) {
+                                    const dept = rowOrObj;
+                                    return (
+                                      <tr key={index}>
+                                        <td>{dept.department}</td>
+                                        <td>{dept.open}</td>
+                                        <td>{dept.overdue}</td>
+                                        <td>{dept.unclaimed}</td>
+                                      </tr>
+                                    );
+                                  } else {
+                                    const row = rowOrObj as [
+                                      string,
+                                      number,
+                                      number,
+                                      number,
+                                      number
+                                    ];
+                                    return (
+                                      <tr key={index}>
+                                        <td>{row[0]}</td>
+                                        <td>{row[1]}</td>
+                                        <td>{row[2]}</td>
+                                        <td>{row[4]}</td>
+                                      </tr>
+                                    );
+                                  }
                                 }
-                              })
+                              )
                             ) : (
                               <tr>
                                 <td colSpan={4} className="no-data">
@@ -1585,14 +939,16 @@ export default function Dashboard() {
                           🔄 Refresh
                         </button>
                         {workflowStats ? (
-                          workflowStats.labels.map((label, index) => (
-                            <div key={index} className="text-gray-700">
-                              <h4>{label}</h4>
-                              <div className="val">
-                                {workflowStats.vals[index]}
+                          workflowStats.labels.map(
+                            (label: string, index: number) => (
+                              <div key={index} className="text-gray-700">
+                                <h4>{label}</h4>
+                                <div className="val">
+                                  {workflowStats.vals[index]}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            )
+                          )
                         ) : (
                           <div className="tile">
                             <h4>No Workflow Stats</h4>
@@ -1604,7 +960,6 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                {/* Task & Workflow Tracker */}
                 <div className="card">
                   <h2>
                     🧩 Task & Workflow Tracker
@@ -1735,9 +1090,9 @@ export default function Dashboard() {
                   ) : (
                     <TaskTable
                       currentPane={currentPane}
-                      tasks={getDisplayedTasks(currentPane)}
+                      tasks={getDisplayedTasks(currentPane, tasks)}
                       filters={filters}
-                      mode={mode}
+                      mode={modeState}
                       onClaim={toggleClaim}
                       onComplete={completeTask}
                       onSaveNote={saveNote}
@@ -1746,7 +1101,6 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                {/* Failed Documents Component */}
                 <FailedDocuments
                   documents={failedDocuments}
                   onRowClick={handleRowClick}
@@ -1757,14 +1111,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Modals */}
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
 
       <ManualTaskModal
         open={showTaskModal}
         onOpenChange={setShowTaskModal}
         departments={departments}
-        onSubmit={handleCreateManualTask}
+        onSubmit={(formData) => handleCreateManualTask(formData, modeState)}
       />
 
       <UpdateDocumentModal
@@ -1777,7 +1130,6 @@ export default function Dashboard() {
         isLoading={updateLoading}
       />
 
-      {/* File Submission Modal */}
       <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1831,6 +1183,12 @@ export default function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PaymentErrorModal
+        isOpen={!!paymentError}
+        onClose={clearPaymentError}
+        onUpgrade={handleUpgrade}
+      />
     </>
   );
 }

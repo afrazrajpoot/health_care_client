@@ -1,15 +1,29 @@
-// components/dashboard/OnboardingTour.tsx
-interface OnboardingTourProps {
+// components/physician-components/PhysicianOnboardingTour.tsx
+import React from "react";
+
+interface TourStep {
+  title: string;
+  content: string;
+}
+
+interface StepPosition {
+  top: string;
+  left: string;
+  arrowTop?: string;
+  arrowLeft?: string;
+}
+
+interface PhysicianOnboardingTourProps {
   isOpen: boolean;
   onClose: () => void;
   currentStep: number;
   onNext: () => void;
   onPrevious: () => void;
-  steps: any[];
-  stepPositions: any[];
+  steps: TourStep[];
+  stepPositions: StepPosition[];
 }
 
-export default function OnboardingTour({
+const PhysicianOnboardingTour: React.FC<PhysicianOnboardingTourProps> = ({
   isOpen,
   onClose,
   currentStep,
@@ -17,11 +31,12 @@ export default function OnboardingTour({
   onPrevious,
   steps,
   stepPositions,
-}: OnboardingTourProps) {
+}) => {
   if (!isOpen || currentStep >= steps.length) return null;
 
   const currentStepData = steps[currentStep];
-  const position = stepPositions[currentStep] || { top: "50%", left: "50%" };
+  const position = stepPositions[currentStep] || {};
+  const stepsLength = steps.length;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
@@ -29,11 +44,10 @@ export default function OnboardingTour({
         className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 relative transition-all duration-300 ease-in-out"
         style={{
           position: "fixed",
-          top: position.top,
-          left: position.left,
+          top: position.top || "50%",
+          left: position.left || "50%",
           transform: "translateX(-50%)",
           zIndex: 101,
-          transition: "all 0.3s ease-in-out",
         }}
       >
         {/* Arrow pointing to target element */}
@@ -53,7 +67,7 @@ export default function OnboardingTour({
 
         <div className="flex justify-between items-center">
           <div className="text-sm text-gray-500">
-            Step {currentStep + 1} of {steps.length}
+            Step {currentStep + 1} of {stepsLength}
           </div>
 
           <div className="flex gap-2">
@@ -93,4 +107,6 @@ export default function OnboardingTour({
       </div>
     </div>
   );
-}
+};
+
+export default PhysicianOnboardingTour;

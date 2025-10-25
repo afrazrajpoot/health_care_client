@@ -30,10 +30,12 @@ interface RecommendationsResponse {
 
 const SearchBar = ({
   physicianId,
+  mode,
   onPatientSelect,
 }: {
   physicianId: string | null;
   onPatientSelect: (patient: Patient) => void;
+  mode: "wc" | "gm";
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [recommendations, setRecommendations] = useState<Patient[]>([]);
@@ -79,7 +81,9 @@ const SearchBar = ({
           query
         )}&claimNumber=${encodeURIComponent(query)}&dob=${encodeURIComponent(
           query
-        )}&physicianId=${encodeURIComponent(physicianId || "")}`
+        )}&physicianId=${encodeURIComponent(
+          physicianId || ""
+        )}&mode=${encodeURIComponent(mode)}`
       );
 
       if (!response.ok) {
@@ -117,7 +121,7 @@ const SearchBar = ({
     debounce((query: string) => {
       fetchRecommendations(query);
     }, 300),
-    [physicianId]
+    [physicianId, mode]
   );
 
   // Handle search input change
