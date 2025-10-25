@@ -1,7 +1,6 @@
 // components/physician-components/TreatmentHistorySection.tsx
 import { useTreatmentHistory } from "@/app/custom-hooks/staff-hooks/physician-hooks/useTreatmentHistory";
 import React from "react";
-// import { useTreatmentHistory } from "@/hooks/useTreatmentHistory";
 
 // Define TypeScript interfaces for data structures (only those needed for this component)
 interface SummarySnapshotItem {
@@ -125,6 +124,48 @@ const CheckIcon = () => (
   </svg>
 );
 
+const MedicalIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+  </svg>
+);
+
+const ChevronDownIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4 transition-transform"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="6 9 12 15 18 9"></polyline>
+  </svg>
+);
+
+const ChevronRightIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4 transition-transform"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="9 18 15 12 9 6"></polyline>
+  </svg>
+);
+
 interface TreatmentHistorySectionProps {
   documentData: DocumentData | null;
   copied: { [key: string]: boolean };
@@ -150,6 +191,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     getTreatmentSummary,
   } = useTreatmentHistory(documentData);
   console.log(documentData, "console data");
+
   const handleSectionClick = (e: React.MouseEvent) => {
     onToggle();
   };
@@ -173,31 +215,52 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     <>
       <div className="section" onClick={handleSectionClick}>
         <div className="section-header">
-          <h3>{isCollapsed ? "▶️" : "▼"} 📌 Treatment History Snapshot</h3>
-          <button
-            className={`copy-btn ${
-              copied[`section-treatment-${currentSnapshotIndex}`]
-                ? "copied"
-                : ""
-            }`}
-            onClick={handleCopyClick}
-            title="Copy Section"
-          >
-            {copied[`section-treatment-${currentSnapshotIndex}`] ? (
-              <CheckIcon />
-            ) : (
-              <CopyIcon />
-            )}
-          </button>
+          <div className="section-title">
+            <MedicalIcon />
+            <h3>Treatment History Snapshot</h3>
+          </div>
+          <div className="header-actions">
+            <button
+              className={`copy-btn ${
+                copied[`section-treatment-${currentSnapshotIndex}`]
+                  ? "copied"
+                  : ""
+              }`}
+              onClick={handleCopyClick}
+              title="Copy Section"
+            >
+              {copied[`section-treatment-${currentSnapshotIndex}`] ? (
+                <CheckIcon />
+              ) : (
+                <CopyIcon />
+              )}
+            </button>
+            <button
+              className="collapse-btn"
+              onClick={handleSectionClick}
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              {isCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+            </button>
+          </div>
         </div>
         {!isCollapsed && (
           <>
             {snapshots.map((snapshot, index) => (
               <div key={snapshot.id || index} className="bodypart-card">
-                <h4 onClick={(e) => handleSnapshotToggle(e, index)}>
-                  {expandedSnapshots[index] ? "▼" : "▶️"}{" "}
-                  {snapshot.keyConcern || `Key Concern ${index + 1}`}
-                </h4>
+                <div
+                  className="card-header"
+                  onClick={(e) => handleSnapshotToggle(e, index)}
+                >
+                  <button className="snapshot-toggle-btn">
+                    {expandedSnapshots[index] ? (
+                      <ChevronDownIcon />
+                    ) : (
+                      <ChevronRightIcon />
+                    )}
+                  </button>
+                  <h4>{snapshot.keyConcern || `Key Concern ${index + 1}`}</h4>
+                </div>
                 <div
                   className={`card-details ${
                     expandedSnapshots[index] ? "" : "hidden"
@@ -248,14 +311,24 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         .section {
           padding: 20px;
           border-bottom: 1px solid #e5e7eb;
-          margin-bottom: 8px;
+   =
           cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .section:hover {
+          background-color: #f8fafc;
         }
         .section-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 12px;
+        }
+        .section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1;
         }
         h3 {
           font-weight: 600;
@@ -266,11 +339,16 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           align-items: center;
           gap: 8px;
         }
+        .header-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
         .nav-buttons {
           display: flex;
           gap: 8px;
           align-items: center;
-          margin-bottom: 16px;
+       
         }
         .nav-btn {
           font-size: 12px;
@@ -308,22 +386,48 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           color: #6b7280;
           margin-left: auto;
         }
-        .bodypart-card h4 {
-          font-size: 14px;
-          background: #e5e7eb;
-          padding: 10px;
-          margin: 0;
-          border-radius: 6px;
-          cursor: pointer;
+        .bodypart-card {
+          margin-bottom: 12px;
+        }
+        .card-header {
           display: flex;
           align-items: center;
           gap: 8px;
+          background: #e5e7eb;
+          padding: 10px;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .card-header:hover {
+          background: #d1d5db;
+        }
+        .snapshot-toggle-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #6b7280;
+          transition: color 0.2s;
+        }
+        .snapshot-toggle-btn:hover {
+          color: #374151;
+        }
+        .bodypart-card h4 {
+          font-size: 14px;
+          margin: 0;
+          font-weight: 600;
+          color: #374151;
         }
         .card-details {
           background: #f1f5f9;
           padding: 10px 14px;
           border-radius: 6px;
-          margin-bottom: 16px;
+          margin-top: 8px;
+          transition: all 0.2s;
         }
         .card-details.hidden {
           display: none;
@@ -335,6 +439,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         li {
           margin-bottom: 6px;
           font-size: 14px;
+          line-height: 1.4;
+          color: #374151;
         }
         .no-data {
           padding: 10px 14px;
@@ -355,14 +461,14 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           font-size: 12px;
           color: #475569;
           background: #e2e8f0;
-          padding: 4px 8px;
+          padding: 6px 8px;
           border-radius: 6px;
           cursor: pointer;
           border: none;
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          transition: background 0.2s;
+          transition: all 0.2s;
         }
         .copy-btn:hover {
           background: #cbd5e1;
@@ -374,9 +480,29 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         .copied:hover {
           background: #bbf7d0;
         }
+        .collapse-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 0.2s;
+          color: #6b7280;
+        }
+        .collapse-btn:hover {
+          background-color: #e5e7eb;
+          color: #374151;
+        }
         .w-3.5 {
           width: 0.875rem;
           height: 0.875rem;
+        }
+        .w-4 {
+          width: 1rem;
+          height: 1rem;
         }
       `}</style>
     </>
