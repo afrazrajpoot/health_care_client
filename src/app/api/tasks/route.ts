@@ -1,3 +1,4 @@
+// app/api/tasks/route.ts
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/services/authSErvice";
@@ -16,10 +17,8 @@ export async function GET(request: Request) {
 
     // 🧠 Determine physicianId based on role
     if (user.role === "Physician") {
-      // The logged-in user *is* the physician
       physicianId = user.id;
     } else if (user.role === "Staff") {
-      // The logged-in user *works under* a physician
       physicianId = user.physicianId;
     } else {
       return NextResponse.json(
@@ -35,16 +34,30 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ Fetch tasks for the determined physician
+    // ✅ Fetch tasks with their related document info
     const tasks = await prisma.task.findMany({
       where: { physicianId },
       orderBy: { createdAt: "desc" },
       include: {
-        document: true, // Include related document info if available
+        document: {
+          select: {
+            id: true,
+            patientName: true,
+            claimNumber: true,
+            status: true,
+            ur_denial_reason: true, // 🧩 Include this field
+          },
+        },
       },
     });
 
-    return NextResponse.json(tasks);
+    // 🧠 Attach `ur_denial_reason` directly to each task for easy frontend access
+    const tasksWithUR = tasks.map((task:any) => ({
+      ...task,
+      ur_denial_reason: task.document?.ur_denial_reason || null,
+    }));
+
+    return NextResponse.json(tasksWithUR);
   } catch (error) {
     console.error("Error fetching tasks:", error);
     return NextResponse.json(

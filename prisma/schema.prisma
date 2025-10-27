@@ -82,6 +82,7 @@ model Document {
   adl             ADL?
   user            User?            @relation(fields: [userId], references: [id])
   documentSummary DocumentSummary?
+  ur_denial_reason String?
   summarySnapshot SummarySnapshot?
   tasks           Task[]
 
@@ -197,6 +198,7 @@ model Task {
   quickNotes     Json?     @default("{\"details\": \"\", \"one_line_note\": \"\", \"status_update\": \"\"}")
   documentId     String?
   physicianId    String?
+  reason         String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   document       Document? @relation(fields: [documentId], references: [id])
