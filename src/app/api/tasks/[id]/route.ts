@@ -55,7 +55,7 @@ export async function PATCH(
             {
               role: "system",
               content:
-                "You are a helpful clinical assistant. Summarize the note into one professional and concise sentence.",
+                "You are a helpful clinical assistant. Summarize the note into one professional and concise sentence. should be very concise but clear meaningful no more than 20 words.",
             },
             {
               role: "user",
