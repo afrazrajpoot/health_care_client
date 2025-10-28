@@ -10,7 +10,8 @@ interface SummarySnapshotItem {
   nextStep: string;
   documentId: string;
   recommended?: string;
-  consultingDoctors?: string[];
+  consultingDoctor?: string;
+  bodyPart?: string;
   aiOutcome?: string;
 }
 
@@ -25,8 +26,9 @@ interface DocumentData {
   summary_snapshot?: {
     diagnosis: string;
     diagnosis_history: string;
-    key_concern: string;
+    // key_concern: string;
     key_concern_history: string;
+    body_part: string;
     next_step: string;
     next_step_history: string;
     has_changes: boolean;
@@ -221,11 +223,10 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${
-                copied[`section-treatment-${currentSnapshotIndex}`]
-                  ? "copied"
-                  : ""
-              }`}
+              className={`copy-btn ${copied[`section-treatment-${currentSnapshotIndex}`]
+                ? "copied"
+                : ""
+                }`}
               onClick={handleCopyClick}
               title="Copy Section"
             >
@@ -259,39 +260,30 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                       <ChevronRightIcon />
                     )}
                   </button>
-                  <h4>{snapshot.keyConcern || `Key Concern ${index + 1}`}</h4>
+                  <h4>{snapshot?.bodyPart || `Key Concern ${index + 1}`}</h4>
                 </div>
                 <div
-                  className={`card-details ${
-                    expandedSnapshots[index] ? "" : "hidden"
-                  }`}
+                  className={`card-details ${expandedSnapshots[index] ? "" : "hidden"
+                    }`}
                 >
                   <ul>
-                    <li>
+                    {snapshot.dx !== "Not specified" && snapshot.dx !== "" && <li>
                       <strong>Dx:</strong> {snapshot.dx || "Not specified"}
-                    </li>
-                    <li>
-                      <strong>Key Concern:</strong>{" "}
-                      {snapshot.keyConcern || "Not specified"}
-                    </li>
-                    <li>
-                      <strong>Next Step:</strong>{" "}
-                      {snapshot.nextStep || "Not specified"}
-                    </li>
-                    <li>
+                    </li>}
+                    {snapshot.recommended !== "Not specified" && snapshot.recommended !== "" && <li>
                       <strong>Recommended:</strong>{" "}
                       {snapshot.recommended || "Not specified"}
-                    </li>
-                    <li>
-                      <strong>Consulting Doctors:</strong>{" "}
-                      {snapshot.consultingDoctors
-                        ? snapshot.consultingDoctors.join(", ")
+                    </li>}
+                    {snapshot.consultingDoctor !== "Not specified" && snapshot.consultingDoctor !== "" && snapshot.consultingDoctor !== null && <li>
+                      <strong>Consulting Doctor:</strong>{" "}
+                      {snapshot.consultingDoctor
+                        ? snapshot.consultingDoctor
                         : "Not specified"}
-                    </li>
-                    <li>
+                    </li>}
+                    {snapshot.aiOutcome !== "Not specified" && snapshot.aiOutcome !== "" && <li>
                       <strong>Outcome:</strong>{" "}
                       {snapshot.aiOutcome || "Not specified"}
-                    </li>
+                    </li>}
                   </ul>
                 </div>
               </div>

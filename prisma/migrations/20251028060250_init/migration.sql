@@ -86,7 +86,7 @@ CREATE TABLE "public"."SummarySnapshot" (
     "urDecision" TEXT,
     "recommended" TEXT,
     "aiOutcome" TEXT,
-    "consultingDoctors" TEXT[],
+    "consultingDoctor" TEXT[],
     "documentId" TEXT NOT NULL,
 
     CONSTRAINT "SummarySnapshot_pkey" PRIMARY KEY ("id")

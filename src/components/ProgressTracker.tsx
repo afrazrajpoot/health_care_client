@@ -397,11 +397,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Completion Message */}
           {status === "completed" && (
             <div
-              className={`mt-2 p-2 rounded text-xs ${
-                failed_files.length > 0
+              className={`mt-2 p-2 rounded text-xs ${failed_files.length > 0
                   ? "bg-yellow-50 border border-yellow-200 text-yellow-800"
                   : "bg-green-50 border border-green-200 text-green-800"
-              }`}
+                }`}
             >
               {failed_files.length > 0
                 ? `Processed ${processed_count} out of ${total_files} files. ${failed_files.length} files failed.`
@@ -512,11 +511,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Completion Message */}
           {status === "completed" && (
             <div
-              className={`mt-2 p-2 rounded text-xs ${
-                failed_tasks > 0
+              className={`mt-2 p-2 rounded text-xs ${failed_tasks > 0
                   ? "bg-yellow-50 border border-yellow-200 text-yellow-800"
                   : "bg-green-50 border border-green-200 text-green-800"
-              }`}
+                }`}
             >
               {failed_tasks > 0
                 ? `Processed ${completed_tasks} out of ${total_tasks} tasks. ${failed_tasks} tasks failed.`
@@ -540,13 +538,13 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               ? queueProgressData?.status === "active"
                 ? "🔄"
                 : queueProgressData?.failed_tasks
-                ? "⚠️"
-                : "✅"
+                  ? "⚠️"
+                  : "✅"
               : progressData?.status === "processing"
-              ? "🔄"
-              : progressData?.failed_files?.length
-              ? "⚠️"
-              : "✅"}
+                ? "🔄"
+                : progressData?.failed_files?.length
+                  ? "⚠️"
+                  : "✅"}
           </span>
         </div>
         <div className="flex items-center space-x-2">
@@ -555,9 +553,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             <button
               onClick={toggleViewMode}
               className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
-              title={`Switch to ${
-                viewMode === "queue" ? "task" : "queue"
-              } view`}
+              title={`Switch to ${viewMode === "queue" ? "task" : "queue"
+                } view`}
             >
               {viewMode === "queue" ? "📄" : "📊"}
             </button>
@@ -599,7 +596,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       </div>
 
       {/* DEBUG: Raw state dump (remove in production) */}
-      <details className="mt-2 p-1 bg-gray-50 rounded text-xs">
+      {/* <details className="mt-2 p-1 bg-gray-50 rounded text-xs">
         <summary>
           Debug State (Polls: {pollCount}, View: {viewMode}, Last Poll:{" "}
           {new Date(lastPollTime).toLocaleTimeString()})
@@ -619,7 +616,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             2
           )}
         </pre>
-      </details>
+      </details> */}
     </div>
   );
 };
