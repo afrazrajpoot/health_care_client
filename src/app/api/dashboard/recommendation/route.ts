@@ -15,13 +15,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const patientName = searchParams.get("patientName");
-    const claimNumber = searchParams.get("claimNumber");
-    const dobParam = searchParams.get("dob");
+    const patientName = searchParams.get("patientName")?.trim() || null;
+    const claimNumber = searchParams.get("claimNumber")?.trim() || null;
+    const dobParam = searchParams.get("dob")?.trim() || null;
     let physicianId = searchParams.get("physicianId");
     const mode = searchParams.get("mode");
 
-    // ✅ Normalize physicianId
     if (
       physicianId === "null" ||
       physicianId === "undefined" ||
@@ -30,110 +29,76 @@ export async function GET(request: Request) {
       physicianId = null;
     }
 
-    // Require at least one search input (patientName, claimNumber, dob) or physicianId
-    if (!patientName && !claimNumber && !dobParam && !physicianId) {
-      return NextResponse.json(
-        {
-          error:
-            "At least one of patientName, claimNumber, dob, or physicianId is required for search",
-        },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Build where clause: when a search term is provided, match it against
-    // patientName and claimNumber (OR). DOB matching is done in JS after
-    // fetching because the DB type for dob may not allow string 'contains'
-    // filters in Prisma without regenerating the client.
+    // ✅ Build a flexible where clause
     const whereClause: Prisma.DocumentWhereInput = {};
-    const searchTerm = (patientName || claimNumber || dobParam)?.trim() ?? null;
-
-    // Start building AND conditions array
     const andConditions: Prisma.DocumentWhereInput[] = [];
 
-    // Add mode condition if provided
     if (mode) {
       andConditions.push({ mode });
     }
 
-    // Add physicianId condition if provided
     if (physicianId) {
       andConditions.push({ physicianId });
     }
 
-    if (searchTerm) {
-      const term = searchTerm;
-      const orConditions: Prisma.DocumentWhereInput[] = [
-        { patientName: { contains: term, mode: "insensitive" } },
-        { claimNumber: { contains: term, mode: "insensitive" } },
-      ];
-
-      // If there are AND conditions, wrap OR inside AND
-      if (andConditions.length > 0) {
-        andConditions.push({ OR: orConditions });
-      } else {
-        whereClause.OR = orConditions;
-      }
+    // Add conditions dynamically (only if they exist)
+    const orConditions: Prisma.DocumentWhereInput[] = [];
+    if (patientName) {
+      orConditions.push({
+        patientName: { contains: patientName, mode: "insensitive" },
+      });
+    }
+    if (claimNumber) {
+      orConditions.push({
+        claimNumber: { contains: claimNumber, mode: "insensitive" },
+      });
+    }
+    if (dobParam) {
+      orConditions.push({
+        dob: { equals: dobParam },
+      });
     }
 
-    // Set AND if conditions exist
+    // If any search fields exist, use OR; otherwise, fallback to all docs (limit results)
+    if (orConditions.length > 0) {
+      andConditions.push({ OR: orConditions });
+    } else {
+      whereClause.id = { not: null }; // fallback: all docs
+    }
+
     if (andConditions.length > 0) {
       whereClause.AND = andConditions;
-    } else if (!searchTerm && !physicianId && !mode) {
-      // Fallback if no conditions
-      whereClause.id = { not: null };
     }
 
-    // Get all matching documents (no distinct to return all)
-    let results;
-    try {
-      // Log the computed whereClause for debugging when users search by claimNumber/dob
-      console.debug(
-        "Recommendation route whereClause:",
-        JSON.stringify(whereClause)
-      );
-      results = await prisma.document.findMany({
-        where: whereClause,
-        select: {
-          patientName: true,
-          claimNumber: true,
-          dob: true,
-          doi: true,
-          id: true, // Include ID to differentiate duplicates
-        },
-        // distinct: ["patientName"],  // Removed to get all
-        take: 20, // Optional limit to avoid overload
-        orderBy: { createdAt: "desc" }, // Sort by newest
-      });
-    } catch (dbError: unknown) {
-      console.error("Prisma findMany error in recommendation route:", dbError);
-      const message =
-        dbError && (dbError as any).message
-          ? (dbError as any).message
-          : String(dbError);
-      return NextResponse.json(
-        { error: `Database query failed: ${message}` },
-        { status: 500 }
-      );
-    }
+    console.debug("🧠 Flexible whereClause:", JSON.stringify(whereClause));
 
-    if (results.length === 0) {
+    const results = await prisma.document.findMany({
+      where: whereClause,
+      select: {
+        patientName: true,
+        claimNumber: true,
+        dob: true,
+        doi: true,
+        id: true,
+        physicianId: true,
+      },
+      take: 20,
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!results.length) {
       return NextResponse.json(
         { message: "No matching patients found" },
         { status: 404 }
       );
     }
 
-    // ✅ Filter out incomplete documents: only include if all key fields are present and not "Not specified"
-    const completeResults = results.filter((doc: (typeof results)[number]) => {
+    // ✅ Filter for completeness
+    const completeResults = results.filter((doc) => {
       return (
         !!doc.patientName &&
         doc.patientName.toLowerCase() !== "not specified" &&
-        !!doc.claimNumber &&
-        (typeof doc.claimNumber !== "string" ||
-          doc.claimNumber.toLowerCase() !== "not specified") &&
         !!doc.dob
-        // Note: Excluded doi from completeness check to allow matching without it
       );
     });
 
@@ -147,11 +112,9 @@ export async function GET(request: Request) {
       );
     }
 
-    // Deduplicate by composite key: patientName + claimNumber + dob
-    // (Excluded doi from key to avoid duplicates based on differing DOI)
-    // Preserve the first occurrence (newest due to orderBy)
+    // ✅ Deduplicate by patientName + claimNumber + dob
     const uniqueKeyMap = new Map<string, (typeof completeResults)[0]>();
-    completeResults.forEach((doc: (typeof completeResults)[number]) => {
+    completeResults.forEach((doc) => {
       const key = `${doc.patientName}-${doc.claimNumber || ""}-${String(
         doc.dob
       )}`;
@@ -161,59 +124,36 @@ export async function GET(request: Request) {
     });
     const uniqueResults = Array.from(uniqueKeyMap.values());
 
-    // If a search term was provided, further filter the uniqueResults in JS
-    // to allow DOB matching (we compare stringified dob). This avoids
-    // depending on Prisma client types for dob.
-    let filteredResults = uniqueResults;
-    if (searchTerm) {
-      const termLower = searchTerm.toLowerCase();
-      filteredResults = uniqueResults.filter((r) => {
-        const nameMatch = r.patientName?.toLowerCase().includes(termLower);
-        const claimMatch = r.claimNumber
-          ? String(r.claimNumber).toLowerCase().includes(termLower)
-          : false;
-        const dobMatch = r.dob
-          ? String(r.dob).toLowerCase().includes(termLower)
-          : false;
-        return !!nameMatch || !!claimMatch || !!dobMatch;
-      });
-    }
-
-    // Extract unique patientNames, but include all docs in response if needed
+    // ✅ Extract patientNames
     const patientNames = Array.from(
-      new Set(filteredResults.map((r) => r.patientName).filter(Boolean))
+      new Set(uniqueResults.map((r) => r.patientName).filter(Boolean))
     );
 
+    // ✅ Save Audit Log (non-blocking)
     try {
       await prisma.auditLog.create({
         data: {
           userId: session.user.id,
           email: session.user.email,
-          action: `Searched patient names: patientName="${patientName ?? ""}"${
-            physicianId ? `, physicianId="${physicianId}"` : ""
-          }${mode ? `, mode="${mode}"` : ""}`,
+          action: `Flexible search: patientName="${patientName ?? ""}", claimNumber="${claimNumber ?? ""}", dob="${dobParam ?? ""}", physicianId="${physicianId ?? ""}", mode="${mode ?? ""}"`,
           path: "/api/patients",
           method: "GET",
         },
       });
     } catch (auditErr) {
-      // Audit failures should not block the response; log and continue
-      console.error(
-        "Failed to write audit log in recommendation route:",
-        auditErr
-      );
+      console.error("⚠️ Audit log failed:", auditErr);
     }
 
     return NextResponse.json({
       success: true,
       data: {
         patientNames,
-        allMatchingDocuments: uniqueResults, // Deduplicated list of complete matching docs
+        allMatchingDocuments: uniqueResults,
         totalCount: uniqueResults.length,
       },
     });
   } catch (error) {
-    console.error("Error fetching patient name suggestions:", error);
+    console.error("❌ Error fetching patient name suggestions:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
