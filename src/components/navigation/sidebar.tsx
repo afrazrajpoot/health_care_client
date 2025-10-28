@@ -14,8 +14,6 @@ import {
   Menu,
   X,
   Activity,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -84,11 +82,9 @@ const navigationItems: NavigationItem[] = [
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { data: session } = useSession(); // ✅ get session
 
-  const toggleCollapsed = () => setIsCollapsed(!isCollapsed);
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
 
   // ✅ Filter menu items by user role
@@ -126,70 +122,40 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 transition-all duration-300 ease-in-out lg:relative lg:z-0 shadow-2xl",
-          isCollapsed ? "w-16" : "w-72",
+          "fixed left-0 top-0 z-50 h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 transition-all duration-300 ease-in-out lg:relative lg:z-0 shadow-2xl w-72",
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           className
         )}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
-          <div
-            className={cn(
-              "flex items-center gap-3",
-              isCollapsed && "justify-center"
-            )}
-          >
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-violet-500 rounded-xl flex items-center justify-center shadow-lg">
               <Activity className="w-5 h-5 text-white" />
             </div>
-            {!isCollapsed && (
-              <div>
-                <h2 className="text-lg font-bold text-white">HealthCare</h2>
-                <p className="text-xs text-gray-400 font-medium">
-                  AI Assistant
-                </p>
-              </div>
-            )}
+            <div>
+              <h2 className="text-lg font-bold text-white">HealthCare</h2>
+              <p className="text-xs text-gray-400 font-medium">AI Assistant</p>
+            </div>
           </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleCollapsed}
-            className="hidden lg:flex text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all duration-200"
-          >
-            {isCollapsed ? (
-              <ChevronRight size={16} />
-            ) : (
-              <ChevronLeft size={16} />
-            )}
-          </Button>
         </div>
 
         {/* User Profile */}
         <div className="p-6 border-b border-gray-800">
-          <div
-            className={cn(
-              "flex items-center gap-3",
-              isCollapsed && "justify-center"
-            )}
-          >
+          <div className="flex items-center gap-3">
             <Avatar className="w-11 h-11 border-2 border-gray-700 shadow-lg">
               <AvatarFallback className="bg-gradient-to-br from-slate-500 to-violet-500 text-white font-semibold">
                 {session?.user?.firstName?.[0] || "U"}
               </AvatarFallback>
             </Avatar>
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">
-                  {session?.user?.firstName || "User"}
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  {session?.user?.email}
-                </p>
-              </div>
-            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate">
+                {session?.user?.firstName || "User"}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {session?.user?.email}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -210,8 +176,7 @@ export function Sidebar({ className }: SidebarProps) {
                   "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative",
                   isActive
                     ? "bg-gradient-to-r from-slate-500 to-violet-500 text-white shadow-lg shadow-slate-500/25"
-                    : "text-gray-300 hover:text-white hover:bg-gray-800 hover:shadow-md",
-                  isCollapsed && "justify-center px-2"
+                    : "text-gray-300 hover:text-white hover:bg-gray-800 hover:shadow-md"
                 )}
               >
                 <Icon
@@ -224,37 +189,33 @@ export function Sidebar({ className }: SidebarProps) {
                   )}
                 />
 
-                {!isCollapsed && (
-                  <>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-semibold block truncate text-sm">
-                        {item.name}
-                      </span>
-                      {item.description && (
-                        <span
-                          className={cn(
-                            "text-xs block truncate mt-0.5",
-                            isActive ? "text-blue-100" : "text-gray-400"
-                          )}
-                        >
-                          {item.description}
-                        </span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold block truncate text-sm">
+                    {item.name}
+                  </span>
+                  {item.description && (
+                    <span
+                      className={cn(
+                        "text-xs block truncate mt-0.5",
+                        isActive ? "text-blue-100" : "text-gray-400"
                       )}
-                    </div>
+                    >
+                      {item.description}
+                    </span>
+                  )}
+                </div>
 
-                    {item.badge && (
-                      <Badge
-                        className={cn(
-                          "ml-auto text-xs px-2 py-1 font-semibold rounded-lg",
-                          isActive
-                            ? "bg-white/20 text-white border-white/30"
-                            : "bg-gray-700 text-gray-300 border-gray-600"
-                        )}
-                      >
-                        {item.badge}
-                      </Badge>
+                {item.badge && (
+                  <Badge
+                    className={cn(
+                      "ml-auto text-xs px-2 py-1 font-semibold rounded-lg",
+                      isActive
+                        ? "bg-white/20 text-white border-white/30"
+                        : "bg-gray-700 text-gray-300 border-gray-600"
                     )}
-                  </>
+                  >
+                    {item.badge}
+                  </Badge>
                 )}
               </Link>
             );
@@ -266,14 +227,11 @@ export function Sidebar({ className }: SidebarProps) {
           <Link
             href="/settings"
             className={cn(
-              "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-gray-300 hover:text-white hover:bg-gray-800",
-              isCollapsed && "justify-center px-2"
+              "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-gray-300 hover:text-white hover:bg-gray-800"
             )}
           >
             <Settings size={20} className="shrink-0" />
-            {!isCollapsed && (
-              <span className="font-semibold text-sm">Settings</span>
-            )}
+            <span className="font-semibold text-sm">Settings</span>
           </Link>
         </div>
       </aside>

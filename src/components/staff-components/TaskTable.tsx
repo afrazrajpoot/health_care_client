@@ -44,7 +44,7 @@ export default function TaskTable({
   };
 
   const displayedTasks = getDisplayedTasks(currentPane);
-
+  console.log("Displayed tasks:", displayedTasks);
   if (currentPane === "all") {
     if (displayedTasks.length === 0) {
       return (
@@ -57,13 +57,14 @@ export default function TaskTable({
                 <th>Status</th>
                 <th>Due</th>
                 <th>Patient</th>
+                <th>UR Denial Reason</th>
                 <th>Quick Note</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr id="aggEmpty">
-                <td colSpan={7}>
+                <td colSpan={8}>
                   No tasks yet. SnapLink a document or switch tabs to create
                   tasks, then return to All.
                 </td>
@@ -83,6 +84,7 @@ export default function TaskTable({
               <th>Status</th>
               <th>Due</th>
               <th>Patient</th>
+              <th>UR Denial Reason</th>
               <th>Quick Note</th>
               <th>Actions</th>
             </tr>
@@ -93,6 +95,7 @@ export default function TaskTable({
                 key={task.id}
                 task={task}
                 showDept
+                showUrDenial={true}
                 getPresets={getPresets}
                 onSaveNote={onSaveNote}
                 onClaim={onClaim}
@@ -113,12 +116,18 @@ export default function TaskTable({
             <th>Task</th>
             <th>Dept</th>
             <th>Due</th>
+            <th>UR Denial Reason</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {displayedTasks.map((task) => (
-            <OverdueRow key={task.id} task={task} onClaim={onClaim} />
+            <OverdueRow
+              key={task.id}
+              task={task}
+              onClaim={onClaim}
+              showUrDenial={true}
+            />
           ))}
         </tbody>
       </table>
@@ -134,6 +143,7 @@ export default function TaskTable({
           <th>Status</th>
           <th>Due</th>
           <th>Patient</th>
+          <th>UR Denial Reason</th>
           <th>Quick Note</th>
           <th>Actions</th>
         </tr>
@@ -143,6 +153,7 @@ export default function TaskTable({
           <StandardRow
             key={task.id}
             task={task}
+            showUrDenial={true}
             getPresets={getPresets}
             onSaveNote={onSaveNote}
             onClaim={onClaim}

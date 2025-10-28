@@ -412,10 +412,13 @@ export default function Dashboard() {
           text-align: left;
           font-size: 11px;
         }
-        th {
-          background: #f8f9fa;
-          font-weight: 600;
-          font-size: 11px;
+        td.ur-reason-cell {
+          max-width: 200px;
+          min-width: 160px;
+          text-transform: capitalize;
+          line-height: 1.4;
+          white-space: normal;
+          word-wrap: break-word;
         }
         .pill {
           display: inline-block;
@@ -1101,10 +1104,12 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <FailedDocuments
-                  documents={failedDocuments}
-                  onRowClick={handleRowClick}
-                />
+                {failedDocuments && failedDocuments.length > 0 && (
+                  <FailedDocuments
+                    documents={failedDocuments}
+                    onRowClick={handleRowClick}
+                  />
+                )}
               </>
             )}
           </div>
