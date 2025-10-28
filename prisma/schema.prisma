@@ -93,6 +93,7 @@ model SummarySnapshot {
   id                String   @id @default(cuid())
   dx                String
   keyConcern        String
+  bodyPart          String
   nextStep          String
   urDecision        String?   // corresponds to 'ur-decision'
   recommended       String?   // recommended treatment plan
