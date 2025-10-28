@@ -83,7 +83,7 @@ const DocumentsPage = () => {
             case 'QME': return 'bg-blue-50 text-blue-700 border-blue-200';
             case 'ATTORNEY': return 'bg-green-50 text-green-700 border-green-200';
             case 'UR': return 'bg-amber-50 text-amber-700 border-amber-200';
-            case 'IMAGING': return 'bg-purple-50 text-purple-700 border-purple-200';
+            case 'IMAGING': return 'bg-purple-50 text-[#33c7d8] border-purple-200';
             case 'SPECIALTY': return 'bg-gray-50 text-gray-700 border-gray-200';
             default: return 'bg-gray-50 text-gray-700 border-gray-200';
         }

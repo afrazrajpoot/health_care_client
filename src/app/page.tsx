@@ -20,16 +20,16 @@ const Header = () => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 ${
-        isScrolled
-          ? "bg-white/95 backdrop-blur-sm border-b border-gray-200"
-          : "bg-transparent backdrop-blur-sm"
-      } z-50 transition-all duration-300`}
+      className={`fixed top-0 left-0 right-0 ${isScrolled
+        ? "bg-white/95 backdrop-blur-sm border-b border-gray-200"
+        : "bg-transparent backdrop-blur-sm"
+        } z-50 transition-all duration-300`}
     >
+      {/*  */}
       <nav className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-purple-600" strokeWidth={2.5} />
+            <Activity className="w-7 h-7 text-[#53d1df]" strokeWidth={2.5} />
             <span className="text-2xl font-semibold text-gray-900">
               Kabilo AI
             </span>
@@ -66,7 +66,7 @@ const Header = () => {
             <Button variant="outline" className="font-medium text-sm">
               SIGN IN
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700 font-medium text-sm">
+            <Button className="bg-[#53d1df] hover:bg-[#33c7d8] font-medium text-sm">
               SIGN UP
             </Button>
           </div>
@@ -94,7 +94,7 @@ const Button: React.FC<ButtonProps> = ({
   const baseStyles: string =
     "rounded-lg font-medium transition-colors duration-200";
   const variants: any = {
-    default: "bg-purple-600 text-white hover:bg-purple-700",
+    default: "bg-[#53d1df] text-white hover:bg-[#33c7d8]",
     outline: "bg-transparent border-2",
   };
   const sizes: any = {
@@ -137,7 +137,7 @@ const HeroSection = () => {
             viewport={{ once: true }}
             className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight"
           >
-            AI-powered medical legal record analysis for physicians
+            AI-powered healthcare assistant automates your work-flow and ensure HIPAA Compliance.
           </motion.h1>
 
           <motion.p
@@ -168,7 +168,7 @@ const HeroSection = () => {
             </Button>
             <Button
               size="lg"
-              className="bg-purple-600 hover:bg-purple-700 font-semibold px-8 text-base"
+              className="bg-[#53d1df] hover:bg-[#33c7d8] font-semibold px-8 text-base"
             >
               START YOUR 15-DAY FREE TRIAL
             </Button>
@@ -219,7 +219,7 @@ const HeroSection = () => {
             {isHovering && (
               <motion.div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
                 <motion.div
-                  className="absolute w-64 h-64 bg-purple-600/30 rounded-full blur-xl"
+                  className="absolute w-64 h-64 bg-[#53d1df]/30 rounded-full blur-xl"
                   animate={{
                     scale: [0, 2.5, 0],
                     opacity: [0.6, 0.3, 0],
@@ -236,7 +236,7 @@ const HeroSection = () => {
                   }}
                 />
                 <motion.div
-                  className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-2xl"
+                  className="absolute w-96 h-96 bg-[#1fbdd2]/20 rounded-full blur-2xl"
                   animate={{
                     scale: [0, 2, 0],
                     opacity: [0.4, 0.2, 0],
@@ -258,14 +258,14 @@ const HeroSection = () => {
 
             <div className="flex items-center justify-between mb-6 relative z-10">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-purple-600" />
+                <Activity className="w-5 h-5 text-[#53d1df]" />
                 <span className="font-semibold text-gray-900 text-sm">
                   Kabilo AI
                 </span>
               </div>
               <Button
                 size="sm"
-                className="bg-purple-600 hover:bg-purple-700 text-xs relative z-10 inline-block"
+                className="bg-[#53d1df] hover:bg-[#33c7d8] text-xs relative z-10 inline-block"
               >
                 New Case
               </Button>
@@ -280,7 +280,7 @@ const HeroSection = () => {
                 <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 min-h-[200px]">
                   <div className="space-y-3">
                     <div className="text-xs font-medium text-gray-700">
-                      MediScan
+                      Kebilo
                     </div>
                     <div className="space-y-2">
                       <div className="h-2 bg-gray-200 rounded w-3/4"></div>
@@ -321,7 +321,7 @@ const HeroSection = () => {
                       <div className="h-1.5 bg-gray-200 rounded w-4/5"></div>
                     </div>
                   </div>
-                  <div className="bg-purple-600 rounded-lg p-3 text-white min-h-[80px]">
+                  <div className="bg-[#53d1df] rounded-lg p-3 text-white min-h-[80px]">
                     <div className="text-[10px] font-medium">
                       Summary Generated
                     </div>
@@ -442,7 +442,7 @@ const FeaturesSection = () => {
       ),
       title: "Reports",
       description:
-        "MediScan Summaries can be downloaded as PDFs with linked records or Microsoft Word files for quick report building",
+        "Kebilo Summaries can be downloaded as PDFs with linked records or Microsoft Word files for quick report building",
     },
     {
       icon: (
@@ -480,7 +480,7 @@ const FeaturesSection = () => {
   };
 
   return (
-    <section className="min-h-screen py-20 px-6 bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600 flex items-center">
+    <section className="min-h-screen py-20 px-6 bg-gradient-to-br from-[#53d1df] via-[#1fbdd2] to-[#53d1df] flex items-center">
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
@@ -795,12 +795,11 @@ const PricingSection = () => {
             <motion.div
               key={index}
               variants={itemVariants}
-              className={`bg-white rounded-2xl shadow-lg overflow-hidden transition-transform hover:scale-105 ${
-                plan.popular ? "ring-2 ring-purple-600 relative" : ""
-              }`}
+              className={`bg-white rounded-2xl shadow-lg overflow-hidden transition-transform hover:scale-105 ${plan.popular ? "ring-2 ring-[#53d1df] relative" : ""
+                }`}
             >
               {plan.popular && (
-                <div className="bg-purple-600 text-white text-center py-2 text-sm font-semibold">
+                <div className="bg-[#53d1df] text-white text-center py-2 text-sm font-semibold">
                   MOST POPULAR
                 </div>
               )}
@@ -844,11 +843,10 @@ const PricingSection = () => {
                   viewport={{ once: true }}
                 >
                   <Button
-                    className={`w-full mb-6 ${
-                      plan.popular
-                        ? "bg-purple-600 hover:bg-purple-700"
-                        : "bg-gray-900 hover:bg-gray-800"
-                    }`}
+                    className={`w-full mb-6 ${plan.popular
+                      ? "bg-[#53d1df] hover:bg-[#33c7d8]"
+                      : "bg-gray-900 hover:bg-gray-800"
+                      }`}
                     size="lg"
                   >
                     {plan.price === "Custom"
@@ -939,7 +937,7 @@ const ContactSection = () => {
               >
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg
-                    className="w-6 h-6 text-purple-600"
+                    className="w-6 h-6 text-[#53d1df]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -957,7 +955,7 @@ const ContactSection = () => {
                     Email
                   </h3>
                   <p className="text-gray-600 text-sm md:text-base">
-                    support@mediscanai.com
+                    support@Kebiloai.com
                   </p>
                 </div>
               </motion.div>
@@ -971,7 +969,7 @@ const ContactSection = () => {
               >
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg
-                    className="w-6 h-6 text-purple-600"
+                    className="w-6 h-6 text-[#53d1df]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1003,7 +1001,7 @@ const ContactSection = () => {
               >
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg
-                    className="w-6 h-6 text-purple-600"
+                    className="w-6 h-6 text-[#53d1df]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1056,7 +1054,7 @@ const ContactSection = () => {
                   </label>
                   <input
                     type="text"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition text-base"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#53d1df] focus:border-transparent outline-none transition text-base"
                     placeholder="John"
                   />
                 </motion.div>
@@ -1071,7 +1069,7 @@ const ContactSection = () => {
                   </label>
                   <input
                     type="text"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition text-base"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#53d1df] focus:border-transparent outline-none transition text-base"
                     placeholder="Doe"
                   />
                 </motion.div>
@@ -1088,7 +1086,7 @@ const ContactSection = () => {
                 </label>
                 <input
                   type="email"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition text-base"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#53d1df] focus:border-transparent outline-none transition text-base"
                   placeholder="john.doe@example.com"
                 />
               </motion.div>
@@ -1104,7 +1102,7 @@ const ContactSection = () => {
                 </label>
                 <input
                   type="tel"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition text-base"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#53d1df] focus:border-transparent outline-none transition text-base"
                   placeholder="+1 (555) 000-0000"
                 />
               </motion.div>
@@ -1118,7 +1116,7 @@ const ContactSection = () => {
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Practice Type
                 </label>
-                <select className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition text-base">
+                <select className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#53d1df] focus:border-transparent outline-none transition text-base">
                   <option>Select practice type</option>
                   <option>Individual Practitioner</option>
                   <option>Small Practice (2-10)</option>
@@ -1140,7 +1138,7 @@ const ContactSection = () => {
                 </label>
                 <textarea
                   rows={4}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition resize-none text-base"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#53d1df] focus:border-transparent outline-none transition resize-none text-base"
                   placeholder="Tell us about your needs..."
                 ></textarea>
               </motion.div>
@@ -1153,7 +1151,7 @@ const ContactSection = () => {
               >
                 <Button
                   type="submit"
-                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  className="w-full bg-[#53d1df] hover:bg-[#33c7d8]"
                   size="lg"
                 >
                   Send Message
@@ -1185,14 +1183,13 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Activity className="w-6 h-6 text-purple-500" />
+              <Activity className="w-6 h-6 text-[#1fbdd2]" />
               <span className="text-xl font-semibold text-white">
                 Kabilo AI
               </span>
             </div>
             <p className="text-sm text-gray-400  md:text-sm">
-              AI-powered medical legal record analysis for physicians and
-              attorneys.
+              AI-powered healthcare assistant automates your work-flow and ensure HIPAA Compliance.
             </p>
           </div>
 
@@ -1336,35 +1333,35 @@ const Footer = () => {
 const FAQSection = () => {
   const faqs = [
     {
-      question: "What is MediScan AI?",
+      question: "What is Kebilo AI?",
       answer:
-        "MediScan AI is a next-generation AI-powered medical legal record analysis tool built for physicians and attorneys. It ingests medical records — like PDFs, notes, and reports — and automatically turns them into structured summaries, chronologies, and action items. Zero setup. Zero training.",
+        "Kebilo AI is a next-generation AI-powered medical legal record analysis tool built for physicians and attorneys. It ingests medical records — like PDFs, notes, and reports — and automatically turns them into structured summaries, chronologies, and action items. Zero setup. Zero training.",
     },
     {
-      question: "How does MediScan AI improve daily workflow?",
+      question: "How does Kebilo AI improve daily workflow?",
       answer:
-        "MediScan AI removes bottlenecks. Instead of manually reviewing lengthy records or chasing details, get accurate summaries and chronologies in minutes, with AI chat for quick searches and collaboration built in. Focus on what matters — analysis and decisions.",
+        "Kebilo AI removes bottlenecks. Instead of manually reviewing lengthy records or chasing details, get accurate summaries and chronologies in minutes, with AI chat for quick searches and collaboration built in. Focus on what matters — analysis and decisions.",
     },
     {
       question: "What is the AI Analysis Engine?",
       answer:
-        "Our patent-pending AI Analysis Engine is the core intelligence of MediScan AI. Think of it as the 'smart processor' that extracts key information, organizes data chronologically, and generates insights from any medical document, instantly. Legal-grade accuracy starts here.",
+        "Our patent-pending AI Analysis Engine is the core intelligence of Kebilo AI. Think of it as the 'smart processor' that extracts key information, organizes data chronologically, and generates insights from any medical document, instantly. Legal-grade accuracy starts here.",
     },
     {
-      question: "Is MediScan AI just for workers' comp or legal cases?",
+      question: "Is Kebilo AI just for workers' comp or legal cases?",
       answer:
-        "No. MediScan AI works across all medical practices and legal contexts — including personal injury, malpractice, family medicine, ortho, and more. It’s designed to adapt to your workflow, whether handling case reviews, insurance disputes, or high-volume documentation.",
+        "No. Kebilo AI works across all medical practices and legal contexts — including personal injury, malpractice, family medicine, ortho, and more. It’s designed to adapt to your workflow, whether handling case reviews, insurance disputes, or high-volume documentation.",
     },
     {
       question: "Do I need to install or integrate anything with my EMR?",
       answer:
-        "Nope. MediScan AI lives alongside your current system. You keep your EMR — we handle the record analysis. There’s no setup cost, no contracts, and no IT burden. You’re up and running the same day.",
+        "Nope. Kebilo AI lives alongside your current system. You keep your EMR — we handle the record analysis. There’s no setup cost, no contracts, and no IT burden. You’re up and running the same day.",
     },
     {
       question:
-        "What makes MediScan AI different from other AI tools or EHR features?",
+        "What makes Kebilo AI different from other AI tools or EHR features?",
       answer:
-        "Most AI tools help with note-taking or basic summaries. MediScan AI is built for legal medical analysis, converting unstructured records into searchable, chronological workflows with HIPAA compliance and team collaboration. That’s what makes us different — and why we’re trusted by professionals.",
+        "Most AI tools help with note-taking or basic summaries. Kebilo AI is built for legal medical analysis, converting unstructured records into searchable, chronological workflows with HIPAA compliance and team collaboration. That’s what makes us different — and why we’re trusted by professionals.",
     },
   ];
 
@@ -1408,7 +1405,7 @@ const FAQSection = () => {
           viewport={{ once: true }}
           className="text-base md:text-lg text-gray-600 text-center mb-16 max-w-2xl mx-auto"
         >
-          Got questions? We've got answers. Discover how MediScan AI can
+          Got questions? We've got answers. Discover how Kebilo AI can
           transform your record review process.
         </motion.p>
 
@@ -1430,7 +1427,7 @@ const FAQSection = () => {
                 whileInView={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
                 viewport={{ once: true }}
-                className="text-lg md:text-xl font-semibold text-gray-900 mb-3 cursor-pointer hover:text-purple-600 transition-colors"
+                className="text-lg md:text-xl font-semibold text-gray-900 mb-3 cursor-pointer hover:text-[#53d1df] transition-colors"
               >
                 {faq.question}
               </motion.h3>
@@ -1450,7 +1447,7 @@ const FAQSection = () => {
     </section>
   );
 };
-export default function MediScanLanding() {
+export default function KebiloLanding() {
   return (
     <div className="min-h-screen bg-white font-sans antialiased leading-relaxed">
       <Header />

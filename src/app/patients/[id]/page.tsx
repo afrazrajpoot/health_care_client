@@ -77,9 +77,9 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
         const doiFormatted = `${(doiDate.getMonth() + 1)
           .toString()
           .padStart(2, "0")}/${doiDate
-          .getDate()
-          .toString()
-          .padStart(2, "0")}/${doiDate.getFullYear()}`;
+            .getDate()
+            .toString()
+            .padStart(2, "0")}/${doiDate.getFullYear()}`;
         const updatedFormatted = updated.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
@@ -238,11 +238,10 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
                         Work Status
                       </h3>
                       <div
-                        className={`p-4 rounded-lg border-l-4 ${
-                          daysOverdue > 30
+                        className={`p-4 rounded-lg border-l-4 ${daysOverdue > 30
                             ? "bg-amber-50 border-l-amber-400 border border-amber-200"
                             : "bg-green-50 border-l-green-400 border border-green-200"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2 mb-2">
                           {daysOverdue > 30 && (
@@ -407,11 +406,10 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
                             </div>
                             <Badge
                               variant="outline"
-                              className={`font-medium ${
-                                doc.type === "QME"
+                              className={`font-medium ${doc.type === "QME"
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : "bg-purple-50 text-purple-700 border-purple-200"
-                              }`}
+                                  : "bg-purple-50 text-[#33c7d8] border-purple-200"
+                                }`}
                             >
                               {doc.type}
                             </Badge>
