@@ -45,7 +45,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         statusClass: apiTask.status.toLowerCase().replace(/\s+/g, "-"),
         due: dueDate.toLocaleDateString(),
         overdue,
-        patient: apiTask.patient,
+        patient: apiTask?.document?.patientName,
         assignee: apiTask.actions.includes("Claimed") ? "You" : "Unclaimed",
         mode: currentMode,
         notes,
