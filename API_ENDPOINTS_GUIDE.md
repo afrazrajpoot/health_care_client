@@ -2,7 +2,7 @@
 
 ## Complete API Reference with Payloads and Parameters
 
-### Base URL: `http://localhost:8000/api`
+### Base URL: `https://api.kebilo.com/api`
 
 ---
 
@@ -360,7 +360,7 @@ document: file (required)
 
 ```bash
 curl -X POST \
-  http://localhost:8000/api/extract-document \
+  https://api.kebilo.com/api/extract-document \
   -F "document=@/path/to/medical-report.docx"
 ```
 
