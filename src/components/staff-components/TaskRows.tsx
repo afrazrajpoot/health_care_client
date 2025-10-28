@@ -4,6 +4,7 @@ import { Task } from "./types";
 interface StandardRowProps {
   task: Task;
   showDept?: boolean;
+  showUrDenial?: boolean;
   getPresets: (dept: string) => { type: string[]; more: string[] };
   onSaveNote: (e: React.MouseEvent, id: string) => void;
   onClaim: (id: string) => void;
@@ -13,6 +14,7 @@ interface StandardRowProps {
 export function StandardRow({
   task,
   showDept = false,
+  showUrDenial = false,
   getPresets,
   onSaveNote,
   onClaim,
@@ -21,6 +23,10 @@ export function StandardRow({
   const presets = getPresets(task.dept);
   const handleSave = (e: React.MouseEvent) => onSaveNote(e, task.id);
   const isClaimed = task.actions?.includes("Claimed") || false;
+
+  // Get UR denial reason from task or nested document
+  const urDenialReason =
+    task.ur_denial_reason || task.document?.ur_denial_reason;
 
   return (
     <tr data-taskid={task.id} data-dept={task.dept} data-overdue={task.overdue}>
@@ -35,6 +41,18 @@ export function StandardRow({
       </td>
       <td>{task.due}</td>
       <td>{task.patient || "—"}</td>
+
+      {/* UR Denial Reason Column */}
+      {showUrDenial && (
+        <td className="ur-reason-cell">
+          {urDenialReason ? (
+            <span title={urDenialReason}>{urDenialReason}</span>
+          ) : (
+            <span>—</span>
+          )}
+        </td>
+      )}
+
       <td>
         <div className="qnote">
           <select className="qtype">
@@ -84,10 +102,19 @@ export function StandardRow({
 interface OverdueRowProps {
   task: Task;
   onClaim: (id: string) => void;
+  showUrDenial?: boolean;
 }
 
-export function OverdueRow({ task, onClaim }: OverdueRowProps) {
+export function OverdueRow({
+  task,
+  onClaim,
+  showUrDenial = false,
+}: OverdueRowProps) {
   const isClaimed = task.actions?.includes("Claimed") || false;
+
+  // Get UR denial reason from task or nested document
+  const urDenialReason =
+    task.ur_denial_reason || task.document?.ur_denial_reason;
 
   return (
     <tr data-dept={task.dept} data-overdue="true">
@@ -96,6 +123,18 @@ export function OverdueRow({ task, onClaim }: OverdueRowProps) {
         <span className="pill waiting">{task.dept}</span>
       </td>
       <td>{task.due}</td>
+
+      {/* UR Denial Reason Column for Overdue */}
+      {showUrDenial && (
+        <td className="ur-reason-cell">
+          {urDenialReason ? (
+            <span title={urDenialReason}>{urDenialReason}</span>
+          ) : (
+            <span>—</span>
+          )}
+        </td>
+      )}
+
       <td>
         <button className="btn primary" onClick={() => onClaim(task.id)}>
           {isClaimed ? "Unclaim" : "Claim"}

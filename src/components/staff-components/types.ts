@@ -14,6 +14,10 @@ export interface Task {
   notes: { ts: string; user: string; line: string }[];
   actions: string[];
   sourceDocument?: string;
+  document?: {
+    ur_denial_reason?: string;
+    // other document properties
+  }
 }
   
   export interface Note {

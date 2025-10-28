@@ -30,6 +30,13 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           ]
         : [];
 
+      // Get UR denial reason from multiple possible sources
+      const urDenialReason =
+        apiTask.ur_denial_reason ||
+        apiTask.document?.ur_denial_reason ||
+        apiTask.reason ||
+        "";
+
       return {
         id: apiTask.id,
         task: apiTask.description,
@@ -42,8 +49,11 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         assignee: apiTask.actions.includes("Claimed") ? "You" : "Unclaimed",
         mode: currentMode,
         notes,
+        ur_denial_reason: urDenialReason, // Fixed property name
+        documentId: apiTask.documentId,
         actions: apiTask.actions,
         sourceDocument: apiTask.sourceDocument,
+        document: apiTask.document, // Include full document object if available
       };
     },
     []
@@ -90,6 +100,9 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           body: JSON.stringify({
             ...(updates.statusText && { status: updates.statusText }),
             ...(updates.actions && { actions: updates.actions }),
+            ...(updates.ur_denial_reason && {
+              ur_denial_reason: updates.ur_denial_reason,
+            }),
           }),
         });
 
@@ -101,7 +114,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       } catch (error) {
         console.error("Error updating task:", error);
         toast.error("❌ Error updating task");
-        fetchTasks(initialMode); // Refetch with initial mode, but better to pass current
+        fetchTasks(initialMode);
       }
     },
     [fetchTasks, initialMode]
@@ -127,6 +140,40 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       toast.success("🎉 Task marked complete");
     },
     [updateTask]
+  );
+
+  // New function to update UR denial reason
+  const updateUrDenialReason = useCallback(
+    async (id: string, reason: string) => {
+      try {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === id ? { ...t, ur_denial_reason: reason } : t
+          )
+        );
+
+        const response = await fetch(`/api/tasks/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ur_denial_reason: reason,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update UR denial reason");
+        }
+
+        toast.success("✅ UR denial reason updated");
+      } catch (error) {
+        console.error("Error updating UR denial reason:", error);
+        toast.error("❌ Error updating UR denial reason");
+        fetchTasks(initialMode);
+      }
+    },
+    [fetchTasks, initialMode]
   );
 
   const saveNote = useCallback(
@@ -192,6 +239,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         description: string;
         department: string;
         documentId?: string;
+        urDenialReason?: string; // Add UR denial reason to form data
       },
       currentMode: "wc" | "gm"
     ) => {
@@ -210,6 +258,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
             actions: ["Claimed", "Complete"],
             documentId: formData.documentId,
             mode: currentMode,
+            ur_denial_reason: formData.urDenialReason, // Include UR denial reason
           }),
         });
 
@@ -271,5 +320,6 @@ export const useTasks = (initialMode: "wc" | "gm") => {
     completeTask,
     saveNote,
     handleCreateManualTask,
+    updateUrDenialReason, // Export the new function
   };
 };
