@@ -147,9 +147,7 @@ const HeroSection = () => {
             viewport={{ once: true }}
             className="text-base md:text-lg text-gray-700 leading-relaxed max-w-xl"
           >
-            Kabilo AI delivers accurate medical record summaries and
-            chronologies in minutes, not days, powered by cutting-edge AI built
-            for physicians and attorneys. Let Kabilo AI do the review with you.
+            Kabilo AI automates medical documentation, task creation, and physician workflows — transforming complex reports into clear, actionable insights in minutes. Designed for healthcare teams, Kabilo AI streamlines review, coordination, and compliance across every patient case.
           </motion.p>
 
           <motion.div
