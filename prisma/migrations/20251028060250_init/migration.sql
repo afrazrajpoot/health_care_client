@@ -57,6 +57,7 @@ CREATE TABLE "public"."Document" (
     "id" TEXT NOT NULL,
     "dob" TEXT,
     "doi" TEXT NOT NULL,
+    "mode" TEXT DEFAULT 'wc',
     "patientName" TEXT NOT NULL,
     "status" TEXT NOT NULL,
     "claimNumber" TEXT NOT NULL,
@@ -69,6 +70,9 @@ CREATE TABLE "public"."Document" (
     "physicianId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "fileHash" VARCHAR(64),
+    "userId" TEXT,
+    "ur_denial_reason" TEXT,
 
     CONSTRAINT "Document_pkey" PRIMARY KEY ("id")
 );
@@ -79,6 +83,10 @@ CREATE TABLE "public"."SummarySnapshot" (
     "dx" TEXT NOT NULL,
     "keyConcern" TEXT NOT NULL,
     "nextStep" TEXT NOT NULL,
+    "urDecision" TEXT,
+    "recommended" TEXT,
+    "aiOutcome" TEXT,
+    "consultingDoctors" TEXT[],
     "documentId" TEXT NOT NULL,
 
     CONSTRAINT "SummarySnapshot_pkey" PRIMARY KEY ("id")
@@ -121,27 +129,38 @@ CREATE TABLE "public"."AuditLog" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."PatientQuiz" (
+CREATE TABLE "public"."patient_quizzes" (
     "id" TEXT NOT NULL,
-    "patientName" TEXT,
+    "patientName" TEXT NOT NULL,
     "dob" TEXT,
     "doi" TEXT,
     "lang" TEXT NOT NULL,
-    "newAppt" JSONB,
+    "bodyAreas" TEXT,
+    "newAppointments" JSONB,
     "refill" JSONB,
     "adl" JSONB NOT NULL,
+    "therapies" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "claimNumber" TEXT,
 
-    CONSTRAINT "PatientQuiz_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "patient_quizzes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "public"."FailDocs" (
     "id" TEXT NOT NULL,
     "reason" TEXT NOT NULL,
-    "blobPath" TEXT NOT NULL,
     "physicianId" TEXT,
+    "claimNumber" TEXT,
+    "documentText" TEXT,
+    "doi" TEXT,
+    "patientName" TEXT,
+    "blobPath" TEXT,
+    "fileHash" TEXT,
+    "fileName" TEXT,
+    "gcsFileLink" TEXT,
+    "dob" TEXT,
 
     CONSTRAINT "FailDocs_pkey" PRIMARY KEY ("id")
 );
@@ -161,6 +180,7 @@ CREATE TABLE "public"."intake_links" (
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "claimNumber" TEXT,
 
     CONSTRAINT "intake_links_pkey" PRIMARY KEY ("id")
 );
@@ -175,13 +195,61 @@ CREATE TABLE "public"."Task" (
     "patient" TEXT NOT NULL,
     "actions" TEXT[] DEFAULT ARRAY['Claim', 'Complete']::TEXT[],
     "sourceDocument" TEXT,
-    "quickNotes" JSONB DEFAULT '{"status_update": "", "details": "", "one_line_note": ""}',
+    "quickNotes" JSONB DEFAULT '{"details": "", "one_line_note": "", "status_update": ""}',
     "documentId" TEXT,
     "physicianId" TEXT,
+    "reason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Task_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."WorkflowStats" (
+    "id" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "referralsProcessed" INTEGER NOT NULL DEFAULT 0,
+    "rfasMonitored" INTEGER NOT NULL DEFAULT 0,
+    "qmeUpcoming" INTEGER NOT NULL DEFAULT 0,
+    "payerDisputes" INTEGER NOT NULL DEFAULT 0,
+    "externalDocs" INTEGER NOT NULL DEFAULT 0,
+    "intakes_created" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "WorkflowStats_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."subscriptions" (
+    "id" TEXT NOT NULL,
+    "physicianId" TEXT NOT NULL,
+    "plan" TEXT NOT NULL,
+    "amountTotal" INTEGER NOT NULL,
+    "status" TEXT NOT NULL,
+    "stripeCustomerId" TEXT,
+    "stripeSubscriptionId" TEXT,
+    "documentParse" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "subscriptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."CheckoutSession" (
+    "id" TEXT NOT NULL,
+    "stripeSessionId" TEXT NOT NULL,
+    "physicianId" TEXT NOT NULL,
+    "plan" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "status" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CheckoutSession_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -200,6 +268,9 @@ CREATE UNIQUE INDEX "VerificationToken_token_key" ON "public"."VerificationToken
 CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "public"."VerificationToken"("identifier", "token");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Document_fileHash_userId_key" ON "public"."Document"("fileHash", "userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "SummarySnapshot_documentId_key" ON "public"."SummarySnapshot"("documentId");
 
 -- CreateIndex
@@ -211,11 +282,23 @@ CREATE UNIQUE INDEX "DocumentSummary_documentId_key" ON "public"."DocumentSummar
 -- CreateIndex
 CREATE UNIQUE INDEX "intake_links_token_key" ON "public"."intake_links"("token");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "CheckoutSession_stripeSessionId_key" ON "public"."CheckoutSession"("stripeSessionId");
+
+-- CreateIndex
+CREATE INDEX "CheckoutSession_stripeSessionId_idx" ON "public"."CheckoutSession"("stripeSessionId");
+
+-- CreateIndex
+CREATE INDEX "CheckoutSession_physicianId_idx" ON "public"."CheckoutSession"("physicianId");
+
 -- AddForeignKey
 ALTER TABLE "public"."Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."Document" ADD CONSTRAINT "Document_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."SummarySnapshot" ADD CONSTRAINT "SummarySnapshot_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "public"."Document"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

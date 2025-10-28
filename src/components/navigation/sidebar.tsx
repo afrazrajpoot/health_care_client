@@ -48,15 +48,15 @@ const navigationItems: NavigationItem[] = [
     description: "Pricing and billing",
     roles: ["Physician"], // ✅ Physician only
   },
-  // {
-  //   name: "Fail Documents",
-  //   href: "/fail-documents",
+  {
+    name: "Rebuttals",
+    href: "/generate-rebuttal",
 
-  //   icon: CheckSquare,
-  //   badge: "8",
-  //   description: "Task management & assignments",
-  //   roles: ["Staff"], // ✅ Both
-  // },
+    icon: CheckSquare,
+    badge: "8",
+    description: "Task management & assignments",
+    roles: ["Physician"], // ✅ Both
+  },
   {
     name: "Upload Documents",
     href: "/staff-dashboard",
