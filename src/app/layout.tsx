@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Kabilo",
   description:
-    "AI-powered healthcare asistant automates document classification and task creation for medical practices",
+    "AI-powered healthcare assistant automates document classification and task creation for medical practices",
 };
 
 export default function RootLayout({
