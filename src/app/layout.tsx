@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ebilo AI",
+  title: "Kebilo AI",
   description:
     "AI-powered healthcare assistant automates document classification and task creation for medical practices",
 };
