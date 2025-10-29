@@ -1,4 +1,3 @@
-// Updated backend API route (/api/patients/route.ts or similar)
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -75,13 +74,13 @@ export async function GET(request: Request) {
 
     const results = await prisma.document.findMany({
       where: whereClause,
-      include: {
-        bodyPartSnapshots: {
-          select: {
-            bodyPart: true,
-            dx: true,
-          },
-        },
+      select: {
+        patientName: true,
+        claimNumber: true,
+        dob: true,
+        doi: true,
+        id: true,
+        physicianId: true,
       },
       take: 20,
       orderBy: { createdAt: "desc" },
