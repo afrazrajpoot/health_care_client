@@ -80,7 +80,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Header Section */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gray-100 mb-6">
+          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-cyan-100 mb-6">
             <Lock className="h-8 w-8 text-gray-700" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
@@ -154,7 +154,7 @@ export default function SignInPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white font-medium text-base transition-colors duration-200"
+                  className="w-full h-12 bg-[#53d1df] hover:bg-[#33c7d8] text-white font-medium text-base transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

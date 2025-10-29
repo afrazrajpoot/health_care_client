@@ -122,37 +122,37 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 transition-all duration-300 ease-in-out lg:relative lg:z-0 shadow-2xl w-72",
+          "fixed left-0 top-0 z-50 h-screen bg-white transition-all duration-300 ease-in-out lg:relative lg:z-0 shadow-lg border-r border-gray-200 w-72",
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-800">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-violet-500 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#33c7d8] to-[#53d1df] rounded-xl flex items-center justify-center shadow-md">
               <Activity className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">HealthCare</h2>
-              <p className="text-xs text-gray-400 font-medium">AI Assistant</p>
+              <h2 className="text-lg font-bold text-gray-800">HealthCare</h2>
+              <p className="text-xs text-gray-500 font-medium">AI Assistant</p>
             </div>
           </div>
         </div>
 
         {/* User Profile */}
-        <div className="p-6 border-b border-gray-800">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <Avatar className="w-11 h-11 border-2 border-gray-700 shadow-lg">
-              <AvatarFallback className="bg-gradient-to-br from-slate-500 to-violet-500 text-white font-semibold">
+            <Avatar className="w-11 h-11 border-2 border-gray-300 shadow-sm">
+              <AvatarFallback className="bg-gradient-to-br from-[#33c7d8] to-[#53d1df] text-white font-semibold">
                 {session?.user?.firstName?.[0] || "U"}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">
+              <p className="text-sm font-semibold text-gray-800 truncate">
                 {session?.user?.firstName || "User"}
               </p>
-              <p className="text-xs text-gray-400 truncate">
+              <p className="text-xs text-gray-500 truncate">
                 {session?.user?.email}
               </p>
             </div>
@@ -175,17 +175,15 @@ export function Sidebar({ className }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative",
                   isActive
-                    ? "bg-gradient-to-r from-slate-500 to-violet-500 text-white shadow-lg shadow-slate-500/25"
-                    : "text-gray-300 hover:text-white hover:bg-gray-800 hover:shadow-md"
+                    ? "bg-gradient-to-r from-[#33c7d8] to-[#53d1df] text-white shadow-md"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 )}
               >
                 <Icon
                   size={20}
                   className={cn(
                     "transition-colors shrink-0",
-                    isActive
-                      ? "text-white"
-                      : "text-gray-400 group-hover:text-white"
+                    isActive ? "text-white" : "text-gray-500 group-hover:text-gray-700"
                   )}
                 />
 
@@ -197,7 +195,7 @@ export function Sidebar({ className }: SidebarProps) {
                     <span
                       className={cn(
                         "text-xs block truncate mt-0.5",
-                        isActive ? "text-blue-100" : "text-gray-400"
+                        isActive ? "text-white/90" : "text-gray-500"
                       )}
                     >
                       {item.description}
@@ -211,7 +209,7 @@ export function Sidebar({ className }: SidebarProps) {
                       "ml-auto text-xs px-2 py-1 font-semibold rounded-lg",
                       isActive
                         ? "bg-white/20 text-white border-white/30"
-                        : "bg-gray-700 text-gray-300 border-gray-600"
+                        : "bg-gray-200 text-gray-700 border-gray-300"
                     )}
                   >
                     {item.badge}
@@ -223,12 +221,10 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-200">
           <Link
             href="/settings"
-            className={cn(
-              "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-gray-300 hover:text-white hover:bg-gray-800"
-            )}
+            className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
           >
             <Settings size={20} className="shrink-0" />
             <span className="font-semibold text-sm">Settings</span>
@@ -236,5 +232,6 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </aside>
     </>
+
   );
 }
