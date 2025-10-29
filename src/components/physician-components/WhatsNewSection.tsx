@@ -229,9 +229,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               Mark All Reviewed
             </span>
             <button
-              className={`copy-btn ${
-                copied["section-whatsnew"] ? "copied" : ""
-              }`}
+              className={`copy-btn ${copied["section-whatsnew"] ? "copied" : ""
+                }`}
               onClick={handleCopyClick}
               title="Copy Section"
             >
@@ -276,12 +275,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                                 Quick note
                               </span>
                             )}
-                            {item.content}
+                            {item.description}
                             {item.type !== "quick_note" && (
                               <span
-                                className={`status-${
-                                  isViewed ? "approved" : "pending"
-                                }`}
+                                className={`status-${isViewed ? "approved" : "pending"
+                                  }`}
                               >
                                 {isViewed ? "✅" : "⏳"}
                               </span>
@@ -301,9 +299,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             )}
                             {item.type !== "quick_note" && (
                               <button
-                                className={`mark-viewed-btn ${
-                                  isViewed ? "viewed" : ""
-                                }`}
+                                className={`mark-viewed-btn ${isViewed ? "viewed" : ""
+                                  }`}
                                 onClick={(e) => handleMarkViewed(e, itemKey)}
                                 title={isViewed ? "Viewed" : "Mark Viewed"}
                               >
@@ -315,11 +312,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         {item.type === "quick_note" && isExpanded && (
                           <div className="item-details">
                             <p>
-                              <strong>Task Description:</strong>{" "}
+                              <strong>Task:</strong>{" "}
                               {item.description || "No description available"}
                             </p>
                             <p>
-                              <strong>Content:</strong> {item.content}
+                              <strong>Notes:</strong> {item.content}
                             </p>
                           </div>
                         )}
