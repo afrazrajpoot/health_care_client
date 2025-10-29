@@ -275,7 +275,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                                 Quick note
                               </span>
                             )}
-                            {item.description}
+                            {item.content}
                             {item.type !== "quick_note" && (
                               <span
                                 className={`status-${isViewed ? "approved" : "pending"
