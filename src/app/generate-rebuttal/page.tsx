@@ -93,7 +93,7 @@ export default function RebuttalFormPage() {
       }
 
       const res = await fetch(
-        `/api/dashboard/recommendation?${params.toString()}`,
+        `/api/dashboard/deniel-recommendation?${params.toString()}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
