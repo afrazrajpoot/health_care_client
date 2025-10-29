@@ -860,12 +860,15 @@ export default function PhysicianCard() {
 
   // Format date from ISO string to MM/DD/YYYY
   const formatDate = (dateString: string | undefined): string => {
-    if (!dateString) return "—";
+    if (!dateString) return "Not specified";
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Not specified";
+      }
       return date.toLocaleDateString();
     } catch {
-      return dateString;
+      return "Not specified";
     }
   };
 
@@ -882,17 +885,19 @@ export default function PhysicianCard() {
 
   // Format date for display (Visit date)
   const getVisitDate = (): string => {
-    return documentData?.created_at ? formatDate(documentData.created_at) : "—";
+    return documentData?.created_at
+      ? formatDate(documentData.created_at)
+      : "Not specified";
   };
 
   // Get current patient info for display
   const getCurrentPatientInfo = (): Patient => {
     if (documentData) {
       return {
-        patientName: documentData.patient_name || "Select a patient",
-        dob: documentData.dob || "—",
-        doi: documentData.doi || "—",
-        claimNumber: documentData.claim_number || "—",
+        patientName: documentData.patient_name || "Not specified",
+        dob: documentData.dob || undefined,
+        doi: documentData.doi || undefined,
+        claimNumber: documentData.claim_number || "Not specified",
       };
     }
     if (selectedPatient) {
@@ -900,17 +905,17 @@ export default function PhysicianCard() {
         patientName:
           selectedPatient.patientName ||
           selectedPatient.name ||
-          "Select a patient",
-        dob: selectedPatient.dob || "—",
-        doi: selectedPatient.doi || "—",
-        claimNumber: selectedPatient.claimNumber || "—",
+          "Not specified",
+        dob: selectedPatient.dob || undefined,
+        doi: selectedPatient.doi || undefined,
+        claimNumber: selectedPatient.claimNumber || "Not specified",
       };
     }
     return {
       patientName: "Select a patient",
-      dob: "—",
-      doi: "—",
-      claimNumber: "—",
+      dob: undefined,
+      doi: undefined,
+      claimNumber: "Not specified",
     };
   };
 
