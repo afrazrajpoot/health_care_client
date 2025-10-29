@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kabilo",
+  title: "ebilo AI",
   description:
     "AI-powered healthcare assistant automates document classification and task creation for medical practices",
 };
@@ -29,6 +29,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* logo.png */}
+        <link rel="icon" href="/logo.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

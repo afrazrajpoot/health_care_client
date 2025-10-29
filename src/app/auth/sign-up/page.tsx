@@ -127,7 +127,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-lg space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gray-100 mb-6">
+          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-cyan-100 mb-6">
             <UserPlus className="h-8 w-8 text-gray-700" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">
@@ -317,7 +317,7 @@ export default function SignUpPage() {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white"
+                  className="w-full h-12 bg-[#53d1df] hover:bg-[#33c7d8] text-white"
                   disabled={isLoading}
                 >
                   {isLoading && (

@@ -5,6 +5,7 @@ import { Activity, CheckCircle } from "lucide-react";
 // import { Button } from "@/components/ui/button";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -13,10 +14,18 @@ const Header = () => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 5000);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Smooth scroll handler
+  const handleMenuClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, id: string) => {
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   return (
     <header
@@ -25,50 +34,56 @@ const Header = () => {
         : "bg-transparent backdrop-blur-sm"
         } z-50 transition-all duration-300`}
     >
-      {/*  */}
       <nav className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Activity className="w-7 h-7 text-[#53d1df]" strokeWidth={2.5} />
-            <span className="text-2xl font-semibold text-gray-900">
-              Kabilo AI
+            {/* <Activity className="w-7 h-7 text-[#53d1df]" strokeWidth={2.5} /> */}
+            <img src="/logo.png" alt="logo" className="w-10 h-12" />
+            <span className="text-2xl -ml-[0.8vw] font-semibold text-gray-900">
+              ebilo AI
             </span>
           </div>
-
           <div className="hidden md:flex items-center gap-8">
             <a
               href="#how-it-works"
+              onClick={e => handleMenuClick(e, "how-it-works")}
               className="text-gray-700 hover:text-gray-900 transition-colors text-base"
             >
               How it works
             </a>
             <a
               href="#pricing"
+              onClick={e => handleMenuClick(e, "pricing")}
               className="text-gray-700 hover:text-gray-900 transition-colors text-base"
             >
               Pricing
             </a>
             <a
               href="#support"
+              onClick={e => handleMenuClick(e, "support")}
               className="text-gray-700 hover:text-gray-900 transition-colors text-base"
             >
               Support
             </a>
             <a
               href="#resources"
+              onClick={e => handleMenuClick(e, "resources")}
               className="text-gray-700 hover:text-gray-900 transition-colors text-base"
             >
               Resources
             </a>
           </div>
-
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="font-medium text-sm">
-              SIGN IN
-            </Button>
-            <Button className="bg-[#53d1df] hover:bg-[#33c7d8] font-medium text-sm">
-              SIGN UP
-            </Button>
+            <Link href="/auth/sign-in" className="cursor-pointer">
+              <Button variant="outline" className="font-medium hover:text-[#53d1df] hover:border-[#53d1df] cursor-pointer text-sm">
+                SIGN IN
+              </Button>
+            </Link>
+            <Link href="/auth/sign-up" className="cursor-pointer">
+              <Button className="bg-[#53d1df] cursor-pointer hover:bg-[#33c7d8] font-medium text-sm">
+                SIGN UP
+              </Button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -119,8 +134,8 @@ const HeroSection = () => {
   const [isHovering, setIsHovering] = useState(false);
 
   return (
-    <section className="min-h-screen pt-32 pb-20 px-6 bg-gradient-to-br from-purple-50 via-purple-50 to-purple-100 relative overflow-hidden flex items-center">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-200/40 via-transparent to-transparent"></div>
+    <section className="min-h-screen pt-32 pb-20 px-6 bg-gradient-to-br from-cyan-50 via-cyan-50 to-cyan-100 relative overflow-hidden flex items-center">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-200/40 via-transparent to-transparent"></div>
 
       <motion.div
         initial={{ opacity: 0, y: 50 }}
@@ -135,9 +150,9 @@ const HeroSection = () => {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
-            className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight"
+            className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight"
           >
-            AI-powered healthcare assistant automates your work-flow and ensure HIPAA Compliance.
+            The First Patent-Pending AI Assistant Built to Transform Healthcare Workflows — Not Just Document Them
           </motion.h1>
 
           <motion.p
@@ -147,7 +162,7 @@ const HeroSection = () => {
             viewport={{ once: true }}
             className="text-base md:text-lg text-gray-700 leading-relaxed max-w-xl"
           >
-            Kabilo AI automates medical documentation, task creation, and physician workflows — transforming complex reports into clear, actionable insights in minutes. Designed for healthcare teams, Kabilo AI streamlines review, coordination, and compliance across every patient case.
+            Powerful yet simple features that automate the routine, so medical examiners can focus on care, not paperwork
           </motion.p>
 
           <motion.div
@@ -258,7 +273,7 @@ const HeroSection = () => {
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-[#53d1df]" />
                 <span className="font-semibold text-gray-900 text-sm">
-                  Kabilo AI
+                  Kebilo AI
                 </span>
               </div>
               <Button
@@ -291,7 +306,7 @@ const HeroSection = () => {
 
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <div className="w-8 h-8 bg-purple-100 rounded border border-purple-200"></div>
+                  <div className="w-8 h-8 bg-cyan-100 rounded border border-cyan-200"></div>
                   <div className="w-8 h-8 bg-gray-100 rounded border border-gray-200"></div>
                 </div>
                 <div className="bg-white rounded-lg border-2 border-gray-300 p-4 min-h-[200px]">
@@ -308,9 +323,9 @@ const HeroSection = () => {
 
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <div className="w-6 h-6 bg-purple-50 rounded border border-purple-200"></div>
-                  <div className="w-6 h-6 bg-purple-50 rounded border border-purple-200"></div>
-                  <div className="w-6 h-6 bg-purple-50 rounded border border-purple-200"></div>
+                  <div className="w-6 h-6 bg-cyan-50 rounded border border-cyan-200"></div>
+                  <div className="w-6 h-6 bg-cyan-50 rounded border border-cyan-200"></div>
+                  <div className="w-6 h-6 bg-cyan-50 rounded border border-cyan-200"></div>
                 </div>
                 <div className="space-y-3">
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 min-h-[80px]">
@@ -361,13 +376,13 @@ const FeaturesSection = () => {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
-          <path d="M14 2v6h6M12 18v-6M9 15h6" />
+          <path d="M4 4h16v2H4zM4 8h16v12H4z" />
+          <path d="M2 6h20v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" />
         </svg>
       ),
       title: "Scan any record",
       description:
-        "Scan PDF copies of typed or hand written notes quickly and with high accuracy",
+        "Upload or scan handwritten and digital medical records with high accuracy using AI-powered document recognition.",
     },
     {
       icon: (
@@ -376,15 +391,13 @@ const FeaturesSection = () => {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
-          <circle cx="10" cy="14" r="1" />
-          <circle cx="14" cy="14" r="1" />
-          <circle cx="10" cy="18" r="1" />
+          <path d="M12 20h9" />
+          <path d="M16.5 3a5.5 5.5 0 0 1 0 11H12v6H6V10H3" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>
       ),
-      title: "Fast summaries",
+      title: "Precise summarization",
       description:
-        "Summaries take anywhere from between 5-20 minutes depending on case size",
+        "Generate concise, physician-grade summaries within minutes—highlighting key findings, diagnoses, and recommendations.",
     },
     {
       icon: (
@@ -393,18 +406,13 @@ const FeaturesSection = () => {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          <path
-            d="M8 10h8M8 14h6"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            fill="none"
-          />
+          <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none" />
+          <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>
       ),
-      title: "AI chat and search",
+      title: "Auto Task Trigger",
       description:
-        "Ask the medical record any question and receive a response within seconds",
+        "Automatically create and assign clinical or administrative tasks based on AI-analyzed reports and findings.",
     },
     {
       icon: (
@@ -413,17 +421,13 @@ const FeaturesSection = () => {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" stroke="white" strokeWidth="2" />
-          <line x1="8" y1="2" x2="8" y2="6" stroke="white" strokeWidth="2" />
-          <circle cx="8" cy="14" r="1" />
-          <circle cx="12" cy="14" r="1" />
-          <circle cx="16" cy="14" r="1" />
+          <path d="M4 4h16v16H4z" stroke="currentColor" strokeWidth="2" fill="none" />
+          <path d="M8 8h8v2H8zM8 12h6v2H8zM8 16h4v2H8z" />
         </svg>
       ),
-      title: "Chronologies",
+      title: "Follow Up Visit Intake",
       description:
-        "Medical records are automatically split and placed in chronological order during summarization",
+        "AI intelligently detects follow-up requirements, prepares pre-visit summaries, and aligns tasks for clinical teams.",
     },
     {
       icon: (
@@ -432,15 +436,12 @@ const FeaturesSection = () => {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <rect x="3" y="3" width="7" height="7" />
-          <rect x="14" y="3" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" />
-          <rect x="3" y="14" width="7" height="7" />
+          <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>
       ),
-      title: "Reports",
+      title: "Treatment Updates",
       description:
-        "Kebilo Summaries can be downloaded as PDFs with linked records or Microsoft Word files for quick report building",
+        "Track patient progress, treatment plans, and AI-generated updates across multiple reports in one place.",
     },
     {
       icon: (
@@ -449,17 +450,16 @@ const FeaturesSection = () => {
           fill="currentColor"
           viewBox="0 0 24 24"
         >
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" stroke="currentColor" strokeWidth="2" fill="none" />
+          <circle cx="12" cy="9" r="2" fill="currentColor" />
         </svg>
       ),
-      title: "Share",
+      title: "Security & Compliance",
       description:
-        "Invite your colleagues and staff to collaborate with you on medical record review and summarization",
+        "All data is encrypted and processed within HIPAA-compliant standards, ensuring full patient data protection.",
     },
   ];
+
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -493,7 +493,7 @@ const FeaturesSection = () => {
           viewport={{ once: true }}
           className="text-3xl md:text-4xl lg:text-5xl font-bold text-white text-center mb-4"
         >
-          Simple features so medical examiners can get the job done
+          AI-powered tools that make medical workflows faster, simpler, and more precise
         </motion.h2>
 
         <motion.div
@@ -534,7 +534,7 @@ const FeaturesSection = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
                 viewport={{ once: true }}
-                className="text-purple-50 text-sm md:text-base leading-relaxed max-w-sm mx-auto"
+                className="text-cyan-50 text-sm md:text-base leading-relaxed max-w-sm mx-auto"
               >
                 {feature.description}
               </motion.p>
@@ -552,25 +552,25 @@ const HowItWorksSection = () => {
       number: "01",
       title: "Upload Medical Records",
       description:
-        "Simply upload your medical records in PDF format or scan handwritten notes. Our system accepts all standard medical documentation formats.",
+        "Easily upload medical records in PDF or image format — including scanned or handwritten notes. The system automatically detects and prepares files for processing",
     },
     {
       number: "02",
-      title: "AI Analysis",
+      title: "AI-Powered Analysis",
       description:
-        "Our advanced AI engine processes and analyzes the medical records, extracting key information and organizing data chronologically.",
+        "Our AI engine extracts and structures key medical details, identifies important findings, and organizes information in chronological order for review",
     },
     {
       number: "03",
-      title: "Review & Collaborate",
+      title: "Automated Task Creation",
       description:
-        "Access comprehensive summaries, search through records with AI chat, and collaborate with your team in real-time.",
+        "Relevant tasks and follow-ups are generated automatically for physicians and staff — streamlining reviews, recommendations, and next steps.",
     },
     {
       number: "04",
-      title: "Export Reports",
+      title: "Review Insights",
       description:
-        "Download professional reports as PDFs or Word documents with linked references for seamless workflow integration.",
+        "Physicians can quickly review AI summaries, verify critical details, and take informed actions — all within a simple, secure interface.",
     },
   ];
 
@@ -590,7 +590,7 @@ const HowItWorksSection = () => {
   };
 
   return (
-    <section className="min-h-screen py-20 px-6 bg-white flex items-center">
+    <section id="how-it-works" className="min-h-screen py-20 px-6 bg-white flex items-center">
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
@@ -612,7 +612,7 @@ const HowItWorksSection = () => {
             viewport={{ once: true }}
             className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4"
           >
-            How Kabilo AI Works
+            How Kebilo AI Works
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -643,7 +643,7 @@ const HowItWorksSection = () => {
                 whileInView={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.5 }}
                 viewport={{ once: true }}
-                className="text-6xl font-bold text-purple-100 mb-4"
+                className="text-6xl font-bold text-cyan-100 mb-4"
               >
                 {step.number}
               </motion.div>
@@ -666,7 +666,7 @@ const HowItWorksSection = () => {
                 {step.description}
               </motion.p>
               {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-8 -right-4 w-8 h-0.5 bg-purple-200"></div>
+                <div className="hidden lg:block absolute top-8 -right-4 w-8 h-0.5 bg-cyan-200"></div>
               )}
             </motion.div>
           ))}
@@ -746,7 +746,7 @@ const PricingSection = () => {
   };
 
   return (
-    <section className="min-h-screen py-20 px-6 bg-gradient-to-br from-gray-50 to-purple-50 flex items-center">
+    <section id="pricing" className="min-h-screen py-20 px-6 bg-gradient-to-br from-gray-50 to-cyan-50 flex items-center">
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
@@ -884,7 +884,7 @@ const PricingSection = () => {
 
 const ContactSection = () => {
   return (
-    <section className="min-h-screen py-20 px-6 bg-white flex items-start">
+    <section id="support" className="min-h-screen py-20 px-6 bg-white flex items-start">
       <motion.div
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
@@ -921,7 +921,7 @@ const ContactSection = () => {
               viewport={{ once: true }}
               className="text-base md:text-lg text-gray-600 mb-8"
             >
-              Have questions about Kabilo AI? Our team is here to help. Fill out
+              Have questions about Kebilo AI? Our team is here to help. Fill out
               the form and we'll get back to you within 24 hours.
             </motion.p>
 
@@ -933,7 +933,7 @@ const ContactSection = () => {
                 viewport={{ once: true }}
                 className="flex items-start gap-4"
               >
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg
                     className="w-6 h-6 text-[#53d1df]"
                     fill="none"
@@ -965,7 +965,7 @@ const ContactSection = () => {
                 viewport={{ once: true }}
                 className="flex items-start gap-4"
               >
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg
                     className="w-6 h-6 text-[#53d1df]"
                     fill="none"
@@ -997,7 +997,7 @@ const ContactSection = () => {
                 viewport={{ once: true }}
                 className="flex items-start gap-4"
               >
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg
                     className="w-6 h-6 text-[#53d1df]"
                     fill="none"
@@ -1176,18 +1176,18 @@ const ContactSection = () => {
 
 const Footer = () => {
   return (
-    <footer className="bg-gray-900 text-gray-300 py-12 px-6">
+    <footer id="resources" className="bg-gray-900 text-gray-300 py-12 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-6 h-6 text-[#1fbdd2]" />
               <span className="text-xl font-semibold text-white">
-                Kabilo AI
+                Kebilo AI
               </span>
             </div>
             <p className="text-sm text-gray-400  md:text-sm">
-              AI-powered healthcare assistant automates your work-flow and ensure HIPAA Compliance.
+
             </p>
           </div>
 
@@ -1308,7 +1308,7 @@ const Footer = () => {
 
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-gray-400  md:text-sm">
-            © 2025 Kabilo AI. All rights reserved.
+            © 2025 Kebilo AI. All rights reserved.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-gray-400 hover:text-white transition">
