@@ -133,6 +133,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     handlePreviewFile(e);
   };
 
+  const filteredQuickNotes = getAllQuickNotes().filter(
+    (note) => note.one_line_note || note.status_update
+  );
+
   return (
     <>
       <div className="section" onClick={handleSectionClick}>
@@ -197,9 +201,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   ));
                 }
               })}
-              {getAllQuickNotes().map((note, qIndex) => (
+              {filteredQuickNotes.map((note, qIndex) => (
                 <li key={`quick-${qIndex}`}>
-                  {note.one_line_note || note.status_update || "Quick note"}{" "}
+                  Task Description: {note.one_line_note || note.status_update}{" "}
                   {isNoteEmpty(note) ? (
                     <span className="status-pending">⏳</span>
                   ) : (
@@ -208,7 +212,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 </li>
               ))}
               {getAllWhatsNewItems().length === 0 &&
-                getAllQuickNotes().length === 0 && (
+                filteredQuickNotes.length === 0 && (
                   <li>No significant changes since last visit</li>
                 )}
             </ul>

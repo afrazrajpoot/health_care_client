@@ -152,7 +152,7 @@ This enhanced document processing system provides intelligent analysis of medica
 ### Basic Document Upload
 
 ```bash
-curl -X POST "https://api.kebilo.com/api/extract-document" \
+curl -X POST "http://localhost:8000/api/extract-document" \
   -H "Content-Type: multipart/form-data" \
   -F "document=@MRI-Report.docx"
 ```
@@ -163,7 +163,7 @@ curl -X POST "https://api.kebilo.com/api/extract-document" \
 import requests
 
 response = requests.post(
-    "https://api.kebilo.com/api/extract-document",
+    "http://localhost:8000/api/extract-document",
     files={"document": open("report.pdf", "rb")}
 )
 
