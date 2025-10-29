@@ -1030,16 +1030,16 @@ export default function PhysicianCard() {
                     className="flex flex-wrap gap-x-4 gap-y-2"
                     aria-label="Patient summary"
                   >
-                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    <div className="bg-[#dcfce7] border border-blue-200 px-2 py-1 rounded-full text-sm">
                       Patient: <b>{currentPatient.patientName}</b>
                     </div>
-                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    <div className="bg-[#ede9fe] text-[#6b21a8] border border-blue-200 px-2 py-1 rounded-full text-sm">
                       DOB: {formatDate(currentPatient.dob)}
                     </div>
-                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    <div className="bg-[#e0f2fe] text-[#0369a1] border border-blue-200 px-2 py-1 rounded-full text-sm">
                       Claim #: {currentPatient.claimNumber}
                     </div>
-                    <div className="bg-gray-100 border border-blue-200 px-2 py-1 rounded-full text-sm">
+                    <div className="bg-[#fef3c7] text-[#92400e] border border-blue-200 px-2 py-1 rounded-full text-sm">
                       DOI:{" "}
                       {formatDate(currentPatient.doi) === "Invalid Date"
                         ? "not specified"
