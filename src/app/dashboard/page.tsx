@@ -53,6 +53,13 @@ interface SummarySnapshotItem {
   keyConcern: string;
   nextStep: string;
   documentId: string;
+  bodyPart?: string;
+  urDecision?: string;
+  recommended?: string;
+  aiOutcome?: string;
+  consultingDoctor?: string;
+  document_created_at?: string;
+  document_report_date?: string;
 }
 
 interface SummarySnapshot {
@@ -118,6 +125,8 @@ interface DocumentData {
   allVerified?: boolean;
   gcs_file_link?: string; // Signed GCS URL for view file
   blob_path?: string; // Blob path for preview (e.g., "uploads/filename.ext")
+  documents?: any[]; // Added to hold the full documents array
+  body_part_snapshots?: any[];
 }
 
 export default function PhysicianCard() {
@@ -415,55 +424,47 @@ export default function PhysicianCard() {
     }
   };
 
-  // Flatten grouped summaries into array and prepare previous
-  const processAggregatedSummaries = (
-    groupedDocumentSummary: {
-      [key: string]: { date: string; summary: string }[];
-    },
-    groupedBriefSummary: { [key: string]: string[] }
-  ): {
+  // Updated processAggregatedSummaries to handle grouped entries with brief_summary
+  const processAggregatedSummaries = (grouped: {
+    [key: string]: { date: string; summary: string; brief_summary: string }[];
+  }): {
     document_summaries: DocumentSummary[];
     previous_summaries: { [key: string]: DocumentSummary };
   } => {
     const document_summaries: DocumentSummary[] = [];
     const previousByType: { [key: string]: DocumentSummary } = {};
 
-    Object.entries(groupedDocumentSummary).forEach(([type, sumEntries]) => {
+    Object.entries(grouped).forEach(([type, entries]) => {
+      // entries is array of {date, summary, brief_summary}
+      if (!Array.isArray(entries)) return; // Safety check
+
       // Sort entries by date descending
-      sumEntries.sort(
+      entries.sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      const briefEntries = groupedBriefSummary[type] || [];
-      // Assume brief entries are in same order, sort if needed
-      // For simplicity, pair by index
-
-      sumEntries.forEach((entry, idx) => {
-        const brief =
-          briefEntries[idx] || (briefEntries.length > 0 ? briefEntries[0] : "");
+      entries.forEach((entry) => {
         document_summaries.push({
           type,
           date: entry.date,
           summary: entry.summary,
-          brief_summary: brief,
+          brief_summary: entry.brief_summary,
         });
       });
 
       // Set previous if more than one
-      if (sumEntries.length > 1) {
-        const prevEntry = sumEntries[1];
-        const prevBrief =
-          briefEntries[1] || (briefEntries.length > 0 ? briefEntries[0] : "");
+      if (entries.length > 1) {
+        const prevEntry = entries[1];
         previousByType[type] = {
           type,
           date: prevEntry.date,
           summary: prevEntry.summary,
-          brief_summary: prevBrief,
+          brief_summary: prevEntry.brief_summary,
         };
       }
     });
 
-    // Sort all summaries by date desc
+    // Sort all summaries by date desc globally
     document_summaries.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -514,50 +515,129 @@ export default function PhysicianCard() {
         return;
       }
 
-      const aggDoc = data.documents[0];
-      const processedData: DocumentData = { ...aggDoc };
+      const latestDoc = data.documents[0]; // Latest document for top-level fields like adl, whats_new, etc.
 
-      // Set patient_quiz
-      processedData.patient_quiz = data.patient_quiz;
+      // Process whats_new to flat object
+      let processedWhatsNew: WhatsNew = {};
+      let processedQuickNotes: QuickNoteSnapshot[] = [];
+      if (
+        latestDoc.whats_new &&
+        Array.isArray(latestDoc.whats_new) &&
+        latestDoc.whats_new.length > 0
+      ) {
+        const wnItem = latestDoc.whats_new[0];
+        processedWhatsNew = {
+          qme: wnItem.qme?.content || "",
+          outcome: wnItem.outcome?.content || "",
+          diagnosis: wnItem.diagnosis?.content || "",
+          ur_decision: wnItem.ur_decision?.content || "",
+          recommendations: wnItem.recommendations?.content || "",
+        };
+        if (wnItem.quick_note && Array.isArray(wnItem.quick_note)) {
+          processedQuickNotes = wnItem.quick_note.map((note: any) => ({
+            details: note.content || "",
+            timestamp: note.document_created_at || "",
+            one_line_note: note.description || "",
+            status_update: "", // Can be derived if needed
+          }));
+        }
+      }
 
-      // Compute allVerified based on status
-      processedData.allVerified =
-        !!aggDoc.status && aggDoc.status.toLowerCase() === "verified";
+      // Group summaries and briefs across all documents by type
+      const grouped: {
+        [key: string]: {
+          date: string;
+          summary: string;
+          brief_summary: string;
+        }[];
+      } = {};
+      data.documents.forEach((doc: any) => {
+        const docSum = doc.document_summary;
+        const brief = doc.brief_summary || "";
+        if (docSum && docSum.type) {
+          const type = docSum.type;
+          if (!grouped[type]) {
+            grouped[type] = [];
+          }
+          grouped[type].push({
+            date: docSum.date,
+            summary: docSum.summary,
+            brief_summary: brief,
+          });
+        }
+      });
 
-      // Process grouped summaries
       const { document_summaries, previous_summaries } =
-        processAggregatedSummaries(
-          aggDoc.document_summary || {},
-          aggDoc.brief_summary || {}
-        );
-      processedData.document_summaries = document_summaries;
-      processedData.previous_summaries = previous_summaries;
+        processAggregatedSummaries(grouped);
 
-      // Handle summary_snapshots array
-      processedData.summary_snapshots = aggDoc.summary_snapshots || [];
+      // Aggregate all body part snapshots from all documents, sorted by document_report_date descending
+      const sortedDocs = [...data.documents].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const allBodyPartSnapshots = sortedDocs.flatMap((doc: any) =>
+        (doc.body_part_snapshots || []).map(
+          (snap: any): SummarySnapshotItem => ({
+            id: snap.id,
+            dx: snap.dx,
+            keyConcern: snap.keyConcern,
+            nextStep: snap.nextStep,
+            documentId: snap.documentId,
+            bodyPart: snap.bodyPart,
+            urDecision: snap.urDecision,
+            recommended: snap.recommended,
+            aiOutcome: snap.aiOutcome,
+            consultingDoctor: snap.consultingDoctor,
+            document_created_at: snap.document_created_at,
+            document_report_date: snap.document_report_date,
+          })
+        )
+      );
 
-      // Handle adl - set history if needed, but since aggregated from latest medical, no previous here
+      const processedData: DocumentData = {
+        ...data, // Top-level fields like patient_name, total_documents, etc.
+        dob: latestDoc.dob,
+        doi: latestDoc.doi,
+        claim_number: latestDoc.claim_number,
+        created_at: latestDoc.created_at,
+        documents: data.documents, // Keep full array for components like WhatsNewSection
+        adl: latestDoc.adl, // ADL from latest doc
+        whats_new: processedWhatsNew, // Processed flat object
+        brief_summary: latestDoc.brief_summary, // For backward compatibility
+        document_summaries,
+        previous_summaries,
+        patient_quiz: data.patient_quiz,
+        body_part_snapshots: allBodyPartSnapshots, // Set all aggregated body part snapshots
+        quick_notes_snapshots: processedQuickNotes,
+        // Compute allVerified based on status of latest doc (or aggregate if needed)
+        allVerified:
+          !!latestDoc.status && latestDoc.status.toLowerCase() === "verified",
+        // Handle summary_snapshots as aggregated body part snapshots
+        summary_snapshots: allBodyPartSnapshots,
+        // Set merge_metadata if total_documents >1
+        ...(data.total_documents > 1 && {
+          merge_metadata: {
+            total_documents_merged: data.total_documents,
+            is_merged: true,
+            latest_document_date: latestDoc.created_at || "",
+            previous_document_date: "", // Not available in aggregated; could derive from other docs if needed
+          },
+        }),
+      };
+
+      // Handle adl processing (convert arrays to strings if needed)
       if (processedData.adl) {
         const adlData = processedData.adl;
-        adlData.adls_affected_history =
-          adlData.adls_affected || "Not specified";
-        adlData.work_restrictions_history =
-          adlData.work_restrictions || "Not specified";
+        adlData.adls_affected = Array.isArray(adlData.adls_affected)
+          ? adlData.adls_affected.join(", ")
+          : adlData.adls_affected || "Not specified";
+        adlData.work_restrictions = Array.isArray(adlData.work_restrictions)
+          ? adlData.work_restrictions.join(", ")
+          : adlData.work_restrictions || "Not specified";
+        adlData.adls_affected_history = adlData.adls_affected;
+        adlData.work_restrictions_history = adlData.work_restrictions;
         adlData.has_changes = false;
       }
-
-      // Set merge_metadata if total_documents >1
-      if (data.total_documents > 1) {
-        processedData.merge_metadata = {
-          total_documents_merged: data.total_documents,
-          is_merged: true,
-          latest_document_date: aggDoc.created_at || "",
-          previous_document_date: "", // Not available in aggregated, could fetch separately if needed
-        };
-      }
-
-      // ✅ Ensure quick_notes_snapshots is set (from API data)
-      processedData.quick_notes_snapshots = aggDoc.quick_notes_snapshots || [];
 
       setDocumentData(processedData);
     } catch (err: unknown) {
@@ -835,14 +915,15 @@ export default function PhysicianCard() {
   };
 
   const currentPatient = getCurrentPatientInfo();
-
+  console.log(currentPatient, "currentPatient");
   // Dynamic href for Staff Dashboard link
-  const staffDashboardHref =
-    currentPatient.claimNumber && currentPatient.claimNumber !== "—"
-      ? `/staff-dashboard?claim=${encodeURIComponent(
-          currentPatient.claimNumber
-        )}`
-      : "/staff-dashboard";
+  const staffDashboardHref = selectedPatient
+    ? `/staff-dashboard?patient_name=${encodeURIComponent(
+        currentPatient.patientName
+      )}&dob=${encodeURIComponent(
+        currentPatient.dob
+      )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
+    : "/staff-dashboard";
 
   // Burger Icon Component
   const BurgerIcon = () => (
@@ -1048,10 +1129,7 @@ export default function PhysicianCard() {
                       Claim #: {currentPatient.claimNumber}
                     </div>
                     <div className="bg-[#fef3c7] text-[#92400e] border border-blue-200 px-2 py-1 rounded-full text-sm">
-                      DOI:{" "}
-                      {formatDate(currentPatient.doi) === "Invalid Date"
-                        ? "not specified"
-                        : formatDate(currentPatient.doi)}
+                      DOI: {formatDate(currentPatient.doi)}
                     </div>
                     {documentData?.merge_metadata?.is_merged && (
                       <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-sm">
