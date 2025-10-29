@@ -1,4 +1,3 @@
-// Updated backend API route (/api/patients/route.ts or similar)
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -30,7 +29,7 @@ export async function GET(request: Request) {
       physicianId = null;
     }
 
-    // ✅ Build a flexible where clause with AND conditions
+    // ✅ Build a flexible where clause
     const whereClause: Prisma.DocumentWhereInput = {};
     const andConditions: Prisma.DocumentWhereInput[] = [];
 
@@ -42,98 +41,93 @@ export async function GET(request: Request) {
       andConditions.push({ physicianId });
     }
 
-    // Add search conditions dynamically as AND (only if they exist and not "Not specified")
-    if (patientName && patientName !== "Not specified") {
-      andConditions.push({
+    // Add conditions dynamically (only if they exist)
+    const orConditions: Prisma.DocumentWhereInput[] = [];
+    if (patientName) {
+      orConditions.push({
         patientName: { contains: patientName, mode: "insensitive" },
       });
     }
-    if (claimNumber && claimNumber !== "Not specified") {
-      andConditions.push({
+    if (claimNumber) {
+      orConditions.push({
         claimNumber: { contains: claimNumber, mode: "insensitive" },
       });
     }
-    if (dobParam && dobParam !== "Not specified") {
-      andConditions.push({
+    if (dobParam) {
+      orConditions.push({
         dob: { equals: dobParam },
       });
     }
 
-    // If no conditions, fallback to all docs (but we'll limit with take)
-    if (andConditions.length > 0) {
-      whereClause.AND = andConditions;
+    // If any search fields exist, use OR; otherwise, fallback to all docs (limit results)
+    if (orConditions.length > 0) {
+      andConditions.push({ OR: orConditions });
     } else {
       whereClause.id = { not: null }; // fallback: all docs
+    }
+
+    if (andConditions.length > 0) {
+      whereClause.AND = andConditions;
     }
 
     console.debug("🧠 Flexible whereClause:", JSON.stringify(whereClause));
 
     const results = await prisma.document.findMany({
       where: whereClause,
-      include: {
-        bodyPartSnapshots: {
-          select: {
-            bodyPart: true,
-            dx: true,
-          },
-        },
+      select: {
+        patientName: true,
+        claimNumber: true,
+        dob: true,
+        doi: true,
+        id: true,
+        physicianId: true,
       },
-      take: 50, // Increased limit to account for multiples per patient
+      take: 20,
       orderBy: { createdAt: "desc" },
     });
 
-    // ✅ Filter for completeness - relaxed to not require dob
+    if (!results.length) {
+      return NextResponse.json(
+        { message: "No matching patients found" },
+        { status: 404 }
+      );
+    }
+
+    // ✅ Filter for completeness
     const completeResults = results.filter((doc) => {
       return (
         !!doc.patientName &&
-        doc.patientName.toLowerCase() !== "not specified"
-        // Removed !!doc.dob to allow missing or "Not specified" DOB
+        doc.patientName.toLowerCase() !== "not specified" &&
+        !!doc.dob
       );
     });
 
-    let uniqueResults: any[] = [];
-    let patientNames: string[] = [];
-
-    if (completeResults.length > 0) {
-      // ✅ Group by patient key and aggregate bodyPartSnapshots
-      // Normalize dob to empty string if null or "Not specified"
-      const grouped = new Map<string, typeof completeResults[0][]>();
-      completeResults.forEach((doc) => {
-        const normalizedDob = doc.dob === "Not specified" || !doc.dob ? "" : doc.dob;
-        const key = `${doc.patientName}-${doc.claimNumber || ""}-${normalizedDob}`;
-        if (!grouped.has(key)) {
-          grouped.set(key, []);
-        }
-        grouped.get(key)!.push(doc);
-      });
-
-      // For each group, create aggregated document with unique snapshots from all docs in group
-      uniqueResults = Array.from(grouped.values()).map((group) => {
-        // Sort by createdAt desc to get latest as base
-        group.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        const latestDoc = group[0];
-
-        // Collect all snapshots and unique by bodyPart + dx
-        const allSnapshots = group.flatMap((d) => d.bodyPartSnapshots || []);
-        const uniqueSnapshotsMap = new Map(
-          allSnapshots.map((s) => [`${s.bodyPart}-${s.dx}`, s])
-        );
-        const uniqueSnapshots = Array.from(uniqueSnapshotsMap.values());
-
-        // Return aggregated doc using latest as base, with all unique snapshots
-        return {
-          ...latestDoc,
-          bodyPartSnapshots: uniqueSnapshots,
-        };
-      });
-
-      // ✅ Extract patientNames
-      patientNames = Array.from(
-        new Set(uniqueResults.map((r) => r.patientName).filter(Boolean))
+    if (completeResults.length === 0) {
+      return NextResponse.json(
+        {
+          message:
+            "No complete patient records found (missing fields in all matches)",
+        },
+        { status: 404 }
       );
     }
+
+    // ✅ Deduplicate by patientName + claimNumber + dob
+    const uniqueKeyMap = new Map<string, (typeof completeResults)[0]>();
+    completeResults.forEach((doc) => {
+      const key = `${doc.patientName}-${doc.claimNumber || ""}-${String(
+        doc.dob
+      )}`;
+      if (!uniqueKeyMap.has(key)) {
+        uniqueKeyMap.set(key, doc);
+      }
+    });
+    const uniqueResults = Array.from(uniqueKeyMap.values());
+
+    // ✅ Extract patientNames
+    const patientNames = Array.from(
+      new Set(uniqueResults.map((r) => r.patientName).filter(Boolean))
+    );
 
     // ✅ Save Audit Log (non-blocking)
     try {
@@ -150,7 +144,6 @@ export async function GET(request: Request) {
       console.error("⚠️ Audit log failed:", auditErr);
     }
 
-    // Always return 200 with data, even if empty
     return NextResponse.json({
       success: true,
       data: {
@@ -161,16 +154,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("❌ Error fetching patient name suggestions:", error);
-    // Even on error, return 200 with empty data instead of 500 to avoid frontend errors
-    return NextResponse.json({
-      success: false,
-      data: {
-        patientNames: [],
-        allMatchingDocuments: [],
-        totalCount: 0,
-      },
-      error: "Internal server error",
-    });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   } finally {
     await prisma.$disconnect();
   }
