@@ -241,9 +241,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${
-                copied["section-treatment"] ? "copied" : ""
-              }`}
+              className={`copy-btn ${copied["section-treatment"] ? "copied" : ""
+                }`}
               onClick={(e) => handleCopyClick(e)}
               title="Copy All Body Parts"
             >
@@ -262,17 +261,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         {/* Section Content - This part should NOT trigger collapse/expand */}
         {!isCollapsed && (
           <div className="section-content" onClick={(e) => e.stopPropagation()}>
-            {/* Summary Stats */}
-            {bodyPartSnapshots.length > 0 && (
-              <div className="summary-stats">
-                <span className="stat-text">
-                  {bodyPartSnapshots.length} treatment snapshot
-                  {bodyPartSnapshots.length !== 1 ? "s" : ""} across{" "}
-                  {Object.keys(groupedBodyParts).length} body part
-                  {Object.keys(groupedBodyParts).length !== 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
 
             {/* Body Part Snapshots */}
             {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => (
@@ -297,9 +285,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                   </button>
                   <h4 className="bodypart-name">{bodyPart}</h4>
                   <button
-                    className={`copy-btn small ${
-                      copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
-                    }`}
+                    className={`copy-btn small ${copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
+                      }`}
                     onClick={(e) => handleCopyClick(e, bodyPart)}
                     title={`Copy ${bodyPart} Details`}
                   >
@@ -335,22 +322,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                   <strong>Diagnosis:</strong> {snapshot.dx}
                                 </li>
                               )}
-                            {snapshot.keyConcern &&
-                              snapshot.keyConcern !== "Not specified" &&
-                              snapshot.keyConcern !== "" && (
-                                <li>
-                                  <strong>Key Concern:</strong>{" "}
-                                  {snapshot.keyConcern}
-                                </li>
-                              )}
-                            {snapshot.nextStep &&
-                              snapshot.nextStep !== "Not specified" &&
-                              snapshot.nextStep !== "" && (
-                                <li>
-                                  <strong>Next Steps:</strong>{" "}
-                                  {snapshot.nextStep}
-                                </li>
-                              )}
                             {snapshot.recommended &&
                               snapshot.recommended !== "Not specified" &&
                               snapshot.recommended !== "" && (
@@ -363,7 +334,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               snapshot.aiOutcome !== "Not specified" &&
                               snapshot.aiOutcome !== "" && (
                                 <li>
-                                  <strong>AI Outcome:</strong>{" "}
+                                  <strong>Outcome:</strong>{" "}
                                   {snapshot.aiOutcome}
                                 </li>
                               )}
