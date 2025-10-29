@@ -5,114 +5,16 @@ import {
   useQuickNotesToggle,
   useWhatsNewData,
 } from "@/app/custom-hooks/staff-hooks/physician-hooks/useWhatsNewData";
+import {
+  BriefcaseMedicalIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  EyeIcon,
+  EyeOffIcon,
+} from "lucide-react";
 import React, { useState, useMemo } from "react";
-
-// ... (keep all your existing interfaces - PatientQuiz, SummarySnapshotItem, etc.)
-
-const CopyIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-3.5 h-3.5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-3.5 h-3.5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="20 6 9 17 4 12"></polyline>
-  </svg>
-);
-
-const EyeIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-3.5 h-3.5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-    <circle cx="12" cy="12" r="3"></circle>
-  </svg>
-);
-
-const EyeOffIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-3.5 h-3.5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-    <line x1="1" y1="1" x2="23" y2="23"></line>
-  </svg>
-);
-
-const MedicalIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-4 h-4"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-    <polyline points="14 2 14 8 20 8"></polyline>
-    <line x1="16" y1="13" x2="8" y2="13"></line>
-    <line x1="16" y1="17" x2="8" y2="17"></line>
-    <line x1="10" y1="9" x2="8" y2="9"></line>
-  </svg>
-);
-
-const ChevronDownIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className={`w-4 h-4 transition-transform ${className || ""}`}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="6 9 12 15 18 9"></polyline>
-  </svg>
-);
-
-const ChevronRightIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-4 h-4 transition-transform"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="9 18 15 12 9 6"></polyline>
-  </svg>
-);
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -129,113 +31,116 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   isCollapsed,
   onToggle,
 }) => {
-  // Local state for tracking viewed whatsnew items
   const [viewedWhatsNew, setViewedWhatsNew] = useState<Set<string>>(new Set());
-  const [expandedQuickNotes, setExpandedQuickNotes] = useState<Set<string>>(
-    new Set()
-  );
 
-  // Use new data structure
-  const snapshots = documentData?.whats_new_snapshots || [];
+  const { formatDate } = useWhatsNewData(documentData);
 
-  const { formatDate } = useWhatsNewData(documentData); // Keep for date formatting if needed
-
-  const { isQuickNotesOpen, toggleQuickNotes } = useQuickNotesToggle();
-
-  const handlePreviewFile = usePreviewFile(documentData);
-
-  // Group snapshots by document_id, with diagnosis first
+  // Transform the new whats_new structure to snapshots format - GROUPED BY DOCUMENT ID
   const groups = useMemo(() => {
-    const grouped: { [key: string]: typeof snapshots } = snapshots.reduce(
-      (acc, item) => {
-        if (!acc[item.document_id]) {
-          acc[item.document_id] = [];
-        }
-        acc[item.document_id].push(item);
-        return acc;
-      },
-      {}
-    );
+    if (!documentData?.documents) return [];
 
-    return Object.entries(grouped).map(([docId, items]) => ({
-      docId,
-      reportDate: items[0]?.document_report_date,
-      items: items.sort((a, b) =>
-        a.type === "diagnosis" && b.type !== "diagnosis" ? -1 : 1
-      ),
-    }));
-  }, [snapshots]);
+    return documentData.documents
+      .flatMap((doc, docIndex) => {
+        const whatsNewArray = doc.whats_new || [];
+        const docId = doc.document_id || `doc_${docIndex}`;
+
+        // Process each whats_new group in this document
+        return whatsNewArray.map((whatsNewObj, groupIndex) => {
+          const items: Array<{
+            type: string;
+            content: string;
+            description: string;
+          }> = [];
+
+          // Extract all items from this whats_new object
+          Object.entries(whatsNewObj).forEach(
+            ([type, entry]: [string, any]) => {
+              if (!entry || typeof entry !== "object") return;
+
+              const label =
+                type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ");
+
+              if (Array.isArray(entry)) {
+                // Handle array for quick_note
+                entry.forEach((subEntry: any) => {
+                  if (!subEntry || typeof subEntry !== "object") return;
+                  items.push({
+                    type,
+                    content: subEntry.content || "",
+                    description: subEntry.description || subEntry.content || "",
+                  });
+                });
+              } else {
+                // Handle single object entries
+                items.push({
+                  type,
+                  content: entry.content || "",
+                  description: `${label}: ${entry.content || ""}`,
+                });
+              }
+            }
+          );
+
+          // Use the first item's dates for the group
+          const firstItem = items[0];
+          const reportDate = firstItem
+            ? whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_report_date ||
+              ""
+            : "";
+          const createdDate = firstItem
+            ? whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_created_at ||
+              ""
+            : "";
+
+          return {
+            docId: `${docId}_${groupIndex}`, // Unique ID for each group
+            originalDocId: docId,
+            reportDate,
+            createdDate,
+            items,
+            doc, // Full document object for additional info
+          };
+        });
+      })
+      .filter((group) => group.items.length > 0);
+  }, [documentData?.documents]);
 
   const handleSectionClick = (e: React.MouseEvent) => {
-    // Only toggle if clicking on the section header, not on items inside
     if ((e.target as HTMLElement).closest(".section-header")) {
       onToggle();
     }
   };
 
-  const handleCopyClick = (e: React.MouseEvent) => {
+  const handleCopyClick = (e: React.MouseEvent, groupId: string) => {
     e.stopPropagation();
-    onCopySection("section-whatsnew");
+    onCopySection(`whatsnew-${groupId}`);
   };
 
   const handleReviewClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Mark all reviewed (only diagnosis items)
-    setViewedWhatsNew(
-      new Set(
-        snapshots
-          .filter((item) => item.type !== "quick_note")
-          .map((item) => `${item.document_id}_${item.type}`)
-      )
-    );
+    // Mark all groups as reviewed
+    setViewedWhatsNew(new Set(groups.map((group) => group.docId)));
   };
 
-  const handlePreviewClick = (e: React.MouseEvent) => {
+  const handleMarkViewed = (e: React.MouseEvent, groupId: string) => {
     e.stopPropagation();
-    handlePreviewFile(e);
+    setViewedWhatsNew((prev) => new Set([...prev, groupId]));
   };
 
-  const handleMarkViewed = (e: React.MouseEvent, itemKey: string) => {
-    e.stopPropagation();
-    setViewedWhatsNew((prev) => new Set([...prev, itemKey]));
-  };
-
-  const handleToggleExpand = (e: React.MouseEvent, itemKey: string) => {
-    e.stopPropagation();
-    setExpandedQuickNotes((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemKey)) {
-        newSet.delete(itemKey);
-      } else {
-        newSet.add(itemKey);
-      }
-      return newSet;
-    });
-  };
-
-  const isItemViewed = (itemKey: string) => viewedWhatsNew.has(itemKey);
-  const isItemExpanded = (itemKey: string) => expandedQuickNotes.has(itemKey);
+  const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
 
   return (
     <>
       <div className="section">
         <div className="section-header" onClick={handleSectionClick}>
           <div className="section-title">
-            <MedicalIcon />
+            <BriefcaseMedicalIcon className="icon-sm" />
             <h3>What's New Since Last Visit</h3>
           </div>
           <div className="header-actions">
             <span className="review-toggle" onClick={handleReviewClick}>
               Mark All Reviewed
             </span>
-            <button
-              className={`copy-btn ${copied["section-whatsnew"] ? "copied" : ""
-                }`}
-              onClick={handleCopyClick}
-              title="Copy Section"
-            >
-              {copied["section-whatsnew"] ? <CheckIcon /> : <CopyIcon />}
-            </button>
             <button
               className="collapse-btn"
               onClick={(e) => {
@@ -244,88 +149,113 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               }}
               title={isCollapsed ? "Expand" : "Collapse"}
             >
-              {isCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+              {isCollapsed ? (
+                <ChevronRightIcon className="icon-xs" />
+              ) : (
+                <ChevronDownIcon className="icon-xs" />
+              )}
             </button>
           </div>
         </div>
         {!isCollapsed && (
           <div className="section-content">
             <ul>
-              {groups.map(({ docId, reportDate, items }, groupIndex) => (
-                <li key={docId} className="separated-item">
-                  {reportDate && (
-                    <div className="group-date">{formatDate(reportDate)}</div>
-                  )}
-                  {items.map((item, index) => {
-                    const itemKey = `${item.document_id}_${item.type}`;
-                    const isViewed =
-                      item.type !== "quick_note" && isItemViewed(itemKey);
-                    const isExpanded =
-                      item.type === "quick_note" && isItemExpanded(itemKey);
+              {groups.map((group, groupIndex) => {
+                const isViewed = isGroupViewed(group.docId);
+                const isGroupCopied = copied[`whatsnew-${group.docId}`];
 
-                    return (
-                      <div
-                        key={`${item.type}-${index}`}
-                        className={`item-wrapper ${item.type}`}
-                      >
-                        <div className="item-header">
-                          <div className="item-content">
-                            {item.type === "quick_note" && (
-                              <span className="quick-note-label">
-                                Quick note
-                              </span>
+                return (
+                  <li key={group.docId} className="separated-item">
+                    {/* Group Header: Show document ID and eye icon */}
+                    <div className="group-header">
+                      <div className="group-info">
+                        {group.doc && (
+                          <>
+                            <span className="doc-index">
+                              Document {group.doc.document_index}
+                            </span>
+                            {group.doc.is_latest && (
+                              <span className="doc-latest"> (Latest)</span>
                             )}
-                            {item.content}
-                            {item.type !== "quick_note" && (
-                              <span
-                                className={`status-${isViewed ? "approved" : "pending"
-                                  }`}
-                              >
-                                {isViewed ? "✅" : "⏳"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="item-actions">
-                            {item.type === "quick_note" && (
-                              <button
-                                className="toggle-btn"
-                                onClick={(e) => handleToggleExpand(e, itemKey)}
-                                title={isExpanded ? "Collapse" : "Expand"}
-                              >
-                                <ChevronDownIcon
-                                  className={isExpanded ? "rotate-180" : ""}
-                                />
-                              </button>
-                            )}
-                            {item.type !== "quick_note" && (
-                              <button
-                                className={`mark-viewed-btn ${isViewed ? "viewed" : ""
-                                  }`}
-                                onClick={(e) => handleMarkViewed(e, itemKey)}
-                                title={isViewed ? "Viewed" : "Mark Viewed"}
-                              >
-                                {isViewed ? <EyeIcon /> : <EyeOffIcon />}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {item.type === "quick_note" && isExpanded && (
-                          <div className="item-details">
-                            <p>
-                              <strong>Task:</strong>{" "}
-                              {item.description || "No description available"}
-                            </p>
-                            <p>
-                              <strong>Notes:</strong> {item.content}
-                            </p>
-                          </div>
+                          </>
                         )}
                       </div>
-                    );
-                  })}
-                </li>
-              ))}
-              {snapshots.length === 0 && (
+                      <div className="group-actions">
+                        <button
+                          className={`copy-btn ${
+                            isGroupCopied ? "copied" : ""
+                          }`}
+                          onClick={(e) => handleCopyClick(e, group.docId)}
+                          title="Copy This Update"
+                        >
+                          {isGroupCopied ? (
+                            <CheckIcon className="icon-xxs" />
+                          ) : (
+                            <CopyIcon className="icon-xxs" />
+                          )}
+                        </button>
+                        <button
+                          className={`mark-viewed-btn ${
+                            isViewed ? "viewed" : ""
+                          }`}
+                          onClick={(e) => handleMarkViewed(e, group.docId)}
+                          title={isViewed ? "Viewed" : "Mark Viewed"}
+                        >
+                          {isViewed ? (
+                            <EyeIcon className="icon-xxs" />
+                          ) : (
+                            <EyeOffIcon className="icon-xxs" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {group.reportDate && (
+                      <div className="group-date">
+                        {formatDate(group.reportDate)}
+                      </div>
+                    )}
+
+                    {/* Show all items in this group */}
+                    {group.items.map((item, index) => {
+                      const itemKey = `${group.docId}_${item.type}_${index}`;
+
+                      return (
+                        <div
+                          key={itemKey}
+                          className={`item-wrapper ${item.type}`}
+                        >
+                          <div className="item-header">
+                            <div className="item-content">
+                              {item.type === "quick_note" && (
+                                <span className="quick-note-label">
+                                  Quick note
+                                </span>
+                              )}
+                              {item.description}
+                            </div>
+                            <div className="item-actions">
+                              {/* No toggle for quick_note, always show details */}
+                            </div>
+                          </div>
+                          {item.type === "quick_note" && (
+                            <div className="item-details">
+                              <p>
+                                <strong>Task:</strong>{" "}
+                                {item.description || "No description available"}
+                              </p>
+                              <p>
+                                <strong>Notes:</strong> {item.content}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </li>
+                );
+              })}
+              {groups.length === 0 && (
                 <li className="no-items">
                   No significant changes since last visit
                 </li>
@@ -391,6 +321,42 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           margin-top: 0;
           border-top: none;
           padding-top: 0;
+        }
+        .group-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+          padding: 8px;
+          background: #f8fafc;
+          border-radius: 6px;
+          border-left: 3px solid #3b82f6;
+        }
+        .group-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #374151;
+        }
+        .doc-id {
+          color: #6b7280;
+          font-family: monospace;
+          font-size: 11px;
+        }
+        .doc-index {
+          color: #1f2937;
+        }
+        .doc-latest {
+          color: #059669;
+          font-size: 11px;
+        }
+        .group-actions {
+          display: flex;
+          gap: 6px;
+          align-items: center;
         }
         .group-date {
           color: #6b7280;
@@ -476,25 +442,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .review-toggle:hover {
           background: #cbd5e1;
         }
-        .status-approved {
-          color: #059669;
-        }
-        .status-pending {
-          color: #d97706;
-        }
-        .copy-btn {
-          font-size: 12px;
-          color: #475569;
-          background: #e2e8f0;
-          padding: 6px 8px;
-          border-radius: 6px;
-          cursor: pointer;
-          border: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          transition: all 0.2s;
-        }
+
         .copy-btn:hover {
           background: #cbd5e1;
         }
@@ -521,22 +469,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           background-color: #e5e7eb;
           color: #374151;
         }
-        .toggle-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 4px;
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background-color 0.2s;
-          color: #6b7280;
-        }
-        .toggle-btn:hover {
-          background-color: #e5e7eb;
-          color: #374151;
-        }
         .mark-viewed-btn {
           background: #e2e8f0;
           border: none;
@@ -560,16 +492,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .mark-viewed-btn.viewed:hover {
           background: #bbf7d0;
         }
-        .rotate-180 {
-          transform: rotate(180deg);
+        /* Icon size classes */
+        .icon-sm {
+          width: 14px;
+          height: 14px;
         }
-        .w-3.5 {
-          width: 0.875rem;
-          height: 0.875rem;
+        .icon-xs {
+          width: 12px;
+          height: 12px;
         }
-        .w-4 {
-          width: 1rem;
-          height: 1rem;
+        .icon-xxs {
+          width: 10px;
+          height: 10px;
         }
       `}</style>
     </>

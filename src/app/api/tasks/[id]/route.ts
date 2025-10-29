@@ -14,11 +14,22 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: taskId } = await context.params; // ✅ fix params issue
+    // ✅ FIX 1: Await the params first
+    const params = await context.params;
+    const taskId = params.id;
+    
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // ✅ FIX 2: Check if physicianId exists in session
+    if (!session.user.physicianId) {
+      return NextResponse.json(
+        { error: "Physician ID not found in session" }, 
+        { status: 403 }
+      );
     }
 
     const updates = await request.json();
@@ -32,6 +43,7 @@ export async function PATCH(
     });
 
     if (!existingTask) {
+      console.log(`Task ${taskId} not found for physician ${session.user.physicianId}`);
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
