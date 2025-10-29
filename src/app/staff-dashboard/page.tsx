@@ -9,7 +9,7 @@ import { ProgressTracker } from "@/components/ProgressTracker";
 
 import { useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -202,6 +202,8 @@ const PaymentErrorModal = ({
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlClaim = searchParams.get("claim") || "";
   const { data: session } = useSession();
   const initialMode = "wc" as const;
   const {
@@ -284,12 +286,13 @@ export default function Dashboard() {
   }, [clearPaymentError, router]);
 
   useEffect(() => {
-    fetchTasks(modeState);
+    fetchTasks(modeState, urlClaim);
     fetchOfficePulse();
     fetchWorkflowStats();
     fetchFailedDocuments();
   }, [
     modeState,
+    urlClaim,
     fetchTasks,
     fetchOfficePulse,
     fetchWorkflowStats,
@@ -310,9 +313,9 @@ export default function Dashboard() {
   }, [modeState, pulse, departments, tasks]);
 
   const handleProgressComplete = useCallback(() => {
-    fetchTasks(modeState);
+    fetchTasks(modeState, urlClaim);
     fetchFailedDocuments();
-  }, [fetchTasks, modeState, fetchFailedDocuments]);
+  }, [fetchTasks, modeState, urlClaim, fetchFailedDocuments]);
 
   return (
     <>
@@ -821,7 +824,7 @@ export default function Dashboard() {
                 )}
                 <button
                   className="btn light"
-                  onClick={() => fetchTasks(modeState)}
+                  onClick={() => fetchTasks(modeState, urlClaim)}
                   disabled={loading}
                 >
                   {loading ? "Refreshing..." : "Refresh Tasks"}
@@ -1115,7 +1118,10 @@ export default function Dashboard() {
         open={showTaskModal}
         onOpenChange={setShowTaskModal}
         departments={departments}
-        onSubmit={(formData) => handleCreateManualTask(formData, modeState)}
+        defaultClaim={urlClaim}
+        onSubmit={(formData) =>
+          handleCreateManualTask(formData, modeState, urlClaim)
+        }
       />
 
       <UpdateDocumentModal
