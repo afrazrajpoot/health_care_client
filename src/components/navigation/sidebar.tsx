@@ -53,7 +53,7 @@ const navigationItems: NavigationItem[] = [
     href: "/generate-rebuttal",
 
     icon: CheckSquare,
-    badge: "8",
+    // badge: "8",
     description: "Task management & assignments",
     roles: ["Physician"], // ✅ Both
   },
@@ -134,8 +134,7 @@ export function Sidebar({ className }: SidebarProps) {
               <Activity className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">HealthCare</h2>
-              <p className="text-xs text-gray-500 font-medium">AI Assistant</p>
+              <h2 className="text-lg font-bold text-gray-800">Kebilo</h2>
             </div>
           </div>
         </div>
