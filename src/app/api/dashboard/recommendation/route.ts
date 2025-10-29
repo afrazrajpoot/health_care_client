@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       physicianId = null;
     }
 
-    // ✅ Build a flexible where clause
+    // ✅ Build a flexible where clause with AND conditions
     const whereClause: Prisma.DocumentWhereInput = {};
     const andConditions: Prisma.DocumentWhereInput[] = [];
 
@@ -42,33 +42,28 @@ export async function GET(request: Request) {
       andConditions.push({ physicianId });
     }
 
-    // Add conditions dynamically (only if they exist)
-    const orConditions: Prisma.DocumentWhereInput[] = [];
-    if (patientName) {
-      orConditions.push({
+    // Add search conditions dynamically as AND (only if they exist and not "Not specified")
+    if (patientName && patientName !== "Not specified") {
+      andConditions.push({
         patientName: { contains: patientName, mode: "insensitive" },
       });
     }
-    if (claimNumber) {
-      orConditions.push({
+    if (claimNumber && claimNumber !== "Not specified") {
+      andConditions.push({
         claimNumber: { contains: claimNumber, mode: "insensitive" },
       });
     }
-    if (dobParam) {
-      orConditions.push({
+    if (dobParam && dobParam !== "Not specified") {
+      andConditions.push({
         dob: { equals: dobParam },
       });
     }
 
-    // If any search fields exist, use OR; otherwise, fallback to all docs (limit results)
-    if (orConditions.length > 0) {
-      andConditions.push({ OR: orConditions });
-    } else {
-      whereClause.id = { not: null }; // fallback: all docs
-    }
-
+    // If no conditions, fallback to all docs (but we'll limit with take)
     if (andConditions.length > 0) {
       whereClause.AND = andConditions;
+    } else {
+      whereClause.id = { not: null }; // fallback: all docs
     }
 
     console.debug("🧠 Flexible whereClause:", JSON.stringify(whereClause));
@@ -83,52 +78,62 @@ export async function GET(request: Request) {
           },
         },
       },
-      take: 20,
+      take: 50, // Increased limit to account for multiples per patient
       orderBy: { createdAt: "desc" },
     });
 
-    if (!results.length) {
-      return NextResponse.json(
-        { message: "No matching patients found" },
-        { status: 404 }
-      );
-    }
-
-    // ✅ Filter for completeness
+    // ✅ Filter for completeness - relaxed to not require dob
     const completeResults = results.filter((doc) => {
       return (
         !!doc.patientName &&
-        doc.patientName.toLowerCase() !== "not specified" &&
-        !!doc.dob
+        doc.patientName.toLowerCase() !== "not specified"
+        // Removed !!doc.dob to allow missing or "Not specified" DOB
       );
     });
 
-    if (completeResults.length === 0) {
-      return NextResponse.json(
-        {
-          message:
-            "No complete patient records found (missing fields in all matches)",
-        },
-        { status: 404 }
+    let uniqueResults: any[] = [];
+    let patientNames: string[] = [];
+
+    if (completeResults.length > 0) {
+      // ✅ Group by patient key and aggregate bodyPartSnapshots
+      // Normalize dob to empty string if null or "Not specified"
+      const grouped = new Map<string, typeof completeResults[0][]>();
+      completeResults.forEach((doc) => {
+        const normalizedDob = doc.dob === "Not specified" || !doc.dob ? "" : doc.dob;
+        const key = `${doc.patientName}-${doc.claimNumber || ""}-${normalizedDob}`;
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        grouped.get(key)!.push(doc);
+      });
+
+      // For each group, create aggregated document with unique snapshots from all docs in group
+      uniqueResults = Array.from(grouped.values()).map((group) => {
+        // Sort by createdAt desc to get latest as base
+        group.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        const latestDoc = group[0];
+
+        // Collect all snapshots and unique by bodyPart + dx
+        const allSnapshots = group.flatMap((d) => d.bodyPartSnapshots || []);
+        const uniqueSnapshotsMap = new Map(
+          allSnapshots.map((s) => [`${s.bodyPart}-${s.dx}`, s])
+        );
+        const uniqueSnapshots = Array.from(uniqueSnapshotsMap.values());
+
+        // Return aggregated doc using latest as base, with all unique snapshots
+        return {
+          ...latestDoc,
+          bodyPartSnapshots: uniqueSnapshots,
+        };
+      });
+
+      // ✅ Extract patientNames
+      patientNames = Array.from(
+        new Set(uniqueResults.map((r) => r.patientName).filter(Boolean))
       );
     }
-
-    // ✅ Deduplicate by patientName + claimNumber + dob
-    const uniqueKeyMap = new Map<string, (typeof completeResults)[0]>();
-    completeResults.forEach((doc) => {
-      const key = `${doc.patientName}-${doc.claimNumber || ""}-${String(
-        doc.dob
-      )}`;
-      if (!uniqueKeyMap.has(key)) {
-        uniqueKeyMap.set(key, doc);
-      }
-    });
-    const uniqueResults = Array.from(uniqueKeyMap.values());
-
-    // ✅ Extract patientNames
-    const patientNames = Array.from(
-      new Set(uniqueResults.map((r) => r.patientName).filter(Boolean))
-    );
 
     // ✅ Save Audit Log (non-blocking)
     try {
@@ -145,6 +150,7 @@ export async function GET(request: Request) {
       console.error("⚠️ Audit log failed:", auditErr);
     }
 
+    // Always return 200 with data, even if empty
     return NextResponse.json({
       success: true,
       data: {
@@ -155,10 +161,16 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("❌ Error fetching patient name suggestions:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    // Even on error, return 200 with empty data instead of 500 to avoid frontend errors
+    return NextResponse.json({
+      success: false,
+      data: {
+        patientNames: [],
+        allMatchingDocuments: [],
+        totalCount: 0,
+      },
+      error: "Internal server error",
+    });
   } finally {
     await prisma.$disconnect();
   }
