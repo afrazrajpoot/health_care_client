@@ -77,10 +77,23 @@ export default function RebuttalFormPage() {
 
     setSearchLoading(true);
     try {
+      // Build URL params - NO pre-encoding! Let URLSearchParams handle it.
+      const params = new URLSearchParams();
+      params.set("patientName", query); // Raw query (e.g., "Dummy Dummy")
+
+      // Include claim number and DOB if a patient is already selected (for subsequent calls)
+      if (selectedPatient) {
+        console.log("Form data on second API call:", formData); // Your existing log
+        if (selectedPatient.date_of_birth) {
+          params.set("dob", selectedPatient.date_of_birth); // Raw (e.g., "Not specified")
+        }
+        if (selectedPatient.claimNumber) {
+          params.set("claimNumber", selectedPatient.claimNumber || ""); // Raw
+        }
+      }
+
       const res = await fetch(
-        `/api/dashboard/recommendation?patientName=${encodeURIComponent(
-          query
-        )}`,
+        `/api/dashboard/recommendation?${params.toString()}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
