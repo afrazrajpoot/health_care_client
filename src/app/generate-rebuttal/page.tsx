@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Menu, X, Search, User, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/navigation/sidebar";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,24 @@ interface RebuttalInput {
   guideline_source?: string;
   reason_for_denial?: string;
   previous_response?: string;
+  patient_id?: string;
+  patient_name?: string;
+  patient_dob?: string;
+  patient_claim_number?: string;
+}
+
+interface BodyPartSnapshot {
+  bodyPart: string;
+  dx: string;
+}
+
+interface Patient {
+  id: string;
+  name: string;
+  date_of_birth: string;
+  claimNumber?: string;
+  ur_denial_reason?: string;
+  bodyPartSnapshots?: BodyPartSnapshot[];
 }
 
 export default function RebuttalFormPage() {
@@ -23,17 +41,118 @@ export default function RebuttalFormPage() {
     guideline_source: "MTUS",
     reason_for_denial: "",
     previous_response: "",
+    patient_id: "",
+    patient_name: "",
+    patient_dob: "",
+    patient_claim_number: "",
   });
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Patient search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+
+  // Dropdown options states
+  const [bodyParts, setBodyParts] = useState<string[]>([]);
+  const [diagnoses, setDiagnoses] = useState<string[]>([]);
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle patient search
+  const handlePatientSearch = async (query: string) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const res = await fetch(
+        `/api/dashboard/recommendation?patientName=${encodeURIComponent(
+          query
+        )}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // For auth session
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to search patients");
+      const data = await res.json();
+      if (data.success) {
+        setSearchResults(
+          data.data.allMatchingDocuments.map((doc: any) => ({
+            id: doc.id,
+            name: doc.patientName,
+            date_of_birth: doc.dob,
+            claimNumber: doc.claimNumber,
+            ur_denial_reason: doc.ur_denial_reason,
+            bodyPartSnapshots: doc.bodyPartSnapshots,
+          }))
+        );
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handlePatientSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Select a patient and update form
+  const handlePatientSelect = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setFormData((prev) => ({
+      ...prev,
+      patient_id: patient.id,
+      patient_name: patient.name,
+      patient_dob: patient.date_of_birth,
+      patient_claim_number: patient.claimNumber || "",
+      reason_for_denial: patient.ur_denial_reason || "",
+    }));
+
+    // Populate dropdown options
+    const snapshots = patient.bodyPartSnapshots || [];
+    const uniqueBodyParts = [
+      ...new Set(snapshots.map((s) => s.bodyPart)),
+    ].sort();
+    const uniqueDiagnoses = [...new Set(snapshots.map((s) => s.dx))].sort();
+
+    setBodyParts(uniqueBodyParts);
+    setDiagnoses(uniqueDiagnoses);
+
+    // Prefill first options if available
+    if (uniqueBodyParts.length > 0 && !formData.body_part) {
+      setFormData((prev) => ({ ...prev, body_part: uniqueBodyParts[0] }));
+    }
+    if (uniqueDiagnoses.length > 0 && !formData.diagnosis) {
+      setFormData((prev) => ({ ...prev, diagnosis: uniqueDiagnoses[0] }));
+    }
+
+    setSearchQuery(patient.name); // Only show patient name in the search field
+    setSearchResults([]); // Hide results
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,6 +176,7 @@ export default function RebuttalFormPage() {
       const res = await fetch("http://localhost:8000/api/rebuttal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // For auth session
         body: JSON.stringify(formData),
       });
 
@@ -76,6 +196,19 @@ export default function RebuttalFormPage() {
 
   const closeModal = () => {
     setIsModalOpen(false);
+  };
+
+  const copyToClipboard = async () => {
+    if (response && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(response);
+        // Optional: Show a toast or alert
+        alert("Rebuttal copied to clipboard!");
+      } catch (err) {
+        console.error("Failed to copy: ", err);
+        alert("Failed to copy to clipboard. Please select and copy manually.");
+      }
+    }
   };
 
   // Render response with improved markdown parsing: remove * and # signs, bold headings
@@ -191,7 +324,14 @@ export default function RebuttalFormPage() {
               <div className="text-gray-800 prose prose-lg max-w-none">
                 {renderFormattedResponse(response)}
               </div>
-              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-2">
+                <button
+                  onClick={copyToClipboard}
+                  className="px-6 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors font-medium flex items-center"
+                >
+                  <Copy size={18} className="mr-2" />
+                  Copy
+                </button>
                 <button
                   onClick={closeModal}
                   className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
@@ -221,25 +361,95 @@ export default function RebuttalFormPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Patient Search Section */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Patient Search
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search patients by name..."
+                  className="w-full p-3 pl-10 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                />
+              </div>
+              {selectedPatient && (
+                <p className="text-sm text-green-600 mt-1 flex items-center">
+                  <User size={14} className="mr-1" />
+                  Selected: {selectedPatient.name}
+                  {selectedPatient.claimNumber &&
+                    ` (Claim: ${selectedPatient.claimNumber})`}
+                </p>
+              )}
+              {/* Search Results Dropdown */}
+              <AnimatePresence>
+                {searchResults.length > 0 && (
+                  <motion.ul
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                  >
+                    {searchResults.map((patient) => (
+                      <motion.li
+                        key={patient.id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        onClick={() => handlePatientSelect(patient)}
+                        whileHover={{ backgroundColor: "#f9fafb" }}
+                      >
+                        <div className="font-medium text-gray-900">
+                          {patient.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          DOB: {patient.date_of_birth}{" "}
+                          {patient.claimNumber &&
+                            `- Claim: ${patient.claimNumber}`}
+                        </div>
+                        {patient.ur_denial_reason && (
+                          <div className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            Denial Reason: {patient.ur_denial_reason}
+                          </div>
+                        )}
+                      </motion.li>
+                    ))}
+                  </motion.ul>
+                )}
+              </AnimatePresence>
+              {searchLoading && (
+                <p className="text-sm text-gray-500 mt-1">Searching...</p>
+              )}
+            </div>
+
             {/* Required Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Body Part *
                 </label>
-                <input
-                  type="text"
+                <select
                   name="body_part"
                   value={formData.body_part}
                   onChange={handleInputChange}
-                  placeholder="e.g., shoulder"
                   className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                   required
-                />
+                >
+                  <option value="">Select Body Part</option>
+                  {bodyParts.map((bp) => (
+                    <option key={bp} value={bp}>
+                      {bp}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Modality *
+                  Treatment *
                 </label>
                 <input
                   type="text"
@@ -255,15 +465,20 @@ export default function RebuttalFormPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Diagnosis *
                 </label>
-                <input
-                  type="text"
+                <select
                   name="diagnosis"
                   value={formData.diagnosis}
                   onChange={handleInputChange}
-                  placeholder="e.g., chronic shoulder pain"
                   className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                   required
-                />
+                >
+                  <option value="">Select Diagnosis</option>
+                  {diagnoses.map((dx) => (
+                    <option key={dx} value={dx}>
+                      {dx}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

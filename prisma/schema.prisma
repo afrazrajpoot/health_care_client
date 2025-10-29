@@ -61,32 +61,52 @@ model VerificationToken {
 }
 
 model Document {
-  id              String           @id @default(cuid())
-  dob             String?
-  doi             String
-  mode            String? @default("wc")
-  patientName     String
-  status          String
-  claimNumber     String
-  gcsFileLink     String
-  briefSummary    String?
-  whatsNew        Json?
-  blobPath        String?
-  fileName        String?
-  reportDate      DateTime?
-  physicianId     String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  fileHash        String?          @db.VarChar(64)
-  userId          String?
-  adl             ADL?
-  user            User?            @relation(fields: [userId], references: [id])
-  documentSummary DocumentSummary?
-  ur_denial_reason String?
+  id           String  @id @default(cuid())
+  dob          String?
+  doi          String
+  patientName  String
+  status       String
+  claimNumber  String
+  gcsFileLink  String
+  briefSummary String?
+  whatsNew     Json?
+  blobPath     String?
+  fileName     String?
+  fileHash     String? @db.VarChar(64) // ✅ new column for content hash
+  mode         String? @default("wc")
+  reportDate  DateTime?
+  physicianId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+ur_denial_reason String?
+  // Relations
   summarySnapshot SummarySnapshot?
+  adl             ADL?
+  documentSummary DocumentSummary?
   tasks           Task[]
+  bodyPartSnapshots BodyPartSnapshot[]
+  // Optional: If you have users table
+  userId String? // link to the uploader / owner
+  user   User?   @relation(fields: [userId], references: [id])
 
-  @@unique([fileHash, userId])
+  @@unique([fileHash, userId]) // ✅ prevent duplicate uploads per user
+}
+model BodyPartSnapshot {
+  id              String   @id @default(cuid())
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId      String
+  
+  bodyPart        String
+  dx              String
+  keyConcern      String
+  nextStep        String?
+  urDecision      String?
+  recommended     String?
+  aiOutcome       String?
+  consultingDoctor String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model SummarySnapshot {

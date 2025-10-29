@@ -1,4 +1,3 @@
-// hooks/useTasks.ts (updated with handleCreateManualTask)
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -60,10 +59,14 @@ export const useTasks = (initialMode: "wc" | "gm") => {
   );
 
   const fetchTasks = useCallback(
-    async (currentMode: "wc" | "gm") => {
+    async (currentMode: "wc" | "gm", claim?: string) => {
       try {
         setLoading(true);
-        const response = await fetch("/api/tasks");
+        const params = new URLSearchParams({ mode: currentMode });
+        if (claim) {
+          params.append("claim", claim);
+        }
+        const response = await fetch(`/api/tasks?${params.toString()}`);
 
         if (!response.ok) {
           throw new Error("Failed to fetch tasks");
@@ -114,7 +117,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       } catch (error) {
         console.error("Error updating task:", error);
         toast.error("❌ Error updating task");
-        fetchTasks(initialMode);
+        fetchTasks(initialMode, undefined);
       }
     },
     [fetchTasks, initialMode]
@@ -170,7 +173,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       } catch (error) {
         console.error("Error updating UR denial reason:", error);
         toast.error("❌ Error updating UR denial reason");
-        fetchTasks(initialMode);
+        fetchTasks(initialMode, undefined);
       }
     },
     [fetchTasks, initialMode]
@@ -225,7 +228,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       } catch (error) {
         console.error("Error saving note:", error);
         toast.error("❌ Error saving note");
-        fetchTasks(initialMode);
+        fetchTasks(initialMode, undefined);
       }
     },
     [fetchTasks, initialMode]
@@ -239,9 +242,11 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         description: string;
         department: string;
         documentId?: string;
-        urDenialReason?: string; // Add UR denial reason to form data
+        urDenialReason?: string;
+        claimNumber?: string; // Add claimNumber to form data
       },
-      currentMode: "wc" | "gm"
+      currentMode: "wc" | "gm",
+      urlClaim?: string
     ) => {
       try {
         const response = await fetch("/api/add-manual-task", {
@@ -259,6 +264,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
             documentId: formData.documentId,
             mode: currentMode,
             ur_denial_reason: formData.urDenialReason, // Include UR denial reason
+            claim_number: formData.claimNumber || urlClaim, // Include claim number if available from form or URL
           }),
         });
 

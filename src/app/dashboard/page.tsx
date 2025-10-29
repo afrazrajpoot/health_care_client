@@ -836,6 +836,14 @@ export default function PhysicianCard() {
 
   const currentPatient = getCurrentPatientInfo();
 
+  // Dynamic href for Staff Dashboard link
+  const staffDashboardHref =
+    currentPatient.claimNumber && currentPatient.claimNumber !== "—"
+      ? `/staff-dashboard?claim=${encodeURIComponent(
+          currentPatient.claimNumber
+        )}`
+      : "/staff-dashboard";
+
   // Burger Icon Component
   const BurgerIcon = () => (
     <svg
@@ -918,7 +926,7 @@ export default function PhysicianCard() {
             Kebilo Physician Dashboard
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/staff-dashboard" ref={staffButtonRef}>
+            <Link href={staffDashboardHref} ref={staffButtonRef}>
               <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
                 Staff Dashboard
               </button>

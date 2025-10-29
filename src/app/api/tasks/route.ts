@@ -34,9 +34,30 @@ export async function GET(request: Request) {
       );
     }
 
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('mode') || 'wc';
+    const claim = searchParams.get('claim');
+
+    // Build where clause
+    const whereClause: any = { physicianId };
+
+    if (claim) {
+      whereClause.document = {
+        claimNumber: claim,
+      };
+    }
+
+    if (mode) {
+      whereClause.document = {
+        ...(whereClause.document || {}),
+        mode,
+      };
+    }
+
     // ✅ Fetch tasks with their related document info
     const tasks = await prisma.task.findMany({
-      where: { physicianId },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
       include: {
         document: {
