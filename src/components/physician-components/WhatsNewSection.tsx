@@ -12,7 +12,9 @@ import {
   CopyIcon,
   EyeIcon,
   EyeOffIcon,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
 
 interface WhatsNewSectionProps {
@@ -43,6 +45,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   onToggle,
 }) => {
   const [viewedWhatsNew, setViewedWhatsNew] = useState<Set<string>>(new Set());
+  const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
 
   const { formatDate } = useWhatsNewData(documentData);
 
@@ -247,29 +250,52 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const handleMarkViewed = async (e: React.MouseEvent, group: any) => {
     e.stopPropagation();
-    setViewedWhatsNew((prev) => new Set([...prev, group.docId]));
+    const groupId = group.docId;
+    const docId = group.doc?.document_id;
+    if (!docId) return;
 
-    // Verify the document via API only if not already verified
-    if (
-      documentData &&
-      group.doc?.document_id &&
-      group.doc.status !== "verified"
-    ) {
-      const documentId = group.doc.document_id;
+    if (viewedWhatsNew.has(groupId)) return;
+    if (loadingDocs.has(docId)) return;
 
-      try {
+    const needsVerification = group.doc.status !== "verified";
+
+    if (needsVerification) {
+      setLoadingDocs((prev) => new Set([...prev, docId]));
+    }
+
+    try {
+      if (needsVerification) {
         const response = await fetch(
-          `/api/verify-document?document_id=${encodeURIComponent(documentId)}`,
+          `/api/verify-document?document_id=${encodeURIComponent(docId)}`,
           { method: "POST" }
         );
         const data = await response.json();
-        if (data.success) {
-          console.log("Document verified successfully");
-        } else {
-          console.error("Verification failed:", data.error);
+        if (!data.success) {
+          throw new Error(data.error || "Verification failed");
         }
-      } catch (err) {
-        console.error("Error verifying document:", err);
+        toast.success("Successfully verified");
+      }
+
+      // Mark all groups for this document as viewed
+      const docGroups = groups
+        .filter((g) => g.originalDocId === group.originalDocId)
+        .map((g) => g.docId);
+      setViewedWhatsNew((prev) => {
+        const newSet = new Set(prev);
+        docGroups.forEach((id) => newSet.add(id));
+        return newSet;
+      });
+    } catch (err) {
+      console.error("Error verifying document:", err);
+      toast.error(`Verification failed: ${(err as Error).message}`);
+      // Do not mark as viewed on error
+    } finally {
+      if (needsVerification) {
+        setLoadingDocs((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(docId);
+          return newSet;
+        });
       }
     }
   };
@@ -287,6 +313,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
+  const isLoadingForGroup = (group: any) => {
+    const docId = group.doc?.document_id;
+    return docId ? loadingDocs.has(docId) : false;
+  };
 
   return (
     <>
@@ -322,6 +352,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               {groups.map((group, groupIndex) => {
                 const isViewed = isGroupViewed(group.docId);
                 const isGroupCopied = copied[`whatsnew-${group.docId}`];
+                const isLoading = isLoadingForGroup(group);
 
                 return (
                   <li key={group.docId} className="separated-item">
@@ -356,11 +387,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         <button
                           className={`mark-viewed-btn ${
                             isViewed ? "viewed" : ""
-                          }`}
+                          } ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
+                          disabled={isLoading}
                           title={isViewed ? "Viewed" : "Mark Viewed"}
                         >
-                          {isViewed ? (
+                          {isLoading ? (
+                            <Loader2 className="icon-xxs animate-spin" />
+                          ) : isViewed ? (
                             <EyeIcon className="icon-xxs" />
                           ) : (
                             <EyeOffIcon className="icon-xxs" />
@@ -684,8 +718,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           color: #475569;
           flex-shrink: 0;
         }
-        .mark-viewed-btn:hover {
+        .mark-viewed-btn:hover:not(:disabled) {
           background: #cbd5e1;
+        }
+        .mark-viewed-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
         }
         .mark-viewed-btn.viewed {
           background: #dcfce7;
@@ -693,6 +731,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .mark-viewed-btn.viewed:hover {
           background: #bbf7d0;
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
         }
         /* Icon size classes */
         .icon-sm {

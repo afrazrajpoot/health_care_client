@@ -25,7 +25,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [pollCount, setPollCount] = useState(0);
   const [lastPollTime, setLastPollTime] = useState(Date.now());
-  const [viewMode, setViewMode] = useState<"task" | "queue">("task"); // 'task' or 'queue'
+  const [viewMode, setViewMode] = useState<"task" | "queue">("task");
+  const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
 
   // Check localStorage on mount for persisted visibility
   useEffect(() => {
@@ -152,18 +155,40 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     checkQueueProgress,
   ]);
 
-  // Handle completion
+  // Handle completion and auto-close
   useEffect(() => {
     const isCompleted =
       progressData?.status === "completed" ||
       queueProgressData?.status === "completed";
 
-    if (isCompleted && onComplete) {
+    if (isCompleted) {
       console.log("✅ Processing completed - triggering onComplete callback");
-      onComplete();
+
+      // Call the onComplete callback first
+      if (onComplete) {
+        onComplete();
+      }
+
+      // Set progress to 100%
       setDisplayProgress(100);
       setDisplayQueueProgress(100);
+
+      // Auto-close after a short delay (2 seconds)
+      console.log("⏰ Setting auto-close timer");
+      const timer = setTimeout(() => {
+        console.log("🕒 Auto-closing progress tracker");
+        handleClose();
+      }, 2000);
+
+      setAutoCloseTimer(timer);
     }
+
+    // Cleanup timer on unmount or when completion status changes
+    return () => {
+      if (autoCloseTimer) {
+        clearTimeout(autoCloseTimer);
+      }
+    };
   }, [progressData?.status, queueProgressData?.status, onComplete]);
 
   // Smooth progress animation for task
@@ -232,6 +257,14 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     console.log("✕ Closing progress tracker");
     setIsVisible(false);
     localStorage.removeItem("progressTrackerOpen");
+
+    // Clear any pending auto-close timer
+    if (autoCloseTimer) {
+      clearTimeout(autoCloseTimer);
+      setAutoCloseTimer(null);
+    }
+
+    // Clear progress data after a short delay to allow animation
     setTimeout(() => clearProgress(), 300);
   };
 
@@ -397,10 +430,11 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Completion Message */}
           {status === "completed" && (
             <div
-              className={`mt-2 p-2 rounded text-xs ${failed_files.length > 0
+              className={`mt-2 p-2 rounded text-xs ${
+                failed_files.length > 0
                   ? "bg-yellow-50 border border-yellow-200 text-yellow-800"
                   : "bg-green-50 border border-green-200 text-green-800"
-                }`}
+              }`}
             >
               {failed_files.length > 0
                 ? `Processed ${processed_count} out of ${total_files} files. ${failed_files.length} files failed.`
@@ -511,10 +545,11 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Completion Message */}
           {status === "completed" && (
             <div
-              className={`mt-2 p-2 rounded text-xs ${failed_tasks > 0
+              className={`mt-2 p-2 rounded text-xs ${
+                failed_tasks > 0
                   ? "bg-yellow-50 border border-yellow-200 text-yellow-800"
                   : "bg-green-50 border border-green-200 text-green-800"
-                }`}
+              }`}
             >
               {failed_tasks > 0
                 ? `Processed ${completed_tasks} out of ${total_tasks} tasks. ${failed_tasks} tasks failed.`
@@ -538,13 +573,13 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               ? queueProgressData?.status === "active"
                 ? "🔄"
                 : queueProgressData?.failed_tasks
-                  ? "⚠️"
-                  : "✅"
+                ? "⚠️"
+                : "✅"
               : progressData?.status === "processing"
-                ? "🔄"
-                : progressData?.failed_files?.length
-                  ? "⚠️"
-                  : "✅"}
+              ? "🔄"
+              : progressData?.failed_files?.length
+              ? "⚠️"
+              : "✅"}
           </span>
         </div>
         <div className="flex items-center space-x-2">
@@ -553,8 +588,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             <button
               onClick={toggleViewMode}
               className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
-              title={`Switch to ${viewMode === "queue" ? "task" : "queue"
-                } view`}
+              title={`Switch to ${
+                viewMode === "queue" ? "task" : "queue"
+              } view`}
             >
               {viewMode === "queue" ? "📄" : "📊"}
             </button>
