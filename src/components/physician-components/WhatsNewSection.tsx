@@ -1,7 +1,6 @@
 // components/WhatsNewSection.tsx
 import { DocumentData } from "@/app/custom-hooks/staff-hooks/physician-hooks/types";
 import {
-  usePreviewFile,
   useQuickNotesToggle,
   useWhatsNewData,
 } from "@/app/custom-hooks/staff-hooks/physician-hooks/useWhatsNewData";
@@ -14,7 +13,7 @@ import {
   EyeIcon,
   EyeOffIcon,
 } from "lucide-react";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -23,6 +22,18 @@ interface WhatsNewSectionProps {
   isCollapsed: boolean;
   onToggle: () => void;
 }
+
+// Helper function to check if a value is "not specified"
+const isSpecified = (value: any): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    return !["", "not specified", "n/a", "na", "null", "undefined"].includes(
+      trimmed
+    );
+  }
+  return true;
+};
 
 const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   documentData,
@@ -35,75 +46,187 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const { formatDate } = useWhatsNewData(documentData);
 
+  // Initialize viewed state based on verified status
+  useEffect(() => {
+    const initial = new Set<string>();
+    if (documentData?.documents) {
+      documentData.documents.forEach((doc, docIndex) => {
+        if (doc.status === "verified") {
+          const docId = doc.document_id || `doc_${docIndex}`;
+          // Add groups for whats_new
+          const whatsNewArray = doc.whats_new || [];
+          whatsNewArray.forEach((_, groupIndex) => {
+            initial.add(`${docId}_${groupIndex}`);
+          });
+          // Add summary group if exists
+          const summaryData = documentData.document_summaries?.[docIndex];
+          if (isSpecified(summaryData?.summary)) {
+            initial.add(`${docId}_summary`);
+          }
+        }
+      });
+    }
+    setViewedWhatsNew(initial);
+  }, [documentData]);
+
   // Transform the new whats_new structure to snapshots format - GROUPED BY DOCUMENT ID
   const groups = useMemo(() => {
     if (!documentData?.documents) return [];
 
     return documentData.documents
-      .flatMap((doc, docIndex) => {
+      .map((doc, docIndex) => {
         const whatsNewArray = doc.whats_new || [];
         const docId = doc.document_id || `doc_${docIndex}`;
 
+        const summaryData = documentData.document_summaries?.[docIndex];
+        const summary = summaryData?.summary;
+        const summaryDate = summaryData?.date;
+        const hasSummary = isSpecified(summary);
+
         // Process each whats_new group in this document
-        return whatsNewArray.map((whatsNewObj, groupIndex) => {
-          const items: Array<{
+        const whatsNewGroups = whatsNewArray
+          .map((whatsNewObj, groupIndex) => {
+            const items: Array<{
+              type: string;
+              content: string;
+              description: string;
+            }> = [];
+
+            // Extract all items from this whats_new object
+            Object.entries(whatsNewObj).forEach(
+              ([type, entry]: [string, any]) => {
+                if (!entry || typeof entry !== "object") return;
+
+                const label =
+                  type.charAt(0).toUpperCase() +
+                  type.slice(1).replace(/_/g, " ");
+
+                if (Array.isArray(entry)) {
+                  // Handle array for quick_note
+                  entry.forEach((subEntry: any) => {
+                    if (!subEntry || typeof subEntry !== "object") return;
+
+                    // Check if content or description has specified values
+                    const hasSpecifiedContent = isSpecified(subEntry.content);
+                    const hasSpecifiedDescription = isSpecified(
+                      subEntry.description
+                    );
+
+                    if (!hasSpecifiedContent && !hasSpecifiedDescription)
+                      return;
+
+                    items.push({
+                      type,
+                      content: subEntry.content || "",
+                      description: subEntry.description || "",
+                    });
+                  });
+                } else {
+                  // Handle single object entries - only add if content is specified
+                  if (!isSpecified(entry.content)) return;
+
+                  items.push({
+                    type,
+                    content: entry.content || "",
+                    description: `${label}: ${entry.content || ""}`,
+                  });
+                }
+              }
+            );
+
+            // Filter out items that have no specified content
+            const filteredItems = items.filter(
+              (item) =>
+                isSpecified(item.content) || isSpecified(item.description)
+            );
+
+            // Skip entire group if no items with specified data
+            if (filteredItems.length === 0) return null;
+
+            // Use the first item's dates for the group (only if specified)
+            const firstItem = filteredItems[0];
+            const reportDate =
+              firstItem &&
+              isSpecified(
+                whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_report_date
+              )
+                ? whatsNewObj[Object.keys(whatsNewObj)[0]]
+                    ?.document_report_date || ""
+                : "";
+            const createdDate =
+              firstItem &&
+              isSpecified(
+                whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_created_at
+              )
+                ? whatsNewObj[Object.keys(whatsNewObj)[0]]
+                    ?.document_created_at || ""
+                : "";
+
+            return {
+              docId: `${docId}_${groupIndex}`, // Unique ID for each group
+              originalDocId: docId,
+              reportDate,
+              createdDate,
+              items: filteredItems,
+              doc, // Full document object for additional info
+            };
+          })
+          .filter(
+            (group): group is NonNullable<typeof group> =>
+              group !== null && group.items.length > 0
+          );
+
+        let allGroupsForDoc: Array<{
+          docId: string;
+          originalDocId: string;
+          reportDate: string;
+          createdDate: string;
+          items: Array<{
             type: string;
             content: string;
             description: string;
-          }> = [];
+          }>;
+          doc: any;
+        }> = whatsNewGroups;
 
-          // Extract all items from this whats_new object
-          Object.entries(whatsNewObj).forEach(
-            ([type, entry]: [string, any]) => {
-              if (!entry || typeof entry !== "object") return;
-
-              const label =
-                type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ");
-
-              if (Array.isArray(entry)) {
-                // Handle array for quick_note
-                entry.forEach((subEntry: any) => {
-                  if (!subEntry || typeof subEntry !== "object") return;
-                  items.push({
-                    type,
-                    content: subEntry.content || "",
-                    description: subEntry.description || subEntry.content || "",
-                  });
-                });
-              } else {
-                // Handle single object entries
-                items.push({
-                  type,
-                  content: entry.content || "",
-                  description: `${label}: ${entry.content || ""}`,
-                });
-              }
-            }
-          );
-
-          // Use the first item's dates for the group
-          const firstItem = items[0];
-          const reportDate = firstItem
-            ? whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_report_date ||
-              ""
-            : "";
-          const createdDate = firstItem
-            ? whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_created_at ||
-              ""
-            : "";
-
-          return {
-            docId: `${docId}_${groupIndex}`, // Unique ID for each group
-            originalDocId: docId,
-            reportDate,
-            createdDate,
-            items,
-            doc, // Full document object for additional info
+        if (hasSummary) {
+          const summaryItem = {
+            type: "document_summary" as const,
+            content: summary || "",
+            description: summary || "",
           };
-        });
+
+          if (allGroupsForDoc.length > 0) {
+            // Add to the first group
+            const firstGroup = allGroupsForDoc[0];
+            firstGroup.items = [summaryItem, ...firstGroup.items];
+
+            // Use summaryDate for reportDate if not set
+            if (
+              !isSpecified(firstGroup.reportDate) &&
+              isSpecified(summaryDate)
+            ) {
+              firstGroup.reportDate = summaryDate || "";
+            }
+          } else {
+            // Create a group with only summary
+            allGroupsForDoc = [
+              {
+                docId: `${docId}_summary`,
+                originalDocId: docId,
+                reportDate: isSpecified(summaryDate) ? summaryDate || "" : "",
+                createdDate: "",
+                items: [summaryItem],
+                doc,
+              },
+            ];
+          }
+        }
+
+        return allGroupsForDoc;
       })
-      .filter((group) => group.items.length > 0);
-  }, [documentData?.documents]);
+      .flat();
+  }, [documentData?.documents, documentData?.document_summaries]);
 
   const handleSectionClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".section-header")) {
@@ -122,9 +245,45 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     setViewedWhatsNew(new Set(groups.map((group) => group.docId)));
   };
 
-  const handleMarkViewed = (e: React.MouseEvent, groupId: string) => {
+  const handleMarkViewed = async (e: React.MouseEvent, group: any) => {
     e.stopPropagation();
-    setViewedWhatsNew((prev) => new Set([...prev, groupId]));
+    setViewedWhatsNew((prev) => new Set([...prev, group.docId]));
+
+    // Verify the document via API only if not already verified
+    if (
+      documentData &&
+      group.doc?.document_id &&
+      group.doc.status !== "verified"
+    ) {
+      const documentId = group.doc.document_id;
+
+      try {
+        const response = await fetch(
+          `/api/verify-document?document_id=${encodeURIComponent(documentId)}`,
+          { method: "POST" }
+        );
+        const data = await response.json();
+        if (data.success) {
+          console.log("Document verified successfully");
+        } else {
+          console.error("Verification failed:", data.error);
+        }
+      } catch (err) {
+        console.error("Error verifying document:", err);
+      }
+    }
+  };
+
+  const handlePreviewClick = (e: React.MouseEvent, doc: any) => {
+    e.stopPropagation();
+    if (doc.blob_path) {
+      const previewUrl = `http://localhost:8000/api/preview/${encodeURIComponent(
+        doc.blob_path
+      )}`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    } else {
+      console.error("Blob path not found for preview");
+    }
   };
 
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
@@ -198,7 +357,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           className={`mark-viewed-btn ${
                             isViewed ? "viewed" : ""
                           }`}
-                          onClick={(e) => handleMarkViewed(e, group.docId)}
+                          onClick={(e) => handleMarkViewed(e, group)}
                           title={isViewed ? "Viewed" : "Mark Viewed"}
                         >
                           {isViewed ? (
@@ -210,7 +369,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                     </div>
 
-                    {group.reportDate && (
+                    {isSpecified(group.reportDate) && (
                       <div className="group-date">
                         {formatDate(group.reportDate)}
                       </div>
@@ -232,21 +391,46 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                                   Quick note
                                 </span>
                               )}
-                              {item.description}
+                              {item.type === "document_summary" && (
+                                <span className="summary-label">
+                                  Document Summary
+                                </span>
+                              )}
+                              {/* Only show description if it has specified content */}
+                              {isSpecified(item.description)
+                                ? item.description
+                                : isSpecified(item.content)
+                                ? item.content
+                                : null}
                             </div>
                             <div className="item-actions">
+                              {item.type === "document_summary" &&
+                                group.doc && (
+                                  <button
+                                    className="preview-btn"
+                                    onClick={(e) =>
+                                      handlePreviewClick(e, group.doc)
+                                    }
+                                    title="Preview Text"
+                                  >
+                                    Preview
+                                  </button>
+                                )}
                               {/* No toggle for quick_note, always show details */}
                             </div>
                           </div>
                           {item.type === "quick_note" && (
                             <div className="item-details">
-                              <p>
-                                <strong>Task:</strong>{" "}
-                                {item.description || "No description available"}
-                              </p>
-                              <p>
-                                <strong>Notes:</strong> {item.content}
-                              </p>
+                              {isSpecified(item.description) && (
+                                <p>
+                                  <strong>Task:</strong> {item.description}
+                                </p>
+                              )}
+                              {isSpecified(item.content) && (
+                                <p>
+                                  <strong>Notes:</strong> {item.content}
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -341,11 +525,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-weight: 600;
           color: #374151;
         }
-        .doc-id {
-          color: #6b7280;
-          font-family: monospace;
-          font-size: 11px;
-        }
         .doc-index {
           color: #1f2937;
         }
@@ -404,11 +583,34 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
+        .summary-label {
+          background: #ecfdf5;
+          color: #047857;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
         .item-actions {
           display: flex;
           gap: 4px;
           align-items: center;
           flex-shrink: 0;
+        }
+        .preview-btn {
+          background: #e2e8f0;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          color: #475569;
+          transition: all 0.2s;
+        }
+        .preview-btn:hover {
+          background: #cbd5e1;
         }
         .item-details {
           margin-top: 8px;

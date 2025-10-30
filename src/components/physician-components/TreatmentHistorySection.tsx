@@ -328,23 +328,31 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               snapshot.recommended !== "Not specified" &&
                               snapshot.recommended !== "" && (
                                 <li>
-                                  <strong>Recommendations:</strong>{" "}
-                                  {snapshot.recommended}
+                                  <strong>Treatment Plan:</strong>{" "}
+                                  {snapshot.treatmentPlane}
                                 </li>
                               )}
-                            {snapshot.aiOutcome &&
+                            {/* {snapshot.aiOutcome &&
                               snapshot.aiOutcome !== "Not specified" &&
                               snapshot.aiOutcome !== "" && (
                                 <li>
                                   <strong>Outcome:</strong> {snapshot.aiOutcome}
                                 </li>
-                              )}
+                              )} */}
                             {snapshot.consultingDoctor &&
                               snapshot.consultingDoctor !== "Not specified" &&
                               snapshot.consultingDoctor !== "" && (
                                 <li>
                                   <strong>Consulting Doctor:</strong>{" "}
                                   {snapshot.consultingDoctor}
+                                </li>
+                              )}
+                            {snapshot.refrelDoctor &&
+                              snapshot.refrelDoctor !== "Not specified" &&
+                              snapshot.refrelDoctor !== "" && (
+                                <li>
+                                  <strong>Refrel Doctor:</strong>{" "}
+                                  {snapshot.refrelDoctor}
                                 </li>
                               )}
                             {snapshot.urDecision &&
