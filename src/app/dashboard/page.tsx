@@ -612,6 +612,8 @@ export default function PhysicianCard() {
         patient_quiz: data.patient_quiz,
         body_part_snapshots: allBodyPartSnapshots, // Set all aggregated body part snapshots
         quick_notes_snapshots: processedQuickNotes,
+        gcs_file_link: latestDoc?.gcs_file_link,
+        blob_path: latestDoc?.blob_path,
         // Compute allVerified based on status of latest doc (or aggregate if needed)
         allVerified:
           !!latestDoc.status && latestDoc.status.toLowerCase() === "verified",

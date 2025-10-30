@@ -119,13 +119,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [activeQueueId, setActiveQueueId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const queuePollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Modal state
+  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("Invalid Document");
   const [modalDescription, setModalDescription] = useState("");
+  const [skipModalData, setSkipModalData] = useState<{
+    open: boolean;
+    filename: string;
+    reason: string;
+  }>({
+    open: false,
+    filename: "",
+    reason: "",
+  });
+
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const queuePollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Storage keys
   const STORAGE_KEYS = {
@@ -263,17 +272,27 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     backendData: BackendProgressData
   ): ProgressData => {
     const successful_count = backendData.processed_files?.length || 0;
+    const failed_count = backendData.failed_files?.length || 0;
     const total_files = backendData.total_steps || 1;
     const completed_steps = backendData.completed_steps || 0;
+
+    // Include skipped files in progress calculation
+    const effectiveProgress = Math.min(
+      ((successful_count + failed_count) / total_files) * 100,
+      100
+    );
 
     let mappedStatus = backendData.status as
       | "processing"
       | "completed"
       | "failed";
-    let mappedProgress = backendData.progress_percentage || 0;
+    let mappedProgress = backendData.progress_percentage || effectiveProgress;
 
-    // Force 100% if all files are processed
-    if (completed_steps >= total_files) {
+    // Force 100% if all files are processed (successfully or not)
+    if (
+      completed_steps >= total_files ||
+      successful_count + failed_count >= total_files
+    ) {
       mappedProgress = 100;
       mappedStatus = "completed";
       console.log("🔧 Mapping: All files processed - forcing 100%");
@@ -592,6 +611,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     clearPersistedProgress();
   };
 
+  // Modal handlers
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleSkipModalClose = () => {
+    setSkipModalData((prev) => ({ ...prev, open: false }));
+  };
+
   useEffect(() => {
     return () => {
       stopProgressPolling();
@@ -760,6 +788,59 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
 
+    // NEW: Document skipped event handler
+    socketInstance.on("document_skipped", (data: any) => {
+      console.log("⏭️ Document skipped event:", data);
+
+      if (data.user_id === userId) {
+        // Show modal
+        setSkipModalData({
+          open: true,
+          filename: data.filename,
+          reason: data.reason || "Document was already processed",
+        });
+
+        // Also show toast
+        toast.warning(`Document skipped: ${data.filename}`, {
+          description: data.reason,
+          duration: 3000,
+        });
+
+        // Update progress data if we have an active task
+        if (activeTaskId && progressData) {
+          setProgressData((prev) => {
+            if (!prev) return prev;
+
+            return {
+              ...prev,
+              failed_files: [...prev.failed_files, data.filename],
+              processed_count: prev.processed_count + 1,
+              // Recalculate progress
+              progress: Math.round(
+                ((prev.processed_count + 1) / prev.total_files) * 100
+              ),
+            };
+          });
+        }
+
+        // Also update queue progress if available
+        if (activeQueueId && queueProgressData) {
+          setQueueProgressData((prev) => {
+            if (!prev) return prev;
+
+            return {
+              ...prev,
+              failed_tasks: prev.failed_tasks + 1,
+              completed_tasks: prev.completed_tasks + 1,
+              overall_progress: Math.round(
+                ((prev.completed_tasks + 1) / prev.total_tasks) * 100
+              ),
+            };
+          });
+        }
+      }
+    });
+
     socketInstance.on("task_complete", (data: any) => {
       console.log("🏁 Task complete event via Socket.IO:", data);
       setTaskStatus(data);
@@ -795,10 +876,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [status, session?.user?.id, activeTaskId, activeQueueId, isProcessing]);
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
   return (
     <SocketContext.Provider
       value={{
@@ -818,6 +895,34 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     >
       {children}
 
+      {/* Document Skipped Modal */}
+      <Dialog open={skipModalData.open} onOpenChange={handleSkipModalClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-center text-yellow-600">
+              ⚠️ Document Skipped
+            </DialogTitle>
+            <DialogDescription className="text-center pt-4">
+              <div className="space-y-2">
+                <p className="font-semibold text-gray-900">
+                  {skipModalData.filename}
+                </p>
+                <p className="text-gray-600">{skipModalData.reason}</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center pt-4">
+            <button
+              onClick={handleSkipModalClose}
+              className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+            >
+              Continue Processing
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Existing modal for other purposes */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

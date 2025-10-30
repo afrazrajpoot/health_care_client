@@ -199,6 +199,32 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                         [View Summary]
                       </a>
                     )}
+                    {documentData?.blob_path && (
+                      <a
+                        href="#"
+                        className="pdf-link preview"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handlePreviewFile(e);
+                        }}
+                      >
+                        [Preview File]
+                      </a>
+                    )}
+                    {documentData?.gcs_file_link && (
+                      <a
+                        href="#"
+                        className="pdf-link download"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleViewFile(e);
+                        }}
+                      >
+                        [Download File]
+                      </a>
+                    )}
                     {hasPrevious && (
                       <a
                         href="#"
@@ -235,36 +261,6 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
             )}
           </ul>
         </div>
-      </div>
-
-      {/* File actions always rendered, regardless of accordion state, as long as data exists */}
-      <div className="file-actions">
-        {documentData?.blob_path && (
-          <a
-            href="#"
-            className="pdf-link preview"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handlePreviewFile(e);
-            }}
-          >
-            [Preview File]
-          </a>
-        )}
-        {documentData?.gcs_file_link && (
-          <a
-            href="#"
-            className="pdf-link download"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleViewFile(e);
-            }}
-          >
-            [Download File]
-          </a>
-        )}
       </div>
 
       <style jsx>{`
@@ -374,16 +370,6 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
         }
         .status-denied {
           color: red;
-        }
-        .file-actions {
-          margin: 0 20px 20px 20px;
-          padding-left: 20px;
-          font-size: 14px;
-          border-top: 1px solid #e5e7eb;
-          padding-top: 8px;
-        }
-        .file-actions:empty {
-          display: none;
         }
       `}</style>
     </>
