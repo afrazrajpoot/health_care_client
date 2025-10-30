@@ -285,6 +285,11 @@ export default function Dashboard() {
     router.push("/packages");
   }, [clearPaymentError, router]);
 
+  const handleProgressComplete = useCallback(() => {
+    fetchTasks(modeState, urlClaim);
+    fetchFailedDocuments();
+    fetchOfficePulse(); // This will refresh the office pulse data
+  }, [fetchTasks, modeState, urlClaim, fetchFailedDocuments, fetchOfficePulse]);
 
   useEffect(() => {
     fetchTasks(modeState, urlClaim);
@@ -686,8 +691,8 @@ export default function Dashboard() {
 
         <div
           className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
-              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
             }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
