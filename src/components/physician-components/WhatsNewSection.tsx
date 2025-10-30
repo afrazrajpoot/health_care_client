@@ -55,7 +55,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             typeof bullet === "string" &&
             bullet.trim() &&
             bullet.trim() !==
-            "• No significant new findings identified in current document"
+              "• No significant new findings identified in current document"
         );
 
         return {
@@ -72,6 +72,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       .filter((group) => group.bulletPoints.length > 0); // Only show documents with bullet points
   }, [documentData?.documents]);
 
+  // Automatically mark verified documents as viewed
+  useEffect(() => {
+    const verifiedIds = documentGroups
+      .filter((g) => g.status === "verified")
+      .map((g) => g.docId);
+    setViewedWhatsNew((prev) => {
+      const newSet = new Set(prev);
+      verifiedIds.forEach((id) => newSet.add(id));
+      return newSet;
+    });
+  }, [documentGroups]);
+
   const handleSectionClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".section-header")) {
       onToggle();
@@ -82,12 +94,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     e.stopPropagation();
 
     const group = documentGroups.find((g) => g.docId === groupId);
-    if (!group || !Array.isArray(group.bulletPoints) || group.bulletPoints.length === 0) {
+    if (
+      !group ||
+      !Array.isArray(group.bulletPoints) ||
+      group.bulletPoints.length === 0
+    ) {
       toast.error("No items found to copy");
       return;
     }
 
-    const textToCopy = `These findings have been reviewed by Physician\n${group.bulletPoints.join("\n")}`;
+    const textToCopy = `These findings have been reviewed by Physician\n${group.bulletPoints.join(
+      "\n"
+    )}`;
 
     navigator.clipboard
       .writeText(textToCopy)
@@ -224,8 +242,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                       <div className="group-actions">
                         <button
-                          className={`copy-btn ${isGroupCopied ? "copied" : ""
-                            }`}
+                          className={`copy-btn ${
+                            isGroupCopied ? "copied" : ""
+                          }`}
                           onClick={(e) => handleCopyClick(e, group.docId)}
                           title="Copy This Update"
                         >
@@ -236,8 +255,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
                         </button>
                         <button
-                          className={`mark-viewed-btn ${isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
+                          className={`mark-viewed-btn ${
+                            isViewed ? "viewed" : ""
+                          } ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
                           disabled={isLoading}
                           title={isViewed ? "Reviewed" : "Mark as Reviewed"}

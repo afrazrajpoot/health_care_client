@@ -1160,7 +1160,7 @@ export default function PhysicianCard() {
                 </div>
 
                 {/* Physician Verified Row - Only show for Physicians */}
-                {session.user.role === "Physician" && (
+                {/* {session.user.role === "Physician" && (
                   <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
                     <div className="flex gap-2 items-center text-sm">
                       <label
@@ -1207,7 +1207,7 @@ export default function PhysicianCard() {
                       Last verified: <span id="verifyTime">{verifyTime}</span>
                     </div>
                   </div>
-                )}
+                )} */}
 
                 {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
                 <WhatsNewSection
