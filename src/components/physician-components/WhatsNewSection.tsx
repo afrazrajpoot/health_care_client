@@ -239,7 +239,34 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const handleCopyClick = (e: React.MouseEvent, groupId: string) => {
     e.stopPropagation();
-    onCopySection(`whatsnew-${groupId}`);
+    // Find the group by groupId
+    const group = groups.find((g) => g.docId === groupId);
+    let content = "";
+    if (group) {
+      // Join all item descriptions or content
+      const lines = group.items.map(
+        (item) =>
+          (item.description && item.description.trim()) ||
+          (item.content && item.content.trim()) ||
+          ""
+      ).filter(Boolean);
+      content = lines.join("\n");
+    }
+    const textToCopy = `These findings have been reviewed by Physician\n${content}`;
+    // Actually copy to clipboard
+    if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => {
+          toast.success("Copied to clipboard");
+        })
+        .catch(() => {
+          toast.error("Failed to copy");
+        });
+    } else {
+      // fallback
+      toast.error("Clipboard not supported");
+    }
+    onCopySection(textToCopy);
   };
 
   const handleReviewClick = (e: React.MouseEvent) => {
@@ -327,9 +354,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             <h3>What's New Since Last Visit</h3>
           </div>
           <div className="header-actions">
-            <span className="review-toggle" onClick={handleReviewClick}>
+            {/* <span className="review-toggle" onClick={handleReviewClick}>
               Mark All Reviewed
-            </span>
+            </span> */}
             <button
               className="collapse-btn"
               onClick={(e) => {
@@ -372,8 +399,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                       <div className="group-actions">
                         <button
-                          className={`copy-btn ${isGroupCopied ? "copied" : ""
-                            }`}
+                          className={`copy-btn ${isGroupCopied ? "copied" : ""}`}
                           onClick={(e) => handleCopyClick(e, group.docId)}
                           title="Copy This Update"
                         >
@@ -384,18 +410,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
                         </button>
                         <button
-                          className={`mark-viewed-btn ${isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
+                          className={`mark-viewed-btn mark-viewed-text ${isViewed ? "viewed" : ""} ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
                           disabled={isLoading}
-                          title={isViewed ? "Viewed" : "Mark Viewed"}
+                          title={isViewed ? "Reviewed" : "Mark as Reviewed"}
                         >
                           {isLoading ? (
                             <Loader2 className="icon-xxs animate-spin" />
                           ) : isViewed ? (
-                            <EyeIcon className="icon-xxs" />
+                            "Reviewed"
                           ) : (
-                            <EyeOffIcon className="icon-xxs" />
+                            "Mark as Reviewed"
                           )}
                         </button>
                       </div>
@@ -706,7 +731,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .mark-viewed-btn {
           background: #e2e8f0;
           border: none;
-          padding: 4px;
+          padding: 4px 12px;
           border-radius: 4px;
           cursor: pointer;
           display: flex;
@@ -715,6 +740,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           transition: all 0.2s;
           color: #475569;
           flex-shrink: 0;
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .mark-viewed-btn.mark-viewed-text {
+          min-width: 110px;
         }
         .mark-viewed-btn:hover:not(:disabled) {
           background: #cbd5e1;
