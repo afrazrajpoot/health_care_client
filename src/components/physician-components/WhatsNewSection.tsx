@@ -150,19 +150,19 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             const firstItem = filteredItems[0];
             const reportDate =
               firstItem &&
-              isSpecified(
-                whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_report_date
-              )
+                isSpecified(
+                  whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_report_date
+                )
                 ? whatsNewObj[Object.keys(whatsNewObj)[0]]
-                    ?.document_report_date || ""
+                  ?.document_report_date || ""
                 : "";
             const createdDate =
               firstItem &&
-              isSpecified(
-                whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_created_at
-              )
+                isSpecified(
+                  whatsNewObj[Object.keys(whatsNewObj)[0]]?.document_created_at
+                )
                 ? whatsNewObj[Object.keys(whatsNewObj)[0]]
-                    ?.document_created_at || ""
+                  ?.document_created_at || ""
                 : "";
 
             return {
@@ -303,7 +303,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const handlePreviewClick = (e: React.MouseEvent, doc: any) => {
     e.stopPropagation();
     if (doc.blob_path) {
-      const previewUrl = `http://localhost:8000/api/preview/${encodeURIComponent(
+      const previewUrl = `https://api.kebilo.com/api/preview/${encodeURIComponent(
         doc.blob_path
       )}`;
       window.open(previewUrl, "_blank", "noopener,noreferrer");
@@ -372,9 +372,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                       <div className="group-actions">
                         <button
-                          className={`copy-btn ${
-                            isGroupCopied ? "copied" : ""
-                          }`}
+                          className={`copy-btn ${isGroupCopied ? "copied" : ""
+                            }`}
                           onClick={(e) => handleCopyClick(e, group.docId)}
                           title="Copy This Update"
                         >
@@ -385,9 +384,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
                         </button>
                         <button
-                          className={`mark-viewed-btn ${
-                            isViewed ? "viewed" : ""
-                          } ${isLoading ? "loading" : ""}`}
+                          className={`mark-viewed-btn ${isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
                           disabled={isLoading}
                           title={isViewed ? "Viewed" : "Mark Viewed"}
@@ -434,8 +432,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                               {isSpecified(item.description)
                                 ? item.description
                                 : isSpecified(item.content)
-                                ? item.content
-                                : null}
+                                  ? item.content
+                                  : null}
                             </div>
                             <div className="item-actions">
                               {item.type === "document_summary" &&
