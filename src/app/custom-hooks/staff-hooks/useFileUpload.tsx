@@ -71,9 +71,11 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         `🚀 Starting upload for ${selectedFiles.length} files in mode: ${mode}`
       );
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
-        }/api/extract-documents?physicianId=${session?.user?.physicianId || ""
-        }&userId=${session?.user?.id || ""}`;
+      const apiUrl = `${
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+      }/api/extract-documents?physicianId=${
+        session?.user?.physicianId || ""
+      }&userId=${session?.user?.id || ""}`;
 
       console.log("🌐 API URL:", apiUrl);
 
@@ -126,7 +128,8 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       }
 
       console.log(
-        `✅ Started processing ${data.payload_count || 0
+        `✅ Started processing ${
+          data.payload_count || 0
         } document(s) in ${mode.toUpperCase()} mode`
       );
 
@@ -147,7 +150,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       } else if (error.message.includes("Failed to fetch")) {
         setPaymentError(
           "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-          (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com")
+            (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
         );
       } else {
         setPaymentError(`Upload failed: ${error.message}`);

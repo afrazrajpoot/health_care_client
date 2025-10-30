@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react"; // ✅ import useSession
+import { useSession, signOut } from "next-auth/react"; // ✅ import useSession and signOut
 import {
   Home,
   FileText,
@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Activity,
+  LogOut, // ✅ Add LogOut icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,11 @@ export function Sidebar({ className }: SidebarProps) {
   const { data: session } = useSession(); // ✅ get session
 
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
+
+  // ✅ Handle logout
+  const handleLogout = () => {
+    signOut({ callbackUrl: "/" }); // Redirect to home after logout; adjust as needed
+  };
 
   // ✅ Filter menu items by user role
   const filteredItems = useMemo(() => {
@@ -182,7 +188,9 @@ export function Sidebar({ className }: SidebarProps) {
                   size={20}
                   className={cn(
                     "transition-colors shrink-0",
-                    isActive ? "text-white" : "text-gray-500 group-hover:text-gray-700"
+                    isActive
+                      ? "text-white"
+                      : "text-gray-500 group-hover:text-gray-700"
                   )}
                 />
 
@@ -220,7 +228,7 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 space-y-2">
           <Link
             href="/settings"
             className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
@@ -228,9 +236,17 @@ export function Sidebar({ className }: SidebarProps) {
             <Settings size={20} className="shrink-0" />
             <span className="font-semibold text-sm">Settings</span>
           </Link>
+          {/* ✅ Logout Button */}
+          <Button
+            variant="ghost"
+            className="flex items-center gap-3 w-full justify-start px-3 py-3 rounded-xl transition-all duration-200 text-gray-700 hover:bg-red-50 hover:text-red-600 h-auto"
+            onClick={handleLogout}
+          >
+            <LogOut size={20} className="shrink-0" />
+            <span className="font-semibold text-sm">Logout</span>
+          </Button>
         </div>
       </aside>
     </>
-
   );
 }

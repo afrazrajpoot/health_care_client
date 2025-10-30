@@ -590,6 +590,9 @@ export default function PhysicianCard() {
             consultingDoctor: snap.consultingDoctor,
             document_created_at: snap.document_created_at,
             document_report_date: snap.document_report_date,
+            treatmentPlane: snap.treatmentApproach,
+            refrelDoctor: snap.referralDoctor,
+            clinicalSummary: snap.clinicalSummary,
           })
         )
       );

@@ -19,6 +19,17 @@ export default withAuth(
 
     const pathname = req.nextUrl.pathname;
 
+    // ✅ Role-based redirects from /dashboard
+    if (pathname.startsWith("/dashboard")) {
+      if (token.role === "Staff") {
+        return NextResponse.redirect(new URL("/staff-dashboard", req.url));
+      }
+      if (token.role === "Attorney") {
+        return NextResponse.redirect(new URL("/attorney-dashboard", req.url));
+      }
+      // For Physician, allow access to /dashboard
+    }
+
     // ✅ Physician-only routes
     if (
       (pathname.startsWith("/add-staff") || pathname.startsWith("/tasks")) &&
@@ -31,7 +42,8 @@ export default withAuth(
     if (
       (pathname.startsWith("/upload") ||
         pathname.startsWith("/documents") ||
-        pathname.startsWith("/tasks")) &&
+        pathname.startsWith("/tasks") ||
+        pathname.startsWith("/staff-dashboard")) &&
       token.role !== "Staff"
     ) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -43,7 +55,7 @@ export default withAuth(
         pathname.startsWith("/attorney-dashboard")) &&
       token.role !== "Attorney"
     ) {
-      return NextResponse.redirect(new URL("/attorney-dashboard", req.url));
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
     return NextResponse.next();
@@ -67,7 +79,9 @@ export const config = {
     "/upload/:path*",
     "/documents",
     "/documents/:path*",
+    "/staff-dashboard",
+    "/staff-dashboard/:path*",
     "/attorney-dashboard",
-    "/attorney-dashboard/:path*", // 👈 Add this to protect attorney routes
+    "/attorney-dashboard/:path*",
   ],
 };
