@@ -242,9 +242,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${
-                copied["section-treatment"] ? "copied" : ""
-              }`}
+              className={`copy-btn ${copied["section-treatment"] ? "copied" : ""
+                }`}
               onClick={(e) => handleCopyClick(e)}
               title="Copy All Body Parts"
             >
@@ -286,9 +285,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                   </button>
                   <h4 className="bodypart-name">{bodyPart}</h4>
                   <button
-                    className={`copy-btn small ${
-                      copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
-                    }`}
+                    className={`copy-btn small ${copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
+                      }`}
                     onClick={(e) => handleCopyClick(e, bodyPart)}
                     title={`Copy ${bodyPart} Details`}
                   >
@@ -351,7 +349,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               snapshot.refrelDoctor !== "Not specified" &&
                               snapshot.refrelDoctor !== "" && (
                                 <li>
-                                  <strong>Refrel Doctor:</strong>{" "}
+                                  <strong>Refrral Doctor:</strong>{" "}
                                   {snapshot.refrelDoctor}
                                 </li>
                               )}
