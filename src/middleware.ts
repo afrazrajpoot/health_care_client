@@ -19,26 +19,17 @@ export default withAuth(
 
     const pathname = req.nextUrl.pathname;
 
-    // ✅ Role-based redirects from /dashboard
-    if (pathname.startsWith("/dashboard")) {
-      if (token.role === "Staff") {
-        return NextResponse.redirect(new URL("/staff-dashboard", req.url));
-      }
-      if (token.role === "Attorney") {
-        return NextResponse.redirect(new URL("/attorney-dashboard", req.url));
-      }
-      // For Physician, allow access to /dashboard
+    // ✅ If Staff visits /dashboard → redirect them to /staff-dashboard
+    if (pathname.startsWith("/dashboard") && token.role === "Staff") {
+      return NextResponse.redirect(new URL("/staff-dashboard", req.url));
     }
 
-    // ✅ Physician-only routes
-    if (
-      (pathname.startsWith("/add-staff") || pathname.startsWith("/tasks")) &&
-      token.role !== "Physician"
-    ) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+    // ✅ If Attorney visits /dashboard → redirect them to /attorney-dashboard
+    if (pathname.startsWith("/dashboard") && token.role === "Attorney") {
+      return NextResponse.redirect(new URL("/attorney-dashboard", req.url));
     }
 
-    // ✅ Staff-only routes
+    // ✅ Staff-only routes (allowed only for Staff)
     if (
       (pathname.startsWith("/upload") ||
         pathname.startsWith("/documents") ||
@@ -46,10 +37,14 @@ export default withAuth(
         pathname.startsWith("/staff-dashboard")) &&
       token.role !== "Staff"
     ) {
+      // ❗ Allow Physician to access staff-dashboard if needed
+      if (token.role === "Physician" && pathname.startsWith("/staff-dashboard")) {
+        return NextResponse.next();
+      }
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
-    // ✅ Attorney-only route
+    // ✅ Attorney-only routes
     if (
       (pathname === "/attorney-dashboard" ||
         pathname.startsWith("/attorney-dashboard")) &&
