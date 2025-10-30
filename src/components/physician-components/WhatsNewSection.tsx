@@ -55,7 +55,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             typeof bullet === "string" &&
             bullet.trim() &&
             bullet.trim() !==
-              "• No significant new findings identified in current document"
+            "• No significant new findings identified in current document"
         );
 
         return {
@@ -82,18 +82,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     e.stopPropagation();
 
     const group = documentGroups.find((g) => g.docId === groupId);
-    if (!group || !Array.isArray(group.items)) {
+    if (!group || !Array.isArray(group.bulletPoints) || group.bulletPoints.length === 0) {
       toast.error("No items found to copy");
       return;
     }
 
-    const lines = group.items
-      .map((item) => item.description?.trim() || item.content?.trim() || "")
-      .filter(Boolean);
-
-    const textToCopy = `These findings have been reviewed by Physician\n${lines.join(
-      "\n"
-    )}`;
+    const textToCopy = `These findings have been reviewed by Physician\n${group.bulletPoints.join("\n")}`;
 
     navigator.clipboard
       .writeText(textToCopy)
@@ -160,7 +154,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const handlePreviewClick = (e: React.MouseEvent, doc: any) => {
     e.stopPropagation();
     if (doc.blob_path) {
-      const previewUrl = `http://localhost:8000/api/preview/${encodeURIComponent(
+      const previewUrl = `https://api.kebilo.com/api/preview/${encodeURIComponent(
         doc.blob_path
       )}`;
       window.open(previewUrl, "_blank", "noopener,noreferrer");
@@ -230,9 +224,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                       <div className="group-actions">
                         <button
-                          className={`copy-btn ${
-                            isGroupCopied ? "copied" : ""
-                          }`}
+                          className={`copy-btn ${isGroupCopied ? "copied" : ""
+                            }`}
                           onClick={(e) => handleCopyClick(e, group.docId)}
                           title="Copy This Update"
                         >
@@ -243,9 +236,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
                         </button>
                         <button
-                          className={`mark-viewed-btn ${
-                            isViewed ? "viewed" : ""
-                          } ${isLoading ? "loading" : ""}`}
+                          className={`mark-viewed-btn ${isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
                           disabled={isLoading}
                           title={isViewed ? "Reviewed" : "Mark as Reviewed"}
