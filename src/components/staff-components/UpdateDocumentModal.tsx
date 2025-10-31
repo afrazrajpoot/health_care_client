@@ -1,5 +1,7 @@
 // app/dashboard/components/UpdateDocumentModal.tsx
 import { useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   Dialog,
   DialogContent,
@@ -94,15 +96,28 @@ export default function UpdateDocumentModal({
               <Label htmlFor="dob" className="text-sm font-medium">
                 Date of Birth
               </Label>
-              <Input
-                id="dob"
-                name="dob"
-                type="date"
-                value={
-                  formData.dob ? formData.dob.toISOString().split("T")[0] : ""
-                }
-                onChange={onInputChange}
+              <DatePicker
+                selected={formData.dob}
+                onChange={(date) => {
+                  const syntheticEvent = {
+                    target: {
+                      name: "dob",
+                      value: date,
+                    },
+                  } as React.ChangeEvent<HTMLInputElement>;
+                  onInputChange(syntheticEvent);
+                }}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Select date of birth"
+                showYearDropdown
+                scrollableYearDropdown
+                yearDropdownItemNumber={100}
+                maxDate={new Date()}
                 className="w-full"
+                wrapperClassName="w-full"
+                customInput={
+                  <Input className="w-full" />
+                }
               />
             </div>
             {/* <div className="space-y-2">

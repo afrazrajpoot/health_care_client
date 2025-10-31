@@ -96,7 +96,7 @@ const OnboardingTour = ({
             {currentStep < steps.length - 1 ? (
               <button
                 onClick={onNext}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-3 py-1 text-sm bg-teal-600 text-white rounded-md hover:bg-teal-700"
               >
                 Next
               </button>
@@ -140,7 +140,7 @@ const PaymentErrorModal = ({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header with close button */}
-        <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 p-6 pb-8">
+        <div className="relative bg-gradient-to-r from-teal-600 to-teal-700 p-6 pb-8">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
@@ -166,11 +166,11 @@ const PaymentErrorModal = ({
             for additional capacity.
           </p>
 
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-            <p className="text-sm text-blue-900 font-medium">
+          <div className="bg-teal-50 border border-teal-100 rounded-lg p-4">
+            <p className="text-sm text-teal-900 font-medium">
               💡 Upgrading gives you:
             </p>
-            <ul className="mt-2 space-y-1 text-sm text-blue-800">
+            <ul className="mt-2 space-y-1 text-sm text-teal-800">
               <li>• Increased document limits</li>
               <li>• Priority processing</li>
               <li>• Advanced features</li>
@@ -188,7 +188,7 @@ const PaymentErrorModal = ({
           </button>
           {/* <button
             onClick={onUpgrade}
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+            className="px-5 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium shadow-sm"
           >
             Upgrade Plan
           </button> */}
@@ -229,6 +229,12 @@ export default function Dashboard() {
     departments,
     getDisplayedTasks,
     getPresets,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalCount,
+    setTotalCount,
   } = useUIState(initialMode);
   const {
     selectedFiles,
@@ -299,23 +305,52 @@ export default function Dashboard() {
   );
 
   const handleProgressComplete = useCallback(() => {
-    fetchTasks(modeState, urlClaim);
+    fetchTasks(modeState, urlClaim, {
+      page: currentPage,
+      pageSize,
+      search: filters.search,
+      dept: filters.dept,
+      status: filters.status,
+      overdueOnly: filters.overdueOnly,
+    }).then((result) => {
+      if (result) {
+        setTotalCount(result.totalCount);
+      }
+    });
     fetchFailedDocuments();
     fetchOfficePulse(); // This will refresh the office pulse data
-  }, [fetchTasks, modeState, urlClaim, fetchFailedDocuments, fetchOfficePulse]);
+  }, [fetchTasks, modeState, urlClaim, fetchFailedDocuments, fetchOfficePulse, currentPage, pageSize, filters, setTotalCount]);
 
   useEffect(() => {
-    fetchTasks(modeState, urlClaim);
+    fetchTasks(modeState, urlClaim, {
+      page: currentPage,
+      pageSize,
+      search: filters.search,
+      dept: filters.dept,
+      status: filters.status,
+      overdueOnly: filters.overdueOnly,
+    }).then((result) => {
+      if (result) {
+        setTotalCount(result.totalCount);
+      }
+    });
     fetchOfficePulse();
     fetchWorkflowStats();
     fetchFailedDocuments();
   }, [
     modeState,
     urlClaim,
+    currentPage,
+    pageSize,
+    filters.search,
+    filters.dept,
+    filters.status,
+    filters.overdueOnly,
     fetchTasks,
     fetchOfficePulse,
     fetchWorkflowStats,
     fetchFailedDocuments,
+    setTotalCount,
   ]);
 
   return (
@@ -694,9 +729,8 @@ export default function Dashboard() {
 
       <div className="flex min-h-screen relative">
         <div
-          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <div className="h-full">
             <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -704,37 +738,32 @@ export default function Dashboard() {
         </div>
 
         <div
-          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
-            isSidebarOpen
-              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
-          }`}
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
+            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+            }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           <div className="flex flex-col items-center justify-center w-4 h-4">
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
-                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
-              }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+                }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
-                isSidebarOpen ? "opacity-0" : ""
-              }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "opacity-0" : ""
+                }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
-                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
-              }`}
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+                }`}
             ></div>
           </div>
         </div>
 
         <div
-          className={`flex-1 transition-all duration-300 ${
-            isSidebarOpen ? "ml-0" : "ml-0"
-          }`}
+          className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0" : "ml-0"
+            }`}
         >
           <div className="p-6">
             {/* {session?.user?.role === "Staff" && ( */}
@@ -750,7 +779,7 @@ export default function Dashboard() {
                   Uploading...
                 </span>
               ) : (
-                "📁Create DocLatch"
+                "📁 DocLatch"
               )}
             </button>
             {/* )} */}
@@ -815,7 +844,7 @@ export default function Dashboard() {
                 <button className="btn light">Dept Settings</button>
                 <button
                   ref={createLinkButtonRef}
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
+                  className="bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-teal-700 hover:to-teal-600 transition-all duration-200"
                   onClick={() => setShowModal(true)}
                 >
                   Create Intake Link
@@ -823,7 +852,7 @@ export default function Dashboard() {
                 {session?.user?.role === "Physician" && (
                   <button
                     ref={addManualTaskButtonRef}
-                    className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
+                    className="bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-teal-700 hover:to-teal-600 transition-all duration-200"
                     onClick={() => setShowTaskModal(true)}
                   >
                     + Add Manual Task
@@ -831,7 +860,18 @@ export default function Dashboard() {
                 )}
                 <button
                   className="btn light"
-                  onClick={() => fetchTasks(modeState, urlClaim)}
+                  onClick={() => fetchTasks(modeState, urlClaim, {
+                    page: currentPage,
+                    pageSize,
+                    search: filters.search,
+                    dept: filters.dept,
+                    status: filters.status,
+                    overdueOnly: filters.overdueOnly,
+                  }).then((result) => {
+                    if (result) {
+                      setTotalCount(result.totalCount);
+                    }
+                  })}
                   disabled={loading}
                 >
                   {loading ? "Refreshing..." : "Refresh Tasks"}
@@ -842,7 +882,7 @@ export default function Dashboard() {
             {loading && (
               <div className="card">
                 <div style={{ textAlign: "center", padding: "20px" }}>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-2"></div>
                   Loading tasks...
                 </div>
               </div>
@@ -994,9 +1034,8 @@ export default function Dashboard() {
                       {filteredTabs.map((tab) => (
                         <button
                           key={tab.pane}
-                          className={`filter ttab ${
-                            currentPane === tab.pane ? "active" : ""
-                          }`}
+                          className={`filter ttab ${currentPane === tab.pane ? "active" : ""
+                            }`}
                           onClick={() => setCurrentPane(tab.pane)}
                         >
                           {tab.text}
@@ -1029,19 +1068,6 @@ export default function Dashboard() {
                             minWidth: "220px",
                           }}
                         />
-                        <button
-                          className="filter"
-                          onClick={() =>
-                            setFilters((p) => ({
-                              ...p,
-                              overdueOnly: !p.overdueOnly,
-                            }))
-                          }
-                        >
-                          {filters.overdueOnly
-                            ? "Showing Overdue"
-                            : "Show Overdue Only"}
-                        </button>
                         <span className="muted">Dept:</span>
                         <select
                           value={filters.dept}
@@ -1062,20 +1088,24 @@ export default function Dashboard() {
                             </option>
                           ))}
                         </select>
-                        <button
-                          className="filter"
-                          aria-pressed={filters.myDeptOnly ? "true" : "false"}
-                          onClick={() =>
-                            setFilters((p) => ({
-                              ...p,
-                              myDeptOnly: !p.myDeptOnly,
-                            }))
+                        <span className="muted">Status:</span>
+                        <select
+                          value={filters.status}
+                          onChange={(e) =>
+                            setFilters((p) => ({ ...p, status: e.target.value }))
                           }
+                          style={{
+                            padding: "6px 8px",
+                            border: "1px solid var(--border)",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                          }}
                         >
-                          {filters.myDeptOnly
-                            ? "Only My Dept ✓"
-                            : "Only My Dept"}
-                        </button>
+                          <option value="">All</option>
+                          <option value="pending">Pending</option>
+                          <option value="done">Done</option>
+                          <option value="overdue">Overdue</option>
+                        </select>
                         <button
                           className="filter"
                           onClick={() =>
@@ -1084,6 +1114,7 @@ export default function Dashboard() {
                               overdueOnly: false,
                               myDeptOnly: false,
                               dept: "",
+                              status: "",
                             })
                           }
                         >
@@ -1095,16 +1126,70 @@ export default function Dashboard() {
                   {tasks.length === 0 ? (
                     <div className="no-data">No tasks available</div>
                   ) : (
-                    <TaskTable
-                      currentPane={currentPane}
-                      tasks={getDisplayedTasks(currentPane, tasks)}
-                      filters={filters}
-                      mode={modeState}
-                      onClaim={toggleClaim}
-                      onComplete={completeTask}
-                      onSaveNote={saveNote}
-                      getPresets={getPresets}
-                    />
+                    <>
+                      <TaskTable
+                        currentPane={currentPane}
+                        tasks={getDisplayedTasks(currentPane, tasks)}
+                        filters={filters}
+                        mode={modeState}
+                        onClaim={toggleClaim}
+                        onComplete={completeTask}
+                        onSaveNote={saveNote}
+                        getPresets={getPresets}
+                      />
+                      {/* Pagination Controls */}
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginTop: "12px",
+                        padding: "8px",
+                        borderTop: "1px solid var(--border)"
+                      }}>
+                        <div className="muted">
+                          Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount} tasks
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button
+                            className="btn light"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            style={{ opacity: currentPage === 1 ? 0.5 : 1 }}
+                          >
+                            Previous
+                          </button>
+                          <span className="muted">
+                            Page {currentPage} of {Math.ceil(totalCount / pageSize) || 1}
+                          </span>
+                          <button
+                            className="btn light"
+                            onClick={() => setCurrentPage(p => p + 1)}
+                            disabled={currentPage >= Math.ceil(totalCount / pageSize)}
+                            style={{ opacity: currentPage >= Math.ceil(totalCount / pageSize) ? 0.5 : 1 }}
+                          >
+                            Next
+                          </button>
+                          <select
+                            value={pageSize}
+                            onChange={(e) => {
+                              setPageSize(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="10">10 per page</option>
+                            <option value="20">20 per page</option>
+                            <option value="50">50 per page</option>
+                            <option value="100">100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -1177,7 +1262,7 @@ export default function Dashboard() {
               Cancel
             </button>
             <button
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors disabled:opacity-50"
               onClick={handleSubmit}
               disabled={uploading}
             >

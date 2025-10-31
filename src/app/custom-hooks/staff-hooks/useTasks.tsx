@@ -18,15 +18,15 @@ export const useTasks = (initialMode: "wc" | "gm") => {
 
       const notes = apiTask.quickNotes
         ? [
-            {
-              ts: new Date(apiTask.updatedAt).toLocaleString(),
-              user: "System",
-              line:
-                apiTask.quickNotes.one_line_note ||
-                apiTask.quickNotes.details ||
-                "Note added",
-            },
-          ]
+          {
+            ts: new Date(apiTask.updatedAt).toLocaleString(),
+            user: "System",
+            line:
+              apiTask.quickNotes.one_line_note ||
+              apiTask.quickNotes.details ||
+              "Note added",
+          },
+        ]
         : [];
 
       // Get UR denial reason from multiple possible sources
@@ -59,12 +59,41 @@ export const useTasks = (initialMode: "wc" | "gm") => {
   );
 
   const fetchTasks = useCallback(
-    async (currentMode: "wc" | "gm", claim?: string) => {
+    async (
+      currentMode: "wc" | "gm",
+      claim?: string,
+      options?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        dept?: string;
+        status?: string;
+        overdueOnly?: boolean;
+      }
+    ) => {
       try {
         setLoading(true);
         const params = new URLSearchParams({ mode: currentMode });
         if (claim) {
           params.append("claim", claim);
+        }
+        if (options?.page) {
+          params.append("page", String(options.page));
+        }
+        if (options?.pageSize) {
+          params.append("pageSize", String(options.pageSize));
+        }
+        if (options?.search) {
+          params.append("search", options.search);
+        }
+        if (options?.dept) {
+          params.append("dept", options.dept);
+        }
+        if (options?.status) {
+          params.append("status", options.status);
+        }
+        if (options?.overdueOnly) {
+          params.append("overdueOnly", "true");
         }
         const response = await fetch(`/api/tasks?${params.toString()}`);
 
@@ -72,15 +101,23 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           throw new Error("Failed to fetch tasks");
         }
 
-        const apiTasks: any[] = await response.json();
+        const result = await response.json();
+        const apiTasks: any[] = Array.isArray(result) ? result : result.tasks || [];
         const transformedTasks = apiTasks.map((apiTask) =>
           transformApiTask(apiTask, currentMode)
         );
         setTasks(transformedTasks);
+
+        // Return total count if available for pagination
+        return {
+          tasks: transformedTasks,
+          totalCount: result.totalCount || transformedTasks.length,
+        };
       } catch (error) {
         console.error("Error fetching tasks:", error);
         toast.error("❌ Error fetching tasks");
         setTasks([]);
+        return { tasks: [], totalCount: 0 };
       } finally {
         setLoading(false);
       }
@@ -197,9 +234,9 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           prev.map((t) =>
             t.id === taskId
               ? {
-                  ...t,
-                  notes: [...(t.notes || []), { ts, user: "You", line }],
-                }
+                ...t,
+                notes: [...(t.notes || []), { ts, user: "You", line }],
+              }
               : t
           )
         );

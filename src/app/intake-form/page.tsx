@@ -2,6 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const SPECIALISTS = [
   "Orthopedics",
@@ -121,7 +123,7 @@ function Loader() {
     <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
         <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="w-12 h-12 border-4 border-teal-100 border-t-teal-600 rounded-full animate-spin"></div>
           <h1 className="text-xl font-semibold text-gray-900">
             Loading Patient Intake
           </h1>
@@ -157,7 +159,7 @@ function PatientIntakeContent() {
   const [showRefill, setShowRefill] = useState(false);
   const [showADL, setShowADL] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [refillData, setRefillData] = useState({ before: "0", after: "0" });
+  const [refillData, setRefillData] = useState({ before: 0, after: 0 });
   const [adlData, setAdlData] = useState({
     state: "same",
     list: [] as string[],
@@ -166,6 +168,10 @@ function PatientIntakeContent() {
   const [summary, setSummary] = useState("—");
   const [submitMessage, setSubmitMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Therapy checkboxes
+  const [receivingPhysicalTherapy, setReceivingPhysicalTherapy] = useState(false);
+  const [receivingMassage, setReceivingMassage] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
@@ -347,8 +353,8 @@ function PatientIntakeContent() {
       newAppointments: showAppointments ? appointments : [],
       refill: {
         needed: showRefill,
-        before: refillData.before,
-        after: refillData.after,
+        before: String(refillData.before),
+        after: String(refillData.after),
       },
       adl: adlData,
       therapies: therapyRatings,
@@ -397,18 +403,18 @@ function PatientIntakeContent() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-xl font-semibold text-gray-900">
-              {t.auth_title}
-            </h1>
-            <div className="flex items-center gap-2">
+          <h1 className="text-xl w-full text-center font-semibold text-gray-900">
+            {t.auth_title}
+          </h1>
+          <div className=" mt-[1vw] items-center mb-6">
+            <div className="flex justify-between items-center gap-2">
               <label className="text-xs font-medium text-gray-500">
                 Language
               </label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "es")}
-                className="min-w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="min-w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="en">English</option>
                 <option value="es">Español</option>
@@ -426,7 +432,7 @@ function PatientIntakeContent() {
                 value={authName}
                 onChange={(e) => setAuthName(e.target.value)}
                 placeholder="Enter your full name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
               />
             </div>
@@ -435,11 +441,25 @@ function PatientIntakeContent() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {t.auth_dob}
               </label>
-              <input
-                type="date"
-                value={authDob}
-                onChange={(e) => setAuthDob(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <DatePicker
+                selected={authDob ? new Date(authDob) : null}
+                onChange={(date) => {
+                  if (date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    setAuthDob(`${year}-${month}-${day}`);
+                  } else {
+                    setAuthDob("");
+                  }
+                }}
+                dateFormat="yyyy-MM-dd"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                placeholderText="Select date of birth"
+                showYearDropdown
+                scrollableYearDropdown
+                yearDropdownItemNumber={100}
+                maxDate={new Date()}
                 required
               />
             </div>
@@ -453,7 +473,7 @@ function PatientIntakeContent() {
             <button
               type="submit"
               disabled={!authName || !authDob}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full py-3 px-4 bg-[#53d1df] hover:bg-[#33c7d8] text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
             >
               {t.auth_submit}
             </button>
@@ -479,7 +499,7 @@ function PatientIntakeContent() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as "en" | "es")}
-              className="min-w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="min-w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             >
               <option value="en">English</option>
               <option value="es">Español</option>
@@ -490,13 +510,13 @@ function PatientIntakeContent() {
         <hr className="my-6 border-gray-200" />
 
         <div className="flex flex-wrap gap-3 mb-6">
-          <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+          <span className="inline-flex items-center px-3 py-1 bg-teal-50 text-teal-700 text-sm font-medium rounded-full border border-teal-200">
             Patient: {patient}
           </span>
-          <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+          <span className="inline-flex items-center px-3 py-1 bg-teal-50 text-teal-700 text-sm font-medium rounded-full border border-teal-200">
             Visit: {visit}
           </span>
-          <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
+          <span className="inline-flex items-center px-3 py-1 bg-teal-50 text-teal-700 text-sm font-medium rounded-full border border-teal-200">
             Areas: {bodyAreas}
           </span>
         </div>
@@ -515,7 +535,7 @@ function PatientIntakeContent() {
                 addAppointment();
               }
             }}
-            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           >
             <option value="no">No</option>
             <option value="yes">Yes</option>
@@ -538,7 +558,7 @@ function PatientIntakeContent() {
                         onChange={(e) =>
                           updateAppointment(index, "type", e.target.value)
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                       >
                         {SPECIALISTS.map((specialist) => (
                           <option key={specialist} value={specialist}>
@@ -551,13 +571,22 @@ function PatientIntakeContent() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {t.q1b}
                       </label>
-                      <input
-                        type="date"
-                        value={appt.date}
-                        onChange={(e) =>
-                          updateAppointment(index, "date", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      <DatePicker
+                        selected={appt.date ? new Date(appt.date) : null}
+                        onChange={(date) => {
+                          if (date) {
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            updateAppointment(index, "date", `${year}-${month}-${day}`);
+                          } else {
+                            updateAppointment(index, "date", "");
+                          }
+                        }}
+                        dateFormat="yyyy-MM-dd"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        placeholderText="Select appointment date"
+                        minDate={new Date()}
                       />
                     </div>
                     {index > 0 && (
@@ -574,7 +603,7 @@ function PatientIntakeContent() {
               </div>
               <button
                 type="button"
-                className="px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium rounded-lg transition-colors duration-200"
+                className="px-4 py-2 bg-teal-50 text-teal-700 hover:bg-teal-100 font-medium rounded-lg transition-colors duration-200"
                 onClick={addAppointment}
               >
                 + Add appointment
@@ -591,56 +620,73 @@ function PatientIntakeContent() {
           <select
             value={showRefill ? "yes" : "no"}
             onChange={(e) => setShowRefill(e.target.value === "yes")}
-            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           >
             <option value="no">No</option>
             <option value="yes">Yes</option>
           </select>
 
           {showRefill && (
-            <div className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t.q2a}
-                  </label>
-                  <select
+            <div className="mt-6 space-y-6">
+              {/* Pain before medication */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  {t.q2a}
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
                     value={refillData.before}
                     onChange={(e) =>
                       setRefillData((prev) => ({
                         ...prev,
-                        before: e.target.value,
+                        before: Number(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {Array.from({ length: 11 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i}
-                      </option>
-                    ))}
-                  </select>
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                  />
+                  <div className="flex items-center justify-center min-w-[3rem] h-10 px-3 bg-teal-50 border border-teal-200 rounded-lg">
+                    <span className="text-lg font-bold text-teal-700">
+                      {refillData.before}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t.q2b}
-                  </label>
-                  <select
+                <div className="flex justify-between text-xs text-gray-500 mt-1 px-1">
+                  <span>No Pain</span>
+                  <span>Worst Pain</span>
+                </div>
+              </div>
+
+              {/* Pain after medication */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  {t.q2b}
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
                     value={refillData.after}
                     onChange={(e) =>
                       setRefillData((prev) => ({
                         ...prev,
-                        after: e.target.value,
+                        after: Number(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {Array.from({ length: 11 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i}
-                      </option>
-                    ))}
-                  </select>
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                  />
+                  <div className="flex items-center justify-center min-w-[3rem] h-10 px-3 bg-teal-50 border border-teal-200 rounded-lg">
+                    <span className="text-lg font-bold text-teal-700">
+                      {refillData.after}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 mt-1 px-1">
+                  <span>😊 No Pain</span>
+                  <span>😢 Worst Pain</span>
                 </div>
               </div>
             </div>
@@ -659,7 +705,7 @@ function PatientIntakeContent() {
               setAdlData((prev) => ({ ...prev, state: value }));
               setShowADL(value !== "same");
             }}
-            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           >
             <option value="same">Same</option>
             <option value="better">Better</option>
@@ -680,7 +726,7 @@ function PatientIntakeContent() {
                       value={activity}
                       checked={adlData.list.includes(activity)}
                       onChange={() => toggleAdlItem(activity)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                     />
                     <span className="text-sm font-medium text-gray-700">
                       {activity}
@@ -693,36 +739,98 @@ function PatientIntakeContent() {
         </div>
 
         {/* Section 4: Therapies */}
-        {therapies.length > 0 && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.q4}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Therapies you are receiving
+          </label>
+
+          {/* Therapy selection checkboxes */}
+          <div className="flex flex-col gap-3 mb-4">
+            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+              <input
+                type="checkbox"
+                checked={receivingPhysicalTherapy}
+                onChange={(e) => setReceivingPhysicalTherapy(e.target.checked)}
+                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Receiving Physical Therapy
+              </span>
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {therapyRatings.map((therapy, index) => (
-                <div
-                  key={therapy.therapy}
-                  className="p-4 border border-gray-200 rounded-lg"
-                >
-                  <div className="font-medium text-gray-900 mb-2">
-                    {therapy.therapy}
-                  </div>
-                  <select
-                    value={therapy.effect}
-                    onChange={(e) => updateTherapyRating(index, e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {RATINGS.map((rating) => (
-                      <option key={rating} value={rating}>
-                        {rating}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
+
+            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+              <input
+                type="checkbox"
+                checked={receivingMassage}
+                onChange={(e) => setReceivingMassage(e.target.checked)}
+                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Receiving Massage
+              </span>
+            </label>
           </div>
-        )}
+
+          {/* Physical Therapy Rating */}
+          {receivingPhysicalTherapy && (
+            <div className="mt-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+              <div className="font-medium text-gray-900 mb-3">
+                Physical Therapy
+              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                How effective has it been?
+              </label>
+              <select
+                value={therapyRatings.find(t => t.therapy === "Physical Therapy")?.effect || "No Change"}
+                onChange={(e) => {
+                  const index = therapyRatings.findIndex(t => t.therapy === "Physical Therapy");
+                  if (index >= 0) {
+                    updateTherapyRating(index, e.target.value);
+                  } else {
+                    setTherapyRatings(prev => [...prev, { therapy: "Physical Therapy", effect: e.target.value }]);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+              >
+                {RATINGS.map((rating) => (
+                  <option key={rating} value={rating}>
+                    {rating}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Massage Rating */}
+          {receivingMassage && (
+            <div className="mt-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+              <div className="font-medium text-gray-900 mb-3">
+                Massage
+              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                How effective has it been?
+              </label>
+              <select
+                value={therapyRatings.find(t => t.therapy === "Massage")?.effect || "No Change"}
+                onChange={(e) => {
+                  const index = therapyRatings.findIndex(t => t.therapy === "Massage");
+                  if (index >= 0) {
+                    updateTherapyRating(index, e.target.value);
+                  } else {
+                    setTherapyRatings(prev => [...prev, { therapy: "Massage", effect: e.target.value }]);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+              >
+                {RATINGS.map((rating) => (
+                  <option key={rating} value={rating}>
+                    {rating}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         {/* Review & Submit */}
         <div className="mb-6">
@@ -745,7 +853,7 @@ function PatientIntakeContent() {
           <button
             type="button"
             disabled={isSubmitting}
-            className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 min-w-32"
+            className="w-full sm:w-auto px-6 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 min-w-32"
             onClick={handleSubmit}
           >
             {isSubmitting ? (

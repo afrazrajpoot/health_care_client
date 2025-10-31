@@ -17,6 +17,7 @@ export const useUIState = (initialMode: "wc" | "gm") => {
     overdueOnly: false,
     myDeptOnly: false,
     dept: "",
+    status: "", // Add status filter
   });
   const [dense, setDense] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -25,6 +26,9 @@ export const useUIState = (initialMode: "wc" | "gm") => {
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [modeState, setModeState] = useState<"wc" | "gm">(initialMode);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
 
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(modeState));
   const departments = [
@@ -126,5 +130,11 @@ export const useUIState = (initialMode: "wc" | "gm") => {
     getFilteredTasks,
     getDisplayedTasks,
     getPresets,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalCount,
+    setTotalCount,
   };
 };

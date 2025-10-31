@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface ModalField {
   id: string;
@@ -471,29 +473,63 @@ Thank you.`);
               {field.label}
               {field.type === "input" ? (
                 <>
-                  <input
-                    ref={field.id === "lkPatient" ? patientInputRef : undefined}
-                    id={field.id}
-                    type={field.id === "lkDob" ? "date" : "text"}
-                    value={formData[field.id]}
-                    onChange={(e) => handleChange(field.id, e.target.value)}
-                    onFocus={() => {
-                      if (
-                        field.id === "lkPatient" &&
-                        formData[field.id] &&
-                        patientSuggestions.length > 0
-                      ) {
-                        setShowSuggestions(true);
+                  {field.id === "lkDob" ? (
+                    <DatePicker
+                      selected={formData[field.id] ? new Date(formData[field.id]) : null}
+                      onChange={(date) => {
+                        if (date) {
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          const day = String(date.getDate()).padStart(2, '0');
+                          handleChange(field.id, `${year}-${month}-${day}`);
+                        } else {
+                          handleChange(field.id, "");
+                        }
+                      }}
+                      dateFormat="yyyy-MM-dd"
+                      placeholderText={field.placeholder}
+                      showYearDropdown
+                      scrollableYearDropdown
+                      yearDropdownItemNumber={100}
+                      maxDate={new Date()}
+                      className="w-full"
+                      wrapperClassName="w-full"
+                      customInput={
+                        <input
+                          style={{
+                            width: "100%",
+                            padding: "8px",
+                            border: "1px solid var(--border)",
+                            borderRadius: "8px",
+                          }}
+                        />
                       }
-                    }}
-                    placeholder={field.placeholder}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                    }}
-                  />
+                    />
+                  ) : (
+                    <input
+                      ref={field.id === "lkPatient" ? patientInputRef : undefined}
+                      id={field.id}
+                      type="text"
+                      value={formData[field.id]}
+                      onChange={(e) => handleChange(field.id, e.target.value)}
+                      onFocus={() => {
+                        if (
+                          field.id === "lkPatient" &&
+                          formData[field.id] &&
+                          patientSuggestions.length > 0
+                        ) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      placeholder={field.placeholder}
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  )}
                   {/* Patient suggestions dropdown */}
                   {field.id === "lkPatient" && showSuggestions && (
                     <div
@@ -605,7 +641,7 @@ Thank you.`);
           }}
         >
           <button
-            className="btn primary"
+            className="btn bg-teal-500 text-white hover:bg-teal-600 active:bg-teal-700"
             onClick={generateLink}
             disabled={isGenerating || !formData.lkPatient || !formData.lkDob}
           >
@@ -632,8 +668,8 @@ Thank you.`);
                 copyStatus === "copied"
                   ? "#22c55e"
                   : copyStatus === "error"
-                  ? "#ef4444"
-                  : "",
+                    ? "#ef4444"
+                    : "",
               color:
                 copyStatus === "copied" || copyStatus === "error"
                   ? "white"
@@ -644,8 +680,8 @@ Thank you.`);
             {copyStatus === "copied"
               ? "Copied!"
               : copyStatus === "error"
-              ? "Error"
-              : "Copy"}
+                ? "Error"
+                : "Copy"}
           </button>
         </div>
         <div className="muted" style={{ marginTop: "6px" }}>
