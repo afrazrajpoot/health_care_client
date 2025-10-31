@@ -19,36 +19,35 @@ export default withAuth(
 
     const pathname = req.nextUrl.pathname;
 
-    // ✅ If Staff visits /dashboard → redirect them to /staff-dashboard
-    if (pathname.startsWith("/dashboard") && token.role === "Staff") {
-      return NextResponse.redirect(new URL("/staff-dashboard", req.url));
-    }
-
-    // ✅ If Attorney visits /dashboard → redirect them to /attorney-dashboard
+    // ✅ If Attorney visits /dashboard → redirect them to attorney dashboard
     if (pathname.startsWith("/dashboard") && token.role === "Attorney") {
       return NextResponse.redirect(new URL("/attorney-dashboard", req.url));
     }
 
-    // ✅ Staff-only routes (allowed only for Staff)
+    // ✅ Allow Physician and Staff to access both dashboards
     if (
-      (pathname.startsWith("/upload") ||
-        pathname.startsWith("/documents") ||
-        pathname.startsWith("/tasks") ||
+      (pathname.startsWith("/dashboard") ||
         pathname.startsWith("/staff-dashboard")) &&
-      token.role !== "Staff"
+      (token.role === "Physician" || token.role === "Staff")
     ) {
-      // ❗ Allow Physician to access staff-dashboard if needed
-      if (token.role === "Physician" && pathname.startsWith("/staff-dashboard")) {
-        return NextResponse.next();
-      }
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.next();
     }
 
-    // ✅ Attorney-only routes
+    // ✅ Restrict /attorney-dashboard to Attorneys only
     if (
       (pathname === "/attorney-dashboard" ||
         pathname.startsWith("/attorney-dashboard")) &&
       token.role !== "Attorney"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    // ✅ Staff & Physician shared routes
+    if (
+      (pathname.startsWith("/upload") ||
+        pathname.startsWith("/documents") ||
+        pathname.startsWith("/tasks")) &&
+      !(token.role === "Physician" || token.role === "Staff")
     ) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }

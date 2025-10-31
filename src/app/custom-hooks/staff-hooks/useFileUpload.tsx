@@ -1,4 +1,3 @@
-// hooks/useFileUpload.ts
 import { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/providers/SocketProvider";
@@ -71,15 +70,23 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         `🚀 Starting upload for ${selectedFiles.length} files in mode: ${mode}`
       );
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
-        }/api/extract-documents?physicianId=${session?.user?.physicianId || ""
-        }&userId=${session?.user?.id || ""}`;
+      // ✅ Determine physician ID based on role
+      const user = session?.user;
+      const physicianId =
+        user?.role === "Physician"
+          ? user?.id // if Physician, send their own ID
+          : user?.physicianId || ""; // otherwise, send assigned physician’s ID
+
+      const apiUrl = `${
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+      }/api/extract-documents?physicianId=${physicianId}&userId=${
+        user?.id || ""
+      }`;
 
       console.log("🌐 API URL:", apiUrl);
 
-      // Add timeout and better error handling
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -88,7 +95,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       });
 
       clearTimeout(timeoutId);
-
       console.log("📡 Response status:", response.status);
 
       if (!response.ok) {
@@ -96,10 +102,8 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         const errorMessage = `HTTP error! status: ${response.status}, details: ${errorText}`;
         console.error(errorMessage);
 
-        // Close file modal immediately on ANY API error
         setIsFileModalOpen(false);
 
-        // Check for payment-related failure
         if (
           (response.status === 400 || response.status === 402) &&
           (errorText.toLowerCase().includes("limit exceeded") ||
@@ -126,11 +130,11 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       }
 
       console.log(
-        `✅ Started processing ${data.payload_count || 0
+        `✅ Started processing ${
+          data.payload_count || 0
         } document(s) in ${mode.toUpperCase()} mode`
       );
 
-      // Success case - close modal
       setIsFileModalOpen(false);
       setSelectedFiles([]);
       if (snapInputRef.current) {
@@ -138,8 +142,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       }
     } catch (error: any) {
       console.error("❌ Upload error:", error);
-
-      // Close file modal immediately on ANY error
       setIsFileModalOpen(false);
 
       if (error.name === "AbortError") {
@@ -147,7 +149,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       } else if (error.message.includes("Failed to fetch")) {
         setPaymentError(
           "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-          (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com")
+            (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
         );
       } else {
         setPaymentError(`Upload failed: ${error.message}`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, Menu, X, Search, User, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/navigation/sidebar";
@@ -19,22 +19,25 @@ interface RebuttalInput {
   patient_claim_number?: string;
 }
 
-interface BodyPartSnapshot {
+interface ExtendedBodyPartSnapshot {
   bodyPart: string;
   dx: string;
+  claimNumber: string;
+  denialReason: string;
 }
 
 interface Patient {
   id: string;
   name: string;
+  originalName: string;
   date_of_birth: string;
-  claimNumber?: string;
+  claimNumber: string;
   ur_denial_reason?: string;
-  bodyPartSnapshots?: BodyPartSnapshot[];
+  bodyPartSnapshots?: ExtendedBodyPartSnapshot[];
 }
 
 export default function RebuttalFormPage() {
-  const [formData, setFormData] = useState<RebuttalInput>({
+  const initialFormData: RebuttalInput = {
     body_part: "",
     modality: "",
     diagnosis: "",
@@ -45,7 +48,9 @@ export default function RebuttalFormPage() {
     patient_name: "",
     patient_dob: "",
     patient_claim_number: "",
-  });
+  };
+
+  const [formData, setFormData] = useState<RebuttalInput>(initialFormData);
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -57,12 +62,21 @@ export default function RebuttalFormPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
+  // Refs
+  const searchRef = useRef<HTMLDivElement>(null);
+
   // Dropdown options states
   const [bodyParts, setBodyParts] = useState<string[]>([]);
-  const [diagnoses, setDiagnoses] = useState<string[]>([]);
+  const [filteredDiagnoses, setFilteredDiagnoses] = useState<string[]>([]);
+  const [filteredReasons, setFilteredReasons] = useState<string[]>([]);
+  const [allSnapshots, setAllSnapshots] = useState<ExtendedBodyPartSnapshot[]>(
+    []
+  );
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -107,11 +121,16 @@ export default function RebuttalFormPage() {
         setSearchResults(
           data.data.allMatchingDocuments.map((doc: any) => ({
             id: doc.id,
-            name: doc.patientName,
+            name: `${doc.patientName} (Claim: ${doc.claimNumber})`,
+            originalName: doc.patientName,
             date_of_birth: doc.dob,
             claimNumber: doc.claimNumber,
             ur_denial_reason: doc.ur_denial_reason,
-            bodyPartSnapshots: doc.bodyPartSnapshots,
+            bodyPartSnapshots: doc.bodyPartSnapshots.map((snapshot: any) => ({
+              ...snapshot,
+              claimNumber: doc.claimNumber,
+              denialReason: doc.ur_denial_reason,
+            })),
           }))
         );
       } else {
@@ -125,6 +144,23 @@ export default function RebuttalFormPage() {
     }
   };
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setSearchResults([]);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -134,37 +170,89 @@ export default function RebuttalFormPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Filter diagnoses and reasons based on selected body part
+  useEffect(() => {
+    if (allSnapshots.length === 0) {
+      setFilteredDiagnoses([]);
+      setFilteredReasons([]);
+      return;
+    }
+
+    if (formData.body_part) {
+      const matchingSnapshots = allSnapshots.filter(
+        (s) => s.bodyPart === formData.body_part
+      );
+      const dxs = matchingSnapshots.map((s) => s.dx);
+      const uniqueDx = [...new Set(dxs)].sort();
+      const reasons = matchingSnapshots.map((s) => s.denialReason);
+      const uniqueReasons = [...new Set(reasons)].sort();
+
+      setFilteredDiagnoses(uniqueDx);
+      setFilteredReasons(uniqueReasons);
+
+      // Set diagnosis if needed
+      if (
+        (!formData.diagnosis || !uniqueDx.includes(formData.diagnosis)) &&
+        uniqueDx.length > 0
+      ) {
+        setFormData((prev) => ({ ...prev, diagnosis: uniqueDx[0] }));
+      }
+
+      // Set reason if needed
+      if (
+        (!formData.reason_for_denial ||
+          !uniqueReasons.includes(formData.reason_for_denial)) &&
+        uniqueReasons.length > 0
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          reason_for_denial: uniqueReasons[0],
+        }));
+      }
+
+      // Set claim number from first matching snapshot
+      if (matchingSnapshots.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          patient_claim_number: matchingSnapshots[0].claimNumber,
+        }));
+      }
+    } else {
+      const allDx = [...new Set(allSnapshots.map((s) => s.dx))].sort();
+      const allReasons = [
+        ...new Set(allSnapshots.map((s) => s.denialReason)),
+      ].sort();
+      setFilteredDiagnoses(allDx);
+      setFilteredReasons(allReasons);
+    }
+  }, [formData.body_part, allSnapshots]);
+
   // Select a patient and update form
   const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
     setFormData((prev) => ({
       ...prev,
       patient_id: patient.id,
-      patient_name: patient.name,
+      patient_name: patient.originalName,
       patient_dob: patient.date_of_birth,
-      patient_claim_number: patient.claimNumber || "",
+      patient_claim_number: patient.claimNumber,
       reason_for_denial: patient.ur_denial_reason || "",
     }));
 
     // Populate dropdown options
     const snapshots = patient.bodyPartSnapshots || [];
+    setAllSnapshots(snapshots);
     const uniqueBodyParts = [
       ...new Set(snapshots.map((s) => s.bodyPart)),
     ].sort();
-    const uniqueDiagnoses = [...new Set(snapshots.map((s) => s.dx))].sort();
-
     setBodyParts(uniqueBodyParts);
-    setDiagnoses(uniqueDiagnoses);
 
-    // Prefill first options if available
-    if (uniqueBodyParts.length > 0 && !formData.body_part) {
+    // Prefill first body part if available
+    if (uniqueBodyParts.length > 0) {
       setFormData((prev) => ({ ...prev, body_part: uniqueBodyParts[0] }));
     }
-    if (uniqueDiagnoses.length > 0 && !formData.diagnosis) {
-      setFormData((prev) => ({ ...prev, diagnosis: uniqueDiagnoses[0] }));
-    }
 
-    setSearchQuery(patient.name); // Only show patient name in the search field
+    setSearchQuery(patient.originalName); // Only show patient name in the search field
     setSearchResults([]); // Hide results
   };
 
@@ -186,7 +274,7 @@ export default function RebuttalFormPage() {
     setIsModalOpen(false);
 
     try {
-      const res = await fetch("https://api.kebilo.com/api/rebuttal", {
+      const res = await fetch("http://localhost:8000/api/rebuttal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // For auth session
@@ -375,7 +463,7 @@ export default function RebuttalFormPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Patient Search Section */}
-            <div className="relative">
+            <div ref={searchRef} className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Patient Search
               </label>
@@ -383,7 +471,19 @@ export default function RebuttalFormPage() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setSelectedPatient(null);
+                      setFormData(initialFormData);
+                      setBodyParts([]);
+                      setFilteredDiagnoses([]);
+                      setFilteredReasons([]);
+                      setAllSnapshots([]);
+                      setSearchResults([]);
+                    }
+                    setSearchQuery(value);
+                  }}
                   placeholder="Search patients by name..."
                   className="w-full p-3 pl-10 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
@@ -395,14 +495,13 @@ export default function RebuttalFormPage() {
               {selectedPatient && (
                 <p className="text-sm text-green-600 mt-1 flex items-center">
                   <User size={14} className="mr-1" />
-                  Selected: {selectedPatient.name}
-                  {selectedPatient.claimNumber &&
-                    ` (Claim: ${selectedPatient.claimNumber})`}
+                  Selected: {selectedPatient.originalName} (Claim:{" "}
+                  {selectedPatient.claimNumber})
                 </p>
               )}
               {/* Search Results Dropdown */}
               <AnimatePresence>
-                {searchResults.length > 0 && (
+                {searchResults.length > 0 && !selectedPatient && (
                   <motion.ul
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
@@ -420,15 +519,21 @@ export default function RebuttalFormPage() {
                           {patient.name}
                         </div>
                         <div className="text-sm text-gray-500">
-                          DOB: {patient.date_of_birth}{" "}
-                          {patient.claimNumber &&
-                            `- Claim: ${patient.claimNumber}`}
+                          DOB: {patient.date_of_birth}
                         </div>
-                        {patient.ur_denial_reason && (
-                          <div className="text-xs text-gray-400 mt-1 line-clamp-2">
-                            Denial Reason: {patient.ur_denial_reason}
-                          </div>
-                        )}
+                        {patient.bodyPartSnapshots &&
+                          patient.bodyPartSnapshots.length > 1 && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              Body Parts:{" "}
+                              {[
+                                ...new Set(
+                                  patient.bodyPartSnapshots.map(
+                                    (s) => s.bodyPart
+                                  )
+                                ),
+                              ].join(", ")}
+                            </div>
+                          )}
                       </motion.li>
                     ))}
                   </motion.ul>
@@ -486,7 +591,7 @@ export default function RebuttalFormPage() {
                   required
                 >
                   <option value="">Select Diagnosis</option>
-                  {diagnoses.map((dx) => (
+                  {filteredDiagnoses.map((dx) => (
                     <option key={dx} value={dx}>
                       {dx}
                     </option>
@@ -496,7 +601,7 @@ export default function RebuttalFormPage() {
             </div>
 
             {/* Optional Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Guideline Source
@@ -515,19 +620,6 @@ export default function RebuttalFormPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason for Denial
-                </label>
-                <input
-                  type="text"
-                  name="reason_for_denial"
-                  value={formData.reason_for_denial}
-                  onChange={handleInputChange}
-                  placeholder="e.g., lack of physical exam findings"
-                  className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Previous Response
                 </label>
                 <input
@@ -539,6 +631,19 @@ export default function RebuttalFormPage() {
                   className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
+            </div>
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason for Denial
+              </label>
+              <textarea
+                name="reason_for_denial"
+                value={formData.reason_for_denial}
+                onChange={handleInputChange}
+                placeholder="Enter or paste the full reason for denial..."
+                rows={3}
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none resize-vertical"
+              />
             </div>
 
             <button

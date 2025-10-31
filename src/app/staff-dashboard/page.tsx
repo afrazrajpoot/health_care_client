@@ -285,6 +285,19 @@ export default function Dashboard() {
     router.push("/packages");
   }, [clearPaymentError, router]);
 
+  const handleManualTaskSubmit = useCallback(
+    async (formData: any) => {
+      try {
+        await handleCreateManualTask(formData, modeState, urlClaim);
+        await fetchTasks(modeState, urlClaim);
+      } catch (error) {
+        console.error("Error creating manual task:", error);
+        throw error; // Re-throw to let modal handle
+      }
+    },
+    [handleCreateManualTask, modeState, urlClaim, fetchTasks]
+  );
+
   const handleProgressComplete = useCallback(() => {
     fetchTasks(modeState, urlClaim);
     fetchFailedDocuments();
@@ -681,8 +694,9 @@ export default function Dashboard() {
 
       <div className="flex min-h-screen relative">
         <div
-          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         >
           <div className="h-full">
             <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -690,32 +704,37 @@ export default function Dashboard() {
         </div>
 
         <div
-          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
-            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
-            }`}
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
+            isSidebarOpen
+              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+          }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           <div className="flex flex-col items-center justify-center w-4 h-4">
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "opacity-0" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "opacity-0" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
+                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+              }`}
             ></div>
           </div>
         </div>
 
         <div
-          className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0" : "ml-0"
-            }`}
+          className={`flex-1 transition-all duration-300 ${
+            isSidebarOpen ? "ml-0" : "ml-0"
+          }`}
         >
           <div className="p-6">
             {/* {session?.user?.role === "Staff" && ( */}
@@ -975,8 +994,9 @@ export default function Dashboard() {
                       {filteredTabs.map((tab) => (
                         <button
                           key={tab.pane}
-                          className={`filter ttab ${currentPane === tab.pane ? "active" : ""
-                            }`}
+                          className={`filter ttab ${
+                            currentPane === tab.pane ? "active" : ""
+                          }`}
                           onClick={() => setCurrentPane(tab.pane)}
                         >
                           {tab.text}
@@ -1107,9 +1127,7 @@ export default function Dashboard() {
         onOpenChange={setShowTaskModal}
         departments={departments}
         defaultClaim={urlClaim}
-        onSubmit={(formData) =>
-          handleCreateManualTask(formData, modeState, urlClaim)
-        }
+        onSubmit={handleManualTaskSubmit}
       />
 
       <UpdateDocumentModal
