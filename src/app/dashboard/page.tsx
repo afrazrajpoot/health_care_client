@@ -614,6 +614,11 @@ export default function PhysicianCard() {
         quick_notes_snapshots: processedQuickNotes,
         gcs_file_link: latestDoc?.gcs_file_link,
         blob_path: latestDoc?.blob_path,
+        file_name: latestDoc?.file_name, // ✅ Set file name from API
+        consulting_doctor:
+          allBodyPartSnapshots[0]?.consultingDoctor ||
+          latestDoc?.body_part_snapshots?.[0]?.consultingDoctor ||
+          "Not specified", // ✅ Set consulting doctor from body part snapshots
         // Compute allVerified based on status of latest doc (or aggregate if needed)
         allVerified:
           !!latestDoc.status && latestDoc.status.toLowerCase() === "verified",

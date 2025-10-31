@@ -58,6 +58,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               "• No significant new findings identified in current document"
         );
 
+        // Extract consulting doctor from the first body part snapshot (or fallback)
+        const consultingDoctor =
+          doc.body_part_snapshots?.[0]?.consultingDoctor || "Not specified";
+
+        // Extract document type from document_summary
+        const documentType = doc.document_summary?.type || "Unknown";
+
         return {
           docId,
           originalDocId: docId,
@@ -67,6 +74,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           bulletPoints: validBulletPoints,
           doc, // Full document object for additional info
           status: doc.status || "pending",
+          consultingDoctor,
+          documentType,
         };
       })
       .filter((group) => group.bulletPoints.length > 0); // Only show documents with bullet points
@@ -228,12 +237,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     {/* Group Header: Show document info */}
                     <div className="group-header">
                       <div className="group-info">
-                        <span className="doc-index">
-                          Document {group.documentIndex}
-                        </span>
+                        <span className="doc-type">{group.documentType}</span>
                         {group.isLatest && (
                           <span className="doc-latest"> (Latest)</span>
                         )}
+                        {group.consultingDoctor &&
+                          group.consultingDoctor !== "Not specified" && (
+                            <span className="doc-doctor">
+                              {" "}
+                              - {group.consultingDoctor}
+                            </span>
+                          )}
                         {group.reportDate && (
                           <span className="doc-date">
                             {formatDate(group.reportDate)}
@@ -377,8 +391,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-size: 13px;
           font-weight: 600;
           color: #374151;
+          flex-wrap: wrap;
         }
-        .doc-index {
+        .doc-type {
           color: #1f2937;
           background: #e0f2fe;
           padding: 2px 8px;
@@ -388,6 +403,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           color: #059669;
           font-size: 12px;
           background: #ecfdf5;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+        .doc-doctor {
+          color: #6b21a8;
+          font-size: 12px;
+          background: #ede9fe;
           padding: 2px 6px;
           border-radius: 4px;
         }
