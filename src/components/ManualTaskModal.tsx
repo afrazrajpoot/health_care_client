@@ -24,13 +24,15 @@ interface ManualTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: string[];
-  onSubmit: (data: ManualTaskData) => void;
+  defaultClaim?: string;
+  onSubmit: (data: ManualTaskData) => Promise<void>;
 }
 
 export default function ManualTaskModal({
   open,
   onOpenChange,
   departments,
+  defaultClaim,
   onSubmit,
 }: ManualTaskModalProps) {
   const [taskFormData, setTaskFormData] = useState({
@@ -43,16 +45,17 @@ export default function ManualTaskModal({
   const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const patientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Debounce function
-  const debounce = <T extends (...args: never[]) => void>(
-    func: T,
+  const debounce = <F extends (...args: any[]) => any>(
+    func: F,
     delay: number
-  ) => {
+  ): ((...args: Parameters<F>) => void) => {
     let timeoutId: NodeJS.Timeout;
-    return (...args: Parameters<T>) => {
+    return (...args: Parameters<F>) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => func(...args), delay);
     };
@@ -66,8 +69,11 @@ export default function ManualTaskModal({
       return;
     }
 
+    setShowSuggestions(true);
+    setIsLoadingSuggestions(true);
+    setPatientSuggestions([]);
+
     try {
-      setIsLoadingSuggestions(true);
       const response = await fetch(
         `/api/dashboard/recommendation?patientName=${encodeURIComponent(query)}`
       );
@@ -82,21 +88,19 @@ export default function ManualTaskModal({
         const patients = data.data.allMatchingDocuments.map((doc: any) => ({
           id: doc.id,
           patientName: doc.patientName,
-          dob: doc.dob
-            ? new Date(doc.dob).toISOString().split("T")[0]
-            : "Not specified",
+          dob:
+            doc.dob && doc.dob !== "Not specified"
+              ? new Date(doc.dob).toISOString().split("T")[0]
+              : "Not specified",
           claimNumber: doc.claimNumber || "Not specified",
         }));
         setPatientSuggestions(patients);
-        setShowSuggestions(true);
       } else {
         setPatientSuggestions([]);
-        setShowSuggestions(false);
       }
     } catch (err: unknown) {
       console.error("Error fetching patient recommendations:", err);
       setPatientSuggestions([]);
-      setShowSuggestions(false);
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -154,6 +158,7 @@ export default function ManualTaskModal({
       });
       setPatientSuggestions([]);
       setShowSuggestions(false);
+      setIsSubmitting(false);
     }
   }, [open]);
 
@@ -171,15 +176,20 @@ export default function ManualTaskModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      taskFormData.patientName &&
-      taskFormData.description &&
-      taskFormData.department &&
-      taskFormData.dueDate
+      !taskFormData.patientName ||
+      !taskFormData.description ||
+      !taskFormData.department ||
+      !taskFormData.dueDate
     ) {
-      onSubmit({
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
         patientName: taskFormData.patientName,
         dueDate: taskFormData.dueDate,
         description: taskFormData.description,
@@ -187,6 +197,11 @@ export default function ManualTaskModal({
         documentId: taskFormData.documentId || undefined, // Include documentId if set
       });
       onOpenChange(false);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      // Optionally, show an error message to the user
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -223,9 +238,10 @@ export default function ManualTaskModal({
                   setShowSuggestions(true);
                 }
               }}
+              disabled={isSubmitting}
             />
             {/* Patient suggestions dropdown */}
-            {showSuggestions && (
+            {showSuggestions && !isSubmitting && (
               <div
                 ref={suggestionsRef}
                 style={{
@@ -312,6 +328,7 @@ export default function ManualTaskModal({
               onChange={handleTaskFormChange}
               required
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              disabled={isSubmitting}
             />
           </div>
           <div>
@@ -331,6 +348,7 @@ export default function ManualTaskModal({
               rows={3}
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
               placeholder="Enter task description"
+              disabled={isSubmitting}
             />
           </div>
           <div>
@@ -347,6 +365,7 @@ export default function ManualTaskModal({
               onChange={handleTaskFormChange}
               required
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              disabled={isSubmitting}
             >
               <option value="">Select a department</option>
               {departments.map((dept) => (
@@ -359,16 +378,25 @@ export default function ManualTaskModal({
           <DialogFooter>
             <button
               type="button"
-              className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+              className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
               onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2 disabled:bg-gray-400 disabled:cursor-not-allowed bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center"
             >
-              Create Task
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating...
+                </>
+              ) : (
+                "Create Task"
+              )}
             </button>
           </DialogFooter>
         </form>
