@@ -89,7 +89,7 @@ export function StandardRow({
           {isClaimed ? "Unclaim" : "Claim"}
         </button>{" "}
         <button
-          className="bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold py-[0.5vw] px-[0.5vw] rounded-md mt-[1vw] w-full max-w-[10vw]"
+          className="bg-gradient-to-r bg-teal-600 hover:bg-[#33c7d8] text-white font-bold py-[0.5vw] px-[0.5vw] rounded-md mt-[1vw] w-full max-w-[10vw]"
           onClick={() => onComplete(task.id)}
         >
           Done
