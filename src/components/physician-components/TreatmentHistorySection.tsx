@@ -16,6 +16,7 @@ interface BodyPartSnapshot {
   document_id?: string;
   document_created_at?: string;
   document_report_date?: string;
+  referralDoctor?: string; // Fixed potential misspelling
 }
 
 interface DocumentData {
@@ -160,6 +161,22 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+const TimelineIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1.73 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+    <path d="M3.27 6.96L12 12.01l8.73-5.05"></path>
+    <path d="M12 22.08V12"></path>
+  </svg>
+);
+
 interface TreatmentHistorySectionProps {
   documentData: DocumentData | null;
   copied: { [key: string]: boolean };
@@ -186,6 +203,11 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     [key: string]: boolean;
   }>({});
 
+  // State for timeline visibility per body part
+  const [showTimeline, setShowTimeline] = React.useState<{
+    [key: string]: boolean;
+  }>({});
+
   // Handle section header click (only for collapse/expand)
   const handleSectionHeaderClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -208,6 +230,31 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       ...prev,
       [bodyPartId]: !prev[bodyPartId],
     }));
+  };
+
+  const toggleTimeline = (bodyPartId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setShowTimeline((prev) => ({
+      ...prev,
+      [bodyPartId]: !prev[bodyPartId],
+    }));
+  };
+
+  // Helper to parse and sort snapshots by report_date (descending for latest first)
+  const sortSnapshotsByDate = (
+    snapshots: BodyPartSnapshot[]
+  ): BodyPartSnapshot[] => {
+    return [...snapshots].sort((a, b) => {
+      const dateA = a.document_report_date
+        ? new Date(a.document_report_date).getTime()
+        : 0;
+      const dateB = b.document_report_date
+        ? new Date(b.document_report_date).getTime()
+        : 0;
+      return dateB - dateA; // Descending
+    });
   };
 
   // Group body part snapshots by body part name for better organization
@@ -263,112 +310,166 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         {!isCollapsed && (
           <div className="section-content" onClick={(e) => e.stopPropagation()}>
             {/* Body Part Snapshots */}
-            {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => (
-              <div key={bodyPart} className="bodypart-group">
-                {/* Body Part Header - Clickable for expanding/collapsing that specific body part */}
-                <div
-                  className="bodypart-header"
-                  onClick={(e) => toggleBodyPart(bodyPart, e)}
-                >
-                  <button
-                    className="bodypart-toggle-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleBodyPart(bodyPart);
-                    }}
-                  >
-                    {expandedBodyParts[bodyPart] ? (
-                      <ChevronDownIcon />
-                    ) : (
-                      <ChevronRightIcon />
-                    )}
-                  </button>
-                  <h4 className="bodypart-name">{bodyPart}</h4>
-                  <button
-                    className={`copy-btn small ${copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
-                      }`}
-                    onClick={(e) => handleCopyClick(e, bodyPart)}
-                    title={`Copy ${bodyPart} Details`}
-                  >
-                    {copied[`section-bodypart-${bodyPart}`] ? (
-                      <CheckIcon />
-                    ) : (
-                      <CopyIcon />
-                    )}
-                  </button>
-                </div>
+            {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => {
+              const sortedSnapshots = sortSnapshotsByDate(snapshots);
+              const latestSnapshot = sortedSnapshots[0];
+              const hasMultiple = sortedSnapshots.length > 1;
 
-                {/* Body Part Details - This part should NOT trigger any toggles */}
-                {expandedBodyParts[bodyPart] && (
+              return (
+                <div key={bodyPart} className="bodypart-group">
+                  {/* Body Part Header - Clickable for expanding/collapsing that specific body part */}
                   <div
-                    className="bodypart-details"
-                    onClick={(e) => e.stopPropagation()}
+                    className="bodypart-header"
+                    onClick={(e) => toggleBodyPart(bodyPart, e)}
                   >
-                    {snapshots.map((snapshot, index) => (
-                      <div key={snapshot.id || index} className="snapshot-card">
-                        <div className="snapshot-meta">
-                          {snapshot.document_created_at && (
-                            <span className="snapshot-date">
-                              {formatDate(snapshot.document_created_at)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="snapshot-content">
-                          <ul>
-                            {snapshot.dx &&
-                              snapshot.dx !== "Not specified" &&
-                              snapshot.dx !== "" && (
-                                <li>
-                                  <strong>Diagnosis:</strong> {snapshot.dx}
-                                </li>
-                              )}
-                            {snapshot.recommended &&
-                              snapshot.recommended !== "Not specified" &&
-                              snapshot.recommended !== "" && (
-                                <li>
-                                  <strong>Treatment Plan:</strong>{" "}
-                                  {snapshot.treatmentPlane}
-                                </li>
-                              )}
-                            {/* {snapshot.aiOutcome &&
-                              snapshot.aiOutcome !== "Not specified" &&
-                              snapshot.aiOutcome !== "" && (
-                                <li>
-                                  <strong>Outcome:</strong> {snapshot.aiOutcome}
-                                </li>
-                              )} */}
-                            {snapshot.consultingDoctor &&
-                              snapshot.consultingDoctor !== "Not specified" &&
-                              snapshot.consultingDoctor !== "" && (
-                                <li>
-                                  <strong>Consulting Doctor:</strong>{" "}
-                                  {snapshot.consultingDoctor}
-                                </li>
-                              )}
-                            {snapshot.refrelDoctor &&
-                              snapshot.refrelDoctor !== "Not specified" &&
-                              snapshot.refrelDoctor !== "" && (
-                                <li>
-                                  <strong>Referral Doctor:</strong>{" "}
-                                  {snapshot.refrelDoctor}
-                                </li>
-                              )}
-                            {snapshot.urDecision &&
-                              snapshot.urDecision !== "Not specified" &&
-                              snapshot.urDecision !== "" && (
-                                <li>
-                                  <strong>UR Decision:</strong>{" "}
-                                  {snapshot.urDecision}
-                                </li>
-                              )}
-                          </ul>
-                        </div>
-                      </div>
-                    ))}
+                    <button
+                      className="bodypart-toggle-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleBodyPart(bodyPart);
+                      }}
+                    >
+                      {expandedBodyParts[bodyPart] ? (
+                        <ChevronDownIcon />
+                      ) : (
+                        <ChevronRightIcon />
+                      )}
+                    </button>
+                    <h4 className="bodypart-name">{bodyPart}</h4>
+                    <button
+                      className={`copy-btn small ${copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
+                        }`}
+                      onClick={(e) => handleCopyClick(e, bodyPart)}
+                      title={`Copy ${bodyPart} Details`}
+                    >
+                      {copied[`section-bodypart-${bodyPart}`] ? (
+                        <CheckIcon />
+                      ) : (
+                        <CopyIcon />
+                      )}
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* Body Part Details - This part should NOT trigger any toggles */}
+                  {expandedBodyParts[bodyPart] && (
+                    <div
+                      className="bodypart-details"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Latest Snapshot Card */}
+                      {latestSnapshot && (
+                        <div className="snapshot-card latest">
+                          <div className="snapshot-meta">
+                            <span className="snapshot-date">
+                              Latest:{" "}
+                              {formatDate(latestSnapshot.document_report_date)}
+                            </span>
+                          </div>
+                          <div className="snapshot-content">
+                            <ul>
+                              {latestSnapshot.dx &&
+                                latestSnapshot.dx !== "Not specified" &&
+                                latestSnapshot.dx !== "" && (
+                                  <li>
+                                    <strong>Diagnosis:</strong>{" "}
+                                    {latestSnapshot.dx}
+                                  </li>
+                                )}
+                              {latestSnapshot.recommended &&
+                                latestSnapshot.recommended !==
+                                "Not specified" &&
+                                latestSnapshot.recommended !== "" && (
+                                  <li>
+                                    <strong>Treatment Plan:</strong>{" "}
+                                    {latestSnapshot.recommended}
+                                  </li>
+                                )}
+                              {latestSnapshot.consultingDoctor &&
+                                latestSnapshot.consultingDoctor !==
+                                "Not specified" &&
+                                latestSnapshot.consultingDoctor !== "" && (
+                                  <li>
+                                    <strong>Consulting Doctor:</strong>{" "}
+                                    {latestSnapshot.consultingDoctor}
+                                  </li>
+                                )}
+                              {latestSnapshot.referralDoctor &&
+                                latestSnapshot.referralDoctor !==
+                                "Not specified" &&
+                                latestSnapshot.referralDoctor !== "" && (
+                                  <li>
+                                    <strong>Referral Doctor:</strong>{" "}
+                                    {latestSnapshot.referralDoctor}
+                                  </li>
+                                )}
+                              {latestSnapshot.urDecision &&
+                                latestSnapshot.urDecision !== "Not specified" &&
+                                latestSnapshot.urDecision !== "" && (
+                                  <li>
+                                    <strong>UR Decision:</strong>{" "}
+                                    {latestSnapshot.urDecision}
+                                  </li>
+                                )}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Timeline Dropdown/Button - Only show if multiple snapshots */}
+                      {hasMultiple && (
+                        <div className="timeline-toggle">
+                          <button
+                            className="timeline-btn"
+                            onClick={(e) => toggleTimeline(bodyPart, e)}
+                          >
+                            <TimelineIcon />
+                            {showTimeline[bodyPart] ? "Hide" : "View"} Timeline
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Timeline Section */}
+                      {hasMultiple && showTimeline[bodyPart] && (
+                        <div className="timeline-section">
+                          {/* <h5 className="timeline-title">Date-Wise Timeline</h5> */}
+                          <div className="timeline">
+                            {sortedSnapshots.map((snapshot, index) => (
+                              <div
+                                key={snapshot.id || index}
+                                className="timeline-item"
+                              >
+                                <div className="timeline-date">
+                                  {formatDate(snapshot.document_report_date)}
+                                </div>
+                                <div className="timeline-content">
+                                  {snapshot.recommended &&
+                                    snapshot.recommended !== "Not specified" &&
+                                    snapshot.recommended !== "" && (
+                                      <div className="timeline-entry">
+                                        <strong>Treatment Plan:</strong>{" "}
+                                        {snapshot.recommended}
+                                      </div>
+                                    )}
+                                  {snapshot.consultingDoctor &&
+                                    snapshot.consultingDoctor !==
+                                    "Not specified" &&
+                                    snapshot.consultingDoctor !== "" && (
+                                      <div className="timeline-entry">
+                                        <strong>Consulting Doctor:</strong>{" "}
+                                        {snapshot.consultingDoctor}
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {bodyPartSnapshots.length === 0 && (
               <div className="no-data">
@@ -482,6 +583,10 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           margin-bottom: 8px;
           border-left: 3px solid #3b82f6;
         }
+        .snapshot-card.latest {
+          margin-bottom: 12px;
+          border-left-color: #10b981;
+        }
         .snapshot-card:last-child {
           margin-bottom: 0;
         }
@@ -508,6 +613,68 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           padding-left: 0;
         }
         .snapshot-content li:last-child {
+          margin-bottom: 0;
+        }
+        .timeline-toggle {
+          margin-bottom: 12px;
+        }
+        .timeline-btn {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          color: #374151;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          transition: all 0.2s;
+        }
+        .timeline-btn:hover {
+          background: #e5e7eb;
+        }
+        .timeline-section {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid #e5e7eb;
+        }
+        .timeline-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #374151;
+          margin: 0 0 12px 0;
+        }
+        .timeline {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .timeline-item {
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+        }
+        .timeline-date {
+          min-width: 80px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #6b7280;
+          background: #f3f4f6;
+          padding: 4px 8px;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+        .timeline-content {
+          flex: 1;
+        }
+        .timeline-entry {
+          margin-bottom: 4px;
+          font-size: 13px;
+          color: #374151;
+          line-height: 1.4;
+        }
+        .timeline-entry:last-child {
           margin-bottom: 0;
         }
         .no-data {
