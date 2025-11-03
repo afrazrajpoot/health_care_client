@@ -1,21 +1,25 @@
 // app/api/documents/recent/route.ts (or adjust path as needed for your Next.js app router structure)
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/services/authSErvice';
-
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/services/authSErvice";
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const physicianId = session.user.id; // Assuming physicianId matches session.user.id; adjust if stored differently (e.g., session.user.physicianId)
+    let physicianId; // Assuming physicianId matches session.user.id; adjust if stored differently (e.g., session.user.physicianId)
+    if (session.user.role === "Physician") {
+      physicianId = session.user.id;
+    } else if (session.user.role === "Staff") {
+      physicianId = session.user.physicianId;
+    }
 
     const documents = await prisma.document.findMany({
       select: {
@@ -26,18 +30,18 @@ export async function GET() {
       where: {
         physicianId: physicianId,
       },
-      distinct: ['claimNumber'],
+      distinct: ["claimNumber"],
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
       take: 10,
     });
 
     return NextResponse.json(documents);
   } catch (error) {
-    console.error('Error fetching recent documents:', error);
+    console.error("Error fetching recent documents:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch recent documents' },
+      { error: "Failed to fetch recent documents" },
       { status: 500 }
     );
   } finally {
