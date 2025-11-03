@@ -231,6 +231,7 @@ model Task {
   documentId     String?
   physicianId    String?
   reason         String?
+  claimNumber    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   document       Document? @relation(fields: [documentId], references: [id])
@@ -243,7 +244,7 @@ model WorkflowStats {
   rfasMonitored      Int      @default(0)
   qmeUpcoming        Int      @default(0)
   payerDisputes      Int      @default(0)
-  externalDocs       Int      @default(0)
+externalDocs       Int      @default(0)
   intakes_created    Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

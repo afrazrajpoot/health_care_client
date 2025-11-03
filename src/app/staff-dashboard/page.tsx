@@ -204,6 +204,8 @@ export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlClaim = searchParams.get("claim") || "";
+  const urlPatient = searchParams.get("patient_name") || "";
+  const urlDocumentId = searchParams.get("document_id") || "";
   const { data: session } = useSession();
   const initialMode = "wc" as const;
   const {
@@ -294,6 +296,25 @@ export default function Dashboard() {
   const handleManualTaskSubmit = useCallback(
     async (formData: any) => {
       try {
+        // Auto-fill from URL search params if present (fallback in case modal didn't set)
+        if (urlClaim && !formData.claim) {
+          formData.claim = urlClaim;
+        }
+        if (urlPatient && !formData.patientName) {
+          formData.patientName = urlPatient;
+        }
+        if (urlDocumentId && !formData.documentId) {
+          formData.documentId = urlDocumentId;
+        }
+        // If no URL data and no user-provided claim, use recommendation data
+        if (!formData.claim && !urlClaim) {
+          formData.claim = `Recommendation-${new Date()
+            .toISOString()
+            .slice(0, 10)}`;
+        }
+        // Extend for other potential URL params (e.g., dept) if needed
+        // Example: if (searchParams.get("dept") && !formData.department) { formData.department = searchParams.get("dept")!; }
+
         await handleCreateManualTask(formData, modeState, urlClaim);
         await fetchTasks(modeState, urlClaim);
       } catch (error) {
@@ -301,7 +322,14 @@ export default function Dashboard() {
         throw error; // Re-throw to let modal handle
       }
     },
-    [handleCreateManualTask, modeState, urlClaim, fetchTasks]
+    [
+      handleCreateManualTask,
+      modeState,
+      urlClaim,
+      fetchTasks,
+      urlPatient,
+      urlDocumentId,
+    ]
   );
 
   const handleProgressComplete = useCallback(() => {
@@ -319,7 +347,17 @@ export default function Dashboard() {
     });
     fetchFailedDocuments();
     fetchOfficePulse(); // This will refresh the office pulse data
-  }, [fetchTasks, modeState, urlClaim, fetchFailedDocuments, fetchOfficePulse, currentPage, pageSize, filters, setTotalCount]);
+  }, [
+    fetchTasks,
+    modeState,
+    urlClaim,
+    fetchFailedDocuments,
+    fetchOfficePulse,
+    currentPage,
+    pageSize,
+    filters,
+    setTotalCount,
+  ]);
 
   useEffect(() => {
     fetchTasks(modeState, urlClaim, {
@@ -729,8 +767,9 @@ export default function Dashboard() {
 
       <div className="flex min-h-screen relative">
         <div
-          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         >
           <div className="h-full">
             <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -738,32 +777,37 @@ export default function Dashboard() {
         </div>
 
         <div
-          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
-            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
-            }`}
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
+            isSidebarOpen
+              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+          }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           <div className="flex flex-col items-center justify-center w-4 h-4">
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "opacity-0" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "opacity-0" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
+                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+              }`}
             ></div>
           </div>
         </div>
 
         <div
-          className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0" : "ml-0"
-            }`}
+          className={`flex-1 transition-all duration-300 ${
+            isSidebarOpen ? "ml-0" : "ml-0"
+          }`}
         >
           <div className="p-6">
             {/* {session?.user?.role === "Staff" && ( */}
@@ -860,18 +904,20 @@ export default function Dashboard() {
                 )}
                 <button
                   className="btn light"
-                  onClick={() => fetchTasks(modeState, urlClaim, {
-                    page: currentPage,
-                    pageSize,
-                    search: filters.search,
-                    dept: filters.dept,
-                    status: filters.status,
-                    overdueOnly: filters.overdueOnly,
-                  }).then((result) => {
-                    if (result) {
-                      setTotalCount(result.totalCount);
-                    }
-                  })}
+                  onClick={() =>
+                    fetchTasks(modeState, urlClaim, {
+                      page: currentPage,
+                      pageSize,
+                      search: filters.search,
+                      dept: filters.dept,
+                      status: filters.status,
+                      overdueOnly: filters.overdueOnly,
+                    }).then((result) => {
+                      if (result) {
+                        setTotalCount(result.totalCount);
+                      }
+                    })
+                  }
                   disabled={loading}
                 >
                   {loading ? "Refreshing..." : "Refresh Tasks"}
@@ -1034,8 +1080,9 @@ export default function Dashboard() {
                       {filteredTabs.map((tab) => (
                         <button
                           key={tab.pane}
-                          className={`filter ttab ${currentPane === tab.pane ? "active" : ""
-                            }`}
+                          className={`filter ttab ${
+                            currentPane === tab.pane ? "active" : ""
+                          }`}
                           onClick={() => setCurrentPane(tab.pane)}
                         >
                           {tab.text}
@@ -1092,7 +1139,10 @@ export default function Dashboard() {
                         <select
                           value={filters.status}
                           onChange={(e) =>
-                            setFilters((p) => ({ ...p, status: e.target.value }))
+                            setFilters((p) => ({
+                              ...p,
+                              status: e.target.value,
+                            }))
                           }
                           style={{
                             padding: "6px 8px",
@@ -1138,34 +1188,54 @@ export default function Dashboard() {
                         getPresets={getPresets}
                       />
                       {/* Pagination Controls */}
-                      <div style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginTop: "12px",
-                        padding: "8px",
-                        borderTop: "1px solid var(--border)"
-                      }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginTop: "12px",
+                          padding: "8px",
+                          borderTop: "1px solid var(--border)",
+                        }}
+                      >
                         <div className="muted">
-                          Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount} tasks
+                          Showing {(currentPage - 1) * pageSize + 1} -{" "}
+                          {Math.min(currentPage * pageSize, totalCount)} of{" "}
+                          {totalCount} tasks
                         </div>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                          }}
+                        >
                           <button
                             className="btn light"
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            onClick={() =>
+                              setCurrentPage((p) => Math.max(1, p - 1))
+                            }
                             disabled={currentPage === 1}
                             style={{ opacity: currentPage === 1 ? 0.5 : 1 }}
                           >
                             Previous
                           </button>
                           <span className="muted">
-                            Page {currentPage} of {Math.ceil(totalCount / pageSize) || 1}
+                            Page {currentPage} of{" "}
+                            {Math.ceil(totalCount / pageSize) || 1}
                           </span>
                           <button
                             className="btn light"
-                            onClick={() => setCurrentPage(p => p + 1)}
-                            disabled={currentPage >= Math.ceil(totalCount / pageSize)}
-                            style={{ opacity: currentPage >= Math.ceil(totalCount / pageSize) ? 0.5 : 1 }}
+                            onClick={() => setCurrentPage((p) => p + 1)}
+                            disabled={
+                              currentPage >= Math.ceil(totalCount / pageSize)
+                            }
+                            style={{
+                              opacity:
+                                currentPage >= Math.ceil(totalCount / pageSize)
+                                  ? 0.5
+                                  : 1,
+                            }}
                           >
                             Next
                           </button>
@@ -1212,6 +1282,8 @@ export default function Dashboard() {
         onOpenChange={setShowTaskModal}
         departments={departments}
         defaultClaim={urlClaim}
+        defaultPatient={urlPatient}
+        defaultDocumentId={urlDocumentId}
         onSubmit={handleManualTaskSubmit}
       />
 
