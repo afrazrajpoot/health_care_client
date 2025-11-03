@@ -274,7 +274,7 @@ export default function RebuttalFormPage() {
     setIsModalOpen(false);
 
     try {
-      const res = await fetch("http://localhost:8000/api/rebuttal", {
+      const res = await fetch("https://api.kebilo.com/api/rebuttal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // For auth session
