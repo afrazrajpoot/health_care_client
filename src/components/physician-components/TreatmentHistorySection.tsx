@@ -349,7 +349,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               snapshot.refrelDoctor !== "Not specified" &&
                               snapshot.refrelDoctor !== "" && (
                                 <li>
-                                  <strong>Refrral Doctor:</strong>{" "}
+                                  <strong>Referral Doctor:</strong>{" "}
                                   {snapshot.refrelDoctor}
                                 </li>
                               )}

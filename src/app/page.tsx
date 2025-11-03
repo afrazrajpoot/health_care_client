@@ -36,12 +36,8 @@ const Header = () => {
     >
       <nav className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* <Activity className="w-7 h-7 text-[#53d1df]" strokeWidth={2.5} /> */}
-            <img src="/logo.png" alt="logo" className="w-10 h-12" />
-            <span className="text-2xl -ml-[0.8vw] font-semibold text-gray-900">
-              ebilo AI
-            </span>
+          <div className="flex cursor-pointer items-center gap-2">
+            <img src="/logo.png" alt="logo" className="h-16" />
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a
@@ -273,7 +269,7 @@ const HeroSection = () => {
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-[#53d1df]" />
                 <span className="font-semibold text-gray-900 text-sm">
-                  Kebilo AI
+                  DocLatch AI
                 </span>
               </div>
               <Button
@@ -293,7 +289,7 @@ const HeroSection = () => {
                 <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 min-h-[200px]">
                   <div className="space-y-3">
                     <div className="text-xs font-medium text-gray-700">
-                      Kebilo
+                      DocLatch
                     </div>
                     <div className="space-y-2">
                       <div className="h-2 bg-gray-200 rounded w-3/4"></div>
@@ -612,7 +608,7 @@ const HowItWorksSection = () => {
             viewport={{ once: true }}
             className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4"
           >
-            How Kebilo AI Works
+            How DocLatch AI Works
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -921,7 +917,7 @@ const ContactSection = () => {
               viewport={{ once: true }}
               className="text-base md:text-lg text-gray-600 mb-8"
             >
-              Have questions about Kebilo AI? Our team is here to help. Fill out
+              Have questions about DocLatch AI? Our team is here to help. Fill out
               the form and we'll get back to you within 24 hours.
             </motion.p>
 
@@ -953,7 +949,7 @@ const ContactSection = () => {
                     Email
                   </h3>
                   <p className="text-gray-600 text-sm md:text-base">
-                    support@Kebiloai.com
+                    support@DocLatchai.com
                   </p>
                 </div>
               </motion.div>
@@ -1183,7 +1179,7 @@ const Footer = () => {
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-6 h-6 text-[#1fbdd2]" />
               <span className="text-xl font-semibold text-white">
-                Kebilo AI
+                DocLatch AI
               </span>
             </div>
             <p className="text-sm text-gray-400  md:text-sm">
@@ -1308,7 +1304,7 @@ const Footer = () => {
 
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-gray-400  md:text-sm">
-            © 2025 Kebilo AI. All rights reserved.
+            © 2025 DocLatch AI. All rights reserved.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-gray-400 hover:text-white transition">
@@ -1331,35 +1327,35 @@ const Footer = () => {
 const FAQSection = () => {
   const faqs = [
     {
-      question: "What is Kebilo AI?",
+      question: "What is DocLatch AI?",
       answer:
-        "Kebilo AI is a next-generation AI-powered medical legal record analysis tool built for physicians and attorneys. It ingests medical records — like PDFs, notes, and reports — and automatically turns them into structured summaries, chronologies, and action items. Zero setup. Zero training.",
+        "DocLatch AI is a next-generation AI-powered medical legal record analysis tool built for physicians and attorneys. It ingests medical records — like PDFs, notes, and reports — and automatically turns them into structured summaries, chronologies, and action items. Zero setup. Zero training.",
     },
     {
-      question: "How does Kebilo AI improve daily workflow?",
+      question: "How does DocLatch AI improve daily workflow?",
       answer:
-        "Kebilo AI removes bottlenecks. Instead of manually reviewing lengthy records or chasing details, get accurate summaries and chronologies in minutes, with AI chat for quick searches and collaboration built in. Focus on what matters — analysis and decisions.",
+        "DocLatch AI removes bottlenecks. Instead of manually reviewing lengthy records or chasing details, get accurate summaries and chronologies in minutes, with AI chat for quick searches and collaboration built in. Focus on what matters — analysis and decisions.",
     },
     {
       question: "What is the AI Analysis Engine?",
       answer:
-        "Our patent-pending AI Analysis Engine is the core intelligence of Kebilo AI. Think of it as the 'smart processor' that extracts key information, organizes data chronologically, and generates insights from any medical document, instantly. Legal-grade accuracy starts here.",
+        "Our patent-pending AI Analysis Engine is the core intelligence of DocLatch AI. Think of it as the 'smart processor' that extracts key information, organizes data chronologically, and generates insights from any medical document, instantly. Legal-grade accuracy starts here.",
     },
     {
-      question: "Is Kebilo AI just for workers' comp or legal cases?",
+      question: "Is DocLatch AI just for workers' comp or legal cases?",
       answer:
-        "No. Kebilo AI works across all medical practices and legal contexts — including personal injury, malpractice, family medicine, ortho, and more. It’s designed to adapt to your workflow, whether handling case reviews, insurance disputes, or high-volume documentation.",
+        "No. DocLatch AI works across all medical practices and legal contexts — including personal injury, malpractice, family medicine, ortho, and more. It’s designed to adapt to your workflow, whether handling case reviews, insurance disputes, or high-volume documentation.",
     },
     {
       question: "Do I need to install or integrate anything with my EMR?",
       answer:
-        "Nope. Kebilo AI lives alongside your current system. You keep your EMR — we handle the record analysis. There’s no setup cost, no contracts, and no IT burden. You’re up and running the same day.",
+        "Nope. DocLatch AI lives alongside your current system. You keep your EMR — we handle the record analysis. There’s no setup cost, no contracts, and no IT burden. You’re up and running the same day.",
     },
     {
       question:
-        "What makes Kebilo AI different from other AI tools or EHR features?",
+        "What makes DocLatch AI different from other AI tools or EHR features?",
       answer:
-        "Most AI tools help with note-taking or basic summaries. Kebilo AI is built for legal medical analysis, converting unstructured records into searchable, chronological workflows with HIPAA compliance and team collaboration. That’s what makes us different — and why we’re trusted by professionals.",
+        "Most AI tools help with note-taking or basic summaries. DocLatch AI is built for legal medical analysis, converting unstructured records into searchable, chronological workflows with HIPAA compliance and team collaboration. That’s what makes us different — and why we’re trusted by professionals.",
     },
   ];
 
@@ -1403,7 +1399,7 @@ const FAQSection = () => {
           viewport={{ once: true }}
           className="text-base md:text-lg text-gray-600 text-center mb-16 max-w-2xl mx-auto"
         >
-          Got questions? We've got answers. Discover how Kebilo AI can
+          Got questions? We've got answers. Discover how DocLatch AI can
           transform your record review process.
         </motion.p>
 
@@ -1445,7 +1441,7 @@ const FAQSection = () => {
     </section>
   );
 };
-export default function KebiloLanding() {
+export default function DocLatchLanding() {
   return (
     <div className="min-h-screen bg-white font-sans antialiased leading-relaxed">
       <Header />

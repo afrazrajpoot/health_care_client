@@ -17,9 +17,51 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kebilo AI",
+  title: "DocLatch AI",
   description:
     "AI-powered healthcare assistant automates document classification and task creation for medical practices",
+  openGraph: {
+    title: "DocLatch AI",
+    description:
+      "AI-powered healthcare assistant automates document classification and task creation for medical practices",
+    url: "https://doclatch.com/",
+    siteName: "DocLatch AI",
+    images: [
+      {
+        url: "https://doclatch.com/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "DocLatch AI Logo",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DocLatch AI",
+    description:
+      "AI-powered healthcare assistant automates document classification and task creation for medical practices",
+    images: ["https://doclatch.com/logo.png"],
+  },
+  authors: [
+    { name: "DocLatch AI Team", url: "https://doclatch.com" },
+  ],
+  creator: "@doclatchai",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  keywords: [
+    "healthcare AI",
+    "medical document processing",
+    "task automation",
+    "AI assistant",
+    "healthcare workflow",
+  ],
+  generator: "v0.dev",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -29,13 +71,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* logo.png */}
-        <link rel="icon" href="/logo.png" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <head>
+          <link rel="icon" type="image/x-icon" href="/logo.png" />
+        </head>
         <Providers>{children}</Providers>
       </body>
     </html>

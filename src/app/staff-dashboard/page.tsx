@@ -795,7 +795,7 @@ export default function Dashboard() {
 
           <div className="wrap">
             <div className="header">
-              <h1>🧭 Kebilo Staff Dashboard — Mission Control v6.3</h1>
+              <h1>🧭 DocLatch Staff Dashboard — Mission Control v6.3</h1>
               <div
                 style={{ display: "flex", gap: "8px", alignItems: "center" }}
               >

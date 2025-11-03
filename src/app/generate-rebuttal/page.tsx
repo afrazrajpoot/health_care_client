@@ -454,7 +454,7 @@ export default function RebuttalFormPage() {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
-            📝 Kebilo AI Rebuttal Generator
+            📝 DocLatch AI Rebuttal Generator
           </h1>
           <p className="text-center text-gray-500 mb-6">
             Fill in the details below to generate a medical justification based

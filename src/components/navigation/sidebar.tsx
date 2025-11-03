@@ -140,7 +140,7 @@ export function Sidebar({ className }: SidebarProps) {
               <Activity className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">Kebilo</h2>
+              <h2 className="text-lg font-bold text-gray-800">DocLatch</h2>
             </div>
           </div>
         </div>

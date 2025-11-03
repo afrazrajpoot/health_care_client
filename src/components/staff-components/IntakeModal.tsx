@@ -564,7 +564,11 @@ Thank you.`);
                         patientSuggestions.map((patient, index) => (
                           <div
                             key={patient.id || index}
-                            onClick={() => handlePatientSelect(patient)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handlePatientSelect(patient);
+                            }}
                             style={{
                               padding: "12px",
                               cursor: "pointer",
@@ -575,20 +579,28 @@ Thank you.`);
                               fontSize: "14px",
                             }}
                             onMouseEnter={(e) => {
-                              (e.target as HTMLElement).style.backgroundColor =
+                              (e.currentTarget as HTMLElement).style.backgroundColor =
                                 "#f5f5f5";
                             }}
                             onMouseLeave={(e) => {
-                              (e.target as HTMLElement).style.backgroundColor =
+                              (e.currentTarget as HTMLElement).style.backgroundColor =
                                 "transparent";
                             }}
                           >
                             <div
-                              style={{ fontWeight: "500", marginBottom: "4px" }}
+                              style={{
+                                fontWeight: "500",
+                                marginBottom: "4px",
+                                pointerEvents: "none"
+                              }}
                             >
                               {patient.patientName}
                             </div>
-                            <div style={{ color: "#666", fontSize: "12px" }}>
+                            <div style={{
+                              color: "#666",
+                              fontSize: "12px",
+                              pointerEvents: "none"
+                            }}>
                               DOB: {patient.dob || "Not specified"} | Claim:{" "}
                               {patient.claimNumber}
                             </div>
