@@ -181,7 +181,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const handlePreviewClick = (e: React.MouseEvent, doc: any) => {
     e.stopPropagation();
     if (doc.blob_path) {
-      const previewUrl = `http://localhost:8000/api/preview/${encodeURIComponent(
+      const previewUrl = `https://api.kebilo.com/api/preview/${encodeURIComponent(
         doc.blob_path
       )}`;
       window.open(previewUrl, "_blank", "noopener,noreferrer");
