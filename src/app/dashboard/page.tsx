@@ -1044,7 +1044,7 @@ export default function PhysicianCard() {
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 ml-[-20vw]">
           <div className="max-w-5xl mx-auto">
             {/* Search Bar */}
             <div ref={searchBarRef}>
@@ -1284,7 +1284,7 @@ export default function PhysicianCard() {
           </div>
         </div>
       </div>
-      <div className="absolute top-[5.5vw] right-4 bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
+      <div className="absolute top-[5.5vw] right-[12vw] bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
         <RecentPatientsSidebar onPatientSelect={handlePatientSelect} />
       </div>
       {/* Sidebar Overlay - Closes on click */}
