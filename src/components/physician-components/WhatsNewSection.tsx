@@ -55,7 +55,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             typeof bullet === "string" &&
             bullet.trim() &&
             bullet.trim() !==
-              "• No significant new findings identified in current document"
+            "• No significant new findings identified in current document"
         );
 
         // Extract consulting doctor from the first body part snapshot (or fallback)
@@ -205,9 +205,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             <h3>What's New Since Last Visit</h3>
           </div>
           <div className="header-actions">
-            {/* <span className="review-toggle" onClick={handleReviewClick}>
-              Mark All Reviewed
-            </span> */}
             <button
               className="collapse-btn"
               onClick={(e) => {
@@ -226,21 +223,21 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         </div>
         {!isCollapsed && (
           <div className="section-content">
-            <ul>
+            <div className="whats-new-container">
               {documentGroups.map((group, groupIndex) => {
                 const isViewed = isGroupViewed(group.docId);
                 const isGroupCopied = copied[`whatsnew-${group.docId}`];
                 const isLoading = isLoadingForGroup(group);
 
                 return (
-                  <li key={group.docId} className="separated-item">
+                  <div key={group.docId} className="whats-new-item">
                     {/* Group Header: Show document info */}
                     <div className="group-header">
                       <div className="group-info">
-                        <span className="doc-type">{group.documentType}</span>
-                        {group.isLatest && (
+                        {/* {group.isLatest && (
                           <span className="doc-latest"> (Latest)</span>
-                        )}
+                        )} */}
+                        <span className="doc-type">{group.documentType}</span>
                         {group.consultingDoctor &&
                           group.consultingDoctor !== "Not specified" && (
                             <span className="doc-doctor">
@@ -256,22 +253,20 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                       <div className="group-actions">
                         <button
-                          className={`copy-btn ${
-                            isGroupCopied ? "copied" : ""
-                          }`}
+                          className={`copy-btn text-[0.3vw] ${isGroupCopied ? "copied" : ""
+                            }`}
                           onClick={(e) => handleCopyClick(e, group.docId)}
                           title="Copy This Update"
                         >
                           {isGroupCopied ? (
-                            <CheckIcon className="icon-xxs" />
+                            <CheckIcon className="icon-xxs text-[0.4vw]" />
                           ) : (
-                            <CopyIcon className="icon-xxs" />
+                            <CopyIcon className="icon-xxs text-[0.4vw]" />
                           )}
                         </button>
                         <button
-                          className={`mark-viewed-btn ${
-                            isViewed ? "viewed" : ""
-                          } ${isLoading ? "loading" : ""}`}
+                          className={`mark-viewed-btn ${isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
                           disabled={isLoading}
                           title={isViewed ? "Reviewed" : "Mark as Reviewed"}
@@ -306,15 +301,15 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         )}
                       </ul>
                     </div>
-                  </li>
+                  </div>
                 );
               })}
               {documentGroups.length === 0 && (
-                <li className="no-items">
+                <div className="no-items">
                   No significant changes since last visit
-                </li>
+                </div>
               )}
-            </ul>
+            </div>
           </div>
         )}
       </div>
@@ -360,6 +355,19 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .section-content {
           margin-top: 12px;
         }
+        .whats-new-container {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          background: #ffffff;
+          overflow: hidden;
+        }
+        .whats-new-item {
+          padding: 10px;
+          // border-bottom: 1px solid #e5e7eb;
+        }
+        .whats-new-item:last-child {
+          border-bottom: none;
+        }
         ul {
           margin: 0;
           padding-left: 0;
@@ -379,10 +387,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #e5e7eb;
+          gap: 3px;
+          margin-bottom: 3px;
+          padding-bottom: 4px;
         }
         .group-info {
           display: flex;
@@ -420,7 +427,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .group-actions {
           display: flex;
-          gap: 6px;
+          gap: 4px;
           align-items: center;
         }
         .bullet-points-container {
@@ -454,7 +461,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           color: #6b7280;
           text-align: center;
           padding: 20px;
-          list-style: none;
         }
         .review-toggle {
           font-size: 12px;
@@ -473,7 +479,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .preview-btn {
           background: #e2e8f0;
           border: none;
-          padding: 6px;
+          padding: 4px 8px;
+          font-size: 12px;
           border-radius: 4px;
           cursor: pointer;
           display: flex;
@@ -481,6 +488,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           justify-content: center;
           transition: all 0.2s;
           color: #475569;
+        }
+        .copy-btn{
+          padding: 2px 2px; 
+          font-size: 9px;
         }
         .copy-btn:hover,
         .preview-btn:hover {

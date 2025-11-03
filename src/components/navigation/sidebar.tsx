@@ -90,7 +90,7 @@ export function Sidebar({ className }: SidebarProps) {
 
   // ✅ Handle logout
   const handleLogout = () => {
-    signOut({ callbackUrl: "/" }); // Redirect to home after logout; adjust as needed
+    signOut({ callbackUrl: "/auth/sign-in" }); // Redirect to home after logout; adjust as needed
   };
 
   // ✅ Filter menu items by user role
