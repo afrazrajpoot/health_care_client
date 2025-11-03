@@ -1,4 +1,4 @@
-// Updated backend API route (/api/patients/route.ts or similar)
+// Updated backend API route (e.g., /api/dashboard/deniel-recommendation/route.ts)
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const dobParam = searchParams.get("dob")?.trim() || null;
     let physicianId = searchParams.get("physicianId");
     const mode = searchParams.get("mode");
+    const strict = searchParams.get("strict") !== "false"; // Optional param to bypass post-filter for debugging
 
     if (
       physicianId === "null" ||
@@ -29,6 +30,9 @@ export async function GET(request: Request) {
     ) {
       physicianId = null;
     }
+
+    // Log query params for debugging
+    console.log("Query params:", { patientName, claimNumber, dobParam, physicianId, mode, strict });
 
     // ✅ Build a flexible where clause with AND conditions
     const whereClause: Prisma.DocumentWhereInput = {};
@@ -44,9 +48,24 @@ export async function GET(request: Request) {
 
     // Add search conditions dynamically as AND (only if they exist and not "Not specified")
     if (patientName && patientName !== "Not specified") {
+      // ✅ Use contains for partial, case-insensitive matching (replaces invalid regex)
+      // For multi-word (e.g., "Dummy Dummy"), this matches the full input as a substring
+      // If you need OR for each word, uncomment the alternative below
       andConditions.push({
-        patientName: { contains: patientName, mode: "insensitive" },
+        patientName: { 
+          contains: patientName, 
+          mode: 'insensitive'  // Case-insensitive (works on supported DBs like PostgreSQL)
+        },
       });
+
+      // Alternative: Multi-word OR matching (e.g., contains "Dummy" OR contains "Dummy")
+      // const words = patientName.split(/\s+/).map(w => w.trim()).filter(Boolean);
+      // if (words.length > 0) {
+      //   const orConditions: Prisma.DocumentWhereInput[] = words.map(word => ({
+      //     patientName: { contains: word, mode: 'insensitive' }
+      //   }));
+      //   andConditions.push({ OR: orConditions });
+      // }
     }
     if (claimNumber && claimNumber !== "Not specified") {
       andConditions.push({
@@ -59,7 +78,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // Filter for documents with ur_denial_reason
+    // ✅ Always filter for documents with ur_denial_reason (non-null and non-empty)
     andConditions.push({
       ur_denial_reason: { not: null, not: "" }
     });
@@ -87,16 +106,21 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // ✅ Filter for completeness - relaxed to not require dob, but require ur_denial_reason
-    const completeResults = results.filter((doc) => {
-      return (
-        !!doc.patientName &&
-        doc.patientName.toLowerCase() !== "not specified" &&
-        !!doc.ur_denial_reason &&
-        doc.ur_denial_reason.trim() !== ""
-        // Removed !!doc.dob to allow missing or "Not specified" DOB
-      );
-    });
+    // Log raw results count for debugging
+    console.log("Raw results count:", results.length);
+
+    // ✅ Filter for completeness - relaxed to not require dob, ur_denial_reason is already enforced in query
+    let completeResults = results;
+    if (strict) {
+      completeResults = results.filter((doc) => {
+        const hasValidPatientName = !!doc.patientName && doc.patientName.toLowerCase() !== "not specified";
+        return hasValidPatientName;
+        // ur_denial_reason is always required via query; DOB optional
+      });
+    }
+
+    // Log complete results count for debugging
+    console.log("Complete results count:", completeResults.length);
 
     let uniqueResults: any[] = [];
     let patientNames: string[] = [];
@@ -113,6 +137,9 @@ export async function GET(request: Request) {
         }
         grouped.get(key)!.push(doc);
       });
+
+      // Log grouped keys for debugging
+      console.log("Grouped keys:", Array.from(grouped.keys()));
 
       // For each group, create aggregated document with unique snapshots from all docs in group
       uniqueResults = Array.from(grouped.values()).map((group) => {
@@ -142,14 +169,17 @@ export async function GET(request: Request) {
       );
     }
 
+    // Log unique results count for debugging
+    console.log("Unique results count:", uniqueResults.length);
+
     // ✅ Save Audit Log (non-blocking)
     try {
       await prisma.auditLog.create({
         data: {
           userId: session.user.id,
           email: session.user.email,
-          action: `Flexible search: patientName="${patientName ?? ""}", claimNumber="${claimNumber ?? ""}", dob="${dobParam ?? ""}", physicianId="${physicianId ?? ""}", mode="${mode ?? ""}"`,
-          path: "/api/patients",
+          action: `Flexible search: patientName="${patientName ?? ""}", claimNumber="${claimNumber ?? ""}", dob="${dobParam ?? ""}", physicianId="${physicianId ?? ""}", mode="${mode ?? ""}", strict="${strict}"`,
+          path: "/api/dashboard/deniel-recommendation",
           method: "GET",
         },
       });
@@ -167,7 +197,8 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("❌ Error fetching patient name suggestions:", error);
+    // Log full error for better debugging
+    console.error("❌ Full error fetching patient name suggestions:", error);
     // Even on error, return 200 with empty data instead of 500 to avoid frontend errors
     return NextResponse.json({
       success: false,
