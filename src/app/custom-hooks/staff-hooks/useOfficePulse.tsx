@@ -14,7 +14,7 @@ export const useOfficePulse = () => {
 
   const fetchOfficePulse = useCallback(async () => {
     try {
-      const response = await fetch("/api/office-pulse");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/office-pulse`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch office pulse");
@@ -30,7 +30,7 @@ export const useOfficePulse = () => {
 
   const fetchWorkflowStats = useCallback(async () => {
     try {
-      const response = await fetch("/api/workflow-stats");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/workflow-stats`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch workflow stats");
