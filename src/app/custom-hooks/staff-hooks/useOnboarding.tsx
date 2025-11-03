@@ -14,7 +14,7 @@ const useOnboarding = () => {
     {
       title: "Create Intake Link",
       content:
-        "Generate shareable links for patients to submit their intake forms and documents securely.",
+        "Generate shareable links for patients to submit their intake forms.",
       target: createLinkButtonRef,
     },
     {

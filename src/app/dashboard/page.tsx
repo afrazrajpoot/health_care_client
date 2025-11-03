@@ -1010,7 +1010,7 @@ export default function PhysicianCard() {
             <BurgerIcon />
           </button>
           <div className="font-bold absolute left-[5vw]">
-            Kebilo Physician Dashboard
+            DocLatch Physician Dashboard
           </div>
           <div className="flex items-center gap-4">
             {session.user.role === "Physician" && <Link href={staffDashboardHref} ref={staffButtonRef}>
