@@ -24,13 +24,15 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ FIX 2: Check if physicianId exists in session
-    if (!session.user.physicianId) {
+    // ✅ Check if user role is Physician, then use user.id
+    if (session.user.role !== "Physician") {
       return NextResponse.json(
-        { error: "Physician ID not found in session" }, 
+        { error: "Only physicians can update tasks" }, 
         { status: 403 }
       );
     }
+
+    const physicianId = session.user.id;
 
     const updates = await request.json();
 
@@ -38,12 +40,12 @@ export async function PATCH(
     const existingTask = await prisma.task.findFirst({
       where: {
         id: taskId,
-        physicianId: session.user.physicianId,
+        physicianId: physicianId,
       },
     });
 
     if (!existingTask) {
-      console.log(`Task ${taskId} not found for physician ${session.user.physicianId}`);
+      console.log(`Task ${taskId} not found for physician ${physicianId}`);
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
