@@ -146,7 +146,8 @@ Rules:
 - NO complete sentences, NO words like "may", "patient", "restrictions in", "unable to"
 - Just list the activities/restrictions directly
 - Base affected ADLs on patient selected list and symptom trend (e.g., if "better", focus on improved ones; if "worse", emphasize impacts)
-- If pain is high (before > 5) or therapies show positive effects, adjust restrictions accordingly
+- If pain is high (before > 5) or therapies show positive effects (e.g., "Much Better" or "Slightly Better"), reduce restrictions or emphasize improvements; if "No Change" or negative, maintain or increase restrictions
+- Explicitly consider therapy effects: For each therapy with positive rating, incorporate relief in restrictions (e.g., if Physical Therapy is "Much Better", reduce "prolonged standing")
 - Include body areas in restrictions if relevant (e.g., "neck strain" for neck issues)
 
 Example Output:
@@ -162,7 +163,7 @@ Output your 2 lines now:
         {
           role: "system",
           content:
-            'You are a medical ADL analyzer. Output exactly 2 lines with comma-separated short phrases only. Analyze the patient data provided and list: Line 1 = affected daily activities, Line 2 = work restrictions. Use direct phrases like "lifting heavy objects" not sentences like "patient cannot lift".',
+            'You are a medical ADL analyzer. Output exactly 2 lines with comma-separated short phrases only. Analyze the patient data provided and list: Line 1 = affected daily activities, Line 2 = work restrictions. Use direct phrases like "lifting heavy objects" not sentences like "patient cannot lift". Prioritize therapy effects in adjusting restrictions.',
         },
         { role: "user", content: prompt },
       ],
@@ -339,6 +340,7 @@ Rules:
 - If trend is "better", consider reducing restrictions
 - If trend is "worse", consider adding restrictions
 - Base on therapies effects and pain changes
+- Explicitly consider therapy effects: For each therapy with positive rating (e.g., "Much Better" or "Slightly Better"), incorporate relief in restrictions (e.g., if Physical Therapy is "Much Better", reduce "prolonged standing"); if "No Change", maintain status quo
 
 Example Output:
 bathing, dressing, prolonged walking
@@ -353,7 +355,7 @@ Output your 2 lines now:
         {
           role: "system",
           content:
-            'You output exactly 2 lines. Each line contains only comma-separated short noun phrases, NO complete sentences, NO verbs like "may", "face", "include". Just the restriction names directly.',
+            'You output exactly 2 lines. Each line contains only comma-separated short noun phrases, NO complete sentences, NO verbs like "may", "face", "include". Just the restriction names directly. Prioritize therapy effects in adjusting restrictions.',
         },
         { role: "user", content: prompt },
       ],

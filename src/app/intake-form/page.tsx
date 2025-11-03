@@ -34,6 +34,16 @@ const ADLS = [
 
 const RATINGS = ["Much Better", "Slightly Better", "No Change"];
 
+const THERAPIES = [
+  "Physical Therapy",
+  "Chiropractic Therapy",
+  "Massage Therapy",
+  "Acupuncture",
+  "PENS Therapy",
+  "Occupational Therapy",
+  "Aquatic Therapy",
+];
+
 const TRANSLATIONS = {
   en: {
     title: "Patient Intake",
@@ -46,7 +56,8 @@ const TRANSLATIONS = {
     q2b: "Pain after medication (0–10)",
     q3: "Since last visit, daily activities are:",
     q3hint: "Select all that apply",
-    q4: "Therapies you are receiving (tap to rate effect)",
+    q4: "Are you receiving any therapies?",
+    q4hint: "If yes, check all that apply and rate their effect",
     q5: "Review",
     submitHint:
       "After you submit, your care team will review this with your doctor.",
@@ -67,7 +78,8 @@ const TRANSLATIONS = {
     q2b: "Dolor después del medicamento (0–10)",
     q3: "Desde la última visita, sus actividades diarias están:",
     q3hint: "Seleccione todas las que correspondan",
-    q4: "Terapias que recibe (toque para calificar el efecto)",
+    q4: "¿Está recibiendo alguna terapia?",
+    q4hint: "Si es así, marque todas las que apliquen y califique su efecto",
     q5: "Revisión",
     submitHint: "Después de enviar, su equipo revisará esto con su médico.",
     auth_title: "Autenticación del Paciente",
@@ -151,13 +163,13 @@ function PatientIntakeContent() {
   const [patient, setPatient] = useState("John Doe");
   const [visit, setVisit] = useState("Follow-up");
   const [bodyAreas, setBodyAreas] = useState("Back, Neck");
-  const [therapies, setTherapies] = useState(["Physical Therapy", "Massage"]);
 
   // Form state
   const [language, setLanguage] = useState<"en" | "es">("en");
   const [showAppointments, setShowAppointments] = useState(false);
   const [showRefill, setShowRefill] = useState(false);
   const [showADL, setShowADL] = useState(false);
+  const [showTherapySection, setShowTherapySection] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [refillData, setRefillData] = useState({ before: 0, after: 0 });
   const [adlData, setAdlData] = useState({
@@ -165,13 +177,12 @@ function PatientIntakeContent() {
     list: [] as string[],
   });
   const [therapyRatings, setTherapyRatings] = useState<TherapyRating[]>([]);
+  const [receivingTherapies, setReceivingTherapies] = useState(
+    new Set<string>()
+  );
   const [summary, setSummary] = useState("—");
   const [submitMessage, setSubmitMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Therapy checkboxes
-  const [receivingPhysicalTherapy, setReceivingPhysicalTherapy] = useState(false);
-  const [receivingMassage, setReceivingMassage] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
@@ -225,13 +236,6 @@ function PatientIntakeContent() {
 
     initialize();
   }, [token]);
-
-  useEffect(() => {
-    // Initialize therapies ratings
-    setTherapyRatings(
-      therapies.map((therapy) => ({ therapy, effect: "No Change" }))
-    );
-  }, [therapies]);
 
   const t = TRANSLATIONS[language];
 
@@ -304,6 +308,24 @@ function PatientIntakeContent() {
         ? prev.list.filter((i) => i !== item)
         : [...prev.list, item],
     }));
+  };
+
+  const toggleTherapy = (therapy: string) => {
+    const newSet = new Set(receivingTherapies);
+    const wasReceiving = newSet.has(therapy);
+    if (wasReceiving) {
+      newSet.delete(therapy);
+      setTherapyRatings((prev) => prev.filter((t) => t.therapy !== therapy));
+    } else {
+      newSet.add(therapy);
+      if (!therapyRatings.some((t) => t.therapy === therapy)) {
+        setTherapyRatings((prev) => [
+          ...prev,
+          { therapy, effect: "No Change" },
+        ]);
+      }
+    }
+    setReceivingTherapies(newSet);
   };
 
   const buildSummary = () => {
@@ -446,8 +468,8 @@ function PatientIntakeContent() {
                 onChange={(date) => {
                   if (date) {
                     const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, "0");
+                    const day = String(date.getDate()).padStart(2, "0");
                     setAuthDob(`${year}-${month}-${day}`);
                   } else {
                     setAuthDob("");
@@ -576,9 +598,16 @@ function PatientIntakeContent() {
                         onChange={(date) => {
                           if (date) {
                             const year = date.getFullYear();
-                            const month = String(date.getMonth() + 1).padStart(2, '0');
-                            const day = String(date.getDate()).padStart(2, '0');
-                            updateAppointment(index, "date", `${year}-${month}-${day}`);
+                            const month = String(date.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            );
+                            const day = String(date.getDate()).padStart(2, "0");
+                            updateAppointment(
+                              index,
+                              "date",
+                              `${year}-${month}-${day}`
+                            );
                           } else {
                             updateAppointment(index, "date", "");
                           }
@@ -703,7 +732,8 @@ function PatientIntakeContent() {
             onChange={(e) => {
               const value = e.target.value;
               setAdlData((prev) => ({ ...prev, state: value }));
-              setShowADL(value !== "same");
+              const show = value !== "same";
+              setShowADL(show);
             }}
             className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           >
@@ -740,94 +770,90 @@ function PatientIntakeContent() {
 
         {/* Section 4: Therapies */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Therapies you are receiving
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            {t.q4}
           </label>
+          <select
+            value={showTherapySection ? "yes" : "no"}
+            onChange={(e) => {
+              const value = e.target.value === "yes";
+              setShowTherapySection(value);
+              if (value && receivingTherapies.size === 0) {
+                // Optionally initialize if needed, but not necessary
+              } else if (!value) {
+                setReceivingTherapies(new Set());
+                setTherapyRatings([]);
+              }
+            }}
+            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
 
-          {/* Therapy selection checkboxes */}
-          <div className="flex flex-col gap-3 mb-4">
-            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-              <input
-                type="checkbox"
-                checked={receivingPhysicalTherapy}
-                onChange={(e) => setReceivingPhysicalTherapy(e.target.checked)}
-                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Receiving Physical Therapy
-              </span>
-            </label>
-
-            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-              <input
-                type="checkbox"
-                checked={receivingMassage}
-                onChange={(e) => setReceivingMassage(e.target.checked)}
-                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Receiving Massage
-              </span>
-            </label>
-          </div>
-
-          {/* Physical Therapy Rating */}
-          {receivingPhysicalTherapy && (
-            <div className="mt-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
-              <div className="font-medium text-gray-900 mb-3">
-                Physical Therapy
-              </div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                How effective has it been?
-              </label>
-              <select
-                value={therapyRatings.find(t => t.therapy === "Physical Therapy")?.effect || "No Change"}
-                onChange={(e) => {
-                  const index = therapyRatings.findIndex(t => t.therapy === "Physical Therapy");
-                  if (index >= 0) {
-                    updateTherapyRating(index, e.target.value);
-                  } else {
-                    setTherapyRatings(prev => [...prev, { therapy: "Physical Therapy", effect: e.target.value }]);
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-              >
-                {RATINGS.map((rating) => (
-                  <option key={rating} value={rating}>
-                    {rating}
-                  </option>
+          {showTherapySection && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 mb-3">{t.q4hint}</p>
+              {/* Therapy selection checkboxes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                {THERAPIES.map((therapy) => (
+                  <label
+                    key={therapy}
+                    className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={receivingTherapies.has(therapy)}
+                      onChange={(e) => toggleTherapy(therapy)}
+                      className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      {therapy}
+                    </span>
+                  </label>
                 ))}
-              </select>
-            </div>
-          )}
-
-          {/* Massage Rating */}
-          {receivingMassage && (
-            <div className="mt-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
-              <div className="font-medium text-gray-900 mb-3">
-                Massage
               </div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                How effective has it been?
-              </label>
-              <select
-                value={therapyRatings.find(t => t.therapy === "Massage")?.effect || "No Change"}
-                onChange={(e) => {
-                  const index = therapyRatings.findIndex(t => t.therapy === "Massage");
-                  if (index >= 0) {
-                    updateTherapyRating(index, e.target.value);
-                  } else {
-                    setTherapyRatings(prev => [...prev, { therapy: "Massage", effect: e.target.value }]);
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-              >
-                {RATINGS.map((rating) => (
-                  <option key={rating} value={rating}>
-                    {rating}
-                  </option>
-                ))}
-              </select>
+
+              {/* Therapy Ratings */}
+              {Array.from(receivingTherapies).map((therapy) => (
+                <div
+                  key={therapy}
+                  className="mt-4 p-4 bg-teal-50 border border-teal-200 rounded-lg"
+                >
+                  <div className="font-medium text-gray-900 mb-3">
+                    {therapy}
+                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    How effective has it been?
+                  </label>
+                  <select
+                    value={
+                      therapyRatings.find((t) => t.therapy === therapy)
+                        ?.effect || "No Change"
+                    }
+                    onChange={(e) => {
+                      const index = therapyRatings.findIndex(
+                        (t) => t.therapy === therapy
+                      );
+                      if (index >= 0) {
+                        updateTherapyRating(index, e.target.value);
+                      } else {
+                        setTherapyRatings((prev) => [
+                          ...prev,
+                          { therapy, effect: e.target.value },
+                        ]);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+                  >
+                    {RATINGS.map((rating) => (
+                      <option key={rating} value={rating}>
+                        {rating}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
             </div>
           )}
         </div>
