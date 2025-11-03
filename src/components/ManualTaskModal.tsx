@@ -1,4 +1,3 @@
-// components/staff-components/ManualTaskModal.tsx (full updated code)
 "use client";
 
 import * as React from "react";
@@ -18,6 +17,7 @@ interface ManualTaskData {
   description: string;
   department: string;
   documentId?: string;
+  claim?: string;
 }
 
 interface ManualTaskModalProps {
@@ -25,6 +25,8 @@ interface ManualTaskModalProps {
   onOpenChange: (open: boolean) => void;
   departments: string[];
   defaultClaim?: string;
+  defaultPatient?: string;
+  defaultDocumentId?: string;
   onSubmit: (data: ManualTaskData) => Promise<void>;
 }
 
@@ -33,6 +35,8 @@ export default function ManualTaskModal({
   onOpenChange,
   departments,
   defaultClaim,
+  defaultPatient,
+  defaultDocumentId,
   onSubmit,
 }: ManualTaskModalProps) {
   const [taskFormData, setTaskFormData] = useState({
@@ -41,11 +45,13 @@ export default function ManualTaskModal({
     description: "",
     department: "",
     documentId: "",
+    claim: defaultClaim || "",
   });
   const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [enableRecommendations, setEnableRecommendations] = useState(true);
   const patientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -120,6 +126,10 @@ export default function ManualTaskModal({
       ...prev,
       patientName: patient.patientName,
       documentId: patient.id, // Set documentId from recommendation
+      claim:
+        patient.claimNumber !== "Not specified"
+          ? patient.claimNumber
+          : prev.claim, // Use recommendation claim if available and no default
     }));
     setShowSuggestions(false);
   };
@@ -150,17 +160,19 @@ export default function ManualTaskModal({
   useEffect(() => {
     if (open) {
       setTaskFormData({
-        patientName: "",
+        patientName: defaultPatient || "",
         dueDate: new Date().toISOString().split("T")[0],
         description: "",
         department: "",
-        documentId: "",
+        documentId: defaultDocumentId || "",
+        claim: defaultClaim || "",
       });
       setPatientSuggestions([]);
       setShowSuggestions(false);
       setIsSubmitting(false);
+      setEnableRecommendations(!defaultPatient);
     }
-  }, [open]);
+  }, [open, defaultClaim, defaultPatient, defaultDocumentId]);
 
   // Handle task form change
   const handleTaskFormChange = (
@@ -171,7 +183,7 @@ export default function ManualTaskModal({
     const { name, value } = e.target;
     setTaskFormData((prev) => ({ ...prev, [name]: value }));
 
-    if (name === "patientName") {
+    if (name === "patientName" && enableRecommendations) {
       debouncedFetchPatients(value);
     }
   };
@@ -187,15 +199,17 @@ export default function ManualTaskModal({
       return;
     }
 
+    // If no claim set (neither from URL nor recommendation), set default recommendation
+    const finalData = {
+      ...taskFormData,
+      claim:
+        taskFormData.claim ||
+        `Recommendation-${new Date().toISOString().slice(0, 10)}`,
+    };
+
     setIsSubmitting(true);
     try {
-      await onSubmit({
-        patientName: taskFormData.patientName,
-        dueDate: taskFormData.dueDate,
-        description: taskFormData.description,
-        department: taskFormData.department,
-        documentId: taskFormData.documentId || undefined, // Include documentId if set
-      });
+      await onSubmit(finalData);
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating task:", error);
@@ -215,6 +229,22 @@ export default function ManualTaskModal({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="claim" className="text-sm font-medium block mb-1">
+              Claim Number
+            </label>
+            <input
+              id="claim"
+              name="claim"
+              type="text"
+              value={taskFormData.claim}
+              onChange={handleTaskFormChange}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Enter claim number"
+              disabled={!!defaultClaim || isSubmitting}
+              readOnly={!!defaultClaim}
+            />
+          </div>
           <div style={{ position: "relative" }}>
             <label
               htmlFor="patientName"
@@ -234,14 +264,19 @@ export default function ManualTaskModal({
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Enter patient name"
               onFocus={() => {
-                if (taskFormData.patientName && patientSuggestions.length > 0) {
+                if (
+                  enableRecommendations &&
+                  taskFormData.patientName &&
+                  patientSuggestions.length > 0
+                ) {
                   setShowSuggestions(true);
                 }
               }}
-              disabled={isSubmitting}
+              disabled={!!defaultPatient || isSubmitting}
+              readOnly={!!defaultPatient}
             />
             {/* Patient suggestions dropdown */}
-            {showSuggestions && !isSubmitting && (
+            {showSuggestions && !isSubmitting && enableRecommendations && (
               <div
                 ref={suggestionsRef}
                 style={{

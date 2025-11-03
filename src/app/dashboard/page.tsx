@@ -932,14 +932,30 @@ export default function PhysicianCard() {
 
   const currentPatient = getCurrentPatientInfo();
   console.log(currentPatient, "currentPatient");
-  // Dynamic href for Staff Dashboard link
-  const staffDashboardHref = selectedPatient
-    ? `/staff-dashboard?patient_name=${encodeURIComponent(
-        currentPatient.patientName
-      )}&dob=${encodeURIComponent(
-        currentPatient.dob
-      )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-    : "/staff-dashboard";
+
+  // Extract document ID from the latest document (assuming 'id' or 'document_id' field exists)
+  const documentId =
+    documentData?.documents?.[0]?.id ||
+    documentData?.documents?.[0]?.document_id ||
+    "";
+
+  // Dynamic href for Staff Dashboard link, including document_id if available
+  const staffDashboardHref =
+    selectedPatient && documentData && documentId
+      ? `/staff-dashboard?patient_name=${encodeURIComponent(
+          currentPatient.patientName
+        )}&dob=${encodeURIComponent(
+          currentPatient.dob || ""
+        )}&claim=${encodeURIComponent(
+          currentPatient.claimNumber
+        )}&document_id=${encodeURIComponent(documentId)}`
+      : selectedPatient
+      ? `/staff-dashboard?patient_name=${encodeURIComponent(
+          currentPatient.patientName
+        )}&dob=${encodeURIComponent(
+          currentPatient.dob || ""
+        )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
+      : "/staff-dashboard";
 
   // Burger Icon Component
   const BurgerIcon = () => (
