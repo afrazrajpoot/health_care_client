@@ -738,11 +738,9 @@ export default function PhysicianCard() {
         const currentIdx = snapshotIndex || 0;
         const currentSnap = snapshots[currentIdx];
         if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${
-            currentSnap.dx || "Not specified"
-          }\nKey Concern: ${
-            currentSnap.keyConcern || "Not specified"
-          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+          text = `Summary Snapshot\nDx: ${currentSnap.dx || "Not specified"
+            }\nKey Concern: ${currentSnap.keyConcern || "Not specified"
+            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
         }
         break;
       case "section-whatsnew":
@@ -774,29 +772,23 @@ export default function PhysicianCard() {
         if (sortedNotes.length > 0) {
           text += "\nQuick Notes:\n";
           sortedNotes.forEach((note) => {
-            text += `- ${formatTimestamp(note.timestamp)}: ${
-              note.status_update || "Note"
-            } - ${note.one_line_note || ""} (${note.details || ""})\n`;
+            text += `- ${formatTimestamp(note.timestamp)}: ${note.status_update || "Note"
+              } - ${note.one_line_note || ""} (${note.details || ""})\n`;
           });
         }
         break;
       case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${
-          doc?.adl?.adls_affected || "Not specified"
-        }\nWork Restrictions: ${
-          doc?.adl?.work_restrictions || "Not specified"
-        }`;
+        text = `ADL / Work Status\nADLs Affected: ${doc?.adl?.adls_affected || "Not specified"
+          }\nWork Restrictions: ${doc?.adl?.work_restrictions || "Not specified"
+          }`;
         break;
       case "section-patient-quiz":
         if (doc?.patient_quiz) {
           const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
-            q.newAppt
-          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
-            q.trend
-          }\nWork Ability: ${q.workAbility}\nBarrier: ${
-            q.barrier
-          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${q.newAppt
+            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${q.trend
+            }\nWork Ability: ${q.workAbility}\nBarrier: ${q.barrier
+            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
           q.appts.forEach((appt) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
@@ -812,9 +804,8 @@ export default function PhysicianCard() {
           const index = parseInt(sectionId.split("-")[2]);
           const summary = doc?.document_summaries?.[index];
           if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${
-              summary.summary
-            }`;
+            text = `${summary.type} - ${formatDate(summary.date)}\n${summary.summary
+              }`;
           }
         }
         break;
@@ -934,10 +925,10 @@ export default function PhysicianCard() {
   // Dynamic href for Staff Dashboard link
   const staffDashboardHref = selectedPatient
     ? `/staff-dashboard?patient_name=${encodeURIComponent(
-        currentPatient.patientName
-      )}&dob=${encodeURIComponent(
-        currentPatient.dob
-      )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
+      currentPatient.patientName
+    )}&dob=${encodeURIComponent(
+      currentPatient.dob
+    )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
     : "/staff-dashboard";
 
   // Burger Icon Component
@@ -1022,11 +1013,11 @@ export default function PhysicianCard() {
             Kebilo Physician Dashboard
           </div>
           <div className="flex items-center gap-4">
-            <Link href={staffDashboardHref} ref={staffButtonRef}>
+            {session.user.role === "Physician" && <Link href={staffDashboardHref} ref={staffButtonRef}>
               <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
                 Staff Dashboard
               </button>
-            </Link>
+            </Link>}
 
             <select
               id="mode"
@@ -1290,9 +1281,8 @@ export default function PhysicianCard() {
       )}
       {/* Sidebar */}
       <div
-        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="h-full">
           <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -1303,9 +1293,8 @@ export default function PhysicianCard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${
-              toast.type === "success" ? "bg-green-500" : "bg-red-500"
-            } animate-in slide-in-from-top-2 duration-300`}
+            className={`p-4 rounded-lg shadow-lg text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
+              } animate-in slide-in-from-top-2 duration-300`}
           >
             {toast.message}
           </div>

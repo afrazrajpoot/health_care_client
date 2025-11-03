@@ -65,8 +65,16 @@ export default function SignInPage() {
       if (result?.error) {
         setError("Invalid credentials. Please try again.");
       } else {
-        // Redirect to dashboard or home page
-        router.push("/dashboard");
+        // Fetch session to get user role
+        const session = await getSession();
+        const role = session?.user?.role;
+        if (role === "Staff") {
+          router.push("/staff-dashboard");
+        } else if (role === "Physician") {
+          router.push("/dashboard");
+        } else {
+          router.push("/");
+        }
       }
     } catch (error) {
       setError("An error occurred. Please try again.");
