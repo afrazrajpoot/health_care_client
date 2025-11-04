@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.kebilo.com";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
 
 // Backend progress data interfaces
 interface BackendProgressData {
@@ -344,7 +344,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const checkProgress = async (taskId: string) => {
     console.log("🔍 Starting checkProgress for task:", taskId);
     try {
-      const response = await fetch(`${SOCKET_URL}/api/progress/${taskId}`);
+      const response = await fetch(
+        `${SOCKET_URL}/api/agent/progress/${taskId}`
+      );
       console.log("📡 Fetch response status:", response.status);
       if (response.ok) {
         const rawBackendProgress = await response.json();
@@ -461,7 +463,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     pollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${activeTaskId === taskId
+        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${
+          activeTaskId === taskId
         } | Processing: ${isProcessing}`
       );
       if (activeTaskId === taskId && isProcessing) {
@@ -498,7 +501,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     queuePollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${activeQueueId === queueId
+        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${
+          activeQueueId === queueId
         } | Processing: ${isProcessing}`
       );
       if (activeQueueId === queueId && isProcessing) {
@@ -555,7 +559,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     console.log(
-      `🎯 Setting active task: ${taskId}, total: ${totalFiles || "unknown"
+      `🎯 Setting active task: ${taskId}, total: ${
+        totalFiles || "unknown"
       }, queue: ${queueId || "none"}`
     );
     setActiveTaskId(taskId);
@@ -846,7 +851,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         console.log("🎉 task_complete event triggered 100% handling");
         const summary = data.summary || {};
         toast.success(
-          `✅ Batch processing complete! ${summary.successful || 0}/${summary.total_files || 0
+          `✅ Batch processing complete! ${summary.successful || 0}/${
+            summary.total_files || 0
           } files processed`
         );
         setIsProcessing(false);

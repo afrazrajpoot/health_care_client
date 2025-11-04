@@ -104,7 +104,12 @@ const AttorneyCardPage = () => {
       if (physicianId) {
         params.append("physicianId", physicianId);
       }
-      const res = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/document?${params}`);
+      const apiUrl = `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents?${params}`;
+      const res = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${session?.user?.fastapi_token}`,
+        },
+      });
       if (res.ok) {
         const response = await res.json();
         setDocuments(response.documents || []);

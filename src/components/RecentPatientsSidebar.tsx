@@ -1,4 +1,4 @@
-// components/RecentPatientsSidebar.tsx (updated to remove close functionality for always-visible sidebar)
+// components/RecentPatientsSidebar.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -44,7 +44,7 @@ export default function RecentPatientsSidebar({ onPatientSelect }: Props) {
     const patientData: any = {
       patientName: patient.patientName,
       dob: patient.dob,
-      doi: "", // DOI not available in recent data; set to empty string
+      doi: "",
       claimNumber: patient.claimNumber,
     };
     onPatientSelect(patientData);
@@ -66,33 +66,33 @@ export default function RecentPatientsSidebar({ onPatientSelect }: Props) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header - No close button */}
-      <div className="flex items-center justify-center p-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="text-lg font-semibold text-gray-900">Recent Patients</h2>
+    <div className="flex flex-col h-[500px]">
+      {/* Header */}
+      <div className="flex items-center justify-center p-3 border-b border-gray-200 bg-gray-50 shrink-0">
+        <h2 className="text-sm font-semibold text-gray-900">Recent Patients</h2>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-            <span className="ml-2 text-gray-600">
+          <div className="flex items-center justify-center py-6">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            <span className="ml-2 text-gray-600 text-xs">
               Loading recent patients...
             </span>
           </div>
         ) : error ? (
-          <div className="text-center py-8 text-red-600">
+          <div className="text-center py-6 text-red-600 text-sm">
             <p>{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-2 text-blue-500 hover:underline"
+              className="mt-2 text-blue-500 hover:underline text-xs"
             >
               Retry
             </button>
           </div>
         ) : recentPatients.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-6 text-gray-500 text-sm">
             <p>No recent patients found.</p>
           </div>
         ) : (
@@ -100,16 +100,16 @@ export default function RecentPatientsSidebar({ onPatientSelect }: Props) {
             {recentPatients.map((patient, index) => (
               <div
                 key={index}
-                className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+                className="p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
                 onClick={() => handleSelect(patient)}
               >
-                <div className="font-medium text-gray-900">
+                <div className="font-medium text-gray-900 text-sm">
                   {patient.patientName}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-xs text-gray-600 mt-1">
                   DOB: {formatDate(patient.dob)}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-xs text-gray-600">
                   Claim #: {patient.claimNumber}
                 </div>
               </div>

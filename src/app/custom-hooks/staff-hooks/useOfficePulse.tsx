@@ -1,5 +1,6 @@
 // hooks/useOfficePulse.ts
 import { useState, useCallback, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 // import { Pulse } from "@/components/staff-components/types";
 
@@ -11,10 +12,23 @@ export const useOfficePulse = () => {
     date: string;
     hasData: boolean;
   } | null>(null);
+  const { data: session, status } = useSession();
 
   const fetchOfficePulse = useCallback(async () => {
+    if (!session?.user?.fastapi_token) {
+      console.warn("No FastAPI token available, skipping office pulse fetch");
+      return;
+    }
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/office-pulse`);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/office-pulse`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.user.fastapi_token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch office pulse");
@@ -26,11 +40,23 @@ export const useOfficePulse = () => {
       console.error("Error fetching office pulse:", error);
       setFetchedPulse(null);
     }
-  }, []);
+  }, [session?.user?.fastapi_token]);
 
   const fetchWorkflowStats = useCallback(async () => {
+    if (!session?.user?.fastapi_token) {
+      console.warn("No FastAPI token available, skipping workflow stats fetch");
+      return;
+    }
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/workflow-stats`);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/workflow-stats`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.user.fastapi_token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch workflow stats");
@@ -49,12 +75,14 @@ export const useOfficePulse = () => {
       console.error("Error fetching workflow stats:", error);
       setWorkflowStats(null);
     }
-  }, []);
+  }, [session?.user?.fastapi_token]);
 
   useEffect(() => {
-    fetchOfficePulse();
-    fetchWorkflowStats();
-  }, [fetchOfficePulse, fetchWorkflowStats]);
+    if (status === "authenticated") {
+      fetchOfficePulse();
+      fetchWorkflowStats();
+    }
+  }, [status, fetchOfficePulse, fetchWorkflowStats]);
 
   return {
     pulse: fetchedPulse,

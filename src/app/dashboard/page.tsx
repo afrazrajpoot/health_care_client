@@ -369,6 +369,9 @@ export default function PhysicianCard() {
       setLoading(true);
       const response = await fetch("/api/extract-documents", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${session?.user?.fastapi_token}`,
+        },
         body: formData,
       });
 
@@ -498,7 +501,12 @@ export default function PhysicianCard() {
       console.log("Fetching document data with params:", params.toString());
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/document?${params}`
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/document?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
       );
 
       if (!response.ok) {
@@ -683,6 +691,9 @@ export default function PhysicianCard() {
 
         const response = await fetch(`/api/verify-document?${verifyParams}`, {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
         });
 
         if (!response.ok) {
@@ -1060,7 +1071,7 @@ export default function PhysicianCard() {
           </div>
         </div>
 
-        <div className="p-6 ml-[-20vw]">
+        <div className="p-6 lg:ml-[-20vw]">
           <div className="max-w-5xl mx-auto">
             {/* Search Bar */}
             <div ref={searchBarRef}>
@@ -1300,7 +1311,7 @@ export default function PhysicianCard() {
           </div>
         </div>
       </div>
-      <div className="absolute top-[5.5vw] right-[12vw] bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
+      <div className="absolute top-[5.5vw] right-0 xl:right-[12vw] bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
         <RecentPatientsSidebar onPatientSelect={handlePatientSelect} />
       </div>
       {/* Sidebar Overlay - Closes on click */}

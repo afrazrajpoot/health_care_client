@@ -1,5 +1,6 @@
 // hooks/useProgress.ts
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { io, Socket } from "socket.io-client";
 
 interface ProgressData {
@@ -30,15 +31,19 @@ export const useProgress = ({
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
     if (!taskId) return;
 
     // Initialize socket connection
     const newSocket = io(
-      process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com,
+      process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000",
       {
         transports: ["websocket", "polling"],
+        auth: {
+          token: session?.user?.fastapi_token,
+        },
       }
     );
 
@@ -102,14 +107,26 @@ export const useProgress = ({
     return () => {
       newSocket.close();
     };
-  }, [taskId, userId, onComplete, onError]);
+  }, [taskId, userId, onComplete, onError, session?.user?.fastapi_token]);
 
   // Function to manually check progress (fallback)
   const checkProgress = useCallback(async () => {
-    if (!taskId) return;
+    if (!taskId || !session?.user?.fastapi_token) {
+      console.warn("Task ID or FastAPI token not available for progress check");
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/progress/${taskId}`);
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
+        }/api/agent/progress/${taskId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.user.fastapi_token}`,
+          },
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch progress");
       }
@@ -121,7 +138,7 @@ export const useProgress = ({
       setError(errorMsg);
       console.error(errorMsg);
     }
-  }, [taskId]);
+  }, [taskId, session?.user?.fastapi_token]);
 
   return {
     progress,
