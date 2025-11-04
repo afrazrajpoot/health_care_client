@@ -84,10 +84,13 @@ export const useFailedDocuments = () => {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/update-fail-document`,
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/update-fail-document`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
           body: JSON.stringify({
             fail_doc_id: selectedDoc.id,
             document_text: selectedDoc.documentText,
@@ -108,7 +111,13 @@ export const useFailedDocuments = () => {
     } finally {
       setUpdateLoading(false);
     }
-  }, [selectedDoc, updateFormData, session?.user?.id, fetchFailedDocuments]);
+  }, [
+    selectedDoc,
+    updateFormData,
+    session?.user?.id,
+    session?.user?.fastapi_token,
+    fetchFailedDocuments,
+  ]);
 
   return {
     failedDocuments,

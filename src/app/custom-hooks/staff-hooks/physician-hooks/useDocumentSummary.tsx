@@ -1,5 +1,6 @@
 // hooks/useDocumentSummary.ts
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 interface DocumentSummary {
   type: string;
@@ -89,6 +90,7 @@ export const useDocumentSummary = (
 ) => {
   const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
   const accordionBodyRef = useRef<HTMLDivElement>(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
     setIsAccordionOpen(!isCollapsed);
@@ -153,16 +155,38 @@ export const useDocumentSummary = (
     documentData?.document_summaries
   );
 
-  // Function to handle file preview (opens in new tab) - direct to backend API
-  const handlePreviewFile = useCallback(() => {
+  // Function to handle file preview (fetch with auth and open blob URL)
+  const handlePreviewFile = useCallback(async () => {
     const blobPath = documentData?.blob_path;
-    if (blobPath) {
-      const previewUrl = `${
-        process.env.NEXT_PUBLIC_PYTHON_API_URL
-      }/api/preview/${encodeURIComponent(blobPath)}`;
-      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    if (blobPath && session?.user?.fastapi_token) {
+      try {
+        const response = await fetch(
+          `${
+            process.env.NEXT_PUBLIC_PYTHON_API_URL
+          }/api/documents/preview/${encodeURIComponent(blobPath)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session?.user?.fastapi_token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Preview failed: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank", "noopener,noreferrer");
+
+        // Optional: Clean up URL after a delay
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } catch (error) {
+        console.error("Error previewing file:", error);
+        // Optionally show a toast or alert
+      }
     }
-  }, [documentData]);
+  }, [documentData, session?.user?.fastapi_token]);
 
   // Function to handle view original file (e.g., download or open signed URL) - uses document-level gcs_file_link
   const handleViewFile = useCallback(() => {

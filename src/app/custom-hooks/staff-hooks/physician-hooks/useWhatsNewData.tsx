@@ -1,5 +1,6 @@
 // hooks/useWhatsNew.ts
 import { useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 interface QuickNoteSnapshot {
   details: string;
@@ -175,15 +176,38 @@ export const useQuickNotesToggle = () => {
 
 // Custom hook for file preview handler
 export const usePreviewFile = (documentData: DocumentData | null) => {
-  const handlePreviewFile = useCallback(() => {
+  const { data: session } = useSession();
+  const handlePreviewFile = useCallback(async () => {
     const blobPath = documentData?.blob_path;
-    if (blobPath) {
-      const previewUrl = `${
-        process.env.NEXT_PUBLIC_PYTHON_API_URL
-      }/api/preview/${encodeURIComponent(blobPath)}`;
-      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    if (blobPath && session?.user?.fastapi_token) {
+      try {
+        const response = await fetch(
+          `${
+            process.env.NEXT_PUBLIC_PYTHON_API_URL
+          }/api/documents/preview/${encodeURIComponent(blobPath)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session?.user?.fastapi_token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Preview failed: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank", "noopener,noreferrer");
+
+        // Optional: Clean up URL after a delay
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } catch (error) {
+        console.error("Error previewing file:", error);
+        // Optionally show a toast or alert
+      }
     }
-  }, [documentData]);
+  }, [documentData, session?.user?.fastapi_token]);
 
   return handlePreviewFile;
 };

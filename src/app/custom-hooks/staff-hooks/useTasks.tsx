@@ -18,15 +18,15 @@ export const useTasks = (initialMode: "wc" | "gm") => {
 
       const notes = apiTask.quickNotes
         ? [
-          {
-            ts: new Date(apiTask.updatedAt).toLocaleString(),
-            user: "System",
-            line:
-              apiTask.quickNotes.one_line_note ||
-              apiTask.quickNotes.details ||
-              "Note added",
-          },
-        ]
+            {
+              ts: new Date(apiTask.updatedAt).toLocaleString(),
+              user: "System",
+              line:
+                apiTask.quickNotes.one_line_note ||
+                apiTask.quickNotes.details ||
+                "Note added",
+            },
+          ]
         : [];
 
       // Get UR denial reason from multiple possible sources
@@ -36,6 +36,11 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         apiTask.reason ||
         "";
 
+      // Derive assignee and actions based on status for consistency
+      const isClaimed = apiTask.status === "in progress";
+      const assignee = isClaimed ? "You" : "Unclaimed";
+      const actions = isClaimed ? ["Complete"] : ["Claimed", "Complete"];
+
       return {
         id: apiTask.id,
         task: apiTask.description,
@@ -44,13 +49,13 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         statusClass: apiTask.status.toLowerCase().replace(/\s+/g, "-"),
         due: dueDate.toLocaleDateString(),
         overdue,
-        patient: apiTask?.document?.patientName,
-        assignee: apiTask.actions.includes("Claimed") ? "You" : "Unclaimed",
+        patient: apiTask?.patient,
+        assignee,
         mode: currentMode,
         notes,
         ur_denial_reason: urDenialReason, // Fixed property name
         documentId: apiTask.documentId,
-        actions: apiTask.actions,
+        actions,
         sourceDocument: apiTask.sourceDocument,
         document: apiTask.document, // Include full document object if available
       };
@@ -69,6 +74,12 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         dept?: string;
         status?: string;
         overdueOnly?: boolean;
+        priority?: string;
+        dueDate?: string;
+        taskType?: string;
+        assignedTo?: string;
+        sortBy?: string;
+        sortOrder?: string;
       }
     ) => {
       try {
@@ -95,6 +106,24 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         if (options?.overdueOnly) {
           params.append("overdueOnly", "true");
         }
+        if (options?.priority) {
+          params.append("priority", options.priority);
+        }
+        if (options?.dueDate) {
+          params.append("dueDate", options.dueDate);
+        }
+        if (options?.taskType) {
+          params.append("taskType", options.taskType);
+        }
+        if (options?.assignedTo) {
+          params.append("assignedTo", options.assignedTo);
+        }
+        if (options?.sortBy) {
+          params.append("sortBy", options.sortBy);
+        }
+        if (options?.sortOrder) {
+          params.append("sortOrder", options.sortOrder);
+        }
         const response = await fetch(`/api/tasks?${params.toString()}`);
 
         if (!response.ok) {
@@ -102,7 +131,9 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         }
 
         const result = await response.json();
-        const apiTasks: any[] = Array.isArray(result) ? result : result.tasks || [];
+        const apiTasks: any[] = Array.isArray(result)
+          ? result
+          : result.tasks || [];
         const transformedTasks = apiTasks.map((apiTask) =>
           transformApiTask(apiTask, currentMode)
         );
@@ -165,13 +196,59 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       const currentTask = tasks.find((t) => t.id === id);
       if (!currentTask) return;
 
-      const isClaimed = currentTask.actions?.includes("Claimed") || false;
-      const newActions = isClaimed ? ["Unclaimed"] : ["Claimed", "Complete"];
+      const isClaimed = currentTask.statusText === "in progress";
+      const newStatus = isClaimed ? "Open" : "in progress";
+      const newStatusClass = newStatus.toLowerCase().replace(/\s+/g, "-");
+      const newAssignee = isClaimed ? "Unclaimed" : "You";
+      const newActions = isClaimed ? ["Claimed", "Complete"] : ["Complete"];
 
-      await updateTask(id, { actions: newActions });
+      // Local update first
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                statusText: newStatus,
+                statusClass: newStatusClass,
+                assignee: newAssignee,
+                actions: newActions,
+              }
+            : t
+        )
+      );
+
+      // API update: only send status
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        // Revert local update on failure
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  statusText: isClaimed ? "in progress" : "Open",
+                  statusClass: isClaimed ? "in-progress" : "open",
+                  assignee: isClaimed ? "You" : "Unclaimed",
+                  actions: isClaimed ? ["Complete"] : ["Claimed", "Complete"],
+                }
+              : t
+          )
+        );
+        throw new Error("Failed to update task status");
+      }
+
       toast.success(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed");
     },
-    [tasks, updateTask]
+    [tasks]
   );
 
   const completeTask = useCallback(
@@ -234,9 +311,9 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           prev.map((t) =>
             t.id === taskId
               ? {
-                ...t,
-                notes: [...(t.notes || []), { ts, user: "You", line }],
-              }
+                  ...t,
+                  notes: [...(t.notes || []), { ts, user: "You", line }],
+                }
               : t
           )
         );
@@ -309,10 +386,8 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           throw new Error("Failed to create task");
         }
 
-        const newTask: any = await response.json();
-        const transformedTask = transformApiTask(newTask, currentMode);
-
-        setTasks((prev) => [...prev, transformedTask]);
+        // Refetch tasks to handle pagination and filters correctly
+        await fetchTasks(currentMode, urlClaim);
 
         toast.success("✅ Manual task created successfully");
       } catch (error) {
@@ -320,7 +395,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         toast.error("❌ Error creating manual task");
       }
     },
-    [transformApiTask]
+    [fetchTasks, transformApiTask]
   );
 
   // Real-time updates via socket
@@ -331,20 +406,8 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       console.log("📡 Received 'tasks_created' event:", data);
       if (data.user_id !== session?.user?.id) return;
 
-      const newTransformedTasks = data.tasks.map((apiTask: any) =>
-        transformApiTask(apiTask, initialMode)
-      );
-
-      setTasks((prevTasks) => {
-        const existingIds = new Set(prevTasks.map((t) => t.id));
-        const uniqueNewTasks = newTransformedTasks.filter(
-          (t) => !existingIds.has(t.id)
-        );
-        if (uniqueNewTasks.length > 0) {
-          toast.success(`✅ Added ${uniqueNewTasks.length} new task(s)`);
-        }
-        return [...prevTasks, ...uniqueNewTasks];
-      });
+      // Refetch to handle pagination and filters correctly
+      fetchTasks(initialMode);
     };
 
     socket.on("tasks_created", handleTasksCreated);
@@ -352,7 +415,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
     return () => {
       socket.off("tasks_created", handleTasksCreated);
     };
-  }, [socket, session?.user?.id, transformApiTask, initialMode]);
+  }, [socket, session?.user?.id, fetchTasks, initialMode]);
 
   return {
     tasks,

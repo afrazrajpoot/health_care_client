@@ -231,7 +231,7 @@ model Task {
   documentId     String?
   physicianId    String?
   reason         String?
-  claimNumber    String?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   document       Document? @relation(fields: [documentId], references: [id])

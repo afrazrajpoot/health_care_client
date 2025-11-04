@@ -22,8 +22,8 @@ export function StandardRow({
 }: StandardRowProps) {
   const presets = getPresets(task.dept);
   const handleSave = (e: React.MouseEvent) => onSaveNote(e, task.id);
-  const isClaimed = task.actions?.includes("Claimed") || false;
-
+  const isClaimed = task.statusText === "in progress";
+  console.log("Rendering StandardRow for task:", task);
   // Get UR denial reason from task or nested document
   const urDenialReason =
     task.ur_denial_reason || task.document?.ur_denial_reason;
@@ -110,7 +110,7 @@ export function OverdueRow({
   onClaim,
   showUrDenial = false,
 }: OverdueRowProps) {
-  const isClaimed = task.actions?.includes("Claimed") || false;
+  const isClaimed = task.statusText === "in progress";
 
   // Get UR denial reason from task or nested document
   const urDenialReason =

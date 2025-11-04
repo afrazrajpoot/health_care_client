@@ -7,7 +7,7 @@ import FailedDocuments from "@/components/staff-components/FailedDocuments";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
 import { ProgressTracker } from "@/components/ProgressTracker";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -229,7 +229,6 @@ export default function Dashboard() {
     setModeState,
     filteredTabs,
     departments,
-    getDisplayedTasks,
     getPresets,
     currentPage,
     setCurrentPage,
@@ -288,6 +287,8 @@ export default function Dashboard() {
     closeOnboarding,
   } = useOnboarding();
 
+  const [initialized] = useState(false);
+
   const handleUpgrade = useCallback(() => {
     clearPaymentError();
     router.push("/packages");
@@ -333,14 +334,21 @@ export default function Dashboard() {
   );
 
   const handleProgressComplete = useCallback(() => {
-    fetchTasks(modeState, urlClaim, {
+    const params = {
       page: currentPage,
       pageSize,
       search: filters.search,
       dept: filters.dept,
       status: filters.status,
       overdueOnly: filters.overdueOnly,
-    }).then((result) => {
+      priority: filters.priority || undefined,
+      dueDate: filters.dueDate || undefined,
+      taskType: filters.taskType || undefined,
+      assignedTo: filters.assignedTo || undefined,
+      sortBy: filters.sortBy || "dueDate",
+      sortOrder: filters.sortOrder || "desc",
+    };
+    fetchTasks(modeState, urlClaim, params).then((result) => {
       if (result) {
         setTotalCount(result.totalCount);
       }
@@ -359,15 +367,42 @@ export default function Dashboard() {
     setTotalCount,
   ]);
 
+  // Initialize default filters
   useEffect(() => {
-    fetchTasks(modeState, urlClaim, {
+    if (!initialized) {
+      setFilters({
+        search: "",
+        dept: "",
+        status: "",
+        overdueOnly: false,
+        myDeptOnly: false,
+        priority: "",
+        dueDate: "",
+        taskType: "",
+        assignedTo: "",
+        sortBy: "dueDate",
+        sortOrder: "desc",
+        viewMode: "urgent",
+      });
+    }
+  }, [initialized, setFilters]);
+
+  useEffect(() => {
+    const params = {
       page: currentPage,
       pageSize,
       search: filters.search,
       dept: filters.dept,
       status: filters.status,
       overdueOnly: filters.overdueOnly,
-    }).then((result) => {
+      priority: filters.priority || undefined,
+      dueDate: filters.dueDate || undefined,
+      taskType: filters.taskType || undefined,
+      assignedTo: filters.assignedTo || undefined,
+      sortBy: filters.sortBy || "dueDate",
+      sortOrder: filters.sortOrder || "desc",
+    };
+    fetchTasks(modeState, urlClaim, params).then((result) => {
       if (result) {
         setTotalCount(result.totalCount);
       }
@@ -384,12 +419,30 @@ export default function Dashboard() {
     filters.dept,
     filters.status,
     filters.overdueOnly,
+    filters.priority,
+    filters.dueDate,
+    filters.taskType,
+    filters.assignedTo,
+    filters.sortBy,
+    filters.sortOrder,
     fetchTasks,
     fetchOfficePulse,
     fetchWorkflowStats,
     fetchFailedDocuments,
     setTotalCount,
   ]);
+
+  const handleTabClick = useCallback(
+    (tab: { pane: string; text: string }) => {
+      setCurrentPane(tab.pane);
+      let newStatus = "";
+      if (tab.pane !== "all") {
+        newStatus = tab.pane; // Assuming pane values match status values like 'pending', 'done', 'overdue'
+      }
+      setFilters((prev) => ({ ...prev, status: newStatus }));
+    },
+    [setCurrentPane, setFilters]
+  );
 
   return (
     <>
@@ -904,20 +957,27 @@ export default function Dashboard() {
                 )}
                 <button
                   className="btn light"
-                  onClick={() =>
-                    fetchTasks(modeState, urlClaim, {
+                  onClick={() => {
+                    const params = {
                       page: currentPage,
                       pageSize,
                       search: filters.search,
                       dept: filters.dept,
                       status: filters.status,
                       overdueOnly: filters.overdueOnly,
-                    }).then((result) => {
+                      priority: filters.priority || undefined,
+                      dueDate: filters.dueDate || undefined,
+                      taskType: filters.taskType || undefined,
+                      assignedTo: filters.assignedTo || undefined,
+                      sortBy: filters.sortBy || "dueDate",
+                      sortOrder: filters.sortOrder || "desc",
+                    };
+                    fetchTasks(modeState, urlClaim, params).then((result) => {
                       if (result) {
                         setTotalCount(result.totalCount);
                       }
-                    })
-                  }
+                    });
+                  }}
                   disabled={loading}
                 >
                   {loading ? "Refreshing..." : "Refresh Tasks"}
@@ -1083,94 +1143,271 @@ export default function Dashboard() {
                           className={`filter ttab ${
                             currentPane === tab.pane ? "active" : ""
                           }`}
-                          onClick={() => setCurrentPane(tab.pane)}
+                          onClick={() => handleTabClick(tab)}
                         >
                           {tab.text}
                         </button>
                       ))}
                     </div>
                     {!isFiltersCollapsed && (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <input
-                          placeholder="Search tasks/patients…"
-                          value={filters.search}
-                          onChange={(e) =>
-                            setFilters((p) => ({
-                              ...p,
-                              search: e.target.value,
-                            }))
-                          }
+                      <>
+                        <div
                           style={{
-                            padding: "6px 10px",
-                            border: "1px solid var(--border)",
-                            borderRadius: "999px",
-                            fontSize: "12px",
-                            minWidth: "220px",
-                          }}
-                        />
-                        <span className="muted">Dept:</span>
-                        <select
-                          value={filters.dept}
-                          onChange={(e) =>
-                            setFilters((p) => ({ ...p, dept: e.target.value }))
-                          }
-                          style={{
-                            padding: "6px 8px",
-                            border: "1px solid var(--border)",
-                            borderRadius: "999px",
-                            fontSize: "12px",
+                            display: "flex",
+                            gap: "8px",
+                            marginBottom: "8px",
+                            flexWrap: "wrap",
                           }}
                         >
-                          <option value="">All</option>
-                          {departments.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="muted">Status:</span>
-                        <select
-                          value={filters.status}
-                          onChange={(e) =>
-                            setFilters((p) => ({
-                              ...p,
-                              status: e.target.value,
-                            }))
-                          }
+                          <button
+                            className={`filter ttab ${
+                              filters.viewMode === "all" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              setFilters((p) => ({
+                                ...p,
+                                viewMode: "all",
+                                status: "",
+                                overdueOnly: false,
+                                priority: "",
+                                dueDate: "",
+                              }))
+                            }
+                          >
+                            Show All
+                          </button>
+                          <button
+                            className={`filter ttab ${
+                              filters.viewMode === "urgent" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              setFilters((p) => ({
+                                ...p,
+                                viewMode: "urgent",
+                                overdueOnly: true,
+                                priority: "high",
+                                dueDate: "today",
+                              }))
+                            }
+                          >
+                            Urgent & Due Soon
+                          </button>
+                        </div>
+                        <div
                           style={{
-                            padding: "6px 8px",
-                            border: "1px solid var(--border)",
-                            borderRadius: "999px",
-                            fontSize: "12px",
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                            flexWrap: "wrap",
                           }}
                         >
-                          <option value="">All</option>
-                          <option value="pending">Pending</option>
-                          <option value="done">Done</option>
-                          <option value="overdue">Overdue</option>
-                        </select>
-                        <button
-                          className="filter"
-                          onClick={() =>
-                            setFilters({
-                              search: "",
-                              overdueOnly: false,
-                              myDeptOnly: false,
-                              dept: "",
-                              status: "",
-                            })
-                          }
-                        >
-                          Clear
-                        </button>
-                      </div>
+                          <input
+                            placeholder="Search tasks/patients…"
+                            value={filters.search}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                search: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 10px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                              minWidth: "220px",
+                            }}
+                          />
+                          <span className="muted">Dept:</span>
+                          <select
+                            value={filters.dept}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                dept: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">All</option>
+                            {departments.map((d) => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="muted">Status:</span>
+                          <select
+                            value={filters.status}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                status: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">All</option>
+                            <option value="in progress">in progress</option>
+                            <option value="done">Done</option>
+                            <option value="overdue">Overdue</option>
+                          </select>
+                          <span className="muted">Priority:</span>
+                          <select
+                            value={filters.priority || ""}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                priority: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">All</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                          </select>
+                          <span className="muted">Due:</span>
+                          <select
+                            value={filters.dueDate || ""}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                dueDate: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">All</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                          </select>
+                          <span className="muted">Type:</span>
+                          <select
+                            value={filters.taskType || ""}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                taskType: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">All</option>
+                            <option value="intake">Intake</option>
+                            <option value="review">Review</option>
+                            <option value="approval">Approval</option>
+                          </select>
+                          <span className="muted">Assigned:</span>
+                          <select
+                            value={filters.assignedTo || ""}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                assignedTo: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="">All</option>
+                            <option value="me">Me</option>
+                            <option value="unassigned">Unassigned</option>
+                          </select>
+                          <span className="muted">Sort:</span>
+                          <select
+                            value={filters.sortBy || "dueDate"}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                sortBy: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="dueDate">Due Date</option>
+                            <option value="priority">Priority</option>
+                            <option value="createdAt">Created</option>
+                            <option value="taskType">Type</option>
+                          </select>
+                          <span className="muted">Order:</span>
+                          <select
+                            value={filters.sortOrder || "desc"}
+                            onChange={(e) =>
+                              setFilters((p) => ({
+                                ...p,
+                                sortOrder: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--border)",
+                              borderRadius: "999px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <option value="asc">Asc</option>
+                            <option value="desc">Desc</option>
+                          </select>
+                          <button
+                            className="filter"
+                            onClick={() =>
+                              setFilters({
+                                search: "",
+                                overdueOnly: false,
+                                myDeptOnly: false,
+                                dept: "",
+                                status: "",
+                                priority: "",
+                                dueDate: "",
+                                taskType: "",
+                                assignedTo: "",
+                                sortBy: "dueDate",
+                                sortOrder: "desc",
+                                viewMode: "all",
+                              })
+                            }
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                   {tasks.length === 0 ? (
@@ -1179,7 +1416,7 @@ export default function Dashboard() {
                     <>
                       <TaskTable
                         currentPane={currentPane}
-                        tasks={getDisplayedTasks(currentPane, tasks)}
+                        tasks={tasks}
                         filters={filters}
                         mode={modeState}
                         onClaim={toggleClaim}
