@@ -5,6 +5,7 @@ import { Send, Menu, X, Search, User, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/navigation/sidebar";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 interface RebuttalInput {
   body_part: string;
   modality: string;
@@ -66,6 +67,7 @@ export default function RebuttalFormPage() {
   const [allSnapshots, setAllSnapshots] = useState<ExtendedBodyPartSnapshot[]>(
     []
   );
+  const { data: session } = useSession();
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -280,9 +282,12 @@ export default function RebuttalFormPage() {
     setResponse(null);
     setIsModalOpen(false);
     try {
-      const res = await fetch("http://localhost:8000/api/rebuttal", {
+      const res = await fetch("http://localhost:8000/api/agent/rebuttal", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.user?.fastapi_token}`,
+        },
         credentials: "include", // For auth session
         body: JSON.stringify(formData),
       });

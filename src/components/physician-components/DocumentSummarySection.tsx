@@ -1,6 +1,8 @@
 // components/physician-components/DocumentSummarySection.tsx
 import { useDocumentSummary } from "@/app/custom-hooks/staff-hooks/physician-hooks/useDocumentSummary";
 import React from "react";
+import { Button } from "../ui/button";
+import { useSession } from "next-auth/react";
 // import { useDocumentSummary } from "@/hooks/useDocumentSummary";
 
 const CopyIcon = () => (
@@ -142,6 +144,58 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
     handleViewFile,
     getDocumentSummary,
   } = useDocumentSummary(documentData, isCollapsed, onToggle);
+  const { data: session } = useSession();
+  const [loadingIndexes, setLoadingIndexes] = React.useState<Set<number>>(
+    new Set()
+  );
+
+  const handlePreviewClick = async (
+    e: React.MouseEvent,
+    doc: any,
+    index: number
+  ) => {
+    e.stopPropagation();
+
+    if (!doc.blob_path) {
+      console.error("Blob path not found for preview");
+      return;
+    }
+
+    setLoadingIndexes((prev) => new Set([...prev, index]));
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          doc.blob_path
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preview: ${response.status}`);
+      }
+
+      // 🧩 Get blob instead of JSON
+      const blob = await response.blob();
+
+      // Create local object URL
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Open in new tab
+      window.open(blobUrl, "_blank");
+    } catch (error) {
+      console.error("Error fetching preview:", error);
+    } finally {
+      setLoadingIndexes((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(index);
+        return newSet;
+      });
+    }
+  };
 
   return (
     <>
@@ -179,6 +233,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                   documentData.previous_summaries &&
                   documentData.previous_summaries[summary.type];
                 const sectionId = `section-summary-${index}`;
+                const isLoading = loadingIndexes.has(index);
 
                 return (
                   <li key={index} className="doc-li">
@@ -200,17 +255,16 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                       </a>
                     )}
                     {documentData?.blob_path && (
-                      <a
-                        href="#"
+                      <span
                         className="pdf-link preview"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          handlePreviewFile(e);
+                          handlePreviewClick(e, documentData, index);
                         }}
                       >
-                        [Preview File]
-                      </a>
+                        [{isLoading ? "Loading..." : "Preview File"}]
+                      </span>
                     )}
                     {documentData?.gcs_file_link && (
                       <a

@@ -1,6 +1,7 @@
 // components/physician-components/ADLSection.tsx
 import { useADLData } from "@/app/custom-hooks/staff-hooks/physician-hooks/useADLData";
 import React from "react";
+import { toast } from "sonner";
 
 const CopyIcon = () => (
   <svg
@@ -188,6 +189,10 @@ const ADLSection: React.FC<ADLSectionProps> = ({
 
   const handleCopyClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    toast.success("✅ ADL & Work Status section copied to clipboard", {
+      duration: 3000,
+      position: "top-right",
+    });
     onCopySection("section-adl");
   };
 

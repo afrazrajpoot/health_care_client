@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -34,7 +35,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 }) => {
   const [viewedWhatsNew, setViewedWhatsNew] = useState<Set<string>>(new Set());
   const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
-
+  const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
+    new Set()
+  );
+  const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
 
   // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
@@ -108,7 +112,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       !Array.isArray(group.bulletPoints) ||
       group.bulletPoints.length === 0
     ) {
-      toast.error("No items found to copy");
+      toast.error("No items found to copy", {
+        duration: 5000,
+        position: "top-right",
+      });
       return;
     }
 
@@ -155,7 +162,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         if (!data.success) {
           throw new Error(data.error || "Verification failed");
         }
-        toast.success("Successfully verified");
+        toast.success("Successfully verified", {
+          duration: 5000,
+          position: "top-right",
+        });
       }
 
       // Mark as viewed
@@ -166,7 +176,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       });
     } catch (err) {
       console.error("Error verifying document:", err);
-      toast.error(`Verification failed: ${(err as Error).message}`);
+      toast.error(`Verification failed: ${(err as Error).message}`, {
+        duration: 5000,
+        position: "top-right",
+      });
     } finally {
       if (needsVerification) {
         setLoadingDocs((prev) => {
@@ -178,15 +191,51 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
-  const handlePreviewClick = (e: React.MouseEvent, doc: any) => {
+  const handlePreviewClick = async (e: React.MouseEvent, doc: any) => {
     e.stopPropagation();
-    if (doc.blob_path) {
-      const previewUrl = `http://localhost:8000/api/preview/${encodeURIComponent(
-        doc.blob_path
-      )}`;
-      window.open(previewUrl, "_blank", "noopener,noreferrer");
-    } else {
+
+    if (!doc.blob_path) {
       console.error("Blob path not found for preview");
+      return;
+    }
+
+    const docId = doc.document_id;
+    if (!docId || loadingPreviews.has(docId)) return;
+
+    setLoadingPreviews((prev) => new Set([...prev, docId]));
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          doc.blob_path
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preview: ${response.status}`);
+      }
+
+      // 🧩 Get blob instead of JSON
+      const blob = await response.blob();
+
+      // Create local object URL
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Open in new tab
+      window.open(blobUrl, "_blank");
+    } catch (error) {
+      console.error("Error fetching preview:", error);
+    } finally {
+      setLoadingPreviews((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(docId);
+        return newSet;
+      });
     }
   };
 
@@ -194,6 +243,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const isLoadingForGroup = (group: any) => {
     const docId = group.doc?.document_id;
     return docId ? loadingDocs.has(docId) : false;
+  };
+  const isPreviewLoadingForGroup = (group: any) => {
+    const docId = group.doc?.document_id;
+    return docId ? loadingPreviews.has(docId) : false;
   };
 
   return (
@@ -228,6 +281,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 const isViewed = isGroupViewed(group.docId);
                 const isGroupCopied = copied[`whatsnew-${group.docId}`];
                 const isLoading = isLoadingForGroup(group);
+                const isPreviewLoading = isPreviewLoadingForGroup(group);
 
                 return (
                   <div key={group.docId} className="whats-new-item">
@@ -284,9 +338,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         <button
                           className="preview-btn"
                           onClick={(e) => handlePreviewClick(e, group.doc)}
+                          disabled={isPreviewLoading}
                           title="Preview Document"
                         >
-                          Preview
+                          {isPreviewLoading ? (
+                            <Loader2 className="icon-xxs animate-spin" />
+                          ) : (
+                            "Preview"
+                          )}
                         </button>
                       </div>
                     </div>
@@ -496,7 +555,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-size: 9px;
         }
         .copy-btn:hover,
-        .preview-btn:hover {
+        .preview-btn:hover:not(:disabled) {
           background: #cbd5e1;
         }
         .copy-btn.copied {
@@ -510,7 +569,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .mark-viewed-btn:hover:not(:disabled) {
           background: #cbd5e1;
         }
-        .mark-viewed-btn:disabled {
+        .mark-viewed-btn:disabled,
+        .preview-btn:disabled {
           opacity: 0.7;
           cursor: not-allowed;
         }
