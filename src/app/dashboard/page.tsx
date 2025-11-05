@@ -968,6 +968,23 @@ export default function PhysicianCard() {
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
       : "/staff-dashboard";
 
+  const rebutalHre =
+    selectedPatient && documentData && documentId
+      ? `/generate-rebuttal?patient_name=${encodeURIComponent(
+          currentPatient.patientName
+        )}&dob=${encodeURIComponent(
+          currentPatient.dob || ""
+        )}&claim=${encodeURIComponent(
+          currentPatient.claimNumber
+        )}&document_id=${encodeURIComponent(documentId)}`
+      : selectedPatient
+      ? `/generate-rebuttal?patient_name=${encodeURIComponent(
+          currentPatient.patientName
+        )}&dob=${encodeURIComponent(
+          currentPatient.dob || ""
+        )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
+      : "/generate-rebuttal";
+
   // Burger Icon Component
   const BurgerIcon = () => (
     <svg
@@ -1054,6 +1071,14 @@ export default function PhysicianCard() {
               <Link href={staffDashboardHref} ref={staffButtonRef}>
                 <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
                   Staff Dashboard
+                </button>
+              </Link>
+            )}
+
+            {session.user.role === "Physician" && (
+              <Link href={rebutalHre} ref={staffButtonRef}>
+                <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
+                  Generate Rebuttal
                 </button>
               </Link>
             )}
