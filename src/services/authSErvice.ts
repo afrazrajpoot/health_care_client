@@ -43,27 +43,30 @@ declare module "next-auth/jwt" {
   }
 }
 
-const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.kebilo.com";
 const SYNC_SECRET = process.env.SYNC_SECRET;
 
 if (!SYNC_SECRET) {
-  console.warn('⚠️ SYNC_SECRET environment variable is not set!');
+  console.warn("⚠️ SYNC_SECRET environment variable is not set!");
 } else {
-  console.log('✅ SYNC_SECRET is configured');
+  console.log("✅ SYNC_SECRET is configured");
 }
 
-async function syncWithFastAPI(userId: string, userEmail: string): Promise<string> {
+async function syncWithFastAPI(
+  userId: string,
+  userEmail: string
+): Promise<string> {
   try {
-    console.log('🔄 Attempting to sync with FastAPI...');
-    
+    console.log("🔄 Attempting to sync with FastAPI...");
+
     if (!SYNC_SECRET) {
-      throw new Error('SYNC_SECRET environment variable is not set');
+      throw new Error("SYNC_SECRET environment variable is not set");
     }
 
     const response = await fetch(`${FASTAPI_URL}/api/auth/sync-login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         user_id: userId,
@@ -76,15 +79,17 @@ async function syncWithFastAPI(userId: string, userEmail: string): Promise<strin
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ FastAPI sync failed: ${response.status} - ${errorText}`);
+      console.error(
+        `❌ FastAPI sync failed: ${response.status} - ${errorText}`
+      );
       throw new Error(`FastAPI sync failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('✅ Successfully synced with FastAPI');
+    console.log("✅ Successfully synced with FastAPI");
     return data.access_token;
   } catch (error) {
-    console.error('❌ Failed to sync with FastAPI:', error);
+    console.error("❌ Failed to sync with FastAPI:", error);
     throw error;
   }
 }
@@ -110,12 +115,12 @@ export const authOptions: AuthOptions = {
         });
 
         if (!user) {
-          console.log('❌ User not found');
+          console.log("❌ User not found");
           throw new Error("Invalid email or password");
         }
 
         if (!user.password) {
-          console.log('❌ User has no password set');
+          console.log("❌ User has no password set");
           throw new Error("Account not set up for password login");
         }
 
@@ -125,19 +130,21 @@ export const authOptions: AuthOptions = {
           user.password
         );
         if (!isValid) {
-          console.log('❌ Invalid password');
+          console.log("❌ Invalid password");
           throw new Error("Invalid email or password");
         }
 
         console.log(`✅ Password validated for user: ${user.id}`);
 
         // ✅ AUTOMATICALLY SYNC WITH FASTAPI
-        let fastapiToken: string = '';
+        let fastapiToken: string = "";
         try {
           fastapiToken = await syncWithFastAPI(user.id, user.email!);
-          console.log('✅ FastAPI token obtained');
+          console.log("✅ FastAPI token obtained");
         } catch (error) {
-          console.error('⚠️ FastAPI sync failed, but continuing with NextAuth login');
+          console.error(
+            "⚠️ FastAPI sync failed, but continuing with NextAuth login"
+          );
           // Continue without FastAPI token
         }
 

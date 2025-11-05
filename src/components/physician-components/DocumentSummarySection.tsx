@@ -164,7 +164,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -294,9 +294,8 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                     )}
                     <span className="copy-span-li">
                       <button
-                        className={`copy-btn-li ${
-                          copied[sectionId] ? "copied-li" : ""
-                        }`}
+                        className={`copy-btn-li ${copied[sectionId] ? "copied-li" : ""
+                          }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onCopySection(sectionId);
