@@ -146,7 +146,10 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         };
       } catch (error) {
         console.error("Error fetching tasks:", error);
-        toast.error("❌ Error fetching tasks");
+        toast.error("❌ Error fetching tasks", {
+          duration: 5000,
+          position: "top-right",
+        });
         setTasks([]);
         return { tasks: [], totalCount: 0 };
       } finally {
@@ -181,10 +184,16 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           throw new Error("Failed to update task");
         }
 
-        toast.success("✅ Task updated successfully");
+        toast.success("✅ Task updated successfully", {
+          duration: 5000,
+          position: "top-right",
+        });
       } catch (error) {
         console.error("Error updating task:", error);
-        toast.error("❌ Error updating task");
+        toast.error("❌ Error updating task", {
+          duration: 5000,
+          position: "top-right",
+        });
         fetchTasks(initialMode, undefined);
       }
     },
@@ -246,7 +255,10 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         throw new Error("Failed to update task status");
       }
 
-      toast.success(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed");
+      toast.success(isClaimed ? "✅ Task unclaimed" : "✅ Task claimed", {
+        duration: 5000,
+        position: "top-right",
+      });
     },
     [tasks]
   );
@@ -254,7 +266,10 @@ export const useTasks = (initialMode: "wc" | "gm") => {
   const completeTask = useCallback(
     (id: string) => {
       updateTask(id, { statusText: "Done", statusClass: "done" });
-      toast.success("🎉 Task marked complete");
+      toast.success("🎉 Task marked complete", {
+        duration: 5000,
+        position: "top-right",
+      });
     },
     [updateTask]
   );
@@ -283,10 +298,16 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           throw new Error("Failed to update UR denial reason");
         }
 
-        toast.success("✅ UR denial reason updated");
+        toast.success("✅ UR denial reason updated", {
+          duration: 5000,
+          position: "top-right",
+        });
       } catch (error) {
         console.error("Error updating UR denial reason:", error);
-        toast.error("❌ Error updating UR denial reason");
+        toast.error("❌ Error updating UR denial reason", {
+          duration: 5000,
+          position: "top-right",
+        });
         fetchTasks(initialMode, undefined);
       }
     },
@@ -338,10 +359,16 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         }
 
         (wrap.querySelector(".qfree") as HTMLInputElement).value = "";
-        toast.success("📝 Note saved");
+        toast.success("📝 Note saved", {
+          duration: 5000,
+          position: "top-right",
+        });
       } catch (error) {
         console.error("Error saving note:", error);
-        toast.error("❌ Error saving note");
+        toast.error("❌ Error saving note", {
+          duration: 5000,
+          position: "top-right",
+        });
         fetchTasks(initialMode, undefined);
       }
     },
@@ -389,10 +416,16 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         // Refetch tasks to handle pagination and filters correctly
         await fetchTasks(currentMode, urlClaim);
 
-        toast.success("✅ Manual task created successfully");
+        toast.success("✅ Manual task created successfully", {
+          duration: 5000,
+          position: "top-right",
+        });
       } catch (error) {
         console.error("Error creating manual task:", error);
-        toast.error("❌ Error creating manual task");
+        toast.error("❌ Error creating manual task", {
+          duration: 5000,
+          position: "top-right",
+        });
       }
     },
     [fetchTasks, transformApiTask]

@@ -1,6 +1,7 @@
 // components/physician-components/TreatmentHistorySection.tsx
 import { useTreatmentHistory } from "@/app/custom-hooks/staff-hooks/physician-hooks/useTreatmentHistory";
 import React from "react";
+import { toast } from "sonner";
 
 // Define TypeScript interfaces for body part snapshots
 interface BodyPartSnapshot {
@@ -214,12 +215,200 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     onToggle();
   };
 
-  const handleCopyClick = (e: React.MouseEvent, bodyPartId?: string) => {
+  // Function to copy text to clipboard
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      console.log("Content copied to clipboard");
+      toast.success("✅ Copied to clipboard", {
+        duration: 3000,
+        position: "top-right",
+      });
+      return true;
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+      // Fallback for older browsers
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        console.log("Content copied to clipboard (fallback)");
+        return true;
+      } catch (fallbackErr) {
+        console.error("Fallback copy failed: ", fallbackErr);
+        return false;
+      }
+    }
+  };
+
+  // Get content for a specific body part
+  const getBodyPartContent = (bodyPartId: string): string => {
+    const bodyPartSnapshots = documentData?.body_part_snapshots || [];
+    const snapshotsForBodyPart = bodyPartSnapshots.filter(
+      (snapshot) => snapshot.bodyPart === bodyPartId
+    );
+
+    if (snapshotsForBodyPart.length === 0) return "";
+
+    const sortedSnapshots = sortSnapshotsByDate(snapshotsForBodyPart);
+    const latestSnapshot = sortedSnapshots[0];
+
+    let content = `TREATMENT HISTORY - ${bodyPartId}\n`;
+    content += "=".repeat(40) + "\n\n";
+
+    // Latest snapshot
+    content += `LATEST (${formatDate(latestSnapshot.document_report_date)}):\n`;
+    if (
+      latestSnapshot.dx &&
+      latestSnapshot.dx !== "Not specified" &&
+      latestSnapshot.dx !== ""
+    ) {
+      content += `Diagnosis: ${latestSnapshot.dx}\n`;
+    }
+    if (
+      latestSnapshot.recommended &&
+      latestSnapshot.recommended !== "Not specified" &&
+      latestSnapshot.recommended !== ""
+    ) {
+      content += `Treatment Plan: ${latestSnapshot.recommended}\n`;
+    }
+    if (
+      latestSnapshot.consultingDoctor &&
+      latestSnapshot.consultingDoctor !== "Not specified" &&
+      latestSnapshot.consultingDoctor !== ""
+    ) {
+      content += `Consulting Doctor: ${latestSnapshot.consultingDoctor}\n`;
+    }
+    if (
+      latestSnapshot.referralDoctor &&
+      latestSnapshot.referralDoctor !== "Not specified" &&
+      latestSnapshot.referralDoctor !== ""
+    ) {
+      content += `Referral Doctor: ${latestSnapshot.referralDoctor}\n`;
+    }
+    if (
+      latestSnapshot.urDecision &&
+      latestSnapshot.urDecision !== "Not specified" &&
+      latestSnapshot.urDecision !== ""
+    ) {
+      content += `UR Decision: ${latestSnapshot.urDecision}\n`;
+    }
+
+    // Timeline if multiple snapshots
+    if (sortedSnapshots.length > 1) {
+      content += `\nTIMELINE (${sortedSnapshots.length} entries):\n`;
+      content += "-".repeat(30) + "\n";
+
+      sortedSnapshots.forEach((snapshot, index) => {
+        content += `\n${formatDate(snapshot.document_report_date)}:\n`;
+        if (
+          snapshot.recommended &&
+          snapshot.recommended !== "Not specified" &&
+          snapshot.recommended !== ""
+        ) {
+          content += `  Treatment Plan: ${snapshot.recommended}\n`;
+        }
+        if (
+          snapshot.consultingDoctor &&
+          snapshot.consultingDoctor !== "Not specified" &&
+          snapshot.consultingDoctor !== ""
+        ) {
+          content += `  Consulting Doctor: ${snapshot.consultingDoctor}\n`;
+        }
+      });
+    }
+
+    return content;
+  };
+
+  // Get content for all body parts
+  const getAllBodyPartsContent = (): string => {
+    const bodyPartSnapshots = documentData?.body_part_snapshots || [];
+
+    if (bodyPartSnapshots.length === 0) {
+      return "TREATMENT HISTORY\nNo body part treatment history available";
+    }
+
+    const groupedBodyParts = bodyPartSnapshots.reduce((acc, snapshot) => {
+      const bodyPart = snapshot.bodyPart || "Unknown Body Part";
+      if (!acc[bodyPart]) {
+        acc[bodyPart] = [];
+      }
+      acc[bodyPart].push(snapshot);
+      return acc;
+    }, {} as Record<string, BodyPartSnapshot[]>);
+
+    let content = "TREATMENT HISTORY BY BODY PART\n";
+    content += "=".repeat(50) + "\n\n";
+
+    Object.entries(groupedBodyParts).forEach(([bodyPart, snapshots]) => {
+      const sortedSnapshots = sortSnapshotsByDate(snapshots);
+      const latestSnapshot = sortedSnapshots[0];
+
+      content += `${bodyPart.toUpperCase()}\n`;
+      content += "-".repeat(30) + "\n";
+
+      // Latest snapshot
+      content += `Latest (${formatDate(
+        latestSnapshot.document_report_date
+      )}):\n`;
+      if (
+        latestSnapshot.dx &&
+        latestSnapshot.dx !== "Not specified" &&
+        latestSnapshot.dx !== ""
+      ) {
+        content += `  Diagnosis: ${latestSnapshot.dx}\n`;
+      }
+      if (
+        latestSnapshot.recommended &&
+        latestSnapshot.recommended !== "Not specified" &&
+        latestSnapshot.recommended !== ""
+      ) {
+        content += `  Treatment Plan: ${latestSnapshot.recommended}\n`;
+      }
+      if (
+        latestSnapshot.consultingDoctor &&
+        latestSnapshot.consultingDoctor !== "Not specified" &&
+        latestSnapshot.consultingDoctor !== ""
+      ) {
+        content += `  Consulting Doctor: ${latestSnapshot.consultingDoctor}\n`;
+      }
+
+      // Summary of timeline entries
+      if (sortedSnapshots.length > 1) {
+        content += `  Timeline Entries: ${sortedSnapshots.length}\n`;
+      }
+
+      content += "\n";
+    });
+
+    content += `Total Body Parts: ${Object.keys(groupedBodyParts).length}\n`;
+    content += `Total Snapshots: ${bodyPartSnapshots.length}\n`;
+
+    return content;
+  };
+
+  const handleCopyClick = async (e: React.MouseEvent, bodyPartId?: string) => {
     e.stopPropagation();
     const sectionId = bodyPartId
       ? `section-bodypart-${bodyPartId}`
       : "section-treatment";
-    onCopySection(sectionId);
+
+    // Get the content to copy based on what's being copied
+    const contentToCopy = bodyPartId
+      ? getBodyPartContent(bodyPartId)
+      : getAllBodyPartsContent();
+
+    // Copy to clipboard
+    const success = await copyToClipboard(contentToCopy);
+
+    if (success) {
+      // Notify parent component
+      onCopySection(sectionId);
+    }
   };
 
   const toggleBodyPart = (bodyPartId: string, e?: React.MouseEvent) => {
@@ -289,8 +478,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${copied["section-treatment"] ? "copied" : ""
-                }`}
+              className={`copy-btn ${
+                copied["section-treatment"] ? "copied" : ""
+              }`}
               onClick={(e) => handleCopyClick(e)}
               title="Copy All Body Parts"
             >
@@ -309,6 +499,16 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         {/* Section Content - This part should NOT trigger collapse/expand */}
         {!isCollapsed && (
           <div className="section-content" onClick={(e) => e.stopPropagation()}>
+            {/* Summary Stats */}
+            {bodyPartSnapshots.length > 0 && (
+              <div className="summary-stats">
+                <div className="stat-text">
+                  {Object.keys(groupedBodyParts).length} body part(s) •{" "}
+                  {bodyPartSnapshots.length} total snapshot(s)
+                </div>
+              </div>
+            )}
+
             {/* Body Part Snapshots */}
             {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => {
               const sortedSnapshots = sortSnapshotsByDate(snapshots);
@@ -336,9 +536,14 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                       )}
                     </button>
                     <h4 className="bodypart-name">{bodyPart}</h4>
+                    <span className="snapshot-count">
+                      {snapshots.length}{" "}
+                      {snapshots.length === 1 ? "snapshot" : "snapshots"}
+                    </span>
                     <button
-                      className={`copy-btn small ${copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
-                        }`}
+                      className={`copy-btn small ${
+                        copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
+                      }`}
                       onClick={(e) => handleCopyClick(e, bodyPart)}
                       title={`Copy ${bodyPart} Details`}
                     >
@@ -377,7 +582,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                 )}
                               {latestSnapshot.recommended &&
                                 latestSnapshot.recommended !==
-                                "Not specified" &&
+                                  "Not specified" &&
                                 latestSnapshot.recommended !== "" && (
                                   <li>
                                     <strong>Treatment Plan:</strong>{" "}
@@ -386,7 +591,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                 )}
                               {latestSnapshot.consultingDoctor &&
                                 latestSnapshot.consultingDoctor !==
-                                "Not specified" &&
+                                  "Not specified" &&
                                 latestSnapshot.consultingDoctor !== "" && (
                                   <li>
                                     <strong>Consulting Doctor:</strong>{" "}
@@ -395,7 +600,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                 )}
                               {latestSnapshot.referralDoctor &&
                                 latestSnapshot.referralDoctor !==
-                                "Not specified" &&
+                                  "Not specified" &&
                                 latestSnapshot.referralDoctor !== "" && (
                                   <li>
                                     <strong>Referral Doctor:</strong>{" "}
@@ -431,7 +636,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                       {/* Timeline Section */}
                       {hasMultiple && showTimeline[bodyPart] && (
                         <div className="timeline-section">
-                          {/* <h5 className="timeline-title">Date-Wise Timeline</h5> */}
                           <div className="timeline">
                             {sortedSnapshots.map((snapshot, index) => (
                               <div
@@ -452,7 +656,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                     )}
                                   {snapshot.consultingDoctor &&
                                     snapshot.consultingDoctor !==
-                                    "Not specified" &&
+                                      "Not specified" &&
                                     snapshot.consultingDoctor !== "" && (
                                       <div className="timeline-entry">
                                         <strong>Consulting Doctor:</strong>{" "}
@@ -572,6 +776,13 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           color: #374151;
           flex: 1;
         }
+        .snapshot-count {
+          font-size: 12px;
+          color: #6b7280;
+          background: #e5e7eb;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
         .bodypart-details {
           background: white;
           padding: 12px;
@@ -638,12 +849,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           margin-top: 12px;
           padding-top: 12px;
           border-top: 1px solid #e5e7eb;
-        }
-        .timeline-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #374151;
-          margin: 0 0 12px 0;
         }
         .timeline {
           display: flex;

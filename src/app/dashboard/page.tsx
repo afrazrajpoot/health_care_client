@@ -1336,7 +1336,7 @@ export default function PhysicianCard() {
           </div>
         </div>
       </div>
-      <div className="absolute top-[5.5vw] right-0 xl:right-[12vw] bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
+      <div className="absolute top-[5.5vw] right-0  bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
         <RecentPatientsSidebar onPatientSelect={handlePatientSelect} />
       </div>
       {/* Sidebar Overlay - Closes on click */}

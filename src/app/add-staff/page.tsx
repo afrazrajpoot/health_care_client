@@ -100,7 +100,10 @@ export default function AddStaffPage() {
       }
 
       // ✅ On success, show toast and reset form (no redirection)
-      toast.success("Staff member added successfully!");
+      toast.success("Staff member added successfully!", {
+        duration: 5000,
+        position: "top-right",
+      });
       form.reset();
     } catch (error: any) {
       setError(error.message || "An error occurred during registration");

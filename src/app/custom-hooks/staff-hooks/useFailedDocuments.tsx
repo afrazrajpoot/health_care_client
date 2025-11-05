@@ -25,7 +25,10 @@ export const useFailedDocuments = () => {
       }
     } catch (error) {
       console.error("Error fetching failed documents:", error);
-      toast.error("❌ Error fetching failed documents");
+      toast.error("❌ Error fetching failed documents", {
+        duration: 5000,
+        position: "top-right",
+      });
     }
   }, []);
 
@@ -102,12 +105,18 @@ export const useFailedDocuments = () => {
 
       if (!response.ok) throw new Error("Update failed");
 
-      toast.success("✅ Document updated successfully");
+      toast.success("✅ Document updated successfully", {
+        duration: 5000,
+        position: "top-right",
+      });
       setIsUpdateModalOpen(false);
       fetchFailedDocuments();
     } catch (error) {
       console.error("Update error:", error);
-      toast.error("❌ Error updating document");
+      toast.error("❌ Error updating document", {
+        duration: 5000,
+        position: "top-right",
+      });
     } finally {
       setUpdateLoading(false);
     }

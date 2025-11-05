@@ -370,7 +370,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setIsProcessing(false);
           stopProgressPolling();
           toast.success(
-            `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`
+            `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
+            {
+              duration: 5000,
+              position: "top-right",
+            }
           );
         } else {
           setProgressData(mappedProgress);
@@ -390,11 +394,19 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
           if (rawBackendProgress.status === "completed") {
             toast.success(
-              `✅ Processing completed! ${rawBackendProgress.completed_steps}/${rawBackendProgress.total_steps} files processed`
+              `✅ Processing completed! ${rawBackendProgress.completed_steps}/${rawBackendProgress.total_steps} files processed`,
+              {
+                duration: 5000,
+                position: "top-right",
+              }
             );
           } else {
             toast.error(
-              `❌ Processing failed for ${rawBackendProgress.failed_files.length} files`
+              `❌ Processing failed for ${rawBackendProgress.failed_files.length} files`,
+              {
+                duration: 5000,
+                position: "top-right",
+              }
             );
           }
         }
@@ -438,7 +450,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             setIsProcessing(false);
             stopQueueProgressPolling();
             toast.success(
-              `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`
+              `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`,
+              {
+                duration: 5000,
+                position: "top-right",
+              }
             );
           }
 
@@ -734,7 +750,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           data.filenames,
           data.queue_id
         );
-        toast.info(`Started processing ${data.total_files || 1} document(s)`);
+        toast.info(`Started processing ${data.total_files || 1} document(s)`, {
+          duration: 5000,
+          position: "top-right",
+        });
       }
     });
 
@@ -754,7 +773,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             setIsProcessing(false);
             stopProgressPolling();
             toast.success(
-              `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`
+              `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
+              {
+                duration: 5000,
+                position: "top-right",
+              }
             );
           }
         }
@@ -784,7 +807,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setIsProcessing(false);
           stopQueueProgressPolling();
           toast.success(
-            `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`
+            `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`,
+            {
+              duration: 5000,
+              position: "top-right",
+            }
           );
         }
       }
@@ -804,6 +831,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
         // Also show toast
         toast.warning(`Document skipped: ${data.filename}`, {
+          position: "top-right",
           description: data.reason,
           duration: 3000,
         });
@@ -853,7 +881,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         toast.success(
           `✅ Batch processing complete! ${summary.successful || 0}/${
             summary.total_files || 0
-          } files processed`
+          } files processed`,
+          {
+            duration: 5000,
+            position: "top-right",
+          }
         );
         setIsProcessing(false);
         stopProgressPolling();
@@ -863,7 +895,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     socketInstance.on("task_error", (data) => {
       console.error("❌ Task error:", data);
-      toast.error(`Task failed: ${data.error || "Unknown error"}`);
+      toast.error(`Task failed: ${data.error || "Unknown error"}`, {
+        duration: 5000,
+        position: "top-right",
+      });
       setIsProcessing(false);
       stopProgressPolling();
       stopQueueProgressPolling();
