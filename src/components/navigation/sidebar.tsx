@@ -66,6 +66,13 @@ const navigationItems: NavigationItem[] = [
     roles: ["Staff"], // ✅ Staff only
   },
   {
+    name: "Recent Documents",
+    href: "/staff-documents",
+    icon: FileText,
+    description: "Staff document management",
+    roles: ["Staff"], // ✅ Staff only
+  },
+  {
     name: "Add Staff",
     href: "/add-staff",
     icon: Upload,

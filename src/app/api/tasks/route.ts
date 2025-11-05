@@ -90,6 +90,8 @@ export async function GET(request: Request) {
     const statusMap: { [key: string]: string } = {
       pending: "Pending",
       done: "Done",
+      completed: "Completed", 
+      closed: "Closed",
     };
     let effectiveStatus = status;
     if (status && statusMap[status]) {
@@ -100,13 +102,27 @@ export async function GET(request: Request) {
     if (overdueOnly || status === 'overdue') {
       andConditions.push(
         { dueDate: { lt: now } },
-        { status: { not: "Done" } }
+        { 
+          status: { 
+            notIn: ["Done", "Completed", "Closed"] 
+          } 
+        }
       );
       effectiveStatus = '';
     }
 
+    // 🆕 EXCLUDE COMPLETED/CLOSED TASKS BY DEFAULT
+    // Only include them when explicitly filtered by status
     if (effectiveStatus) {
+      // User is explicitly filtering by status - show what they asked for
       andConditions.push({ status: effectiveStatus });
+    } else if (!overdueOnly && status !== 'overdue') {
+      // Default behavior: exclude completed/closed tasks
+      andConditions.push({ 
+        status: { 
+          notIn: ["Done", "Completed", "Closed"] 
+        } 
+      });
     }
 
     // Ignore taskType as it doesn't exist in schema
@@ -198,11 +214,14 @@ export async function GET(request: Request) {
 
     // 🆕 DEFAULT FILTER: Show urgent and due tasks by default
     // Only apply default filter if no specific dueDateFilter or priority is provided
-    if (!dueDateFilter && !priority && !status && !overdueOnly) {
+    // AND no status filter is applied (except when filtering for completed/closed)
+    const hasExplicitStatusFilter = effectiveStatus && ["Done", "Completed", "Closed"].includes(effectiveStatus);
+    
+    if (!dueDateFilter && !priority && !hasExplicitStatusFilter && !overdueOnly) {
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       
       // Show tasks that are either:
-      // 1. Overdue (dueDate < now AND status not Done)
+      // 1. Overdue (dueDate < now AND status not in completed states)
       // 2. Due today or tomorrow (high priority)
       // 3. Due within the next 7 days (medium priority)
       andConditions.push({
@@ -211,7 +230,11 @@ export async function GET(request: Request) {
           {
             AND: [
               { dueDate: { lt: now } },
-              { status: { not: "Done" } }
+              { 
+                status: { 
+                  notIn: ["Done", "Completed", "Closed"] 
+                } 
+              }
             ]
           },
           // High priority: due today or tomorrow (or null due date)
@@ -231,7 +254,7 @@ export async function GET(request: Request) {
         ]
       });
       
-      console.log('Applied default filter: showing urgent and due tasks');
+      console.log('Applied default filter: showing urgent and due tasks (excluding completed/closed)');
     }
 
     // Add dueDate condition to andConditions (if specific filters were provided)
@@ -256,8 +279,7 @@ export async function GET(request: Request) {
     // Pagination
     const skip = (page - 1) * pageSize;
 
-    // Log whereClause for debugging (remove in production)
-    console.log('Query Where Clause:', JSON.stringify(whereClause, null, 2));
+
 
     // Fetch tasks and total count
     const [tasks, totalCount] = await Promise.all([

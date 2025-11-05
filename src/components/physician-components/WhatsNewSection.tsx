@@ -59,7 +59,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             typeof bullet === "string" &&
             bullet.trim() &&
             bullet.trim() !==
-            "• No significant new findings identified in current document"
+              "• No significant new findings identified in current document"
         );
 
         // Extract consulting doctor from the first body part snapshot (or fallback)
@@ -206,7 +206,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -307,8 +307,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                       <div className="group-actions">
                         <button
-                          className={`copy-btn text-[0.3vw] ${isGroupCopied ? "copied" : ""
-                            }`}
+                          className={`copy-btn text-[0.3vw] ${
+                            isGroupCopied ? "copied" : ""
+                          }`}
                           onClick={(e) => handleCopyClick(e, group.docId)}
                           title="Copy This Update"
                         >
@@ -319,8 +320,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
                         </button>
                         <button
-                          className={`mark-viewed-btn ${isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
+                          className={`mark-viewed-btn ${
+                            isViewed ? "viewed" : ""
+                          } ${isLoading ? "loading" : ""}`}
                           onClick={(e) => handleMarkViewed(e, group)}
                           disabled={isLoading}
                           title={isViewed ? "Reviewed" : "Mark as Reviewed"}
