@@ -1,11 +1,10 @@
 "use client";
-
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Send, Menu, X, Search, User, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/navigation/sidebar";
 import { cn } from "@/lib/utils";
-
 interface RebuttalInput {
   body_part: string;
   modality: string;
@@ -18,14 +17,12 @@ interface RebuttalInput {
   patient_dob?: string;
   patient_claim_number?: string;
 }
-
 interface ExtendedBodyPartSnapshot {
   bodyPart: string;
   dx: string;
   claimNumber: string;
   denialReason: string;
 }
-
 interface Patient {
   id: string;
   name: string;
@@ -35,8 +32,8 @@ interface Patient {
   ur_denial_reason?: string;
   bodyPartSnapshots?: ExtendedBodyPartSnapshot[];
 }
-
 export default function RebuttalFormPage() {
+  const searchParams = useSearchParams();
   const initialFormData: RebuttalInput = {
     body_part: "",
     modality: "",
@@ -49,22 +46,19 @@ export default function RebuttalFormPage() {
     patient_dob: "",
     patient_claim_number: "",
   };
-
   const [formData, setFormData] = useState<RebuttalInput>(initialFormData);
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   // Patient search states
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-
+  const [fromUrlLoad, setFromUrlLoad] = useState(false);
   // Refs
   const searchRef = useRef<HTMLDivElement>(null);
-
   // Dropdown options states
   const [bodyParts, setBodyParts] = useState<string[]>([]);
   const [filteredDiagnoses, setFilteredDiagnoses] = useState<string[]>([]);
@@ -72,7 +66,6 @@ export default function RebuttalFormPage() {
   const [allSnapshots, setAllSnapshots] = useState<ExtendedBodyPartSnapshot[]>(
     []
   );
-
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -81,31 +74,29 @@ export default function RebuttalFormPage() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
-
   // Handle patient search
-  const handlePatientSearch = async (query: string) => {
-    if (query.length < 2) {
+  const handlePatientSearch = async (
+    query: string,
+    optionalDob?: string,
+    optionalClaim?: string,
+    autoSelect = false
+  ) => {
+    if (query.length < 2 && !optionalDob && !optionalClaim) {
       setSearchResults([]);
       return;
     }
-
     setSearchLoading(true);
     try {
       // Build URL params - NO pre-encoding! Let URLSearchParams handle it.
       const params = new URLSearchParams();
-      params.set("patientName", query); // Raw query (e.g., "Dummy Dummy")
-
-      // Include claim number and DOB if a patient is already selected (for subsequent calls)
-      if (selectedPatient) {
-        console.log("Form data on second API call:", formData); // Your existing log
-        if (selectedPatient.date_of_birth) {
-          params.set("dob", selectedPatient.date_of_birth); // Raw (e.g., "Not specified")
-        }
-        if (selectedPatient.claimNumber) {
-          params.set("claimNumber", selectedPatient.claimNumber || ""); // Raw
-        }
+      params.set("patientName", query);
+      // Include DOB and claim if provided
+      if (optionalDob) {
+        params.set("dob", optionalDob);
       }
-
+      if (optionalClaim) {
+        params.set("claimNumber", optionalClaim);
+      }
       const res = await fetch(
         `/api/dashboard/deniel-recommendation?${params.toString()}`,
         {
@@ -114,12 +105,11 @@ export default function RebuttalFormPage() {
           credentials: "include", // For auth session
         }
       );
-
       if (!res.ok) throw new Error("Failed to search patients");
       const data = await res.json();
       if (data.success) {
-        setSearchResults(
-          data.data.allMatchingDocuments.map((doc: any) => ({
+        const mappedResults = data.data.allMatchingDocuments.map(
+          (doc: any) => ({
             id: doc.id,
             name: `${doc.patientName} (Claim: ${doc.claimNumber})`,
             originalName: doc.patientName,
@@ -131,8 +121,14 @@ export default function RebuttalFormPage() {
               claimNumber: doc.claimNumber,
               denialReason: doc.ur_denial_reason,
             })),
-          }))
+          })
         );
+        setSearchResults(mappedResults);
+        // Auto-select if enabled and exactly one result
+        if (autoSelect && mappedResults.length === 1) {
+          handlePatientSelect(mappedResults[0]);
+          setSearchResults([]); // Hide dropdown after selection
+        }
       } else {
         setSearchResults([]);
       }
@@ -143,7 +139,6 @@ export default function RebuttalFormPage() {
       setSearchLoading(false);
     }
   };
-
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -154,22 +149,45 @@ export default function RebuttalFormPage() {
         setSearchResults([]);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
   // Debounced search
   useEffect(() => {
+    if (fromUrlLoad) return; // Skip debounced search if loading from URL
     const timer = setTimeout(() => {
       handlePatientSearch(searchQuery);
     }, 300);
-
     return () => clearTimeout(timer);
-  }, [searchQuery]);
-
+  }, [searchQuery, fromUrlLoad]);
+  // Initial load from URL params
+  useEffect(() => {
+    const patientName = searchParams.get("patient_name") || "";
+    const dob = searchParams.get("dob") || "";
+    const claim = searchParams.get("claim") || "";
+    const documentId = searchParams.get("document_id") || "";
+    if (patientName || dob || claim) {
+      setFromUrlLoad(true);
+      // Trigger search with params and auto-select
+      handlePatientSearch(patientName, dob, claim, true);
+      // Set searchQuery to show the name in input
+      if (patientName) {
+        setSearchQuery(patientName);
+      }
+      // Pre-set patient_id if document_id provided
+      if (documentId && patientName) {
+        setFormData((prev) => ({ ...prev, patient_id: documentId }));
+      }
+    }
+  }, [searchParams]);
+  // Reset fromUrlLoad after URL load completes
+  useEffect(() => {
+    if (fromUrlLoad && selectedPatient) {
+      setFromUrlLoad(false);
+    }
+  }, [selectedPatient, fromUrlLoad]);
   // Filter diagnoses and reasons based on selected body part
   useEffect(() => {
     if (allSnapshots.length === 0) {
@@ -177,7 +195,6 @@ export default function RebuttalFormPage() {
       setFilteredReasons([]);
       return;
     }
-
     if (formData.body_part) {
       const matchingSnapshots = allSnapshots.filter(
         (s) => s.bodyPart === formData.body_part
@@ -186,10 +203,8 @@ export default function RebuttalFormPage() {
       const uniqueDx = [...new Set(dxs)].sort();
       const reasons = matchingSnapshots.map((s) => s.denialReason);
       const uniqueReasons = [...new Set(reasons)].sort();
-
       setFilteredDiagnoses(uniqueDx);
       setFilteredReasons(uniqueReasons);
-
       // Set diagnosis if needed
       if (
         (!formData.diagnosis || !uniqueDx.includes(formData.diagnosis)) &&
@@ -197,7 +212,6 @@ export default function RebuttalFormPage() {
       ) {
         setFormData((prev) => ({ ...prev, diagnosis: uniqueDx[0] }));
       }
-
       // Set reason if needed
       if (
         (!formData.reason_for_denial ||
@@ -209,7 +223,6 @@ export default function RebuttalFormPage() {
           reason_for_denial: uniqueReasons[0],
         }));
       }
-
       // Set claim number from first matching snapshot
       if (matchingSnapshots.length > 0) {
         setFormData((prev) => ({
@@ -226,7 +239,6 @@ export default function RebuttalFormPage() {
       setFilteredReasons(allReasons);
     }
   }, [formData.body_part, allSnapshots]);
-
   // Select a patient and update form
   const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -238,7 +250,6 @@ export default function RebuttalFormPage() {
       patient_claim_number: patient.claimNumber,
       reason_for_denial: patient.ur_denial_reason || "",
     }));
-
     // Populate dropdown options
     const snapshots = patient.bodyPartSnapshots || [];
     setAllSnapshots(snapshots);
@@ -246,16 +257,13 @@ export default function RebuttalFormPage() {
       ...new Set(snapshots.map((s) => s.bodyPart)),
     ].sort();
     setBodyParts(uniqueBodyParts);
-
     // Prefill first body part if available
     if (uniqueBodyParts.length > 0) {
       setFormData((prev) => ({ ...prev, body_part: uniqueBodyParts[0] }));
     }
-
     setSearchQuery(patient.originalName); // Only show patient name in the search field
     setSearchResults([]); // Hide results
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
@@ -268,11 +276,9 @@ export default function RebuttalFormPage() {
       );
       return;
     }
-
     setLoading(true);
     setResponse(null);
     setIsModalOpen(false);
-
     try {
       const res = await fetch("http://localhost:8000/api/rebuttal", {
         method: "POST",
@@ -280,7 +286,6 @@ export default function RebuttalFormPage() {
         credentials: "include", // For auth session
         body: JSON.stringify(formData),
       });
-
       if (!res.ok) throw new Error("Failed to generate rebuttal");
       const data = await res.json();
       setResponse(data.rebuttal);
@@ -294,11 +299,9 @@ export default function RebuttalFormPage() {
       setLoading(false);
     }
   };
-
   const closeModal = () => {
     setIsModalOpen(false);
   };
-
   const copyToClipboard = async () => {
     if (response && navigator.clipboard) {
       try {
@@ -311,20 +314,15 @@ export default function RebuttalFormPage() {
       }
     }
   };
-
   // Render response with improved markdown parsing: remove * and # signs, bold headings
   const renderFormattedResponse = (resp: string) => {
     if (!resp) return null;
-
     // Remove all asterisks (for bold/italic markdown)
     let cleaned = resp.replace(/\*/g, "").trim();
-
     // Split into lines
     const lines = cleaned.split("\n").filter((line) => line.trim());
-
     return lines.map((line, index) => {
       const trimmedLine = line.trim();
-
       // Check for heading: starts with ## (allow optional spaces after)
       if (/^#{2}\s+/.test(trimmedLine)) {
         const headingText = trimmedLine.replace(/^#{2}\s+/, "");
@@ -337,7 +335,6 @@ export default function RebuttalFormPage() {
           </h3>
         );
       }
-
       // Regular paragraph
       if (trimmedLine) {
         return (
@@ -349,11 +346,9 @@ export default function RebuttalFormPage() {
           </p>
         );
       }
-
       return null;
     });
   };
-
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50">
       {/* Burger Menu Button */}
@@ -368,7 +363,6 @@ export default function RebuttalFormPage() {
           <Menu size={24} className="text-gray-700" />
         )}
       </button>
-
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div
@@ -376,7 +370,6 @@ export default function RebuttalFormPage() {
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-
       {/* Sidebar Component */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -391,7 +384,6 @@ export default function RebuttalFormPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Rebuttal Modal */}
       <AnimatePresence>
         {isModalOpen && response && !response.startsWith("⚠️") && (
@@ -444,7 +436,6 @@ export default function RebuttalFormPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Main Content */}
       <div className="flex flex-col items-center justify-center flex-1 px-4 py-8">
         <motion.div
@@ -460,7 +451,6 @@ export default function RebuttalFormPage() {
             Fill in the details below to generate a medical justification based
             on guidelines.
           </p>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Patient Search Section */}
             <div ref={searchRef} className="relative">
@@ -501,49 +491,50 @@ export default function RebuttalFormPage() {
               )}
               {/* Search Results Dropdown */}
               <AnimatePresence>
-                {searchResults.length > 0 && !selectedPatient && (
-                  <motion.ul
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
-                  >
-                    {searchResults.map((patient) => (
-                      <motion.li
-                        key={patient.id}
-                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                        onClick={() => handlePatientSelect(patient)}
-                        whileHover={{ backgroundColor: "#f9fafb" }}
-                      >
-                        <div className="font-medium text-gray-900">
-                          {patient.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          DOB: {patient.date_of_birth}
-                        </div>
-                        {patient.bodyPartSnapshots &&
-                          patient.bodyPartSnapshots.length > 1 && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              Body Parts:{" "}
-                              {[
-                                ...new Set(
-                                  patient.bodyPartSnapshots.map(
-                                    (s) => s.bodyPart
-                                  )
-                                ),
-                              ].join(", ")}
-                            </div>
-                          )}
-                      </motion.li>
-                    ))}
-                  </motion.ul>
-                )}
+                {searchResults.length > 0 &&
+                  !selectedPatient &&
+                  !fromUrlLoad && (
+                    <motion.ul
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                    >
+                      {searchResults.map((patient) => (
+                        <motion.li
+                          key={patient.id}
+                          className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          onClick={() => handlePatientSelect(patient)}
+                          whileHover={{ backgroundColor: "#f9fafb" }}
+                        >
+                          <div className="font-medium text-gray-900">
+                            {patient.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            DOB: {patient.date_of_birth}
+                          </div>
+                          {patient.bodyPartSnapshots &&
+                            patient.bodyPartSnapshots.length > 1 && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                Body Parts:{" "}
+                                {[
+                                  ...new Set(
+                                    patient.bodyPartSnapshots.map(
+                                      (s) => s.bodyPart
+                                    )
+                                  ),
+                                ].join(", ")}
+                              </div>
+                            )}
+                        </motion.li>
+                      ))}
+                    </motion.ul>
+                  )}
               </AnimatePresence>
               {searchLoading && (
                 <p className="text-sm text-gray-500 mt-1">Searching...</p>
               )}
             </div>
-
             {/* Required Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -599,7 +590,6 @@ export default function RebuttalFormPage() {
                 </select>
               </div>
             </div>
-
             {/* Optional Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -645,7 +635,6 @@ export default function RebuttalFormPage() {
                 className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none resize-vertical"
               />
             </div>
-
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
@@ -660,7 +649,6 @@ export default function RebuttalFormPage() {
               )}
             </button>
           </form>
-
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200 min-h-[200px]">
             {loading ? (
               <p className="text-gray-500 italic">

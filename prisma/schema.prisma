@@ -225,16 +225,19 @@ model Task {
   status         String    @default("Pending")
   dueDate        DateTime?
   patient        String
+  reason         String?
   actions        String[]  @default(["Claim", "Complete"])
   sourceDocument String?
-  quickNotes     Json?     @default("{\"details\": \"\", \"one_line_note\": \"\", \"status_update\": \"\"}")
-  documentId     String?
-  physicianId    String?
-  reason         String?
-
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  document       Document? @relation(fields: [documentId], references: [id])
+  claimNumber    String?
+  // Quick notes as a nested JSON field
+  quickNotes Json? @default("{\"status_update\": \"\", \"details\": \"\", \"one_line_note\": \"\"}")
+  followUpTaskId  String?
+  // Relation (optional) — link back to Document if available
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id])
+  physicianId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model WorkflowStats {
