@@ -432,18 +432,6 @@ export default function Dashboard() {
     setTotalCount,
   ]);
 
-  const handleTabClick = useCallback(
-    (tab: { pane: string; text: string }) => {
-      setCurrentPane(tab.pane);
-      let newStatus = "";
-      if (tab.pane !== "all") {
-        newStatus = tab.pane; // Assuming pane values match status values like 'pending', 'done', 'overdue'
-      }
-      setFilters((prev) => ({ ...prev, status: newStatus }));
-    },
-    [setCurrentPane, setFilters]
-  );
-
   return (
     <>
       <style jsx global>{`
@@ -1137,7 +1125,7 @@ export default function Dashboard() {
                     <div
                       style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}
                     >
-                      {filteredTabs.map((tab) => (
+                      {/* {filteredTabs.map((tab) => (
                         <button
                           key={tab.pane}
                           className={`filter ttab ${
@@ -1147,7 +1135,7 @@ export default function Dashboard() {
                         >
                           {tab.text}
                         </button>
-                      ))}
+                      ))} */}
                     </div>
                     {!isFiltersCollapsed && (
                       <>
@@ -1159,7 +1147,7 @@ export default function Dashboard() {
                             flexWrap: "wrap",
                           }}
                         >
-                          <button
+                          {/* <button
                             className={`filter ttab ${
                               filters.viewMode === "all" ? "active" : ""
                             }`}
@@ -1175,8 +1163,8 @@ export default function Dashboard() {
                             }
                           >
                             Show All
-                          </button>
-                          <button
+                          </button> */}
+                          {/* <button
                             className={`filter ttab ${
                               filters.viewMode === "urgent" ? "active" : ""
                             }`}
@@ -1191,7 +1179,7 @@ export default function Dashboard() {
                             }
                           >
                             Urgent & Due Soon
-                          </button>
+                          </button> */}
                         </div>
                         <div
                           style={{
