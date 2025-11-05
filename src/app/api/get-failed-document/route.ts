@@ -1,10 +1,10 @@
 // app/api/failed-documents/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from "next-auth/next";
 // import { authOptions } from '@/services/authService';
-import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/services/authSErvice';
+import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/services/authSErvice";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,16 +12,16 @@ export async function GET(request: NextRequest) {
 
     if (!session || !session.user) {
       return NextResponse.json(
-        { error: 'Unauthorized: No valid session' },
+        { error: "Unauthorized: No valid session" },
         { status: 401 }
       );
     }
 
-    const physicianId = session?.user?.physicianId; // Assuming session.user.physicianId is available
+    const physicianId = session?.user?.physicianId || session?.user?.id; // Assuming session.user.physicianId is available
 
     if (!physicianId) {
       return NextResponse.json(
-        { error: 'Physician ID not found in session' },
+        { error: "Physician ID not found in session" },
         { status: 400 }
       );
     }
@@ -30,12 +30,11 @@ export async function GET(request: NextRequest) {
       where: {
         physicianId: physicianId,
       },
-    
     });
 
     if (!failedDocs || failedDocs.length === 0) {
       return NextResponse.json(
-        { message: 'No failed documents found', data: [] },
+        { message: "No failed documents found", data: [] },
         { status: 200 }
       );
     }
@@ -45,9 +44,9 @@ export async function GET(request: NextRequest) {
       documents: failedDocs,
     });
   } catch (error) {
-    console.error('Error fetching failed documents:', error);
+    console.error("Error fetching failed documents:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   } finally {
