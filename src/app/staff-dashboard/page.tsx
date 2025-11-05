@@ -1247,7 +1247,7 @@ export default function Dashboard() {
                           >
                             <option value="">All</option>
                             <option value="in progress">in progress</option>
-                            <option value="done">Done</option>
+                            <option value="Completed">Completed</option>
                             <option value="overdue">Overdue</option>
                           </select>
                           <span className="muted">Priority:</span>
@@ -1292,7 +1292,7 @@ export default function Dashboard() {
                             <option value="week">This Week</option>
                             <option value="month">This Month</option>
                           </select>
-                          <span className="muted">Type:</span>
+                          {/* <span className="muted">Type:</span>
                           <select
                             value={filters.taskType || ""}
                             onChange={(e) =>
@@ -1312,8 +1312,8 @@ export default function Dashboard() {
                             <option value="intake">Intake</option>
                             <option value="review">Review</option>
                             <option value="approval">Approval</option>
-                          </select>
-                          <span className="muted">Assigned:</span>
+                          </select> */}
+                          {/* <span className="muted">Assigned:</span>
                           <select
                             value={filters.assignedTo || ""}
                             onChange={(e) =>
@@ -1332,7 +1332,7 @@ export default function Dashboard() {
                             <option value="">All</option>
                             <option value="me">Me</option>
                             <option value="unassigned">Unassigned</option>
-                          </select>
+                          </select> */}
                           <span className="muted">Sort:</span>
                           <select
                             value={filters.sortBy || "dueDate"}
