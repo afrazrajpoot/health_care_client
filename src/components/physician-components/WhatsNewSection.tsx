@@ -287,24 +287,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <div key={group.docId} className="whats-new-item">
                     {/* Group Header: Show document info */}
                     <div className="group-header">
-                      <div className="group-info">
-                        {/* {group.isLatest && (
-                          <span className="doc-latest"> (Latest)</span>
-                        )} */}
-                        <span className="doc-type">{group.documentType}</span>
-                        {group.consultingDoctor &&
-                          group.consultingDoctor !== "Not specified" && (
-                            <span className="doc-doctor">
-                              {" "}
-                              - {group.consultingDoctor}
-                            </span>
-                          )}
-                        {group.reportDate && (
-                          <span className="doc-date">
-                            {formatDate(group.reportDate)}
-                          </span>
-                        )}
-                      </div>
+
                       <div className="group-actions">
                         <button
                           className={`copy-btn text-[0.3vw] ${isGroupCopied ? "copied" : ""
