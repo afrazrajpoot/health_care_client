@@ -32,7 +32,7 @@ export const useUIState = (initialMode: "wc" | "gm") => {
 
   const filteredTabs = tabs.filter((tab) => tab.modes.includes(modeState));
   const departments = [
-    "Medical / Clinical",
+    "Medical/Clinical",
     "Scheduling & Coordination",
     "Administrative / Compliance",
     "Authorizations & Denials",

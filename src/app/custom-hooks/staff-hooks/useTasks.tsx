@@ -265,7 +265,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
 
   const completeTask = useCallback(
     (id: string) => {
-      updateTask(id, { statusText: "Done", statusClass: "done" });
+      updateTask(id, { statusText: "Completed", statusClass: "done" });
       toast.success("🎉 Task marked complete", {
         duration: 5000,
         position: "top-right",

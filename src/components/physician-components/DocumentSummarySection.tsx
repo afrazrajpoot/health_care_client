@@ -3,6 +3,7 @@ import { useDocumentSummary } from "@/app/custom-hooks/staff-hooks/physician-hoo
 import React from "react";
 import { Button } from "../ui/button";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 // import { useDocumentSummary } from "@/hooks/useDocumentSummary";
 
 const CopyIcon = () => (
@@ -164,7 +165,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -196,7 +197,70 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
       });
     }
   };
+  const handleDownloadClick = async (
+    e: React.MouseEvent,
+    doc: any,
+    index: number
+  ) => {
+    e.stopPropagation();
 
+    if (!doc.blob_path) {
+      console.error("Blob path not found for download");
+      toast.error("File path not found");
+      return;
+    }
+
+    setLoadingIndexes((prev) => new Set([...prev, index]));
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          doc.blob_path
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch document: ${response.status}`);
+      }
+
+      // Get blob
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download =
+        doc.original_name ||
+        doc.file_name ||
+        `document-${doc.claim_number || "file"}.pdf`;
+
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+
+      toast.success("Document downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast.error("Failed to download document");
+    } finally {
+      setLoadingIndexes((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(index);
+        return newSet;
+      });
+    }
+  };
   return (
     <>
       <div
@@ -266,18 +330,18 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                         [{isLoading ? "Loading..." : "Preview File"}]
                       </span>
                     )}
-                    {documentData?.gcs_file_link && (
-                      <a
-                        href="#"
+                    {documentData?.blob_path && (
+                      <span
                         className="pdf-link download"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          handleViewFile(e);
+                          // handleViewFile(e);
+                          handleDownloadClick(e, documentData, index);
                         }}
                       >
-                        [Download File]
-                      </a>
+                        [{isLoading ? "Loading..." : "Download File"}]
+                      </span>
                     )}
                     {hasPrevious && (
                       <a
@@ -294,8 +358,9 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                     )}
                     <span className="copy-span-li">
                       <button
-                        className={`copy-btn-li ${copied[sectionId] ? "copied-li" : ""
-                          }`}
+                        className={`copy-btn-li ${
+                          copied[sectionId] ? "copied-li" : ""
+                        }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onCopySection(sectionId);
