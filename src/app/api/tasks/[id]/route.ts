@@ -25,15 +25,19 @@ export async function PATCH(
     }
 
     // ✅ Check if user role is Physician, then use user.id
-    if (session.user.role !== "Physician") {
-      return NextResponse.json(
-        { error: "Only physicians can update tasks" }, 
-        { status: 403 }
-      );
-    }
+    // if (session.user.role !== "Physician") {
+    //   return NextResponse.json(
+    //     { error: "Only physicians can update tasks" }, 
+    //     { status: 403 }
+    //   );
+    // }
 
-    const physicianId = session.user.id;
-
+    let physicianId;
+if(session.user.role == "Physician"){
+  physicianId = session.user.id;
+}else{
+  physicianId = session.user.physicianId;
+}
     const updates = await request.json();
 
     // 🩺 Validate that the task belongs to the logged-in physician
