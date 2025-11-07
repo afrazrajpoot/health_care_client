@@ -1,4 +1,4 @@
-// app/api/documents/recent/route.ts (or adjust path as needed for your Next.js app router structure)
+// app/api/documents/recent/route.ts
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
@@ -14,7 +14,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let physicianId; // Assuming physicianId matches session.user.id; adjust if stored differently (e.g., session.user.physicianId)
+    let physicianId;
     if (session.user.role === "Physician") {
       physicianId = session.user.id;
     } else if (session.user.role === "Staff") {
@@ -26,18 +26,32 @@ export async function GET() {
         patientName: true,
         dob: true,
         claimNumber: true,
+        createdAt: true,
       },
       where: {
         physicianId: physicianId,
       },
-      distinct: ["claimNumber"],
       orderBy: {
         createdAt: "desc",
       },
-      take: 10,
     });
 
-    return NextResponse.json(documents);
+    // ✅ Remove duplicates by combination of patientName + dob + claimNumber
+    const uniqueDocuments = [];
+    const seen = new Set();
+
+    for (const doc of documents) {
+      const key = `${doc.patientName}_${doc.dob}_${doc.claimNumber}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueDocuments.push(doc);
+      }
+    }
+
+    // Limit to latest 10 after filtering
+    const recentDocuments = uniqueDocuments.slice(0, 10);
+
+    return NextResponse.json(recentDocuments);
   } catch (error) {
     console.error("Error fetching recent documents:", error);
     return NextResponse.json(
