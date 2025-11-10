@@ -36,12 +36,13 @@ export async function GET() {
       },
     });
 
-    // ✅ Remove duplicates by combination of patientName + dob + claimNumber
+    // ✅ Remove duplicates by combination of patientName + claimNumber only
+    // If name is same but claim number is different, show separately
     const uniqueDocuments = [];
     const seen = new Set();
 
     for (const doc of documents) {
-      const key = `${doc.patientName}_${doc.dob}_${doc.claimNumber}`;
+      const key = `${doc.patientName}_${doc.claimNumber}`;
       if (!seen.has(key)) {
         seen.add(key);
         uniqueDocuments.push(doc);
