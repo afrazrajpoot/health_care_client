@@ -112,7 +112,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -148,7 +148,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -207,7 +207,7 @@ export default function RecentDocumentsPage() {
         );
 
         const response = await fetch(
-          `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
             filePath
           )}`,
           {
@@ -304,20 +304,18 @@ export default function RecentDocumentsPage() {
 
       {/* Backdrop with transition */}
       <div
-        className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-all duration-300 ease-in-out ${
-          isSidebarOpen
+        className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-all duration-300 ease-in-out ${isSidebarOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
-        }`}
+          }`}
         onClick={() => setIsSidebarOpen(false)}
       />
 
       {/* Sidebar with enhanced transitions */}
       <div
         ref={sidebarRef}
-        className={`fixed left-0 top-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed left-0 top-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <h2 className="font-semibold text-gray-800 text-base">Navigation</h2>
@@ -333,9 +331,8 @@ export default function RecentDocumentsPage() {
 
       {/* Main Content with transition when sidebar opens */}
       <main
-        className={`max-w-6xl mx-auto py-10 px-5 lg:px-8 transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "lg:translate-x-16" : "translate-x-0"
-        }`}
+        className={`max-w-6xl mx-auto py-10 px-5 lg:px-8 transition-all duration-300 ease-in-out ${isSidebarOpen ? "lg:translate-x-16" : "translate-x-0"
+          }`}
       >
         {/* Header */}
         <div className="mb-8">
