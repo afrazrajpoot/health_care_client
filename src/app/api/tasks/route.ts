@@ -295,6 +295,8 @@ export async function GET(request: Request) {
               claimNumber: true,
               status: true,
               ur_denial_reason: true,
+              blobPath: true,
+              patientName: true,
               // Removed patientName as it's on task.patient
             },
           },
