@@ -1,6 +1,8 @@
 // app/dashboard/components/TaskTable.tsx
+import { useState } from "react";
 import { OverdueRow, StandardRow } from "./TaskRows";
 import { Task } from "./types";
+import { useSession } from "next-auth/react";
 
 interface TaskTableProps {
   currentPane: string;
@@ -11,6 +13,7 @@ interface TaskTableProps {
   onComplete: (id: string) => void;
   onSaveNote: (e: React.MouseEvent, id: string) => void;
   getPresets: (dept: string) => { type: string[]; more: string[] };
+  session?: any; // <-- your existing session prop
 }
 
 export default function TaskTable({
@@ -23,6 +26,55 @@ export default function TaskTable({
   onSaveNote,
   getPresets,
 }: TaskTableProps) {
+  // LOCAL STATE FOR PREVIEW LOADING
+  const [loadingIndexes, setLoadingIndexes] = useState<Set<number>>(new Set());
+  const { data: session } = useSession();
+  // PREVIEW HANDLER (uses session from props)
+  const handlePreviewClick = async (
+    e: React.MouseEvent,
+    doc: any,
+    index: number
+  ) => {
+    e.stopPropagation();
+
+    if (!doc?.blobPath) {
+      console.error("Blob path not found for preview");
+      return;
+    }
+
+    setLoadingIndexes((prev) => new Set([...prev, index]));
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          doc.blobPath
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preview: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (error) {
+      console.error("Error fetching preview:", error);
+    } finally {
+      setLoadingIndexes((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(index);
+        return newSet;
+      });
+    }
+  };
+
+  console.log("Rendering TaskTable with tasks:", tasks);
+
   const getBaseTasks = () =>
     tasks.filter((t) => {
       if (mode === "wc" && t.mode === "gm") return false;
@@ -30,21 +82,12 @@ export default function TaskTable({
       return true;
     });
 
-  const getFilteredTasks = (pane: string) => {
-    const base = getBaseTasks();
-    // Assume paneToFilter imported or passed
-    // For simplicity, use a placeholder filter
-    return base.filter(() => true); // Replace with actual filter logic
-  };
+  const getFilteredTasks = () => getBaseTasks(); // replace with real filter later
 
-  const getDisplayedTasks = (pane: string) => {
-    let f = getFilteredTasks(pane);
-    // Apply filters...
-    return f;
-  };
-
-  const displayedTasks = getDisplayedTasks(currentPane);
+  const displayedTasks = getFilteredTasks();
   console.log("Displayed tasks:", displayedTasks);
+
+  // ==================== ALL PANE ====================
   if (currentPane === "all") {
     if (displayedTasks.length === 0) {
       return (
@@ -59,12 +102,13 @@ export default function TaskTable({
                 <th>Patient</th>
                 <th>UR Denial Reason</th>
                 <th>Quick Note</th>
+                <th>Preview</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr id="aggEmpty">
-                <td colSpan={8}>
+                <td colSpan={9}>
                   No tasks yet. SnapLink a document or switch tabs to create
                   tasks, then return to All.
                 </td>
@@ -74,8 +118,9 @@ export default function TaskTable({
         </div>
       );
     }
+
     return (
-      <div id="">
+      <div>
         <table>
           <thead>
             <tr>
@@ -86,20 +131,25 @@ export default function TaskTable({
               <th>Patient</th>
               <th>UR Denial Reason</th>
               <th>Quick Note</th>
+              <th>Preview</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {displayedTasks.map((task) => (
+            {displayedTasks.map((task, idx) => (
               <StandardRow
                 key={task.id}
                 task={task}
+                index={idx}
                 showDept
                 showUrDenial={true}
                 getPresets={getPresets}
                 onSaveNote={onSaveNote}
                 onClaim={onClaim}
                 onComplete={onComplete}
+                onPreview={handlePreviewClick}
+                previewLoading={loadingIndexes.has(idx)}
+                session={session}
               />
             ))}
           </tbody>
@@ -108,6 +158,7 @@ export default function TaskTable({
     );
   }
 
+  // ==================== OVERDUE PANE ====================
   if (currentPane === "overdue") {
     return (
       <table>
@@ -118,15 +169,20 @@ export default function TaskTable({
             <th>Due</th>
             <th>UR Denial Reason</th>
             <th>Action</th>
+            <th>Preview</th>
           </tr>
         </thead>
         <tbody>
-          {displayedTasks.map((task) => (
+          {displayedTasks.map((task, idx) => (
             <OverdueRow
               key={task.id}
               task={task}
+              index={idx}
               onClaim={onClaim}
               showUrDenial={true}
+              onPreview={handlePreviewClick}
+              previewLoading={loadingIndexes.has(idx)}
+              session={session}
             />
           ))}
         </tbody>
@@ -134,7 +190,7 @@ export default function TaskTable({
     );
   }
 
-  // Standard panes
+  // ==================== DEFAULT PANES ====================
   return (
     <table>
       <thead>
@@ -146,18 +202,23 @@ export default function TaskTable({
           <th>UR Denial Reason</th>
           <th>Quick Note</th>
           <th>Actions</th>
+          <th>Preview</th>
         </tr>
       </thead>
       <tbody>
-        {displayedTasks.map((task) => (
+        {displayedTasks.map((task, idx) => (
           <StandardRow
             key={task.id}
             task={task}
+            index={idx}
             showUrDenial={true}
             getPresets={getPresets}
             onSaveNote={onSaveNote}
             onClaim={onClaim}
             onComplete={onComplete}
+            onPreview={handlePreviewClick}
+            previewLoading={loadingIndexes.has(idx)}
+            session={session}
           />
         ))}
       </tbody>

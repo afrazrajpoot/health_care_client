@@ -9,7 +9,42 @@ interface StandardRowProps {
   onSaveNote: (e: React.MouseEvent, id: string) => void;
   onClaim: (id: string) => void;
   onComplete: (id: string) => void;
+
+  // PREVIEW PROPS
+  index: number;
+  onPreview: (e: React.MouseEvent, doc: any, index: number) => void;
+  previewLoading: boolean;
+  session?: any;
 }
+
+interface OverdueRowProps {
+  task: Task;
+  onClaim: (id: string) => void;
+  showUrDenial?: boolean;
+  index: number;
+  onPreview: (e: React.MouseEvent, doc: any, index: number) => void;
+  previewLoading: boolean;
+  session?: any;
+}
+
+/**
+ * Returns the patient name to display.
+ * 1. If task.patient exists and is **not** "Not specified" → use it.
+ * 2. Otherwise fall back to document.patientName.
+ * 3. Finally return "—".
+ */
+const getPatientName = (task: Task): string => {
+  const taskName = task.patient?.trim();
+  const docName = task.document?.patientName?.trim();
+
+  if (taskName && taskName !== "Not specified") {
+    return taskName;
+  }
+  if (docName) {
+    return docName;
+  }
+  return "—";
+};
 
 export function StandardRow({
   task,
@@ -19,36 +54,42 @@ export function StandardRow({
   onSaveNote,
   onClaim,
   onComplete,
+  index,
+  onPreview,
+  previewLoading,
+  session,
 }: StandardRowProps) {
   const presets = getPresets(task.dept);
   const handleSave = (e: React.MouseEvent) => onSaveNote(e, task.id);
   const isClaimed = task.statusText === "in progress";
-  console.log("Rendering StandardRow for task:", task);
-  // Get UR denial reason from task or nested document
   const urDenialReason =
     task.ur_denial_reason || task.document?.ur_denial_reason;
 
   return (
     <tr data-taskid={task.id} data-dept={task.dept} data-overdue={task.overdue}>
       <td>{task.task}</td>
+
       {showDept && (
         <td>
           <span className="pill waiting">{task.dept}</span>
         </td>
       )}
+
       <td>
         <span className={`pill ${task.statusClass}`}>{task.statusText}</span>
       </td>
-      <td>{task.due}</td>
-      <td>{task.patient || "—"}</td>
 
-      {/* UR Denial Reason Column */}
+      <td>{task.due}</td>
+
+      {/* Patient – with fallback */}
+      <td>{getPatientName(task)}</td>
+
       {showUrDenial && (
         <td className="ur-reason-cell">
           {urDenialReason ? (
             <span title={urDenialReason}>{urDenialReason}</span>
           ) : (
-            <span>—</span>
+            "—"
           )}
         </td>
       )}
@@ -65,7 +106,7 @@ export function StandardRow({
               <option key={opt}>{opt}</option>
             ))}
           </select>
-          <input className="qfree" placeholder="1‑line" />
+          <input className="qfree" placeholder="1-line" />
           <button
             className="bg-gradient-to-r from-green-600 to-green-500 text-white font-bold py-[0.5vw] px-[0.5vw] rounded-md"
             onClick={handleSave}
@@ -81,6 +122,27 @@ export function StandardRow({
           </div>
         </div>
       </td>
+
+      {/* ----- PREVIEW ----- */}
+      <td className="preview-cell">
+        {task.document?.blobPath ? (
+          previewLoading ? (
+            <span className="preview-loading">Loading…</span>
+          ) : (
+            <a
+              href="#"
+              className="preview-link"
+              onClick={(e) => onPreview(e, task.document, index)}
+            >
+              Preview
+            </a>
+          )
+        ) : (
+          "—"
+        )}
+      </td>
+
+      {/* ----- ACTIONS ----- */}
       <td>
         <button
           className="btn light w-full max-w-[10vw]"
@@ -99,44 +161,69 @@ export function StandardRow({
   );
 }
 
-interface OverdueRowProps {
-  task: Task;
-  onClaim: (id: string) => void;
-  showUrDenial?: boolean;
-}
+/* ---------------------------------------------------- */
 
 export function OverdueRow({
   task,
   onClaim,
   showUrDenial = false,
+  index,
+  onPreview,
+  previewLoading,
+  session,
 }: OverdueRowProps) {
   const isClaimed = task.statusText === "in progress";
-
-  // Get UR denial reason from task or nested document
   const urDenialReason =
     task.ur_denial_reason || task.document?.ur_denial_reason;
 
   return (
     <tr data-dept={task.dept} data-overdue="true">
       <td>{task.task}</td>
+
       <td>
         <span className="pill waiting">{task.dept}</span>
       </td>
+
       <td>{task.due}</td>
 
-      {/* UR Denial Reason Column for Overdue */}
+      {/* Patient – with fallback (same logic as StandardRow) */}
+      <td>{getPatientName(task)}</td>
+
       {showUrDenial && (
         <td className="ur-reason-cell">
           {urDenialReason ? (
             <span title={urDenialReason}>{urDenialReason}</span>
           ) : (
-            <span>—</span>
+            "—"
           )}
         </td>
       )}
 
+      {/* ----- PREVIEW ----- */}
+      <td className="preview-cell">
+        {task.document?.blobPath ? (
+          previewLoading ? (
+            <span className="preview-loading">Loading…</span>
+          ) : (
+            <a
+              href="#"
+              className="preview-link"
+              onClick={(e) => onPreview(e, task.document, index)}
+            >
+              Preview
+            </a>
+          )
+        ) : (
+          "—"
+        )}
+      </td>
+
+      {/* ----- ACTION ----- */}
       <td>
-        <button className="btn primary" onClick={() => onClaim(task.id)}>
+        <button
+          className="btn primary w-full max-w-[10vw]"
+          onClick={() => onClaim(task.id)}
+        >
           {isClaimed ? "Unclaim" : "Claim"}
         </button>
       </td>
