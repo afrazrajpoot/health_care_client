@@ -31,8 +31,7 @@ export async function GET(request: Request) {
       physicianId = null;
     }
 
-    // Log query params for debugging
-    console.log("Query params:", { patientName, claimNumber, dobParam, physicianId, mode, strict });
+
 
     // ✅ Build a flexible where clause with AND conditions
     const whereClause: Prisma.DocumentWhereInput = {};
@@ -78,10 +77,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // ✅ Always filter for documents with ur_denial_reason (non-null and non-empty)
-    andConditions.push({
-      ur_denial_reason: { not: null, not: "" }
-    });
+
 
     // If no conditions, fallback to all docs (but we'll limit with take)
     if (andConditions.length > 0) {
@@ -138,8 +134,7 @@ export async function GET(request: Request) {
         grouped.get(key)!.push(doc);
       });
 
-      // Log grouped keys for debugging
-      console.log("Grouped keys:", Array.from(grouped.keys()));
+   
 
       // For each group, create aggregated document with unique snapshots from all docs in group
       uniqueResults = Array.from(grouped.values()).map((group) => {
