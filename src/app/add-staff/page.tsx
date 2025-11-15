@@ -41,7 +41,7 @@ const addStaffSchema: any = z
     phoneNumber: z.string().optional(),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string(),
-    role: z.enum(["Attorney", "Staff"], {
+    role: z.enum(["Attorney", "Staff", "Physician"], {
       required_error: "Please select a role",
     }),
   })
@@ -238,6 +238,7 @@ export default function AddStaffPage() {
                               <option value="">Select role</option>
                               <option value="Attorney">Attorney</option>
                               <option value="Staff">Staff</option>
+                              <option value="Physician">Physician</option>
                             </select>
                           </div>
                         </FormControl>
