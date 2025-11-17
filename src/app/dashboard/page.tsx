@@ -14,7 +14,6 @@ import SearchBar from "@/components/SearchBar";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-// import SearchBar from "@/components/SearchBar"; // Adjust path as needed
 
 // Define TypeScript interfaces for data structures
 interface Patient {
@@ -111,7 +110,7 @@ interface DocumentData {
   summary_snapshot?: SummarySnapshot;
   summary_snapshots?: SummarySnapshotItem[];
   whats_new?: WhatsNew;
-  quick_notes_snapshots?: QuickNoteSnapshot[]; // ✅ Added interface for quick notes snapshots
+  quick_notes_snapshots?: QuickNoteSnapshot[];
   adl?: ADL;
   document_summary?: { [key: string]: { date: string; summary: string }[] };
   document_summaries?: DocumentSummary[];
@@ -124,9 +123,9 @@ interface DocumentData {
   };
   previous_summaries?: { [key: string]: DocumentSummary };
   allVerified?: boolean;
-  gcs_file_link?: string; // Signed GCS URL for view file
-  blob_path?: string; // Blob path for preview (e.g., "uploads/filename.ext")
-  documents?: any[]; // Added to hold the full documents array
+  gcs_file_link?: string;
+  blob_path?: string;
+  documents?: any[];
   body_part_snapshots?: any[];
 }
 
@@ -190,18 +189,6 @@ export default function PhysicianCard() {
         "Search for patients by name to view their medical records and physician cards.",
       target: searchBarRef,
     },
-    // {
-    //   title: "Mode Selection",
-    //   content:
-    //     "Toggle between Workers Comp and General Medicine modes to filter data accordingly.",
-    //   target: modeSelectorRef,
-    // },
-    // {
-    //   title: "Patient Information",
-    //   content:
-    //     "View comprehensive patient data including visit history, treatment summaries, and ADL status.",
-    //   target: patientCardRef,
-    // },
   ];
 
   // Calculate positions for onboarding steps
@@ -526,7 +513,7 @@ export default function PhysicianCard() {
 
       const latestDoc = data.documents[0]; // Latest document for top-level fields like adl, whats_new, etc.
 
-      // Process whats_new to flat object
+      // Process whats_new to flat object, and set summaries in whats_new
       let processedWhatsNew: WhatsNew = {};
       let processedQuickNotes: QuickNoteSnapshot[] = [];
       if (
@@ -550,6 +537,20 @@ export default function PhysicianCard() {
             status_update: "", // Can be derived if needed
           }));
         }
+      }
+
+      // Set summaries in whats_new
+      if (latestDoc.brief_summary) {
+        processedWhatsNew.brief_summary = latestDoc.brief_summary;
+      }
+      if (latestDoc.document_summary?.summary) {
+        processedWhatsNew.detailed_summary = latestDoc.document_summary.summary;
+      }
+      if (latestDoc.document_summary?.type) {
+        processedWhatsNew.summary_type = latestDoc.document_summary.type;
+      }
+      if (latestDoc.document_summary?.date) {
+        processedWhatsNew.summary_date = latestDoc.document_summary.date;
       }
 
       // Group summaries and briefs across all documents by type
@@ -614,7 +615,7 @@ export default function PhysicianCard() {
         created_at: latestDoc.created_at,
         documents: data.documents, // Keep full array for components like WhatsNewSection
         adl: latestDoc.adl, // ADL from latest doc
-        whats_new: processedWhatsNew, // Processed flat object
+        whats_new: processedWhatsNew, // Processed flat object with summaries included
         brief_summary: latestDoc.brief_summary, // For backward compatibility
         document_summaries,
         previous_summaries,
@@ -623,11 +624,11 @@ export default function PhysicianCard() {
         quick_notes_snapshots: processedQuickNotes,
         gcs_file_link: latestDoc?.gcs_file_link,
         blob_path: latestDoc?.blob_path,
-        file_name: latestDoc?.file_name, // ✅ Set file name from API
+        file_name: latestDoc?.file_name,
         consulting_doctor:
           allBodyPartSnapshots[0]?.consultingDoctor ||
           latestDoc?.body_part_snapshots?.[0]?.consultingDoctor ||
-          "Not specified", // ✅ Set consulting doctor from body part snapshots
+          "Not specified",
         // Compute allVerified based on status of latest doc (or aggregate if needed)
         allVerified:
           !!latestDoc.status && latestDoc.status.toLowerCase() === "verified",
@@ -729,14 +730,13 @@ export default function PhysicianCard() {
   const handleCopy = async (text: string, fieldName: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // Optional: Show toast or feedback
       console.log(`${fieldName} copied to clipboard`);
     } catch (err) {
       console.error("Failed to copy text:", err);
     }
   };
 
-  // Handle section copy
+  // Handle section copy - UPDATED TO INCLUDE BOTH SUMMARIES
   const handleSectionCopy = async (
     sectionId: string,
     snapshotIndex?: number
@@ -758,38 +758,21 @@ export default function PhysicianCard() {
         }
         break;
       case "section-whatsnew":
-        text = "What's New Since Last Visit\n";
-        const wn = doc?.whats_new;
-        if (wn) {
-          Object.entries(wn).forEach(([key, value]) => {
-            if (value && value.trim() !== "" && value.trim() !== " ") {
-              const label = key.toUpperCase().replace(/_/g, " ");
-              text += `${label}: ${value}\n`;
-            }
-          });
-        }
-        if (!text.includes(":")) {
-          text += "No significant changes since last visit";
-        }
-        // ✅ Append quick notes to copy text (sorted)
-        const sortedNotes = (doc?.quick_notes_snapshots || [])
-          .filter(
-            (note) =>
-              note.status_update?.trim() ||
-              note.one_line_note?.trim() ||
-              note.details?.trim()
-          )
-          .sort(
-            (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-        if (sortedNotes.length > 0) {
-          text += "\nQuick Notes:\n";
-          sortedNotes.forEach((note) => {
-            text += `- ${formatTimestamp(note.timestamp)}: ${
-              note.status_update || "Note"
-            } - ${note.one_line_note || ""} (${note.details || ""})\n`;
-          });
+        // Get both summaries
+        const latestSummary = doc?.document_summaries?.[0];
+        const shortSummary =
+          latestSummary?.brief_summary || "No short summary available";
+        const longSummary =
+          latestSummary?.summary || "No long summary available";
+
+        text = `DOCUMENT SUMMARIES\n\n`;
+        text += `📋 BRIEF SUMMARY:\n${shortSummary}\n\n`;
+        text += `📄 DETAILED SUMMARY:\n${longSummary}\n\n`;
+
+        if (latestSummary) {
+          text += `📊 METADATA:\n`;
+          text += `Type: ${latestSummary.type}\n`;
+          text += `Date: ${formatDate(latestSummary.date)}\n`;
         }
         break;
       case "section-adl":
@@ -894,7 +877,7 @@ export default function PhysicianCard() {
     }
   };
 
-  // ✅ Helper for timestamp formatting (used in copy handler)
+  // Helper for timestamp formatting (used in copy handler)
   const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return "—";
     try {
@@ -1218,56 +1201,6 @@ export default function PhysicianCard() {
                     </span>
                   </div>
                 </div>
-
-                {/* Physician Verified Row - Only show for Physicians */}
-                {/* {session.user.role === "Physician" && (
-                  <div className="flex justify-between items-center p-3 border-b border-blue-200 bg-gray-50">
-                    <div className="flex gap-2 items-center text-sm">
-                      <label
-                        className="relative inline-block w-14 h-8"
-                        aria-label="Physician Verified"
-                      >
-                        <input
-                          id="verifyToggle"
-                          type="checkbox"
-                          className="opacity-0 w-0 h-0"
-                          checked={isVerified}
-                          onChange={handleVerifyToggle}
-                          disabled={verifyLoading || documentData?.allVerified}
-                        />
-                        <span
-                          className={`absolute inset-0 bg-gray-300 border border-blue-200 rounded-full cursor-pointer transition duration-200 ${
-                            isVerified ? "bg-green-100 border-green-300" : ""
-                          } ${
-                            verifyLoading || documentData?.allVerified
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
-                        >
-                          <span
-                            className={`absolute h-6 w-6 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-200 ${
-                              isVerified ? "translate-x-6" : ""
-                            } shadow`}
-                          ></span>
-                        </span>
-                      </label>
-                      {verifyLoading && (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                      )}
-                      <span
-                        id="verifyBadge"
-                        className={`px-2 py-1 rounded-full border border-green-300 bg-green-50 text-green-800 font-bold ${
-                          isVerified ? "inline-block" : "hidden"
-                        }`}
-                      >
-                        Verified ✓
-                      </span>
-                    </div>
-                    <div className="text-gray-600 text-sm">
-                      Last verified: <span id="verifyTime">{verifyTime}</span>
-                    </div>
-                  </div>
-                )} */}
 
                 {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
                 <WhatsNewSection

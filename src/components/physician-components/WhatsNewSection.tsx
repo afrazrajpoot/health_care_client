@@ -17,6 +17,14 @@ import {
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -24,6 +32,12 @@ interface WhatsNewSectionProps {
   onCopySection: (sectionId: string) => void;
   isCollapsed: boolean;
   onToggle: () => void;
+}
+
+interface SelectedSummary {
+  type: string;
+  date: string;
+  summary: string;
 }
 
 const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
@@ -38,9 +52,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
     new Set()
   );
+  const [selectedSummary, setSelectedSummary] =
+    useState<SelectedSummary | null>(null);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
-
+  console.log(documentData, "documentData what new");
   // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
   const documentGroups = useMemo(() => {
     if (!documentData?.documents) return [];
@@ -49,10 +65,19 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       .map((doc, docIndex) => {
         const docId = doc.document_id || `doc_${docIndex}`;
 
-        // whats_new is now an array of bullet point strings
-        const bulletPoints = doc.whats_new || [];
+        // Prioritize whats_new.summary.short as short summary
+        const shortSummaryFromWhatsNew = doc.whats_new?.summary?.short || "";
+        // Use document_summary.summary as fallback short summary
+        const shortSummary =
+          shortSummaryFromWhatsNew || doc.document_summary?.summary || "";
 
-        // Filter out empty bullet points
+        // Prioritize whats_new.summary.long as long summary
+        const longSummaryFromWhatsNew = doc.whats_new?.summary?.long || "";
+        // Use brief_summary as fallback long summary
+        const longSummary = longSummaryFromWhatsNew || doc.brief_summary || "";
+
+        // Fallback to whats_new bullet points if no short summary (legacy)
+        const bulletPoints = Array.isArray(doc.whats_new) ? doc.whats_new : [];
         const validBulletPoints = bulletPoints.filter(
           (bullet: string) =>
             bullet &&
@@ -61,6 +86,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             bullet.trim() !==
               "• No significant new findings identified in current document"
         );
+
+        const contentType = shortSummary ? "summary" : "bullets";
+        const mainContent = shortSummary || validBulletPoints;
 
         // Extract consulting doctor from the first body part snapshot (or fallback)
         const consultingDoctor =
@@ -74,15 +102,19 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           originalDocId: docId,
           documentIndex: doc.document_index || docIndex + 1,
           isLatest: doc.is_latest || false,
-          reportDate: doc.created_at || "",
+          reportDate: doc.report_date || doc.created_at || "",
+          shortSummary,
+          longSummary,
           bulletPoints: validBulletPoints,
+          contentType,
+          mainContent,
           doc, // Full document object for additional info
           status: doc.status || "pending",
           consultingDoctor,
           documentType,
         };
       })
-      .filter((group) => group.bulletPoints.length > 0); // Only show documents with bullet points
+      .filter((group) => group.mainContent || group.longSummary); // Only show documents with content
   }, [documentData?.documents]);
 
   // Automatically mark verified documents as viewed
@@ -107,11 +139,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     e.stopPropagation();
 
     const group = documentGroups.find((g) => g.docId === groupId);
-    if (
-      !group ||
-      !Array.isArray(group.bulletPoints) ||
-      group.bulletPoints.length === 0
-    ) {
+    if (!group || !group.mainContent) {
       toast.error("No items found to copy", {
         duration: 5000,
         position: "top-right",
@@ -119,9 +147,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       return;
     }
 
-    const textToCopy = `These findings have been reviewed by Physician\n${group.bulletPoints.join(
-      "\n"
-    )}`;
+    const textToCopy = `These findings have been reviewed by Physician\n${
+      typeof group.mainContent === "string"
+        ? group.mainContent
+        : group.mainContent.join("\n")
+    }`;
 
     navigator.clipboard
       .writeText(textToCopy)
@@ -239,6 +269,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
+  const handleReadMoreClick = (group: any) => {
+    if (group.longSummary) {
+      setSelectedSummary({
+        type: group.documentType,
+        date: group.reportDate,
+        summary: group.longSummary,
+      });
+    }
+  };
+
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
   const isLoadingForGroup = (group: any) => {
     const docId = group.doc?.document_id;
@@ -287,6 +327,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <div key={group.docId} className="whats-new-item">
                     {/* Group Header: Show document info */}
                     <div className="group-header">
+                      <div className="group-info">
+                        <span className="doc-type">{group.documentType}</span>
+                        <span className="doc-date">
+                          {formatDate(group.reportDate)}
+                        </span>
+                        <span className="doc-doctor">
+                          {group.consultingDoctor}
+                        </span>
+                        {group.isLatest && (
+                          <span className="doc-latest">Latest</span>
+                        )}
+                      </div>
                       <div className="group-actions">
                         <button
                           className={`copy-btn text-[0.3vw] ${
@@ -332,17 +384,35 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                     </div>
 
-                    {/* Display bullet points */}
-                    <div className="bullet-points-container">
-                      <ul className="bullet-points-list">
-                        {group.bulletPoints.map(
-                          (bullet: string, index: number) => (
-                            <li key={index} className="bullet-point-item">
-                              {bullet}
-                            </li>
-                          )
-                        )}
-                      </ul>
+                    {/* Display main content (short summary or bullets) */}
+                    <div className="main-content-container">
+                      {group.contentType === "summary" ? (
+                        <div className="brief-summary">
+                          <p className="summary-text">{group.shortSummary}</p>
+                          {group.longSummary && (
+                            <Button
+                              variant="link"
+                              onClick={() => handleReadMoreClick(group)}
+                              className="read-more-btn"
+                            >
+                              Read more
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bullet-points-container">
+                          <ul className="bullet-points-list">
+                            {Array.isArray(group.mainContent) &&
+                              group.mainContent.map(
+                                (bullet: string, index: number) => (
+                                  <li key={index} className="bullet-point-item">
+                                    {bullet}
+                                  </li>
+                                )
+                              )}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -356,6 +426,24 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Modal for Detailed Summary */}
+      <Dialog
+        open={!!selectedSummary}
+        onOpenChange={() => setSelectedSummary(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Detailed {selectedSummary?.type} Summary -{" "}
+              {formatDate(selectedSummary?.date)}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="whitespace-pre-wrap">
+            {selectedSummary?.summary}
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
 
       <style jsx>{`
         .section {
@@ -472,6 +560,29 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           display: flex;
           gap: 4px;
           align-items: center;
+        }
+        .main-content-container {
+          margin-top: 8px;
+        }
+        .brief-summary {
+          margin-top: 8px;
+        }
+        .summary-text {
+          font-size: 14px;
+          line-height: 1.5;
+          color: #374151;
+          margin-bottom: 12px;
+          white-space: pre-wrap;
+        }
+        .read-more-btn {
+          font-size: 14px;
+          color: #3b82f6;
+          text-decoration: underline;
+          padding: 0;
+          margin: 0;
+        }
+        .read-more-btn:hover {
+          color: #2563eb;
         }
         .bullet-points-container {
           margin-top: 8px;
