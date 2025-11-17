@@ -57,6 +57,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
   console.log(documentData, "documentData what new");
+
   // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
   const documentGroups = useMemo(() => {
     if (!documentData?.documents) return [];
@@ -65,30 +66,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       .map((doc, docIndex) => {
         const docId = doc.document_id || `doc_${docIndex}`;
 
-        // Prioritize whats_new.summary.short as short summary
-        const shortSummaryFromWhatsNew = doc.whats_new?.summary?.short || "";
-        // Use document_summary.summary as fallback short summary
-        const shortSummary =
-          shortSummaryFromWhatsNew || doc.document_summary?.summary || "";
+        // Extract both summaries from whats_new object
+        const longSummary = doc.whats_new?.long_summary || "";
+        const shortSummary = doc.whats_new?.short_summary || "";
 
-        // Prioritize whats_new.summary.long as long summary
-        const longSummaryFromWhatsNew = doc.whats_new?.summary?.long || "";
-        // Use brief_summary as fallback long summary
-        const longSummary = longSummaryFromWhatsNew || doc.brief_summary || "";
-
-        // Fallback to whats_new bullet points if no short summary (legacy)
-        const bulletPoints = Array.isArray(doc.whats_new) ? doc.whats_new : [];
-        const validBulletPoints = bulletPoints.filter(
-          (bullet: string) =>
-            bullet &&
-            typeof bullet === "string" &&
-            bullet.trim() &&
-            bullet.trim() !==
-              "• No significant new findings identified in current document"
-        );
-
-        const contentType = shortSummary ? "summary" : "bullets";
-        const mainContent = shortSummary || validBulletPoints;
+        // Fallback to legacy brief_summary if no short summary
+        const fallbackShortSummary = doc.brief_summary || "";
 
         // Extract consulting doctor from the first body part snapshot (or fallback)
         const consultingDoctor =
@@ -103,19 +86,89 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           documentIndex: doc.document_index || docIndex + 1,
           isLatest: doc.is_latest || false,
           reportDate: doc.report_date || doc.created_at || "",
-          shortSummary,
           longSummary,
-          bulletPoints: validBulletPoints,
-          contentType,
-          mainContent,
+          shortSummary: shortSummary || fallbackShortSummary,
+          contentType: "summaries", // Now we have both summaries
           doc, // Full document object for additional info
           status: doc.status || "pending",
           consultingDoctor,
           documentType,
         };
       })
-      .filter((group) => group.mainContent || group.longSummary); // Only show documents with content
+      .filter((group) => group.shortSummary); // Only show documents with short summary
   }, [documentData?.documents]);
+
+  // Format the long summary with bold headings and remove brackets/quotes
+  const formatLongSummary = (summary: string): string => {
+    if (!summary) return "";
+
+    // Remove brackets and quotes
+    let formatted = summary
+      .replace(/[\[\]"]/g, "") // Remove brackets and quotes
+      .replace(/'/g, "") // Remove single quotes
+      .replace(/\{/g, "")
+      .replace(/\}/g, ""); // Remove curly braces
+
+    // Make headings bold
+    formatted = formatted
+      .replace(/(📋 REPORT OVERVIEW)/g, "**$1**")
+      .replace(/(👤 PATIENT INFORMATION)/g, "**$1**")
+      .replace(/(🏥 DIAGNOSIS)/g, "**$1**")
+      .replace(/(🔬 CLINICAL STATUS)/g, "**$1**")
+      .replace(/(💊 MEDICATIONS)/g, "**$1**")
+      .replace(/(⚖️ MEDICAL-LEGAL CONCLUSIONS)/g, "**$1**")
+      .replace(/(💼 WORK STATUS)/g, "**$1**")
+      .replace(/(🎯 RECOMMENDATIONS)/g, "**$1**")
+      .replace(/(🚨 CRITICAL FINDINGS)/g, "**$1**")
+      .replace(/(--------------------------------------------------)/g, "---")
+      .replace(/(Primary Diagnoses:)/g, "**$1**")
+      .replace(/(Chief Complaint:)/g, "**$1**")
+      .replace(/(Pain Scores:)/g, "**$1**")
+      .replace(/(Functional Limitations:)/g, "**$1**")
+      .replace(/(Objective Findings:)/g, "**$1**")
+      .replace(/(Current Medications:)/g, "**$1**")
+      .replace(/(Recommended Future Medications:)/g, "**$1**")
+      .replace(/(MMI Status:)/g, "**$1**")
+      .replace(/(MMI Reason:)/g, "**$1**")
+      .replace(/(Current Work Status:)/g, "**$1**")
+      .replace(/(Work Restrictions:)/g, "**$1**")
+      .replace(/(Prognosis for Return to Work:)/g, "**$1**")
+      .replace(/(Diagnostic Tests Recommended:)/g, "**$1**")
+      .replace(/(Interventional Procedures:)/g, "**$1**")
+      .replace(/(Therapy Recommendations:)/g, "**$1**")
+      .replace(/(Future Surgical Needs:)/g, "**$1**");
+
+    return formatted;
+  };
+
+  // Convert formatted text to JSX with bold styling
+  const renderFormattedSummary = (text: string) => {
+    const lines = text.split("\n");
+    return lines.map((line, index) => {
+      // Check if line should be bold (contains **text**)
+      if (line.includes("**") && line.includes("**")) {
+        const parts = line.split("**");
+        return (
+          <div key={index} style={{ marginBottom: "8px" }}>
+            {parts.map((part, partIndex) =>
+              partIndex % 2 === 1 ? (
+                <strong key={partIndex}>{part}</strong>
+              ) : (
+                <span key={partIndex}>{part}</span>
+              )
+            )}
+          </div>
+        );
+      }
+
+      // Regular line
+      return (
+        <div key={index} style={{ marginBottom: "8px" }}>
+          {line}
+        </div>
+      );
+    });
+  };
 
   // Automatically mark verified documents as viewed
   useEffect(() => {
@@ -139,19 +192,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     e.stopPropagation();
 
     const group = documentGroups.find((g) => g.docId === groupId);
-    if (!group || !group.mainContent) {
-      toast.error("No items found to copy", {
+    if (!group || !group.shortSummary) {
+      toast.error("No summary found to copy", {
         duration: 5000,
         position: "top-right",
       });
       return;
     }
 
-    const textToCopy = `These findings have been reviewed by Physician\n${
-      typeof group.mainContent === "string"
-        ? group.mainContent
-        : group.mainContent.join("\n")
-    }`;
+    const textToCopy =
+      `DOCUMENT SUMMARY\n\n` +
+      `📋 Brief Summary:\n${group.shortSummary}\n\n` +
+      `These findings have been reviewed by Physician`;
 
     navigator.clipboard
       .writeText(textToCopy)
@@ -271,10 +323,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const handleReadMoreClick = (group: any) => {
     if (group.longSummary) {
+      const formattedSummary = formatLongSummary(group.longSummary);
       setSelectedSummary({
         type: group.documentType,
         date: group.reportDate,
-        summary: group.longSummary,
+        summary: formattedSummary,
       });
     }
   };
@@ -316,7 +369,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         </div>
         {!isCollapsed && (
           <div className="section-content">
-            <div className="whats-new-container">
+            <div className="whats-new-list">
               {documentGroups.map((group, groupIndex) => {
                 const isViewed = isGroupViewed(group.docId);
                 const isGroupCopied = copied[`whatsnew-${group.docId}`];
@@ -324,94 +377,87 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 const isPreviewLoading = isPreviewLoadingForGroup(group);
 
                 return (
-                  <div key={group.docId} className="whats-new-item">
-                    {/* Group Header: Show document info */}
-                    <div className="group-header">
-                      <div className="group-info">
-                        <span className="doc-type">{group.documentType}</span>
-                        <span className="doc-date">
-                          {formatDate(group.reportDate)}
+                  <div key={group.docId} className="whats-new-bullet-item">
+                    {/* Bullet point with summary */}
+                    <div className="bullet-content">
+                      <div className="bullet-marker">•</div>
+                      <div className="bullet-text">
+                        <span className="summary-text">
+                          {group.shortSummary}
                         </span>
-                        <span className="doc-doctor">
-                          {group.consultingDoctor}
-                        </span>
-                        {group.isLatest && (
-                          <span className="doc-latest">Latest</span>
-                        )}
-                      </div>
-                      <div className="group-actions">
-                        <button
-                          className={`copy-btn text-[0.3vw] ${
-                            isGroupCopied ? "copied" : ""
-                          }`}
-                          onClick={(e) => handleCopyClick(e, group.docId)}
-                          title="Copy This Update"
-                        >
-                          {isGroupCopied ? (
-                            <CheckIcon className="icon-xxs text-[0.4vw]" />
-                          ) : (
-                            <CopyIcon className="icon-xxs text-[0.4vw]" />
+
+                        {/* Action buttons at the end of summary */}
+                        <div className="action-buttons">
+                          {group.longSummary && (
+                            <button
+                              onClick={() => handleReadMoreClick(group)}
+                              className="action-link read-more-link"
+                            >
+                              Read more
+                            </button>
                           )}
-                        </button>
-                        <button
-                          className={`mark-viewed-btn ${
-                            isViewed ? "viewed" : ""
-                          } ${isLoading ? "loading" : ""}`}
-                          onClick={(e) => handleMarkViewed(e, group)}
-                          disabled={isLoading}
-                          title={isViewed ? "Reviewed" : "Mark as Reviewed"}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="icon-xxs animate-spin" />
-                          ) : isViewed ? (
-                            "Reviewed"
-                          ) : (
-                            "Mark as Reviewed"
-                          )}
-                        </button>
-                        <button
-                          className="preview-btn"
-                          onClick={(e) => handlePreviewClick(e, group.doc)}
-                          disabled={isPreviewLoading}
-                          title="Preview Document"
-                        >
-                          {isPreviewLoading ? (
-                            <Loader2 className="icon-xxs animate-spin" />
-                          ) : (
-                            "Preview"
-                          )}
-                        </button>
+
+                          <button
+                            className={`action-link copy-link ${
+                              isGroupCopied ? "copied" : ""
+                            }`}
+                            onClick={(e) => handleCopyClick(e, group.docId)}
+                            title="Copy This Update"
+                          >
+                            {isGroupCopied ? (
+                              <CheckIcon className="icon-micro" />
+                            ) : (
+                              <CopyIcon className="icon-micro" />
+                            )}
+                            Copy
+                          </button>
+
+                          <button
+                            className={`action-link mark-viewed-link ${
+                              isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
+                            onClick={(e) => handleMarkViewed(e, group)}
+                            disabled={isLoading}
+                            title={isViewed ? "Reviewed" : "Mark as Reviewed"}
+                          >
+                            {isLoading ? (
+                              <Loader2 className="icon-micro animate-spin" />
+                            ) : isViewed ? (
+                              "Reviewed"
+                            ) : (
+                              "Mark Reviewed"
+                            )}
+                          </button>
+
+                          <button
+                            className="action-link preview-link"
+                            onClick={(e) => handlePreviewClick(e, group.doc)}
+                            disabled={isPreviewLoading}
+                            title="Preview Document"
+                          >
+                            {isPreviewLoading ? (
+                              <Loader2 className="icon-micro animate-spin" />
+                            ) : (
+                              "Preview"
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Display main content (short summary or bullets) */}
-                    <div className="main-content-container">
-                      {group.contentType === "summary" ? (
-                        <div className="brief-summary">
-                          <p className="summary-text">{group.shortSummary}</p>
-                          {group.longSummary && (
-                            <Button
-                              variant="link"
-                              onClick={() => handleReadMoreClick(group)}
-                              className="read-more-btn"
-                            >
-                              Read more
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="bullet-points-container">
-                          <ul className="bullet-points-list">
-                            {Array.isArray(group.mainContent) &&
-                              group.mainContent.map(
-                                (bullet: string, index: number) => (
-                                  <li key={index} className="bullet-point-item">
-                                    {bullet}
-                                  </li>
-                                )
-                              )}
-                          </ul>
-                        </div>
+                    {/* Document metadata - smaller and less prominent */}
+                    <div className="document-metadata">
+                      <span className="meta-item doc-type">
+                        {group.documentType}
+                      </span>
+                      <span className="meta-item doc-date">
+                        {formatDate(group.reportDate)}
+                      </span>
+                      <span className="meta-item doc-doctor">
+                        {group.consultingDoctor}
+                      </span>
+                      {group.isLatest && (
+                        <span className="meta-item doc-latest">Latest</span>
                       )}
                     </div>
                   </div>
@@ -427,27 +473,27 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         )}
       </div>
 
-      {/* Modal for Detailed Summary */}
+      {/* Modal for Detailed Summary with EXTRA WIDE MODAL */}
       <Dialog
         open={!!selectedSummary}
         onOpenChange={() => setSelectedSummary(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className=" w-full h-[95vh] overflow-y-auto p-8">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl font-bold">
               Detailed {selectedSummary?.type} Summary -{" "}
               {formatDate(selectedSummary?.date)}
             </DialogTitle>
           </DialogHeader>
-          <DialogDescription className="whitespace-pre-wrap">
-            {selectedSummary?.summary}
-          </DialogDescription>
+          <div className="detailed-summary-content extra-wide-modal">
+            {selectedSummary && renderFormattedSummary(selectedSummary.summary)}
+          </div>
         </DialogContent>
       </Dialog>
 
       <style jsx>{`
         .section {
-          padding: 20px;
+          padding: 16px;
           border-bottom: 1px solid #e5e7eb;
           transition: background-color 0.2s;
         }
@@ -456,7 +502,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           justify-content: space-between;
           align-items: center;
           cursor: pointer;
-          padding: 4px;
+          padding: 2px;
           border-radius: 4px;
           transition: background-color 0.2s;
         }
@@ -466,213 +512,187 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .section-title {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           flex: 1;
         }
         h3 {
           margin: 0;
-          font-size: 15px;
+          font-size: 13px;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           font-weight: 600;
           color: #1f2937;
         }
         .header-actions {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           align-items: center;
         }
         .section-content {
-          margin-top: 12px;
+          margin-top: 10px;
         }
-        .whats-new-container {
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          background: #ffffff;
-          overflow: hidden;
+        .whats-new-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
-        .whats-new-item {
-          padding: 10px;
-          // border-bottom: 1px solid #e5e7eb;
+        .whats-new-bullet-item {
+          padding: 8px 0;
+          border-bottom: 1px solid #f1f5f9;
         }
-        .whats-new-item:last-child {
+        .whats-new-bullet-item:last-child {
           border-bottom: none;
         }
-        ul {
-          margin: 0;
-          padding-left: 0;
-          list-style-type: none;
-        }
-        .separated-item {
-          margin-top: 16px;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          padding: 16px;
-          background: #fafbfc;
-        }
-        .separated-item:first-child {
-          margin-top: 0;
-        }
-        .group-header {
+        .bullet-content {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 3px;
-          margin-bottom: 3px;
-          padding-bottom: 4px;
+          align-items: flex-start;
+          gap: 8px;
+          margin-bottom: 4px;
         }
-        .group-info {
+        .bullet-marker {
+          color: #3b82f6;
+          font-weight: bold;
+          font-size: 14px;
+          line-height: 1.3;
+          min-width: 12px;
+        }
+        .bullet-text {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+          line-height: 1.3;
+        }
+        .summary-text {
+          font-size: 12px;
+          line-height: 1.3;
+          color: #374151;
+          font-weight: 400;
+          flex: 1;
+        }
+        .action-buttons {
           display: flex;
           align-items: center;
           gap: 12px;
-          font-size: 13px;
-          font-weight: 600;
-          color: #374151;
           flex-wrap: wrap;
+        }
+        .action-link {
+          background: none;
+          border: none;
+          padding: 0;
+          font-size: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          text-decoration: underline;
+          color: #3b82f6;
+          transition: color 0.2s;
+        }
+        .action-link:hover:not(:disabled) {
+          color: #2563eb;
+        }
+        .action-link:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .read-more-link {
+          color: #059669;
+          text-decoration: underline;
+        }
+        .read-more-link:hover {
+          color: #047857;
+        }
+        .copy-link {
+          color: #7c3aed;
+          text-decoration: underline;
+        }
+        .copy-link.copied {
+          color: #059669;
+        }
+        .copy-link:hover {
+          color: #6d28d9;
+        }
+        .mark-viewed-link {
+          color: #dc2626;
+          text-decoration: underline;
+        }
+        .mark-viewed-link.viewed {
+          color: #059669;
+        }
+        .mark-viewed-link:hover:not(:disabled) {
+          color: #b91c1c;
+        }
+        .preview-link {
+          color: #ea580c;
+          text-decoration: underline;
+        }
+        .preview-link:hover:not(:disabled) {
+          color: #c2410c;
+        }
+        .document-metadata {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: 20px;
+          flex-wrap: wrap;
+        }
+        .meta-item {
+          font-size: 10px;
+          padding: 1px 4px;
+          border-radius: 3px;
         }
         .doc-type {
           color: #1f2937;
           background: #e0f2fe;
-          padding: 2px 8px;
-          border-radius: 4px;
         }
         .doc-latest {
           color: #059669;
-          font-size: 12px;
           background: #ecfdf5;
-          padding: 2px 6px;
-          border-radius: 4px;
         }
         .doc-doctor {
           color: #6b21a8;
-          font-size: 12px;
           background: #ede9fe;
-          padding: 2px 6px;
-          border-radius: 4px;
         }
         .doc-date {
           color: #6b7280;
-          font-size: 12px;
           font-style: italic;
         }
-        .group-actions {
-          display: flex;
-          gap: 4px;
-          align-items: center;
-        }
-        .main-content-container {
-          margin-top: 8px;
-        }
-        .brief-summary {
-          margin-top: 8px;
-        }
-        .summary-text {
-          font-size: 14px;
-          line-height: 1.5;
-          color: #374151;
-          margin-bottom: 12px;
-          white-space: pre-wrap;
-        }
-        .read-more-btn {
-          font-size: 14px;
-          color: #3b82f6;
-          text-decoration: underline;
-          padding: 0;
-          margin: 0;
-        }
-        .read-more-btn:hover {
-          color: #2563eb;
-        }
-        .bullet-points-container {
-          margin-top: 8px;
-        }
-        .bullet-points-list {
-          margin: 0;
-          padding-left: 0;
-        }
-        .bullet-point-item {
-          font-size: 14px;
-          line-height: 1.5;
-          color: #374151;
-          margin-bottom: 8px;
-          padding-left: 16px;
-          position: relative;
-        }
-        .bullet-point-item:before {
-          content: "•";
-          color: #3b82f6;
-          font-weight: bold;
-          position: absolute;
-          left: 0;
-        }
-        .bullet-point-item:last-child {
-          margin-bottom: 0;
-        }
         .no-items {
-          font-size: 14px;
-          line-height: 1.4;
+          font-size: 12px;
+          line-height: 1.3;
           color: #6b7280;
           text-align: center;
-          padding: 20px;
+          padding: 16px;
+          font-style: italic;
         }
-        .review-toggle {
-          font-size: 12px;
-          color: #475569;
-          background: #e2e8f0;
-          padding: 4px 8px;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: background-color 0.2s;
+        .detailed-summary-content {
+          white-space: pre-wrap;
+          font-size: 14px;
+          line-height: 1.6;
+          color: #374151;
         }
-        .review-toggle:hover {
-          background: #cbd5e1;
+        .extra-wide-modal {
+          width: 100%;
+          max-width: none;
+          font-size: 14px;
+          line-height: 1.7;
         }
-        .copy-btn,
-        .mark-viewed-btn,
-        .preview-btn {
-          background: #e2e8f0;
+        .collapse-btn {
+          background: none;
           border: none;
-          padding: 4px 8px;
-          font-size: 12px;
-          border-radius: 4px;
+          padding: 2px;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.2s;
-          color: #475569;
+          color: #6b7280;
+          transition: color 0.2s;
         }
-        .copy-btn {
-          padding: 2px 2px;
-          font-size: 9px;
-        }
-        .copy-btn:hover,
-        .preview-btn:hover:not(:disabled) {
-          background: #cbd5e1;
-        }
-        .copy-btn.copied {
-          background: #dcfce7;
-          color: #166534;
-        }
-        .preview-btn {
-          padding: 4px 8px;
-          font-size: 12px;
-        }
-        .mark-viewed-btn:hover:not(:disabled) {
-          background: #cbd5e1;
-        }
-        .mark-viewed-btn:disabled,
-        .preview-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        .mark-viewed-btn.viewed {
-          background: #dcfce7;
-          color: #166534;
-        }
-        .mark-viewed-btn.viewed:hover {
-          background: #bbf7d0;
+        .collapse-btn:hover {
+          color: #374151;
         }
         .animate-spin {
           animation: spin 1s linear infinite;
@@ -685,18 +705,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             transform: rotate(360deg);
           }
         }
-        /* Icon size classes */
+        /* Icon size classes - much smaller */
         .icon-sm {
-          width: 14px;
-          height: 14px;
-        }
-        .icon-xs {
           width: 12px;
           height: 12px;
         }
-        .icon-xxs {
+        .icon-xs {
           width: 10px;
           height: 10px;
+        }
+        .icon-micro {
+          width: 8px;
+          height: 8px;
         }
       `}</style>
     </>
