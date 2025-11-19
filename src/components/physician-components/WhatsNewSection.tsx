@@ -288,7 +288,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -398,9 +398,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
 
                           <button
-                            className={`action-link copy-link ${
-                              isGroupCopied ? "copied" : ""
-                            }`}
+                            className={`action-link copy-link ${isGroupCopied ? "copied" : ""
+                              }`}
                             onClick={(e) => handleCopyClick(e, group.docId)}
                             title="Copy This Update"
                           >
@@ -413,9 +412,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-link mark-viewed-link ${
-                              isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
+                            className={`action-link mark-viewed-link ${isViewed ? "viewed" : ""
+                              } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
                             title={isViewed ? "Reviewed" : "Mark as Reviewed"}
