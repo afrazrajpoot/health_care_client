@@ -444,7 +444,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     </div>
 
                     {/* Document metadata - smaller and less prominent */}
-                    <div className="document-metadata">
+                    {/* <div className="document-metadata">
                       <span className="meta-item doc-type">
                         {group.documentType}
                       </span>
@@ -457,7 +457,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       {group.isLatest && (
                         <span className="meta-item doc-latest">Latest</span>
                       )}
-                    </div>
+                    </div> */}
                   </div>
                 );
               })}
@@ -557,7 +557,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .bullet-text {
           flex: 1;
-          display: flex;
+          // display: flex;
           align-items: center;
           flex-wrap: wrap;
           gap: 8px;
