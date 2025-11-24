@@ -11,6 +11,7 @@ import RecentPatientsSidebar from "@/components/RecentPatientsSidebar";
 import SearchBar from "@/components/SearchBar";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 // Define TypeScript interfaces for data structures
 interface Patient {
@@ -293,6 +294,8 @@ export default function PhysicianCard() {
   };
   const { data: session, status } = useSession();
   console.log("Session data:", session);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   // Toast management
   const addToast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
@@ -590,6 +593,18 @@ export default function PhysicianCard() {
         adlData.has_changes = false;
       }
       setDocumentData(processedData);
+
+      // Update URL with patient details and mode from document
+      const docMode = latestDoc.mode || "wc";
+      if (docMode !== mode) {
+        setMode(docMode as "wc" | "gm");
+      }
+      const urlParams = new URLSearchParams(searchParams.toString());
+      urlParams.set("patient_name", latestDoc.patient_name || "");
+      urlParams.set("dob", latestDoc.dob || "");
+      urlParams.set("claim_number", latestDoc.claim_number || "");
+      urlParams.set("mode", docMode);
+      router.replace(`?${urlParams.toString()}`, { scroll: false });
     } catch (err: unknown) {
       console.error("Error fetching document data:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
