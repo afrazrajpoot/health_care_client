@@ -1,6 +1,4 @@
-// pages/PhysicianCard.tsx (or app/physician-card/page.tsx)
 "use client";
-
 import { Sidebar } from "@/components/navigation/sidebar";
 import ADLSection from "@/components/physician-components/ADLSection";
 import DocumentSummarySection from "@/components/physician-components/DocumentSummarySection";
@@ -14,7 +12,6 @@ import SearchBar from "@/components/SearchBar";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-
 // Define TypeScript interfaces for data structures
 interface Patient {
   id?: number;
@@ -24,7 +21,6 @@ interface Patient {
   doi: string;
   claimNumber: string;
 }
-
 interface PatientQuiz {
   id: string;
   patientName: string;
@@ -46,7 +42,6 @@ interface PatientQuiz {
   createdAt: string;
   updatedAt: string;
 }
-
 interface SummarySnapshotItem {
   id: string;
   dx: string;
@@ -61,7 +56,6 @@ interface SummarySnapshotItem {
   document_created_at?: string;
   document_report_date?: string;
 }
-
 interface SummarySnapshot {
   diagnosis: string;
   diagnosis_history: string;
@@ -71,18 +65,15 @@ interface SummarySnapshot {
   next_step_history: string;
   has_changes: boolean;
 }
-
 interface WhatsNew {
   [key: string]: string;
 }
-
 interface QuickNoteSnapshot {
   details: string;
   timestamp: string;
   one_line_note: string;
   status_update: string;
 }
-
 interface ADL {
   adls_affected: string;
   adls_affected_history: string;
@@ -90,7 +81,6 @@ interface ADL {
   work_restrictions_history: string;
   has_changes: boolean;
 }
-
 interface DocumentSummary {
   type: string;
   date: string;
@@ -98,7 +88,6 @@ interface DocumentSummary {
   brief_summary?: string;
   document_id?: string;
 }
-
 interface DocumentData {
   patient_name?: string;
   dob?: string;
@@ -128,7 +117,6 @@ interface DocumentData {
   documents?: any[];
   body_part_snapshots?: any[];
 }
-
 export default function PhysicianCard() {
   const [mode, setMode] = useState<"wc" | "gm">("wc");
   const [isVerified, setIsVerified] = useState<boolean>(false);
@@ -152,19 +140,16 @@ export default function PhysicianCard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
-
   // Onboarding states
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [stepPositions, setStepPositions] = useState<any[]>([]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-
   // Refs for onboarding target elements
   const staffButtonRef = useRef<HTMLAnchorElement>(null);
   const searchBarRef = useRef<HTMLDivElement>(null);
   const modeSelectorRef = useRef<HTMLSelectElement>(null);
   const patientCardRef = useRef<HTMLDivElement>(null);
-
   // Collapsible section states
   const [collapsedSections, setCollapsedSections] = useState<{
     [key: string]: boolean;
@@ -174,7 +159,6 @@ export default function PhysicianCard() {
     adlWorkStatus: true,
     documentSummary: true,
   });
-
   // Onboarding steps configuration
   const onboardingSteps = [
     {
@@ -190,11 +174,9 @@ export default function PhysicianCard() {
       target: searchBarRef,
     },
   ];
-
   // Calculate positions for onboarding steps
   const calculateStepPositions = useCallback(() => {
     const positions = [];
-
     // Position for Staff Dashboard button
     if (staffButtonRef.current) {
       const rect = staffButtonRef.current.getBoundingClientRect();
@@ -212,7 +194,6 @@ export default function PhysicianCard() {
         arrowLeft: "50%",
       });
     }
-
     // Position for Search Bar
     if (searchBarRef.current) {
       const rect = searchBarRef.current.getBoundingClientRect();
@@ -230,10 +211,8 @@ export default function PhysicianCard() {
         arrowLeft: "50%",
       });
     }
-
     return positions;
   }, []);
-
   // Start onboarding tour
   const startOnboarding = () => {
     const positions = calculateStepPositions();
@@ -241,12 +220,10 @@ export default function PhysicianCard() {
     setShowOnboarding(true);
     setCurrentStep(0);
   };
-
   // Next step in onboarding
   const nextStep = () => {
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(currentStep + 1);
-
       // Recalculate positions after a brief delay
       setTimeout(() => {
         const newPositions = calculateStepPositions();
@@ -257,12 +234,10 @@ export default function PhysicianCard() {
       localStorage.setItem("physicianOnboardingCompleted", "true");
     }
   };
-
   // Previous step in onboarding
   const previousStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
-
       // Recalculate positions after a brief delay
       setTimeout(() => {
         const newPositions = calculateStepPositions();
@@ -270,13 +245,11 @@ export default function PhysicianCard() {
       }, 50);
     }
   };
-
   // Close onboarding
   const closeOnboarding = () => {
     setShowOnboarding(false);
     localStorage.setItem("physicianOnboardingCompleted", "true");
   };
-
   // Recalculate positions when step changes
   useEffect(() => {
     if (showOnboarding) {
@@ -284,14 +257,12 @@ export default function PhysicianCard() {
       setStepPositions(positions);
     }
   }, [showOnboarding, currentStep, calculateStepPositions]);
-
   // Check if onboarding should be shown on component mount
   useEffect(() => {
     const onboardingCompleted = localStorage.getItem(
       "physicianOnboardingCompleted"
     );
     const welcomeShown = localStorage.getItem("physicianWelcomeShown");
-
     if (!welcomeShown) {
       setShowWelcomeModal(true);
       localStorage.setItem("physicianWelcomeShown", "true");
@@ -303,19 +274,16 @@ export default function PhysicianCard() {
       return () => clearTimeout(timer);
     }
   }, [calculateStepPositions]);
-
   // Listen for start onboarding event
   useEffect(() => {
     const handleStartOnboarding = () => {
       startOnboarding();
     };
-
     window.addEventListener("start-onboarding", handleStartOnboarding);
     return () => {
       window.removeEventListener("start-onboarding", handleStartOnboarding);
     };
   }, []);
-
   // Toggle section collapse state
   const toggleSection = (sectionKey: string) => {
     setCollapsedSections((prev) => ({
@@ -323,10 +291,8 @@ export default function PhysicianCard() {
       [sectionKey]: !prev[sectionKey],
     }));
   };
-
   const { data: session, status } = useSession();
   console.log("Session data:", session);
-
   // Toast management
   const addToast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
@@ -335,23 +301,19 @@ export default function PhysicianCard() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
   }, []);
-
   // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(Array.from(e.target.files));
     }
   };
-
   // Handle upload and queue
   const handleUpload = async () => {
     if (files.length === 0) return;
-
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("documents", file);
     });
-
     try {
       setLoading(true);
       const response = await fetch("/api/extract-documents", {
@@ -361,13 +323,11 @@ export default function PhysicianCard() {
         },
         body: formData,
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         addToast(`Failed to queue files: ${errorText}`, "error");
         return;
       }
-
       const data = await response.json();
       const taskIds = data.task_ids || [];
       files.forEach((file, index) => {
@@ -377,7 +337,6 @@ export default function PhysicianCard() {
           "success"
         );
       });
-
       // Clear files
       setFiles([]);
       if (fileInputRef.current) {
@@ -389,7 +348,6 @@ export default function PhysicianCard() {
       setLoading(false);
     }
   };
-
   // Compute physician ID safely
   const getPhysicianId = (): string | null => {
     if (!session?.user) return null;
@@ -397,24 +355,19 @@ export default function PhysicianCard() {
       ? session.user.id
       : session.user.physicianId;
   };
-
   // Handle patient selection from recommendations
   const handlePatientSelect = (patient: Patient) => {
     console.log("Patient selected:", patient);
     setSelectedPatient(patient);
-
     // Fetch document data for the selected patient
     fetchDocumentData(patient);
   };
-
-  // Handle mode switch
+  // Handle mode switch - Updated: Only changes mode for search, does NOT refetch current data
   const switchMode = (val: "wc" | "gm") => {
     setMode(val);
-    if (selectedPatient) {
-      fetchDocumentData(selectedPatient);
-    }
+    // Removed refetch logic: Data is now mode-specific from initial API fetch on patient select
+    // Future searches will use the new mode, but current data remains unchanged
   };
-
   // Updated processAggregatedSummaries to handle grouped entries with brief_summary
   const processAggregatedSummaries = (grouped: {
     [key: string]: { date: string; summary: string; brief_summary: string }[];
@@ -424,16 +377,13 @@ export default function PhysicianCard() {
   } => {
     const document_summaries: DocumentSummary[] = [];
     const previousByType: { [key: string]: DocumentSummary } = {};
-
     Object.entries(grouped).forEach(([type, entries]) => {
       // entries is array of {date, summary, brief_summary}
       if (!Array.isArray(entries)) return; // Safety check
-
       // Sort entries by date descending
       entries.sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
-
       entries.forEach((entry) => {
         document_summaries.push({
           type,
@@ -442,7 +392,6 @@ export default function PhysicianCard() {
           brief_summary: entry.brief_summary,
         });
       });
-
       // Set previous if more than one
       if (entries.length > 1) {
         const prevEntry = entries[1];
@@ -454,16 +403,13 @@ export default function PhysicianCard() {
         };
       }
     });
-
     // Sort all summaries by date desc globally
     document_summaries.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-
     return { document_summaries, previous_summaries: previousByType };
   };
-
-  // Fetch document data from API
+  // Fetch document data from API - Mode is now passed from initial search context
   const fetchDocumentData = async (patientInfo: Patient) => {
     const physicianId = getPhysicianId();
     if (!physicianId) {
@@ -471,22 +417,18 @@ export default function PhysicianCard() {
       setError("Session not ready. Please refresh.");
       return;
     }
-
     try {
       setLoading(true);
       setError(null);
-
       const params = new URLSearchParams({
         patient_name: patientInfo.patientName || patientInfo.name || "",
         dob: patientInfo.dob,
         doi: patientInfo.doi,
         claim_number: patientInfo.claimNumber,
         physicianId: physicianId,
-        mode: mode,
+        mode: mode, // Mode-specific data fetched from API based on current search mode
       });
-
       console.log("Fetching document data with params:", params.toString());
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/document?${params}`,
         {
@@ -495,14 +437,11 @@ export default function PhysicianCard() {
           },
         }
       );
-
       if (!response.ok) {
         throw new Error(`Failed to fetch document: ${response.status}`);
       }
-
       const data: any = await response.json();
       console.log("Document data received:", data);
-
       if (!data.documents || data.documents.length === 0) {
         setDocumentData(null);
         setError(
@@ -510,9 +449,7 @@ export default function PhysicianCard() {
         );
         return;
       }
-
       const latestDoc = data.documents[0]; // Latest document for top-level fields like adl, whats_new, etc.
-
       // Process whats_new to flat object, and set summaries in whats_new
       let processedWhatsNew: WhatsNew = {};
       let processedQuickNotes: QuickNoteSnapshot[] = [];
@@ -538,7 +475,6 @@ export default function PhysicianCard() {
           }));
         }
       }
-
       // Set summaries in whats_new
       if (latestDoc.brief_summary) {
         processedWhatsNew.brief_summary = latestDoc.brief_summary;
@@ -552,7 +488,6 @@ export default function PhysicianCard() {
       if (latestDoc.document_summary?.date) {
         processedWhatsNew.summary_date = latestDoc.document_summary.date;
       }
-
       // Group summaries and briefs across all documents by type
       const grouped: {
         [key: string]: {
@@ -576,10 +511,8 @@ export default function PhysicianCard() {
           });
         }
       });
-
       const { document_summaries, previous_summaries } =
         processAggregatedSummaries(grouped);
-
       // Aggregate all body part snapshots from all documents, sorted by document_report_date descending
       const sortedDocs = [...data.documents].sort(
         (a, b) =>
@@ -606,7 +539,6 @@ export default function PhysicianCard() {
           })
         )
       );
-
       const processedData: DocumentData = {
         ...data, // Top-level fields like patient_name, total_documents, etc.
         dob: latestDoc.dob,
@@ -644,7 +576,6 @@ export default function PhysicianCard() {
           },
         }),
       };
-
       // Handle adl processing (convert arrays to strings if needed)
       if (processedData.adl) {
         const adlData = processedData.adl;
@@ -658,7 +589,6 @@ export default function PhysicianCard() {
         adlData.work_restrictions_history = adlData.work_restrictions;
         adlData.has_changes = false;
       }
-
       setDocumentData(processedData);
     } catch (err: unknown) {
       console.error("Error fetching document data:", err);
@@ -667,11 +597,9 @@ export default function PhysicianCard() {
       setLoading(false);
     }
   };
-
   // Handle verify toggle with API call
   const handleVerifyToggle = async () => {
     if (documentData?.allVerified) return; // Already all verified, no action
-
     setIsVerified((prev) => !prev);
     if (!isVerified) {
       if (!selectedPatient || !documentData) {
@@ -679,7 +607,6 @@ export default function PhysicianCard() {
         setIsVerified(false);
         return;
       }
-
       try {
         setVerifyLoading(true);
         const verifyParams = new URLSearchParams({
@@ -689,24 +616,19 @@ export default function PhysicianCard() {
           doi: selectedPatient.doi,
           claim_number: selectedPatient.claimNumber,
         });
-
         const response = await fetch(`/api/verify-document?${verifyParams}`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session?.user?.fastapi_token}`,
           },
         });
-
         if (!response.ok) {
           throw new Error(`Failed to verify document: ${response.status}`);
         }
-
         const verifyData = await response.json();
         console.log("Verification response:", verifyData);
-
         // Optionally refetch document data to update status
         await fetchDocumentData(selectedPatient);
-
         const d = new Date();
         const opts: Intl.DateTimeFormatOptions = {
           year: "numeric",
@@ -725,7 +647,6 @@ export default function PhysicianCard() {
       }
     }
   };
-
   // Handle copy text
   const handleCopy = async (text: string, fieldName: string) => {
     try {
@@ -735,7 +656,6 @@ export default function PhysicianCard() {
       console.error("Failed to copy text:", err);
     }
   };
-
   // Handle section copy - UPDATED TO INCLUDE BOTH SUMMARIES
   const handleSectionCopy = async (
     sectionId: string,
@@ -743,7 +663,6 @@ export default function PhysicianCard() {
   ) => {
     let text = "";
     const doc = documentData;
-
     switch (sectionId) {
       case "section-snapshot":
         const snapshots = doc?.summary_snapshots || [];
@@ -764,11 +683,9 @@ export default function PhysicianCard() {
           latestSummary?.brief_summary || "No short summary available";
         const longSummary =
           latestSummary?.summary || "No long summary available";
-
         text = `DOCUMENT SUMMARIES\n\n`;
         text += `📋 BRIEF SUMMARY:\n${shortSummary}\n\n`;
         text += `📄 DETAILED SUMMARY:\n${longSummary}\n\n`;
-
         if (latestSummary) {
           text += `📊 METADATA:\n`;
           text += `Type: ${latestSummary.type}\n`;
@@ -814,20 +731,15 @@ export default function PhysicianCard() {
         }
         break;
     }
-
     if (!text) return;
-
     await handleCopy(text, sectionId);
-
     // Clear previous timer if any
     if (timersRef.current[sectionId]) {
       clearTimeout(timersRef.current[sectionId]);
       delete timersRef.current[sectionId];
     }
-
     // Set copied state
     setCopied((prev) => ({ ...prev, [sectionId]: true }));
-
     // Set timer to reset
     timersRef.current[sectionId] = setTimeout(() => {
       setCopied((prev) => {
@@ -838,7 +750,6 @@ export default function PhysicianCard() {
       delete timersRef.current[sectionId];
     }, 2000);
   };
-
   // Handle show previous summary
   const handleShowPrevious = (type: string) => {
     const previous = documentData?.previous_summaries?.[type];
@@ -848,21 +759,18 @@ export default function PhysicianCard() {
       setShowModal(false);
     }
   };
-
   // Handle modal open
   const openModal = (briefSummary: string) => {
     setSelectedBriefSummary(briefSummary);
     setShowModal(true);
     setShowPreviousSummary(false);
   };
-
   // Auto-set verified if all documents are verified
   useEffect(() => {
     if (documentData?.allVerified) {
       setIsVerified(true);
     }
   }, [documentData?.allVerified]);
-
   // Format date from ISO string to MM/DD/YYYY
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "Not specified";
@@ -876,7 +784,6 @@ export default function PhysicianCard() {
       return "Not specified";
     }
   };
-
   // Helper for timestamp formatting (used in copy handler)
   const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return "—";
@@ -887,14 +794,12 @@ export default function PhysicianCard() {
       return timestamp;
     }
   };
-
   // Format date for display (Visit date)
   const getVisitDate = (): string => {
     return documentData?.created_at
       ? formatDate(documentData.created_at)
       : "Not specified";
   };
-
   // Get current patient info for display
   const getCurrentPatientInfo = (): Patient => {
     if (documentData) {
@@ -923,16 +828,13 @@ export default function PhysicianCard() {
       claimNumber: "Not specified",
     };
   };
-
   const currentPatient = getCurrentPatientInfo();
   console.log(currentPatient, "currentPatient");
-
   // Extract document ID from the latest document (assuming 'id' or 'document_id' field exists)
   const documentId =
     documentData?.documents?.[0]?.id ||
     documentData?.documents?.[0]?.document_id ||
     "";
-
   // Dynamic href for Staff Dashboard link, including document_id if available
   const staffDashboardHref =
     selectedPatient && documentData && documentId
@@ -950,7 +852,6 @@ export default function PhysicianCard() {
           currentPatient.dob || ""
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
       : "/staff-dashboard";
-
   const rebutalHre =
     selectedPatient && documentData && documentId
       ? `/generate-rebuttal?patient_name=${encodeURIComponent(
@@ -967,7 +868,6 @@ export default function PhysicianCard() {
           currentPatient.dob || ""
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
       : "/generate-rebuttal";
-
   // Burger Icon Component
   const BurgerIcon = () => (
     <svg
@@ -984,7 +884,6 @@ export default function PhysicianCard() {
       />
     </svg>
   );
-
   // Onboarding Help Button
   const OnboardingHelpButton = () => (
     <button
@@ -995,7 +894,6 @@ export default function PhysicianCard() {
       ?
     </button>
   );
-
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1003,7 +901,6 @@ export default function PhysicianCard() {
       </div>
     );
   }
-
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1011,9 +908,7 @@ export default function PhysicianCard() {
       </div>
     );
   }
-
   const physicianId = getPhysicianId();
-
   return (
     <>
       <div className="min-h-screen font-sans bg-blue-50 text-gray-900 relative">
@@ -1027,16 +922,13 @@ export default function PhysicianCard() {
           steps={onboardingSteps}
           stepPositions={stepPositions}
         />
-
         {/* Welcome Modal */}
         <WelcomeModal
           isOpen={showWelcomeModal}
           onClose={() => setShowWelcomeModal(false)}
         />
-
         {/* Onboarding Help Button */}
         <OnboardingHelpButton />
-
         {/* Full-width header for burger at left edge */}
         <div className="w-full flex items-center justify-between px-6 py-4 bg-white border-b border-blue-200">
           <button
@@ -1057,7 +949,6 @@ export default function PhysicianCard() {
                 </button>
               </Link>
             )}
-
             {session.user.role === "Physician" && (
               <Link href={rebutalHre} ref={staffButtonRef}>
                 <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
@@ -1065,20 +956,19 @@ export default function PhysicianCard() {
                 </button>
               </Link>
             )}
-
             <select
               id="mode"
               className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
               value={mode}
               onChange={(e) => switchMode(e.target.value as "wc" | "gm")}
               ref={modeSelectorRef}
+              title="Filter search by mode (Workers Comp or General Medicine)"
             >
               <option value="wc">Workers Comp</option>
               <option value="gm">General Medicine</option>
             </select>
           </div>
         </div>
-
         <div className="p-6 lg:ml-[-20vw]">
           <div className="max-w-5xl mx-auto">
             {/* Search Bar */}
@@ -1089,7 +979,6 @@ export default function PhysicianCard() {
                 onPatientSelect={handlePatientSelect}
               />
             </div>
-
             {/* Upload Section */}
             <div className="mb-6">
               <input
@@ -1124,7 +1013,6 @@ export default function PhysicianCard() {
                 </div>
               )}
             </div>
-
             {/* Loading State */}
             {loading && (
               <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center">
@@ -1132,7 +1020,6 @@ export default function PhysicianCard() {
                 <p className="text-gray-600">Loading patient data...</p>
               </div>
             )}
-
             {/* Error State */}
             {error && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
@@ -1148,7 +1035,6 @@ export default function PhysicianCard() {
                 </button>
               </div>
             )}
-
             {!selectedPatient && !documentData ? (
               <div className="bg-white border border-blue-200 rounded-2xl shadow-sm p-8 text-center">
                 <div className="text-gray-500 text-lg mb-4">
@@ -1201,10 +1087,10 @@ export default function PhysicianCard() {
                     </span>
                   </div>
                 </div>
-
                 {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
                 <WhatsNewSection
                   documentData={documentData}
+                  mode={mode}
                   copied={copied}
                   onCopySection={handleSectionCopy}
                   isCollapsed={collapsedSections.whatsNew}
@@ -1212,6 +1098,7 @@ export default function PhysicianCard() {
                 />
                 <TreatmentHistorySection
                   documentData={documentData}
+                  mode={mode}
                   copied={copied}
                   onCopySection={handleSectionCopy}
                   isCollapsed={collapsedSections.treatmentHistory}
@@ -1219,6 +1106,7 @@ export default function PhysicianCard() {
                 />
                 <ADLSection
                   documentData={documentData}
+                  mode={mode} // Add this line
                   copied={copied}
                   onCopySection={handleSectionCopy}
                   isCollapsed={collapsedSections.adlWorkStatus}
@@ -1240,7 +1128,6 @@ export default function PhysicianCard() {
                 />
               </div>
             )}
-
             {/* Refresh button - only show when patient is selected */}
             {selectedPatient && (
               <div className="mt-4 flex justify-end">
@@ -1269,8 +1156,11 @@ export default function PhysicianCard() {
           </div>
         </div>
       </div>
-      <div className="absolute top-[5.5vw] right-0  bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
-        <RecentPatientsSidebar onPatientSelect={handlePatientSelect} />
+      <div className="absolute top-[5.5vw] right-0 bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
+        <RecentPatientsSidebar
+          onPatientSelect={handlePatientSelect}
+          mode={mode}
+        />
       </div>
       {/* Sidebar Overlay - Closes on click */}
       {isSidebarOpen && (

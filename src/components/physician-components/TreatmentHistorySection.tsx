@@ -2,8 +2,7 @@
 import { useTreatmentHistory } from "@/app/custom-hooks/staff-hooks/physician-hooks/useTreatmentHistory";
 import React from "react";
 import { toast } from "sonner";
-
-// Define TypeScript interfaces for body part snapshots
+// Define TypeScript interfaces for body part snapshots - Extended for GM fields
 interface BodyPartSnapshot {
   id: string;
   bodyPart: string;
@@ -18,8 +17,19 @@ interface BodyPartSnapshot {
   document_created_at?: string;
   document_report_date?: string;
   referralDoctor?: string; // Fixed potential misspelling
+  condition?: string;
+  conditionSeverity?: string;
+  symptoms?: string;
+  medications?: string;
+  chronicCondition?: boolean;
+  comorbidities?: string;
+  lifestyleRecommendations?: string;
+  keyFindings?: string;
+  treatmentApproach?: string;
+  clinicalSummary?: string;
+  adlsAffected?: string;
+  functionalLimitations?: string;
 }
-
 interface DocumentData {
   patient_name?: string;
   dob?: string;
@@ -90,7 +100,6 @@ interface DocumentData {
   gcs_file_link?: string;
   blob_path?: string;
 }
-
 const CopyIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -105,7 +114,6 @@ const CopyIcon = () => (
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
   </svg>
 );
-
 const CheckIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -119,7 +127,6 @@ const CheckIcon = () => (
     <polyline points="20 6 9 17 4 12"></polyline>
   </svg>
 );
-
 const MedicalIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -133,7 +140,6 @@ const MedicalIcon = () => (
     <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
   </svg>
 );
-
 const ChevronDownIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -147,7 +153,6 @@ const ChevronDownIcon = () => (
     <polyline points="6 9 12 15 18 9"></polyline>
   </svg>
 );
-
 const ChevronRightIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -161,7 +166,6 @@ const ChevronRightIcon = () => (
     <polyline points="9 18 15 12 9 6"></polyline>
   </svg>
 );
-
 const TimelineIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -177,44 +181,40 @@ const TimelineIcon = () => (
     <path d="M12 22.08V12"></path>
   </svg>
 );
-
 interface TreatmentHistorySectionProps {
   documentData: DocumentData | null;
+  mode: "wc" | "gm";
   copied: { [key: string]: boolean };
   onCopySection: (sectionId: string, index?: number) => void;
   isCollapsed: boolean;
   onToggle: () => void;
 }
-
 const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
   documentData,
+  mode,
   copied,
   onCopySection,
   isCollapsed,
   onToggle,
 }) => {
   console.log("Document data:", documentData);
-
+  console.log("Current mode:", mode);
   // ✅ Get body part snapshots directly from documentData
   const bodyPartSnapshots = documentData?.body_part_snapshots || [];
   console.log("Body part snapshots:", bodyPartSnapshots);
-
   // State for expanded/collapsed body parts
   const [expandedBodyParts, setExpandedBodyParts] = React.useState<{
     [key: string]: boolean;
   }>({});
-
   // State for timeline visibility per body part
   const [showTimeline, setShowTimeline] = React.useState<{
     [key: string]: boolean;
   }>({});
-
   // Handle section header click (only for collapse/expand)
   const handleSectionHeaderClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggle();
   };
-
   // Function to copy text to clipboard
   const copyToClipboard = async (text: string) => {
     try {
@@ -243,22 +243,24 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       }
     }
   };
-
   // Get content for a specific body part
   const getBodyPartContent = (bodyPartId: string): string => {
     const bodyPartSnapshots = documentData?.body_part_snapshots || [];
     const snapshotsForBodyPart = bodyPartSnapshots.filter(
-      (snapshot) => snapshot.bodyPart === bodyPartId
+      (snapshot) =>
+        snapshot.bodyPart === bodyPartId ||
+        (mode === "gm" && !snapshot.bodyPart)
     );
-
     if (snapshotsForBodyPart.length === 0) return "";
-
     const sortedSnapshots = sortSnapshotsByDate(snapshotsForBodyPart);
     const latestSnapshot = sortedSnapshots[0];
-
-    let content = `TREATMENT HISTORY - ${bodyPartId}\n`;
+    // Mode-aware label: For GM, use dx as disease name if bodyPart is null
+    const displayLabel =
+      mode === "gm" && !bodyPartId
+        ? latestSnapshot.dx || latestSnapshot.condition || "General Health"
+        : bodyPartId;
+    let content = `TREATMENT HISTORY - ${displayLabel}\n`;
     content += "=".repeat(40) + "\n\n";
-
     // Latest snapshot
     content += `LATEST (${formatDate(latestSnapshot.document_report_date)}):\n`;
     if (
@@ -267,6 +269,34 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       latestSnapshot.dx !== ""
     ) {
       content += `Diagnosis: ${latestSnapshot.dx}\n`;
+    }
+    // For "gm", add condition/symptoms if available (from your JSON data)
+    if (mode === "gm" && latestSnapshot.condition) {
+      content += `Condition: ${latestSnapshot.condition} (${latestSnapshot.conditionSeverity})\n`;
+    }
+    if (mode === "gm" && latestSnapshot.symptoms) {
+      content += `Symptoms: ${latestSnapshot.symptoms}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.medications) {
+      content += `Medications: ${latestSnapshot.medications}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.comorbidities) {
+      content += `Comorbidities: ${latestSnapshot.comorbidities}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.keyFindings) {
+      content += `Key Findings: ${latestSnapshot.keyFindings}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.treatmentApproach) {
+      content += `Treatment Approach: ${latestSnapshot.treatmentApproach}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.clinicalSummary) {
+      content += `Clinical Summary: ${latestSnapshot.clinicalSummary}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.adlsAffected) {
+      content += `ADLs Affected: ${latestSnapshot.adlsAffected}\n`;
+    }
+    if (mode === "gm" && latestSnapshot.functionalLimitations) {
+      content += `Functional Limitations: ${latestSnapshot.functionalLimitations}\n`;
     }
     if (
       latestSnapshot.recommended &&
@@ -296,12 +326,10 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     ) {
       content += `UR Decision: ${latestSnapshot.urDecision}\n`;
     }
-
     // Timeline if multiple snapshots
     if (sortedSnapshots.length > 1) {
       content += `\nTIMELINE (${sortedSnapshots.length} entries):\n`;
       content += "-".repeat(30) + "\n";
-
       sortedSnapshots.forEach((snapshot, index) => {
         content += `\n${formatDate(snapshot.document_report_date)}:\n`;
         if (
@@ -309,48 +337,45 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           snapshot.recommended !== "Not specified" &&
           snapshot.recommended !== ""
         ) {
-          content += `  Treatment Plan: ${snapshot.recommended}\n`;
+          content += ` Treatment Plan: ${snapshot.recommended}\n`;
         }
         if (
           snapshot.consultingDoctor &&
           snapshot.consultingDoctor !== "Not specified" &&
           snapshot.consultingDoctor !== ""
         ) {
-          content += `  Consulting Doctor: ${snapshot.consultingDoctor}\n`;
+          content += ` Consulting Doctor: ${snapshot.consultingDoctor}\n`;
         }
       });
     }
-
     return content;
   };
-
   // Get content for all body parts
   const getAllBodyPartsContent = (): string => {
     const bodyPartSnapshots = documentData?.body_part_snapshots || [];
-
     if (bodyPartSnapshots.length === 0) {
       return "TREATMENT HISTORY\nNo body part treatment history available";
     }
-
     const groupedBodyParts = bodyPartSnapshots.reduce((acc, snapshot) => {
-      const bodyPart = snapshot.bodyPart || "Unknown Body Part";
-      if (!acc[bodyPart]) {
-        acc[bodyPart] = [];
+      // Mode-aware key: For "gm" with null bodyPart, group under dx (disease name)
+      const bodyPartKey =
+        snapshot.bodyPart ||
+        (mode === "gm"
+          ? snapshot.dx || snapshot.condition || "General Health"
+          : "Unknown Body Part");
+      if (!acc[bodyPartKey]) {
+        acc[bodyPartKey] = [];
       }
-      acc[bodyPart].push(snapshot);
+      acc[bodyPartKey].push(snapshot);
       return acc;
     }, {} as Record<string, BodyPartSnapshot[]>);
-
     let content = "TREATMENT HISTORY BY BODY PART\n";
     content += "=".repeat(50) + "\n\n";
-
     Object.entries(groupedBodyParts).forEach(([bodyPart, snapshots]) => {
       const sortedSnapshots = sortSnapshotsByDate(snapshots);
       const latestSnapshot = sortedSnapshots[0];
-
       content += `${bodyPart.toUpperCase()}\n`;
       content += "-".repeat(30) + "\n";
-
       // Latest snapshot
       content += `Latest (${formatDate(
         latestSnapshot.document_report_date
@@ -360,57 +385,87 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         latestSnapshot.dx !== "Not specified" &&
         latestSnapshot.dx !== ""
       ) {
-        content += `  Diagnosis: ${latestSnapshot.dx}\n`;
+        content += ` Diagnosis: ${latestSnapshot.dx}\n`;
+      }
+      // For "gm", add condition/symptoms
+      if (mode === "gm" && latestSnapshot.condition) {
+        content += ` Condition: ${latestSnapshot.condition}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.symptoms) {
+        content += ` Symptoms: ${latestSnapshot.symptoms}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.medications) {
+        content += ` Medications: ${latestSnapshot.medications}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.comorbidities) {
+        content += ` Comorbidities: ${latestSnapshot.comorbidities}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.keyFindings) {
+        content += ` Key Findings: ${latestSnapshot.keyFindings}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.treatmentApproach) {
+        content += ` Treatment Approach: ${latestSnapshot.treatmentApproach}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.clinicalSummary) {
+        content += ` Clinical Summary: ${latestSnapshot.clinicalSummary}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.adlsAffected) {
+        content += ` ADLs Affected: ${latestSnapshot.adlsAffected}\n`;
+      }
+      if (mode === "gm" && latestSnapshot.functionalLimitations) {
+        content += ` Functional Limitations: ${latestSnapshot.functionalLimitations}\n`;
       }
       if (
         latestSnapshot.recommended &&
         latestSnapshot.recommended !== "Not specified" &&
         latestSnapshot.recommended !== ""
       ) {
-        content += `  Treatment Plan: ${latestSnapshot.recommended}\n`;
+        content += ` Treatment Plan: ${latestSnapshot.recommended}\n`;
       }
       if (
         latestSnapshot.consultingDoctor &&
         latestSnapshot.consultingDoctor !== "Not specified" &&
         latestSnapshot.consultingDoctor !== ""
       ) {
-        content += `  Consulting Doctor: ${latestSnapshot.consultingDoctor}\n`;
+        content += ` Consulting Doctor: ${latestSnapshot.consultingDoctor}\n`;
       }
-
       // Summary of timeline entries
       if (sortedSnapshots.length > 1) {
-        content += `  Timeline Entries: ${sortedSnapshots.length}\n`;
+        content += ` Timeline Entries: ${sortedSnapshots.length}\n`;
       }
-
       content += "\n";
     });
-
     content += `Total Body Parts: ${Object.keys(groupedBodyParts).length}\n`;
     content += `Total Snapshots: ${bodyPartSnapshots.length}\n`;
-
     return content;
   };
-
   const handleCopyClick = async (e: React.MouseEvent, bodyPartId?: string) => {
     e.stopPropagation();
     const sectionId = bodyPartId
       ? `section-bodypart-${bodyPartId}`
       : "section-treatment";
-
+    // For "gm", adjust ID if grouping under dx/condition
+    const adjustedId =
+      mode === "gm" && !bodyPartId
+        ? `section-${(
+            bodyPartSnapshots[0]?.dx ||
+            bodyPartSnapshots[0]?.condition ||
+            "general-health"
+          )
+            .toLowerCase()
+            .replace(/\s+/g, "-")}`
+        : sectionId;
     // Get the content to copy based on what's being copied
     const contentToCopy = bodyPartId
       ? getBodyPartContent(bodyPartId)
       : getAllBodyPartsContent();
-
     // Copy to clipboard
     const success = await copyToClipboard(contentToCopy);
-
     if (success) {
-      // Notify parent component
-      onCopySection(sectionId);
+      // Notify parent component with adjusted ID
+      onCopySection(adjustedId);
     }
   };
-
   const toggleBodyPart = (bodyPartId: string, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -420,7 +475,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       [bodyPartId]: !prev[bodyPartId],
     }));
   };
-
   const toggleTimeline = (bodyPartId: string, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -430,7 +484,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       [bodyPartId]: !prev[bodyPartId],
     }));
   };
-
   // Helper to parse and sort snapshots by report_date (descending for latest first)
   const sortSnapshotsByDate = (
     snapshots: BodyPartSnapshot[]
@@ -445,17 +498,20 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       return dateB - dateA; // Descending
     });
   };
-
   // Group body part snapshots by body part name for better organization
   const groupedBodyParts = bodyPartSnapshots.reduce((acc, snapshot) => {
-    const bodyPart = snapshot.bodyPart || "Unknown Body Part";
+    // Mode-aware key: For "gm", use dx as disease name if bodyPart is null
+    const bodyPart =
+      snapshot.bodyPart ||
+      (mode === "gm"
+        ? snapshot.dx || snapshot.condition || "General Health"
+        : "Unknown Body Part");
     if (!acc[bodyPart]) {
       acc[bodyPart] = [];
     }
     acc[bodyPart].push(snapshot);
     return acc;
   }, {} as Record<string, BodyPartSnapshot[]>);
-
   // Format date for display
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "—";
@@ -466,7 +522,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       return dateString;
     }
   };
-
   return (
     <>
       <div className="section">
@@ -474,7 +529,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         <div className="section-header" onClick={handleSectionHeaderClick}>
           <div className="section-title">
             <MedicalIcon />
-            <h3>Treatment History by Body Part</h3>
+            <h3>Treatment History by Body Part ({mode.toUpperCase()})</h3>
           </div>
           <div className="header-actions">
             <button
@@ -495,7 +550,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
             </button>
           </div>
         </div>
-
         {/* Section Content - This part should NOT trigger collapse/expand */}
         {!isCollapsed && (
           <div className="section-content" onClick={(e) => e.stopPropagation()}>
@@ -508,13 +562,11 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                 </div>
               </div>
             )}
-
             {/* Body Part Snapshots */}
             {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => {
               const sortedSnapshots = sortSnapshotsByDate(snapshots);
               const latestSnapshot = sortedSnapshots[0];
               const hasMultiple = sortedSnapshots.length > 1;
-
               return (
                 <div key={bodyPart} className="bodypart-group">
                   {/* Body Part Header - Clickable for expanding/collapsing that specific body part */}
@@ -554,7 +606,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                       )}
                     </button>
                   </div>
-
                   {/* Body Part Details - This part should NOT trigger any toggles */}
                   {expandedBodyParts[bodyPart] && (
                     <div
@@ -578,6 +629,95 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                   <li>
                                     <strong>Diagnosis:</strong>{" "}
                                     {latestSnapshot.dx}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.condition &&
+                                latestSnapshot.condition !== "Not specified" &&
+                                latestSnapshot.condition !== "" && (
+                                  <li>
+                                    <strong>Condition:</strong>{" "}
+                                    {latestSnapshot.condition} (
+                                    {latestSnapshot.conditionSeverity})
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.symptoms &&
+                                latestSnapshot.symptoms !== "Not specified" &&
+                                latestSnapshot.symptoms !== "" && (
+                                  <li>
+                                    <strong>Symptoms:</strong>{" "}
+                                    {latestSnapshot.symptoms}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.medications &&
+                                latestSnapshot.medications !==
+                                  "Not specified" &&
+                                latestSnapshot.medications !== "" && (
+                                  <li>
+                                    <strong>Medications:</strong>{" "}
+                                    {latestSnapshot.medications}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.comorbidities &&
+                                latestSnapshot.comorbidities !==
+                                  "Not specified" &&
+                                latestSnapshot.comorbidities !== "" && (
+                                  <li>
+                                    <strong>Comorbidities:</strong>{" "}
+                                    {latestSnapshot.comorbidities}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.keyFindings &&
+                                latestSnapshot.keyFindings !==
+                                  "Not specified" &&
+                                latestSnapshot.keyFindings !== "" && (
+                                  <li>
+                                    <strong>Key Findings:</strong>{" "}
+                                    {latestSnapshot.keyFindings}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.treatmentApproach &&
+                                latestSnapshot.treatmentApproach !==
+                                  "Not specified" &&
+                                latestSnapshot.treatmentApproach !== "" && (
+                                  <li>
+                                    <strong>Treatment Approach:</strong>{" "}
+                                    {latestSnapshot.treatmentApproach}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.clinicalSummary &&
+                                latestSnapshot.clinicalSummary !==
+                                  "Not specified" &&
+                                latestSnapshot.clinicalSummary !== "" && (
+                                  <li>
+                                    <strong>Clinical Summary:</strong>{" "}
+                                    {latestSnapshot.clinicalSummary}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.adlsAffected &&
+                                latestSnapshot.adlsAffected !==
+                                  "Not specified" &&
+                                latestSnapshot.adlsAffected !== "" && (
+                                  <li>
+                                    <strong>ADLs Affected:</strong>{" "}
+                                    {latestSnapshot.adlsAffected}
+                                  </li>
+                                )}
+                              {mode === "gm" &&
+                                latestSnapshot.functionalLimitations &&
+                                latestSnapshot.functionalLimitations !==
+                                  "Not specified" &&
+                                latestSnapshot.functionalLimitations !== "" && (
+                                  <li>
+                                    <strong>Functional Limitations:</strong>{" "}
+                                    {latestSnapshot.functionalLimitations}
                                   </li>
                                 )}
                               {latestSnapshot.recommended &&
@@ -619,7 +759,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                           </div>
                         </div>
                       )}
-
                       {/* Timeline Dropdown/Button - Only show if multiple snapshots */}
                       {hasMultiple && (
                         <div className="timeline-toggle">
@@ -632,7 +771,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                           </button>
                         </div>
                       )}
-
                       {/* Timeline Section */}
                       {hasMultiple && showTimeline[bodyPart] && (
                         <div className="timeline-section">
@@ -674,7 +812,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                 </div>
               );
             })}
-
             {bodyPartSnapshots.length === 0 && (
               <div className="no-data">
                 <ul>
@@ -685,7 +822,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
         )}
       </div>
-
       <style jsx>{`
         .section {
           border-bottom: 1px solid #e5e7eb;
@@ -951,5 +1087,4 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     </>
   );
 };
-
 export default TreatmentHistorySection;

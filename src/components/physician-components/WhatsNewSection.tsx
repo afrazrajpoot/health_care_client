@@ -46,6 +46,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   onCopySection,
   isCollapsed,
   onToggle,
+  mode,
 }) => {
   const [viewedWhatsNew, setViewedWhatsNew] = useState<Set<string>>(new Set());
   const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
@@ -58,6 +59,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const { formatDate } = useWhatsNewData(documentData);
   console.log(documentData, "documentData what new");
 
+  // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
   // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
   const documentGroups = useMemo(() => {
     if (!documentData?.documents) return [];
@@ -93,10 +95,23 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           status: doc.status || "pending",
           consultingDoctor,
           documentType,
+          // Add mode field from document data for filtering
+          docMode: doc.mode, // Assuming your document has a mode field
         };
       })
-      .filter((group) => group.shortSummary); // Only show documents with short summary
-  }, [documentData?.documents]);
+      .filter((group) => {
+        // First filter: only show documents with short summary
+        if (!group.shortSummary) return false;
+
+        // Second filter: filter by mode if mode prop is provided
+        if (mode && group.docMode) {
+          return group.docMode === mode;
+        }
+
+        // If no mode filter or document doesn't have mode, include it
+        return true;
+      });
+  }, [documentData?.documents, mode]); // Add mode to dependencies
 
   // Format the long summary with bold headings and remove brackets/quotes
   const formatLongSummary = (summary: string): string => {

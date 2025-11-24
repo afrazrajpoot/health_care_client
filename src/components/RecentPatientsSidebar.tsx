@@ -11,9 +11,13 @@ interface RecentPatient {
 
 interface Props {
   onPatientSelect: (patient: any) => void;
+  mode: "wc" | "gm";
 }
 
-export default function RecentPatientsSidebar({ onPatientSelect }: Props) {
+export default function RecentPatientsSidebar({
+  onPatientSelect,
+  mode,
+}: Props) {
   const [recentPatients, setRecentPatients] = useState<RecentPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +27,8 @@ export default function RecentPatientsSidebar({ onPatientSelect }: Props) {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch("/api/get-recent-patients");
+        const url = `/api/get-recent-patients?mode=${mode}`;
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error("Failed to fetch recent patients");
         }
@@ -38,7 +43,7 @@ export default function RecentPatientsSidebar({ onPatientSelect }: Props) {
     };
 
     fetchRecentPatients();
-  }, []);
+  }, [mode]);
 
   const handleSelect = (patient: RecentPatient) => {
     const patientData: any = {

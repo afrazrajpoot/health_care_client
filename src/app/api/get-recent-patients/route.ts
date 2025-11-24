@@ -6,8 +6,11 @@ import { authOptions } from "@/services/authSErvice";
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -21,6 +24,14 @@ export async function GET() {
       physicianId = session.user.physicianId;
     }
 
+    const whereClause: any = {
+      physicianId: physicianId,
+    };
+
+    if (mode) {
+      whereClause.mode = mode;
+    }
+
     const documents = await prisma.document.findMany({
       select: {
         patientName: true,
@@ -28,9 +39,7 @@ export async function GET() {
         claimNumber: true,
         createdAt: true,
       },
-      where: {
-        physicianId: physicianId,
-      },
+      where: whereClause,
       orderBy: {
         createdAt: "desc",
       },
