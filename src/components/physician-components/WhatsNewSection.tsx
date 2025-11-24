@@ -59,6 +59,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const { formatDate } = useWhatsNewData(documentData);
   console.log(documentData, "documentData what new");
 
+  // Helper for timestamp formatting
+  const formatTimestamp = (timestamp: string): string => {
+    if (!timestamp) return "—";
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    } catch {
+      return timestamp;
+    }
+  };
+
   // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
   // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
   const documentGroups = useMemo(() => {
@@ -95,6 +106,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           status: doc.status || "pending",
           consultingDoctor,
           documentType,
+          task_quick_notes: doc.task_quick_notes || [], // Add quick notes per document
           // Add mode field from document data for filtering
           docMode: doc.mode, // Assuming your document has a mode field
         };
@@ -303,7 +315,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -413,8 +425,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           )}
 
                           <button
-                            className={`action-link copy-link ${isGroupCopied ? "copied" : ""
-                              }`}
+                            className={`action-link copy-link ${
+                              isGroupCopied ? "copied" : ""
+                            }`}
                             onClick={(e) => handleCopyClick(e, group.docId)}
                             title="Copy This Update"
                           >
@@ -427,8 +440,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-link mark-viewed-link ${isViewed ? "viewed" : ""
-                              } ${isLoading ? "loading" : ""}`}
+                            className={`action-link mark-viewed-link ${
+                              isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
                             title={isViewed ? "Reviewed" : "Mark as Reviewed"}
@@ -457,6 +471,37 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Quick Notes - Show if available */}
+                    {group.task_quick_notes &&
+                      group.task_quick_notes.length > 0 && (
+                        <div className="quick-notes-section">
+                          <div className="quick-notes-header">Quick Notes:</div>
+                          <div className="quick-notes-list">
+                            {group.task_quick_notes.map(
+                              (note: any, noteIndex: number) => (
+                                <div
+                                  key={noteIndex}
+                                  className="quick-note-item"
+                                >
+                                  <span className="note-status">
+                                    {note.status_update || "Note"}
+                                  </span>
+                                  <span className="note-one-line">
+                                    {note.one_line_note || ""}
+                                  </span>
+                                  <span className="note-details">
+                                    {note.details}
+                                  </span>
+                                  <span className="note-timestamp">
+                                    {formatTimestamp(note.timestamp || "")}
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                     {/* Document metadata - smaller and less prominent */}
                     {/* <div className="document-metadata">
@@ -730,6 +775,50 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .icon-micro {
           width: 8px;
           height: 8px;
+        }
+        /* Quick Notes Styles */
+        .quick-notes-section {
+          margin-top: 8px;
+          padding: 8px 0;
+          border-top: 1px dashed #e5e7eb;
+          margin-left: 20px;
+        }
+        .quick-notes-header {
+          font-size: 11px;
+          font-weight: 600;
+          color: #6b7280;
+          margin-bottom: 4px;
+        }
+        .quick-notes-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .quick-note-item {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          font-size: 10px;
+          color: #4b5563;
+          line-height: 1.2;
+        }
+        .note-status {
+          font-weight: 500;
+          color: #059669;
+        }
+        .note-one-line {
+          font-style: italic;
+          color: #6b7280;
+          min-width: 120px;
+        }
+        .note-details {
+          flex: 1;
+          min-width: 150px;
+        }
+        .note-timestamp {
+          font-size: 9px;
+          color: #9ca3af;
+          white-space: nowrap;
         }
       `}</style>
     </>
