@@ -76,12 +76,34 @@ const ChevronRightIcon = () => (
   </svg>
 );
 
+interface CompleteADLData {
+  adls_affected: string;
+  work_restrictions: string;
+  mode: string;
+  daily_living_impact?: string;
+  functional_limitations?: string;
+  symptom_impact?: string;
+  quality_of_life?: string;
+  work_impact?: string | null;
+  physical_demands?: string | null;
+  work_capacity?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface ADL {
   adls_affected: string;
   adls_affected_history: string;
   work_restrictions: string;
   work_restrictions_history: string;
   has_changes: boolean;
+  complete_adl_data?: CompleteADLData[];
+}
+
+interface BodyPartSnapshot {
+  adlsAffected?: string;
+  functionalLimitations?: string;
+  // Add other relevant fields if needed
 }
 
 interface DocumentData {
@@ -163,10 +185,12 @@ interface DocumentData {
   allVerified?: boolean;
   gcs_file_link?: string;
   blob_path?: string;
+  body_part_snapshots?: BodyPartSnapshot[];
 }
 
 interface ADLSectionProps {
   documentData: DocumentData | null;
+  mode: "wc" | "gm";
   copied: { [key: string]: boolean };
   onCopySection: (sectionId: string) => void;
   isCollapsed: boolean;
@@ -175,6 +199,7 @@ interface ADLSectionProps {
 
 const ADLSection: React.FC<ADLSectionProps> = ({
   documentData,
+  mode,
   copied,
   onCopySection,
   isCollapsed,
@@ -182,6 +207,152 @@ const ADLSection: React.FC<ADLSectionProps> = ({
 }) => {
   const { getADLSummary, getADLsAffected, getWorkRestrictions } =
     useADLData(documentData);
+
+  // Mode-specific ADL data extraction
+  const getModeSpecificADLs = () => {
+    if (
+      mode === "gm" &&
+      documentData?.adl?.complete_adl_data &&
+      documentData.adl.complete_adl_data.length > 0
+    ) {
+      // Filter for GM mode data
+      const gmAdlData = documentData.adl.complete_adl_data.find(
+        (data) => data.mode === "gm"
+      );
+      if (gmAdlData) {
+        return {
+          adlsAffected: gmAdlData.adls_affected || "Not specified",
+          functionalLimitations:
+            gmAdlData.functional_limitations || "Not specified",
+          dailyLivingImpact: gmAdlData.daily_living_impact || "Not specified",
+          symptomImpact: gmAdlData.symptom_impact || "Not specified",
+          qualityOfLife: gmAdlData.quality_of_life || "Not specified",
+          workImpact: gmAdlData.work_impact || "Not specified",
+          physicalDemands: gmAdlData.physical_demands || "Not specified",
+          workCapacity: gmAdlData.work_capacity || "Not specified",
+        };
+      }
+    }
+    // Fallback to body_part_snapshots for GM if complete_adl_data not available
+    if (
+      mode === "gm" &&
+      documentData?.body_part_snapshots &&
+      documentData.body_part_snapshots.length > 0
+    ) {
+      const latestSnapshot = documentData.body_part_snapshots[0];
+      return {
+        adlsAffected: latestSnapshot.adlsAffected || "Not specified",
+        functionalLimitations:
+          latestSnapshot.functionalLimitations || "Not specified",
+        dailyLivingImpact: "Not specified",
+        symptomImpact: "Not specified",
+        qualityOfLife: "Not specified",
+        workImpact: "Not specified",
+        physicalDemands: "Not specified",
+        workCapacity: "Not specified",
+      };
+    }
+    // For WC, fall back to standard adl
+    return {
+      adlsAffected: "Not specified",
+      functionalLimitations: "Not specified",
+      dailyLivingImpact: "Not specified",
+      symptomImpact: "Not specified",
+      qualityOfLife: "Not specified",
+      workImpact: "Not specified",
+      physicalDemands: "Not specified",
+      workCapacity: "Not specified",
+    };
+  };
+
+  const modeSpecificADLs = getModeSpecificADLs();
+
+  // Filter out fields that are "Not specified"
+  const getFilteredADLFields = () => {
+    const fields = [];
+
+    if (mode === "wc") {
+      // For WC mode, only show ADLs Affected and Work Restrictions if they have values
+      const adlsAffected = getADLsAffected();
+      const workRestrictions = getWorkRestrictions();
+
+      if (adlsAffected && adlsAffected !== "Not specified") {
+        fields.push({ label: "ADLs Affected", value: adlsAffected });
+      }
+      if (workRestrictions && workRestrictions !== "Not specified") {
+        fields.push({ label: "Work Restrictions", value: workRestrictions });
+      }
+    } else {
+      // For GM mode, filter out any field that is "Not specified"
+      if (modeSpecificADLs.adlsAffected !== "Not specified") {
+        fields.push({
+          label: "ADLs Affected",
+          value: modeSpecificADLs.adlsAffected,
+        });
+      }
+      if (modeSpecificADLs.functionalLimitations !== "Not specified") {
+        fields.push({
+          label: "Functional Limitations",
+          value: modeSpecificADLs.functionalLimitations,
+        });
+      }
+      if (modeSpecificADLs.dailyLivingImpact !== "Not specified") {
+        fields.push({
+          label: "Daily Living Impact",
+          value: modeSpecificADLs.dailyLivingImpact,
+        });
+      }
+      if (modeSpecificADLs.symptomImpact !== "Not specified") {
+        fields.push({
+          label: "Symptom Impact",
+          value: modeSpecificADLs.symptomImpact,
+        });
+      }
+      if (modeSpecificADLs.qualityOfLife !== "Not specified") {
+        fields.push({
+          label: "Quality of Life",
+          value: modeSpecificADLs.qualityOfLife,
+        });
+      }
+      if (modeSpecificADLs.workImpact !== "Not specified") {
+        fields.push({
+          label: "Work Impact",
+          value: modeSpecificADLs.workImpact,
+        });
+      }
+      if (modeSpecificADLs.physicalDemands !== "Not specified") {
+        fields.push({
+          label: "Physical Demands",
+          value: modeSpecificADLs.physicalDemands,
+        });
+      }
+      if (modeSpecificADLs.workCapacity !== "Not specified") {
+        fields.push({
+          label: "Work Capacity",
+          value: modeSpecificADLs.workCapacity,
+        });
+      }
+
+      // Also include work restrictions if available
+      const workRestrictions = getWorkRestrictions();
+      if (workRestrictions && workRestrictions !== "Not specified") {
+        fields.push({ label: "Work Restrictions", value: workRestrictions });
+      }
+    }
+
+    return fields;
+  };
+
+  const filteredADLFields = getFilteredADLFields();
+
+  const getADLSummaryModeAware = () => {
+    if (mode === "gm") {
+      return modeSpecificADLs.adlsAffected !== "Not specified"
+        ? `${modeSpecificADLs.adlsAffected} affected`
+        : getADLSummary();
+    }
+    return getADLSummary();
+  };
 
   const handleSectionClick = (e: React.MouseEvent) => {
     onToggle();
@@ -203,9 +374,11 @@ const ADLSection: React.FC<ADLSectionProps> = ({
           <div className="section-title">
             <MedicalIcon />
             <h3>
-              ADL & Work Status
+              ADL & Work Status ({mode.toUpperCase()})
               {isCollapsed && (
-                <span className="collapsed-text">({getADLSummary()})</span>
+                <span className="collapsed-text">
+                  ({getADLSummaryModeAware()})
+                </span>
               )}
             </h3>
           </div>
@@ -228,14 +401,19 @@ const ADLSection: React.FC<ADLSectionProps> = ({
         </div>
         {!isCollapsed && (
           <div className="section-content">
-            <ul>
-              <li>
-                <strong>ADLs Affected:</strong> {getADLsAffected()}
-              </li>
-              <li>
-                <strong>Work Restrictions:</strong> {getWorkRestrictions()}
-              </li>
-            </ul>
+            {filteredADLFields.length > 0 ? (
+              <ul>
+                {filteredADLFields.map((field, index) => (
+                  <li key={index}>
+                    <strong>{field.label}:</strong> {field.value}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="no-data-message">
+                No ADL or work status data available
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -299,6 +477,13 @@ const ADLSection: React.FC<ADLSectionProps> = ({
         li strong {
           color: #1f2937;
           font-weight: 600;
+        }
+        .no-data-message {
+          font-size: 14px;
+          color: #6b7280;
+          font-style: italic;
+          text-align: center;
+          padding: 16px;
         }
         .copy-btn {
           font-size: 12px;
