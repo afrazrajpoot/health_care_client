@@ -14,7 +14,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ FIX 1: Await the params first
+    // ✅ Await the params first
     const params = await context.params;
     const taskId = params.id;
     
@@ -24,20 +24,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ Check if user role is Physician, then use user.id
-    // if (session.user.role !== "Physician") {
-    //   return NextResponse.json(
-    //     { error: "Only physicians can update tasks" }, 
-    //     { status: 403 }
-    //   );
-    // }
-
     let physicianId;
-if(session.user.role == "Physician"){
-  physicianId = session.user.id;
-}else{
-  physicianId = session.user.physicianId;
-}
+    if (session.user.role == "Physician") {
+      physicianId = session.user.id;
+    } else {
+      physicianId = session.user.physicianId;
+    }
+
     const updates = await request.json();
 
     // 🩺 Validate that the task belongs to the logged-in physician
@@ -61,7 +54,7 @@ if(session.user.role == "Physician"){
       data.status = updates.status;
     }
 
-    // Handle UR denial reason update
+    // ✅ Handle UR denial reason update - direct assignment
     if ('ur_denial_reason' in updates) {
       data.ur_denial_reason = updates.ur_denial_reason;
     }
