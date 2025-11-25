@@ -1,16 +1,144 @@
 // app/dashboard/components/TaskRows.tsx
+import { useState } from "react";
 import { Task } from "./types";
+
+// Quick note options structure
+const quickNoteOptions = {
+  "Scheduling-Related": {
+    "Outbound Scheduling": [
+      "Called patient – left voicemail.",
+      "Called patient – scheduled appointment.",
+      "Called patient – patient declined appointment.",
+      "Unable to reach patient – no voicemail available.",
+      "Text message sent – awaiting response.",
+      "Email sent – awaiting response.",
+      "Patient reports appointment already scheduled elsewhere.",
+      "Specialist office contacted – awaiting available dates.",
+      "Specialist office contacted – appointment confirmed.",
+      "Specialist office requested updated referral/authorization.",
+      "Specialist office does not accept patient's insurance.",
+    ],
+    "Inbound Scheduling": [
+      "Outside office sent appointment date – updated in system.",
+      "Outside office cancelled/rescheduled appointment.",
+      "Specialist requested additional documentation before scheduling.",
+    ],
+  },
+  "Lab / Imaging Follow-Up": {
+    "Lab Results": [
+      "Lab results received – forwarded to provider.",
+      "Critical lab flagged – provider notified.",
+    ],
+    "Imaging Follow-Up": [
+      "Imaging report received – provider notified.",
+      "Imaging center requesting updated order.",
+      "Imaging center unable to proceed – insurance issue.",
+      "Patient instructed to schedule imaging.",
+      "Patient completed imaging – awaiting report.",
+    ],
+  },
+  "Pharmacy / Medication": {
+    "Pharmacy Requests": [
+      "Pharmacy requested clarification – forwarded to provider.",
+      "Pharmacy refill request received – sent to provider.",
+      "Medication not covered – pharmacy requested alternative.",
+    ],
+    "Prior Authorization": [
+      "Prior authorization required – beginning process.",
+      "Prior authorization submitted.",
+      "Prior authorization approved.",
+      "Prior authorization denied – provider notified.",
+    ],
+  },
+  "Insurance / Care Coordination": {
+    "Insurance Issues": [
+      "Insurance requested additional documentation.",
+      "Insurance denied request – report uploaded for provider.",
+      "Insurance authorization received – ready to schedule.",
+      "Patient's insurance inactive – requested updated information.",
+    ],
+    "Authorization & Forms": [
+      "Insurance form completed and faxed.",
+      "Insurance form incomplete – need missing details.",
+    ],
+  },
+  "Hospital / ER Records": {
+    "Hospital Reports": [
+      "Hospital discharge summary received – forwarded to provider.",
+      "ED visit report received – provider notified.",
+      "Hospital requested follow-up appointment.",
+    ],
+    "Care Transition": [
+      "Care transition call made – left voicemail.",
+      "Care transition call completed – appointment scheduled.",
+    ],
+  },
+  "Specialist Reports": {
+    "Consult Reports": [
+      "Consult report received – provider notified.",
+      "Consult report recommends follow-up – scheduling patient.",
+      "Consult report recommends new medication – awaiting provider decision.",
+    ],
+    "Specialist Requests": [
+      "Specialist requested updated labs/imaging.",
+      "Specialist requested new referral.",
+    ],
+  },
+  "Administrative Documents": {
+    "Forms Processing": [
+      "Form received – routed to provider.",
+      "Form completed – faxed/emailed.",
+      "Form incomplete – need missing patient information.",
+    ],
+    "Form Status": [
+      "Employer requested additional information.",
+      "Patient notified form is ready for pick-up.",
+    ],
+  },
+  "Attempt / Outcome": {
+    "Completion Status": [
+      "Completed as requested.",
+      "Unable to complete – missing documentation.",
+      "Unable to complete – requires provider review.",
+      "Task resolved – no further action needed.",
+    ],
+    "Pending Status": [
+      "Pending patient response.",
+      "Pending outside office response.",
+      "Pending insurance response.",
+    ],
+  },
+  "Patient Communication": {
+    "Notification Methods": [
+      "Patient notified via phone.",
+      "Patient notified via text.",
+      "Patient notified via patient portal.",
+      "Patient notified via email.",
+    ],
+    "Patient Response": [
+      "Patient acknowledged and understands.",
+      "Patient needs clarification – routed to provider.",
+    ],
+  },
+  Escalation: {
+    "Escalation Types": [
+      "Escalated to provider.",
+      "Escalated to supervisor.",
+      "Requires clinical decision – provider notified.",
+      "Requires insurance specialist – forwarded.",
+      "Requires follow-up from management.",
+    ],
+  },
+};
 
 interface StandardRowProps {
   task: Task;
   showDept?: boolean;
   showUrDenial?: boolean;
   getPresets: (dept: string) => { type: string[]; more: string[] };
-  onSaveNote: (e: React.MouseEvent, id: string) => void;
+  onSaveNote: (e: React.MouseEvent, id: string, note: string) => void;
   onClaim: (id: string) => void;
   onComplete: (id: string) => void;
-
-  // PREVIEW PROPS
   index: number;
   onPreview: (e: React.MouseEvent, doc: any, index: number) => void;
   previewLoading: boolean;
@@ -29,9 +157,6 @@ interface OverdueRowProps {
 
 /**
  * Returns the patient name to display.
- * 1. If task.patient exists and is **not** "Not specified" → use it.
- * 2. Otherwise fall back to document.patientName.
- * 3. Finally return "—".
  */
 const getPatientName = (task: Task): string => {
   const taskName = task.patient?.trim();
@@ -59,11 +184,61 @@ export function StandardRow({
   previewLoading,
   session,
 }: StandardRowProps) {
-  const presets = getPresets(task.dept);
-  const handleSave = (e: React.MouseEvent) => onSaveNote(e, task.id);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSubcategory, setSelectedSubcategory] = useState("");
+  const [selectedNote, setSelectedNote] = useState("");
+  const [customNote, setCustomNote] = useState("");
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCategory(e.target.value);
+    setSelectedSubcategory("");
+    setSelectedNote("");
+  };
+
+  const handleSubcategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedSubcategory(e.target.value);
+    setSelectedNote("");
+  };
+
+  const handleNoteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedNote(e.target.value);
+  };
+
+  const handleCustomNoteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomNote(e.target.value);
+  };
+
+  const handleSave = (e: React.MouseEvent) => {
+    const finalNote = selectedNote || customNote;
+    if (finalNote.trim()) {
+      onSaveNote(e, task.id, finalNote);
+      // Reset form after save
+      setSelectedCategory("");
+      setSelectedSubcategory("");
+      setSelectedNote("");
+      setCustomNote("");
+    }
+  };
+
   const isClaimed = task.statusText === "in progress";
   const urDenialReason =
     task.ur_denial_reason || task.document?.ur_denial_reason;
+
+  // Get available subcategories based on selected category
+  const availableSubcategories = selectedCategory
+    ? Object.keys(
+        quickNoteOptions[selectedCategory as keyof typeof quickNoteOptions] ||
+          {}
+      )
+    : [];
+
+  // Get available notes based on selected subcategory
+  const availableNotes =
+    selectedCategory && selectedSubcategory
+      ? quickNoteOptions[selectedCategory as keyof typeof quickNoteOptions]?.[
+          selectedSubcategory
+        ] || []
+      : [];
 
   return (
     <tr data-taskid={task.id} data-dept={task.dept} data-overdue={task.overdue}>
@@ -81,7 +256,6 @@ export function StandardRow({
 
       <td>{task.due}</td>
 
-      {/* Patient – with fallback */}
       <td>{getPatientName(task)}</td>
 
       {showUrDenial && (
@@ -96,23 +270,70 @@ export function StandardRow({
 
       <td>
         <div className="qnote">
-          <select className="qtype">
-            {presets.type.map((opt) => (
-              <option key={opt}>{opt}</option>
+          {/* Main Category Dropdown */}
+          <select
+            className="qtype"
+            value={selectedCategory}
+            onChange={handleCategoryChange}
+          >
+            <option value="">Select Category</option>
+            {Object.keys(quickNoteOptions).map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
           </select>
-          <select className="qmore">
-            {presets.more.map((opt) => (
-              <option key={opt}>{opt}</option>
-            ))}
-          </select>
-          <input className="qfree" placeholder="1-line" />
+
+          {/* Subcategory Dropdown */}
+          {availableSubcategories.length > 0 && (
+            <select
+              className="qmore"
+              value={selectedSubcategory}
+              onChange={handleSubcategoryChange}
+            >
+              <option value="">Select Subcategory</option>
+              {availableSubcategories.map((subcategory) => (
+                <option key={subcategory} value={subcategory}>
+                  {subcategory}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Quick Notes Dropdown */}
+          {availableNotes.length > 0 && (
+            <select
+              className="qnotes"
+              value={selectedNote}
+              onChange={handleNoteChange}
+            >
+              <option value="">Select Quick Note</option>
+              {availableNotes.map((note, index) => (
+                <option key={index} value={note}>
+                  {note}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Custom Note Input */}
+          <input
+            className="qfree"
+            placeholder="Custom note (optional)"
+            value={customNote}
+            onChange={handleCustomNoteChange}
+          />
+
+          {/* Save Button */}
           <button
             className="bg-gradient-to-r from-green-600 to-green-500 text-white font-bold py-[0.5vw] px-[0.5vw] rounded-md"
             onClick={handleSave}
+            disabled={!selectedNote && !customNote.trim()}
           >
             Save
           </button>
+
+          {/* Notes History */}
           <div className="muted" data-log>
             {task.notes.map((note, i) => (
               <span key={i} className="notechip">
@@ -123,7 +344,7 @@ export function StandardRow({
         </div>
       </td>
 
-      {/* ----- PREVIEW ----- */}
+      {/* Preview Cell */}
       <td className="preview-cell">
         {task.document?.blobPath ? (
           previewLoading ? (
@@ -142,7 +363,7 @@ export function StandardRow({
         )}
       </td>
 
-      {/* ----- ACTIONS ----- */}
+      {/* Actions Cell */}
       <td>
         <button
           className="btn light w-full max-w-[10vw]"
@@ -160,8 +381,6 @@ export function StandardRow({
     </tr>
   );
 }
-
-/* ---------------------------------------------------- */
 
 export function OverdueRow({
   task,
@@ -186,7 +405,6 @@ export function OverdueRow({
 
       <td>{task.due}</td>
 
-      {/* Patient – with fallback (same logic as StandardRow) */}
       <td>{getPatientName(task)}</td>
 
       {showUrDenial && (
@@ -199,7 +417,7 @@ export function OverdueRow({
         </td>
       )}
 
-      {/* ----- PREVIEW ----- */}
+      {/* Preview Cell */}
       <td className="preview-cell">
         {task.document?.blobPath ? (
           previewLoading ? (
@@ -218,7 +436,7 @@ export function OverdueRow({
         )}
       </td>
 
-      {/* ----- ACTION ----- */}
+      {/* Action Cell */}
       <td>
         <button
           className="btn primary w-full max-w-[10vw]"

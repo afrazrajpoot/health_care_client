@@ -11,9 +11,9 @@ interface TaskTableProps {
   mode: "wc" | "gm";
   onClaim: (id: string) => void;
   onComplete: (id: string) => void;
-  onSaveNote: (e: React.MouseEvent, id: string) => void;
+  onSaveNote: (e: React.MouseEvent, id: string, note: string) => void;
   getPresets: (dept: string) => { type: string[]; more: string[] };
-  session?: any; // <-- your existing session prop
+  session?: any;
 }
 
 export default function TaskTable({
@@ -29,7 +29,8 @@ export default function TaskTable({
   // LOCAL STATE FOR PREVIEW LOADING
   const [loadingIndexes, setLoadingIndexes] = useState<Set<number>>(new Set());
   const { data: session } = useSession();
-  // PREVIEW HANDLER (uses session from props)
+
+  // PREVIEW HANDLER
   const handlePreviewClick = async (
     e: React.MouseEvent,
     doc: any,
@@ -45,7 +46,7 @@ export default function TaskTable({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blobPath
         )}`,
         {
@@ -82,7 +83,7 @@ export default function TaskTable({
       return true;
     });
 
-  const getFilteredTasks = () => getBaseTasks(); // replace with real filter later
+  const getFilteredTasks = () => getBaseTasks();
 
   const displayedTasks = getFilteredTasks();
   console.log("Displayed tasks:", displayedTasks);

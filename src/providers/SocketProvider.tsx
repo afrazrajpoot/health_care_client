@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.kebilo.com";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
 
 // Backend progress data interfaces
 interface BackendProgressData {
@@ -750,10 +750,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           data.filenames,
           data.queue_id
         );
-        toast.info(`Started processing ${data.total_files || 1} document(s)`, {
-          duration: 5000,
-          position: "top-right",
-        });
+        // toast.info(`Started processing ${data.total_files || 1} document(s)`, {
+        //   duration: 5000,
+        //   position: "top-right",
+        // });
       }
     });
 
@@ -772,13 +772,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             console.log("🎉 Socket forcing final state");
             setIsProcessing(false);
             stopProgressPolling();
-            toast.success(
-              `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
-              {
-                duration: 5000,
-                position: "top-right",
-              }
-            );
+            // toast.success(
+            //   `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
+            //   {
+            //     duration: 5000,
+            //     position: "top-right",
+            //   }
+            // );
           }
         }
       }
@@ -806,13 +806,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           console.log("🏁 Queue completed via socket");
           setIsProcessing(false);
           stopQueueProgressPolling();
-          toast.success(
-            `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`,
-            {
-              duration: 5000,
-              position: "top-right",
-            }
-          );
+          // toast.success(
+          //   `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`,
+          //   {
+          //     duration: 5000,
+          //     position: "top-right",
+          //   }
+          // );
         }
       }
     });
