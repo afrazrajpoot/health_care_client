@@ -369,13 +369,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setProgressData(finalMapped);
           setIsProcessing(false);
           stopProgressPolling();
-          toast.success(
-            `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
-            {
-              duration: 5000,
-              position: "top-right",
-            }
-          );
+          // toast.success(
+          //   `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
+          //   {
+          //     duration: 5000,
+          //     position: "top-right",
+          //   }
+          // );
         } else {
           setProgressData(mappedProgress);
         }
@@ -392,23 +392,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setIsProcessing(false);
           stopProgressPolling();
 
-          if (rawBackendProgress.status === "completed") {
-            toast.success(
-              `✅ Processing completed! ${rawBackendProgress.completed_steps}/${rawBackendProgress.total_steps} files processed`,
-              {
-                duration: 5000,
-                position: "top-right",
-              }
-            );
-          } else {
-            toast.error(
-              `❌ Processing failed for ${rawBackendProgress.failed_files.length} files`,
-              {
-                duration: 5000,
-                position: "top-right",
-              }
-            );
-          }
+          // if (rawBackendProgress.status === "completed") {
+          //   toast.success(
+          //     `✅ Processing completed! ${rawBackendProgress.completed_steps}/${rawBackendProgress.total_steps} files processed`,
+          //     {
+          //       duration: 5000,
+          //       position: "top-right",
+          //     }
+          //   );
+          // } else {
+          //   toast.error(
+          //     `❌ Processing failed for ${rawBackendProgress.failed_files.length} files`,
+          //     {
+          //       duration: 5000,
+          //       position: "top-right",
+          //     }
+          //   );
+          // }
         }
 
         return rawBackendProgress;
@@ -449,13 +449,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             console.log("🏁 Queue completed - stopping polling");
             setIsProcessing(false);
             stopQueueProgressPolling();
-            toast.success(
-              `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`,
-              {
-                duration: 5000,
-                position: "top-right",
-              }
-            );
+            // toast.success(
+            //   `✅ Queue processing complete! ${mappedQueueProgress.completed_tasks}/${mappedQueueProgress.total_tasks} tasks completed`,
+            //   {
+            //     duration: 5000,
+            //     position: "top-right",
+            //   }
+            // );
           }
 
           return mappedQueueProgress;
@@ -878,15 +878,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       if (data.task_id === activeTaskId && data.status === "completed") {
         console.log("🎉 task_complete event triggered 100% handling");
         const summary = data.summary || {};
-        toast.success(
-          `✅ Batch processing complete! ${summary.successful || 0}/${
-            summary.total_files || 0
-          } files processed`,
-          {
-            duration: 5000,
-            position: "top-right",
-          }
-        );
+        // toast.success(
+        //   `✅ Batch processing complete! ${summary.successful || 0}/${
+        //     summary.total_files || 0
+        //   } files processed`,
+        //   {
+        //     duration: 5000,
+        //     position: "top-right",
+        //   }
+        // );
         setIsProcessing(false);
         stopProgressPolling();
         checkProgress(data.task_id);
