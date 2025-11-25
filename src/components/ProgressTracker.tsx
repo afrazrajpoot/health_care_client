@@ -1,6 +1,7 @@
 // components/ProgressTracker.tsx
 import { useSocket } from "@/providers/SocketProvider";
 import React, { useEffect, useState } from "react";
+import { FileText, FolderOpen, Check, Sparkles, X } from "lucide-react";
 
 interface ProgressTrackerProps {
   onComplete?: () => void;
@@ -29,6 +30,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(
     null
   );
+
+  // File types for animation
+  const fileTypes = ["PDF", "PNG", "JPG", "DICOM", "PDF"];
 
   // Check localStorage on mount for persisted visibility
   useEffect(() => {
@@ -77,31 +81,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       setViewMode("queue");
     }
   }, [queueProgressData, viewMode]);
-
-  // Debug log for state changes
-  useEffect(() => {
-    console.log("🔍 ProgressTracker state update:", {
-      activeTaskId,
-      activeQueueId,
-      isProcessing,
-      progressData,
-      queueProgressData,
-      isVisible,
-      viewMode,
-      pollCount,
-      lastPollTime,
-    });
-  }, [
-    activeTaskId,
-    activeQueueId,
-    isProcessing,
-    progressData,
-    queueProgressData,
-    isVisible,
-    viewMode,
-    pollCount,
-    lastPollTime,
-  ]);
 
   // Robust manual polling
   useEffect(() => {
@@ -173,12 +152,12 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       setDisplayProgress(100);
       setDisplayQueueProgress(100);
 
-      // Auto-close after a short delay (2 seconds)
+      // Auto-close after a short delay (3 seconds for animation)
       console.log("⏰ Setting auto-close timer");
       const timer = setTimeout(() => {
         console.log("🕒 Auto-closing progress tracker");
         handleClose();
-      }, 2000);
+      }, 3000);
 
       setAutoCloseTimer(timer);
     }
@@ -272,387 +251,368 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     setViewMode(viewMode === "task" ? "queue" : "task");
   };
 
-  // Don't hide if there's active processing, even if isVisible is false
+  // Don't render if not visible and no active processing
   if (!isVisible && !isProcessing && !progressData && !queueProgressData) {
     return null;
   }
 
+  // Get current progress for animation
+  const currentProgress =
+    viewMode === "queue" ? displayQueueProgress : displayProgress;
+  const uploadCount = Math.floor((currentProgress / 100) * 5);
+
   // Show loading state if processing but no progress data yet
   if (!progressData && !queueProgressData && isProcessing) {
     return (
-      <div className="fixed top-4 right-4 z-50 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 animate-in slide-in-from-right-5 duration-300">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-800">
-            Document Processing
-          </h3>
-          <button
-            onClick={handleClose}
-            className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
-            title="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <p className="text-sm text-gray-600">Loading progress...</p>
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-          <div className="h-2 rounded-full bg-blue-500 animate-pulse"></div>
-        </div>
-        {(activeTaskId || activeQueueId) && (
-          <div className="mt-2 text-xs text-gray-500 truncate">
-            {activeQueueId
-              ? `Queue: ${activeQueueId.substring(0, 8)}...`
-              : `Task: ${activeTaskId?.substring(0, 8)}...`}
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-8">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative overflow-hidden">
+          {/* Background Gradient Effect */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-400/20 to-teal-500/20 rounded-full blur-3xl -z-0" />
+
+          {/* Header */}
+          <div className="relative z-10 mb-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-1">
+              Uploading Medical Records
+            </h3>
+            <p className="text-sm text-gray-500">
+              AI is parsing your documents...
+            </p>
           </div>
-        )}
+
+          {/* Loading Animation */}
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Render task view
-  const renderTaskView = () => {
-    const {
-      current_file = "",
-      status,
-      processed_count = 0,
-      total_files = 1,
-      failed_files = [],
-      current_step = 0,
-    } = progressData || {};
-
-    const getStatusColor = () => {
-      switch (status) {
-        case "processing":
-          return "bg-blue-500";
-        case "completed":
-          return failed_files.length > 0 ? "bg-yellow-500" : "bg-green-500";
-        case "failed":
-          return "bg-red-500";
-        default:
-          return "bg-gray-500";
-      }
-    };
-
-    const getStatusText = () => {
-      switch (status) {
-        case "processing":
-          return "Processing documents...";
-        case "completed":
-          return failed_files.length > 0
-            ? "Processing completed with warnings"
-            : "Processing completed!";
-        case "failed":
-          return "Processing failed";
-        default:
-          return "Unknown status";
-      }
-    };
-
-    const getStatusIcon = () => {
-      switch (status) {
-        case "processing":
-          return "🔄";
-        case "completed":
-          return failed_files.length > 0 ? "⚠️" : "✅";
-        case "failed":
-          return "❌";
-        default:
-          return "❓";
-      }
-    };
-
-    return (
-      <>
-        {/* Progress Bar */}
-        <div className="mb-3">
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
-            <span>{getStatusText()}</span>
-            <span className="font-semibold">
-              {Math.round(displayProgress)}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ease-out ${getStatusColor()}`}
-              style={{ width: `${displayProgress}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Progress Details */}
-        <div className="space-y-2 text-xs">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Progress:</span>
-            <span className="font-medium">
-              {current_step}/{total_files} files
-            </span>
-          </div>
-
-          <div className="flex justify-between">
-            <span className="text-gray-600">Processed:</span>
-            <span className="font-medium text-green-600">
-              {processed_count} successful
-            </span>
-          </div>
-
-          {failed_files.length > 0 && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Failed:</span>
-              <span className="font-medium text-red-600">
-                {failed_files.length} files
-              </span>
-            </div>
-          )}
-
-          {/* Current File */}
-          {current_file && status === "processing" && (
-            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-700">
-              <div className="font-medium text-xs">Currently processing:</div>
-              <div className="truncate text-xs mt-1">{current_file}</div>
-            </div>
-          )}
-
-          {/* Failed Files List */}
-          {failed_files.length > 0 && (
-            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-700">
-              <div className="font-medium text-xs mb-1">
-                ⚠️ {failed_files.length} file(s) failed:
-              </div>
-              <ul className="text-xs space-y-1 max-h-20 overflow-y-auto custom-scrollbar">
-                {failed_files.map((file, index) => (
-                  <li key={index} className="truncate" title={file}>
-                    • {file}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Completion Message */}
-          {status === "completed" && (
-            <div
-              className={`mt-2 p-2 rounded text-xs ${
-                failed_files.length > 0
-                  ? "bg-yellow-50 border border-yellow-200 text-yellow-800"
-                  : "bg-green-50 border border-green-200 text-green-800"
-              }`}
-            >
-              {failed_files.length > 0
-                ? `Processed ${processed_count} out of ${total_files} files. ${failed_files.length} files failed.`
-                : `✅ Successfully processed all ${total_files} files!`}
-            </div>
-          )}
-        </div>
-      </>
-    );
-  };
-
-  // Render queue view
-  const renderQueueView = () => {
-    const {
-      overall_progress = 0,
-      total_tasks = 0,
-      completed_tasks = 0,
-      failed_tasks = 0,
-      active_tasks = 0,
-      status,
-    } = queueProgressData || {};
-
-    const getStatusColor = () => {
-      switch (status) {
-        case "active":
-          return "bg-blue-500";
-        case "completed":
-          return failed_tasks > 0 ? "bg-yellow-500" : "bg-green-500";
-        default:
-          return "bg-gray-500";
-      }
-    };
-
-    const getStatusText = () => {
-      switch (status) {
-        case "active":
-          return "Processing queue...";
-        case "completed":
-          return failed_tasks > 0
-            ? "Queue completed with warnings"
-            : "Queue completed!";
-        default:
-          return "Unknown status";
-      }
-    };
-
-    const getStatusIcon = () => {
-      switch (status) {
-        case "active":
-          return "🔄";
-        case "completed":
-          return failed_tasks > 0 ? "⚠️" : "✅";
-        default:
-          return "❓";
-      }
-    };
-
-    return (
-      <>
-        {/* Queue Progress Bar */}
-        <div className="mb-3">
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
-            <span>{getStatusText()}</span>
-            <span className="font-semibold">
-              {Math.round(displayQueueProgress)}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ease-out ${getStatusColor()}`}
-              style={{ width: `${displayQueueProgress}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Queue Progress Details */}
-        <div className="space-y-2 text-xs">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Total Tasks:</span>
-            <span className="font-medium">{total_tasks}</span>
-          </div>
-
-          <div className="flex justify-between">
-            <span className="text-gray-600">Completed:</span>
-            <span className="font-medium text-green-600">
-              {completed_tasks} tasks
-            </span>
-          </div>
-
-          {active_tasks > 0 && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Active:</span>
-              <span className="font-medium text-blue-600">
-                {active_tasks} tasks
-              </span>
-            </div>
-          )}
-
-          {failed_tasks > 0 && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Failed:</span>
-              <span className="font-medium text-red-600">
-                {failed_tasks} tasks
-              </span>
-            </div>
-          )}
-
-          {/* Completion Message */}
-          {status === "completed" && (
-            <div
-              className={`mt-2 p-2 rounded text-xs ${
-                failed_tasks > 0
-                  ? "bg-yellow-50 border border-yellow-200 text-yellow-800"
-                  : "bg-green-50 border border-green-200 text-green-800"
-              }`}
-            >
-              {failed_tasks > 0
-                ? `Processed ${completed_tasks} out of ${total_tasks} tasks. ${failed_tasks} tasks failed.`
-                : `✅ Successfully processed all ${total_tasks} tasks!`}
-            </div>
-          )}
-        </div>
-      </>
-    );
-  };
-
+  // Render animated modal
   return (
-    <div className="fixed top-4 right-4 z-50 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 animate-in slide-in-from-right-5 duration-300">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-2">
-          <h3 className="text-sm font-semibold text-gray-800">
-            {viewMode === "queue" ? "Queue Processing" : "Document Processing"}
-          </h3>
-          <span className="text-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-8">
+      {/* Popup Container */}
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative overflow-hidden">
+        {/* Background Gradient Effect */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-400/20 to-teal-500/20 rounded-full blur-3xl -z-0" />
+
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 z-20 text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Header */}
+        <div className="relative z-10 mb-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-1">
             {viewMode === "queue"
-              ? queueProgressData?.status === "active"
-                ? "🔄"
-                : queueProgressData?.failed_tasks
-                ? "⚠️"
-                : "✅"
-              : progressData?.status === "processing"
-              ? "🔄"
-              : progressData?.failed_files?.length
-              ? "⚠️"
-              : "✅"}
-          </span>
+              ? "Processing Queue"
+              : "Uploading Medical Records"}
+          </h3>
+          <p className="text-sm text-gray-500">
+            {isProcessing
+              ? "AI is parsing your documents..."
+              : "Processing completed!"}
+          </p>
         </div>
-        <div className="flex items-center space-x-2">
-          {/* View Toggle Button */}
+
+        {/* Animation Area */}
+        <div className="relative h-64 mb-6">
+          {/* Floating Files */}
+          {[0, 1, 2, 3, 4].map((index) => (
+            <div
+              key={index}
+              className="absolute"
+              style={{
+                left: `${10 + index * 18}%`,
+                animation: `floatToFolder 4s ease-in-out ${
+                  index * 0.8
+                }s infinite`,
+                opacity: index < uploadCount ? 1 : 0.3,
+              }}
+            >
+              <div
+                className={`bg-white rounded-lg shadow-lg p-3 border-2 ${
+                  index < uploadCount ? "border-cyan-500" : "border-cyan-100"
+                }`}
+              >
+                <FileText
+                  className={`w-8 h-8 ${
+                    index < uploadCount ? "text-cyan-500" : "text-gray-300"
+                  }`}
+                />
+                <span className="text-xs font-medium text-gray-600 mt-1 block">
+                  {fileTypes[index]}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {/* Central Folder */}
+          <div className="absolute left-1/2 bottom-8 transform -translate-x-1/2">
+            <div className="relative">
+              {/* Glow Effect */}
+              <div
+                className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl blur-xl opacity-40 animate-pulse"
+                style={{ width: "120px", height: "120px", margin: "-10px" }}
+              />
+
+              {/* Folder Container */}
+              <div className="relative bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl p-6 shadow-xl">
+                <FolderOpen
+                  className="w-16 h-16 text-white"
+                  strokeWidth={1.5}
+                />
+
+                {/* AI Sparkle */}
+                <div className="absolute -top-2 -right-2 bg-white rounded-full p-1.5 shadow-lg">
+                  <Sparkles className="w-4 h-4 text-cyan-500 animate-pulse" />
+                </div>
+
+                {/* Processing Waves */}
+                {isProcessing && (
+                  <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="absolute inset-0 border-2 border-white rounded-2xl"
+                        style={{
+                          animation: `wave 2s ease-out ${i * 0.5}s infinite`,
+                          opacity: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* File Counter Badge */}
+              <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-4 py-1 shadow-lg border-2 border-cyan-100">
+                <span className="text-sm font-bold text-cyan-600">
+                  {uploadCount}/5
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Success Particles */}
+          {!isProcessing &&
+            [...Array(6)].map((_, i) => (
+              <div
+                key={`particle-${i}`}
+                className="absolute w-1.5 h-1.5 bg-teal-400 rounded-full"
+                style={{
+                  left: "50%",
+                  top: "70%",
+                  animation: `particle-burst 2s ease-out ${i * 0.2}s infinite`,
+                  opacity: 0,
+                }}
+              />
+            ))}
+        </div>
+
+        {/* Progress Info */}
+        <div className="relative z-10 space-y-3 mb-6">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">
+              {isProcessing
+                ? "Extracting critical findings..."
+                : "Extraction completed!"}
+            </span>
+            {isProcessing && (
+              <div className="flex items-center gap-1">
+                <div
+                  className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
+                  style={{ animationDelay: "0s" }}
+                />
+                <div
+                  className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
+                />
+                <div
+                  className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
+                  style={{ animationDelay: "0.4s" }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full transition-all duration-1000"
+              style={{ width: `${currentProgress}%` }}
+            />
+          </div>
+
+          {/* Progress Details */}
+          <div className="text-xs text-gray-600 text-center">
+            {viewMode === "queue" ? (
+              <>
+                {queueProgressData?.completed_tasks || 0} of{" "}
+                {queueProgressData?.total_tasks || 0} tasks completed
+                {queueProgressData?.failed_tasks
+                  ? ` (${queueProgressData.failed_tasks} failed)`
+                  : ""}
+              </>
+            ) : (
+              <>
+                {progressData?.processed_count || 0} of{" "}
+                {progressData?.total_files || 0} files processed
+                {progressData?.failed_files?.length
+                  ? ` (${progressData.failed_files.length} failed)`
+                  : ""}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Processed Items */}
+        <div className="relative z-10 bg-gray-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Check className="w-4 h-4 text-teal-500" />
+            <span className="text-sm font-semibold text-gray-700">
+              Processed Data
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {["Lab Results", "Vitals", "Diagnoses", "Medications"].map(
+              (item, index) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
+                  style={{
+                    animation: `fadeInSlide 0.5s ease-out ${
+                      0.5 + index * 0.15
+                    }s forwards`,
+                  }}
+                >
+                  <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
+                  {item}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="relative z-10 mt-6 flex justify-between items-center">
+          {/* View Toggle */}
           {progressData && queueProgressData && (
             <button
               onClick={toggleViewMode}
-              className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
-              title={`Switch to ${
-                viewMode === "queue" ? "task" : "queue"
-              } view`}
+              className="text-sm text-cyan-600 hover:text-cyan-700 font-medium"
             >
-              {viewMode === "queue" ? "📄" : "📊"}
+              {viewMode === "queue"
+                ? "View Task Details"
+                : "View Queue Progress"}
             </button>
           )}
-          <button
-            onClick={handleManualRefresh}
-            className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
-            title="Refresh progress"
-          >
-            🔄
-          </button>
-          <button
-            onClick={handleClose}
-            className="text-xs text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
-            title="Close"
-          >
-            ✕
-          </button>
+
+          {/* Manual Refresh */}
+          {isProcessing && (
+            <button
+              onClick={handleManualRefresh}
+              className="text-sm text-gray-600 hover:text-gray-700 font-medium"
+            >
+              Refresh
+            </button>
+          )}
         </div>
       </div>
 
-      {viewMode === "queue" ? renderQueueView() : renderTaskView()}
-
-      {/* Task/Queue ID for debugging */}
-      <div className="mt-2 pt-2 border-t border-gray-200">
-        <div
-          className="text-xs text-gray-500 truncate"
-          title={
-            viewMode === "queue" ? activeQueueId || "" : activeTaskId || ""
+      {/* Animation Styles */}
+      <style jsx>{`
+        @keyframes floatToFolder {
+          0% {
+            transform: translateY(-100px) translateX(-20px) rotate(-5deg)
+              scale(0.8);
+            opacity: 0;
           }
-        >
-          {viewMode === "queue" ? "Queue" : "Task"}:{" "}
-          {(viewMode === "queue" ? activeQueueId : activeTaskId)?.substring(
-            0,
-            8
-          )}
-          ...
-        </div>
-      </div>
-
-      {/* DEBUG: Raw state dump (remove in production) */}
-      {/* <details className="mt-2 p-1 bg-gray-50 rounded text-xs">
-        <summary>
-          Debug State (Polls: {pollCount}, View: {viewMode}, Last Poll:{" "}
-          {new Date(lastPollTime).toLocaleTimeString()})
-        </summary>
-        <pre className="text-xs overflow-auto max-h-20">
-          {JSON.stringify(
-            {
-              progressData,
-              queueProgressData,
-              isProcessing,
-              activeTaskId,
-              activeQueueId,
-              displayProgress,
-              displayQueueProgress,
-            },
-            null,
-            2
-          )}
-        </pre>
-      </details> */}
+          20% {
+            opacity: 1;
+          }
+          50% {
+            transform: translateY(100px) translateX(80px) rotate(5deg)
+              scale(0.9);
+            opacity: 1;
+          }
+          70% {
+            transform: translateY(140px) translateX(120px) rotate(0deg)
+              scale(0.5);
+            opacity: 0.5;
+          }
+          100% {
+            transform: translateY(150px) translateX(130px) rotate(0deg)
+              scale(0.2);
+            opacity: 0;
+          }
+        }
+        @keyframes wave {
+          0% {
+            transform: scale(1);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(1.5);
+            opacity: 0;
+          }
+        }
+        @keyframes particle-burst {
+          0% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(
+                calc(var(--x, 0) * 40px),
+                calc(var(--y, 0) * -40px)
+              )
+              scale(0);
+            opacity: 0;
+          }
+        }
+        @keyframes fadeInSlide {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        div[style*="particle-burst"]:nth-child(1) {
+          --x: -1;
+          --y: 1;
+        }
+        div[style*="particle-burst"]:nth-child(2) {
+          --x: 1;
+          --y: 1;
+        }
+        div[style*="particle-burst"]:nth-child(3) {
+          --x: -0.5;
+          --y: 1.5;
+        }
+        div[style*="particle-burst"]:nth-child(4) {
+          --x: 0.5;
+          --y: 1.5;
+        }
+        div[style*="particle-burst"]:nth-child(5) {
+          --x: 0;
+          --y: 1.8;
+        }
+        div[style*="particle-burst"]:nth-child(6) {
+          --x: 0;
+          --y: 1.2;
+        }
+      `}</style>
     </div>
   );
 };
