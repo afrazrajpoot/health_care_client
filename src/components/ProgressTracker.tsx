@@ -32,7 +32,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   );
 
   // File types for animation
-  const fileTypes = ["PDF", "PNG", "JPG", "DICOM", "PDF"];
+  // we need almost all file types
+  const fileTypes = ["PDF", "PNG", "JPG", "DICOM", "PDF", "TXT", "DOCX", "GIF", "BMP", "TIFF", "SVG", "HEIC", "WEBP"];
 
   // Check localStorage on mount for persisted visibility
   useEffect(() => {
@@ -272,10 +273,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Header */}
           <div className="relative z-10 mb-6">
             <h3 className="text-xl font-bold text-gray-800 mb-1">
-              Uploading Medical Records
+              Uploading Documents
             </h3>
             <p className="text-sm text-gray-500">
-              AI is parsing your documents...
+              DocLatch processing your documents...
             </p>
           </div>
 
@@ -309,11 +310,11 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           <h3 className="text-xl font-bold text-gray-800 mb-1">
             {viewMode === "queue"
               ? "Processing Queue"
-              : "Uploading Medical Records"}
+              : "Uploading Documents"}
           </h3>
           <p className="text-sm text-gray-500">
             {isProcessing
-              ? "AI is parsing your documents..."
+              ? "DocLatch is processing your documents..."
               : "Processing completed!"}
           </p>
         </div>
@@ -327,21 +328,18 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               className="absolute"
               style={{
                 left: `${10 + index * 18}%`,
-                animation: `floatToFolder 4s ease-in-out ${
-                  index * 0.8
-                }s infinite`,
+                animation: `floatToFolder 4s ease-in-out ${index * 0.8
+                  }s infinite`,
                 opacity: index < uploadCount ? 1 : 0.3,
               }}
             >
               <div
-                className={`bg-white rounded-lg shadow-lg p-3 border-2 ${
-                  index < uploadCount ? "border-cyan-500" : "border-cyan-100"
-                }`}
+                className={`bg-white rounded-lg shadow-lg p-3 border-2 ${index < uploadCount ? "border-cyan-500" : "border-cyan-100"
+                  }`}
               >
                 <FileText
-                  className={`w-8 h-8 ${
-                    index < uploadCount ? "text-cyan-500" : "text-gray-300"
-                  }`}
+                  className={`w-8 h-8 ${index < uploadCount ? "text-cyan-500" : "text-gray-300"
+                    }`}
                 />
                 <span className="text-xs font-medium text-gray-600 mt-1 block">
                   {fileTypes[index]}
@@ -391,7 +389,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               {/* File Counter Badge */}
               <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-4 py-1 shadow-lg border-2 border-cyan-100">
                 <span className="text-sm font-bold text-cyan-600">
-                  {uploadCount}/5
+                  {uploadCount}/{progressData?.total_files}
                 </span>
               </div>
             </div>
@@ -418,7 +416,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">
               {isProcessing
-                ? "Extracting critical findings..."
+                ? "Extracting documents..."
                 : "Extraction completed!"}
             </span>
             {isProcessing && (
@@ -485,9 +483,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
                   key={item}
                   className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
                   style={{
-                    animation: `fadeInSlide 0.5s ease-out ${
-                      0.5 + index * 0.15
-                    }s forwards`,
+                    animation: `fadeInSlide 0.5s ease-out ${0.5 + index * 0.15
+                      }s forwards`,
                   }}
                 >
                   <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
