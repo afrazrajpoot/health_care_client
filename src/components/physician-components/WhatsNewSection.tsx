@@ -40,6 +40,12 @@ interface SelectedSummary {
   summary: string;
 }
 
+interface SelectedCaseContext {
+  type: string;
+  date: string;
+  context: string;
+}
+
 const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   documentData,
   copied,
@@ -55,6 +61,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   );
   const [selectedSummary, setSelectedSummary] =
     useState<SelectedSummary | null>(null);
+  const [selectedCaseContext, setSelectedCaseContext] =
+    useState<SelectedCaseContext | null>(null);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
   console.log(documentData, "documentData what new");
@@ -82,6 +90,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         // Extract both summaries from whats_new object
         const longSummary = doc.whats_new?.long_summary || "";
         const shortSummary = doc.whats_new?.short_summary || "";
+        const caseContext = doc.brief_summary || "";
 
         // Fallback to legacy brief_summary if no short summary
         const fallbackShortSummary = doc.brief_summary || "";
@@ -101,6 +110,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           reportDate: doc.report_date || doc.created_at || "",
           longSummary,
           shortSummary: shortSummary || fallbackShortSummary,
+          caseContext,
           contentType: "summaries", // Now we have both summaries
           doc, // Full document object for additional info
           status: doc.status || "pending",
@@ -359,6 +369,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
+  const handleCaseContextClick = (group: any) => {
+    if (group.caseContext) {
+      setSelectedCaseContext({
+        type: group.documentType,
+        date: group.reportDate,
+        context: group.caseContext,
+      });
+    }
+  };
+
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
   const isLoadingForGroup = (group: any) => {
     const docId = group.doc?.document_id;
@@ -424,10 +444,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             </button>
                           )}
 
+                          {group.caseContext && (
+                            <button
+                              onClick={() => handleCaseContextClick(group)}
+                              className="action-link case-context-link"
+                            >
+                              View brief summary
+                            </button>
+                          )}
+
                           <button
-                            className={`action-link copy-link ${
-                              isGroupCopied ? "copied" : ""
-                            }`}
+                            className={`action-link copy-link ${isGroupCopied ? "copied" : ""
+                              }`}
                             onClick={(e) => handleCopyClick(e, group.docId)}
                             title="Copy This Update"
                           >
@@ -440,9 +468,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-link mark-viewed-link ${
-                              isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
+                            className={`action-link mark-viewed-link ${isViewed ? "viewed" : ""
+                              } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
                             title={isViewed ? "Reviewed" : "Mark as Reviewed"}
@@ -545,6 +572,26 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           </DialogHeader>
           <div className="detailed-summary-content extra-wide-modal">
             {selectedSummary && renderFormattedSummary(selectedSummary.summary)}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal for Case Context */}
+      <Dialog
+        open={!!selectedCaseContext}
+        onOpenChange={() => setSelectedCaseContext(null)}
+      >
+        <DialogContent className="w-full h-fit overflow-y-auto p-8">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl font-bold">
+              Case Context - {selectedCaseContext?.type} -{" "}
+              {formatDate(selectedCaseContext?.date)}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="detailed-summary-content extra-wide-modal">
+            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+              {selectedCaseContext?.context}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -662,6 +709,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .read-more-link:hover {
           color: #047857;
+        }
+        .case-context-link {
+          color: #0891b2;
+          text-decoration: underline;
+        }
+        .case-context-link:hover {
+          color: #0e7490;
         }
         .copy-link {
           color: #7c3aed;
