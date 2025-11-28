@@ -46,7 +46,7 @@ export default function TaskTable({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blobPath
         )}`,
         {
@@ -101,7 +101,7 @@ export default function TaskTable({
                 <th>Status</th>
                 <th>Due</th>
                 <th>Patient</th>
-                <th>UR Denial Reason</th>
+                <th>Reason</th>
                 <th>Quick Note</th>
                 <th>Preview</th>
                 <th>Actions</th>
@@ -130,7 +130,7 @@ export default function TaskTable({
               <th>Status</th>
               <th>Due</th>
               <th>Patient</th>
-              <th>UR Denial Reason</th>
+              <th>Reason</th>
               <th>Quick Note</th>
               <th>Preview</th>
               <th>Actions</th>
@@ -168,7 +168,7 @@ export default function TaskTable({
             <th>Task</th>
             <th>Dept</th>
             <th>Due</th>
-            <th>UR Denial Reason</th>
+            <th>Reason</th>
             <th>Action</th>
             <th>Preview</th>
           </tr>
@@ -200,7 +200,7 @@ export default function TaskTable({
           <th>Status</th>
           <th>Due</th>
           <th>Patient</th>
-          <th>UR Denial Reason</th>
+          <th>Reason</th>
           <th>Quick Note</th>
           <th>Actions</th>
           <th>Preview</th>
