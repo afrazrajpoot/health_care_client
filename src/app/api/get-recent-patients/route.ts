@@ -100,10 +100,10 @@ export async function GET(request: Request) {
 
     for (const doc of cleanedDocuments) {
       const normalizedName = normalizePatientName(doc.patientName || "");
-      const normalizedDOB = normalizeDOB(doc.dob);
       const normalizedClaim = normalizeText(doc.claimNumber || "");
 
-      const key = `${normalizedName}_${normalizedDOB}_${normalizedClaim}`;
+      // Dedupe only by (name + claim number)
+      const key = `${normalizedName}_${normalizedClaim}`;
 
       if (!seen.has(key)) {
         seen.add(key);
