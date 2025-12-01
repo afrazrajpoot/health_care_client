@@ -479,8 +479,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     pollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${
-          activeTaskId === taskId
+        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${activeTaskId === taskId
         } | Processing: ${isProcessing}`
       );
       if (activeTaskId === taskId && isProcessing) {
@@ -517,8 +516,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     queuePollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${
-          activeQueueId === queueId
+        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${activeQueueId === queueId
         } | Processing: ${isProcessing}`
       );
       if (activeQueueId === queueId && isProcessing) {
@@ -575,8 +573,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     console.log(
-      `🎯 Setting active task: ${taskId}, total: ${
-        totalFiles || "unknown"
+      `🎯 Setting active task: ${taskId}, total: ${totalFiles || "unknown"
       }, queue: ${queueId || "none"}`
     );
     setActiveTaskId(taskId);

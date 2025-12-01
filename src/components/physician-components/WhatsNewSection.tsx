@@ -563,7 +563,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         open={!!selectedSummary}
         onOpenChange={() => setSelectedSummary(null)}
       >
-        <DialogContent className=" w-full h-[95vh] overflow-y-auto p-8">
+        <DialogContent className="w-full max-h-[90vh] overflow-y-auto p-8">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-xl font-bold">
               Detailed {selectedSummary?.type} Summary -{" "}
@@ -581,7 +581,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         open={!!selectedCaseContext}
         onOpenChange={() => setSelectedCaseContext(null)}
       >
-        <DialogContent className="w-full h-fit overflow-y-auto p-8">
+        <DialogContent className="w-full max-h-[90vh] overflow-y-auto p-8">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-xl font-bold">
               Case Context - {selectedCaseContext?.type} -{" "}
