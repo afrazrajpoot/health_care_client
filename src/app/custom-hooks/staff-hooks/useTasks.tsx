@@ -18,15 +18,15 @@ export const useTasks = (initialMode: "wc" | "gm") => {
 
       const notes = apiTask.quickNotes
         ? [
-            {
-              ts: new Date(apiTask.updatedAt).toLocaleString(),
-              user: "System",
-              line:
-                apiTask.quickNotes.one_line_note ||
-                apiTask.quickNotes.details ||
-                "Note added",
-            },
-          ]
+          {
+            ts: new Date(apiTask.updatedAt).toLocaleString(),
+            user: "System",
+            line:
+              apiTask.quickNotes.one_line_note ||
+              apiTask.quickNotes.details ||
+              "Note added",
+          },
+        ]
         : [];
 
       // Get UR denial reason from multiple possible sources
@@ -146,10 +146,10 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         };
       } catch (error) {
         console.error("Error fetching tasks:", error);
-        toast.error("❌ Error fetching tasks", {
-          duration: 5000,
-          position: "top-right",
-        });
+        // toast.error("❌ Error fetching tasks", {
+        //   duration: 5000,
+        //   position: "top-right",
+        // });
         setTasks([]);
         return { tasks: [], totalCount: 0 };
       } finally {
@@ -216,12 +216,12 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         prev.map((t) =>
           t.id === id
             ? {
-                ...t,
-                statusText: newStatus,
-                statusClass: newStatusClass,
-                assignee: newAssignee,
-                actions: newActions,
-              }
+              ...t,
+              statusText: newStatus,
+              statusClass: newStatusClass,
+              assignee: newAssignee,
+              actions: newActions,
+            }
             : t
         )
       );
@@ -243,12 +243,12 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           prev.map((t) =>
             t.id === id
               ? {
-                  ...t,
-                  statusText: isClaimed ? "in progress" : "Open",
-                  statusClass: isClaimed ? "in-progress" : "open",
-                  assignee: isClaimed ? "You" : "Unclaimed",
-                  actions: isClaimed ? ["Complete"] : ["Claimed", "Complete"],
-                }
+                ...t,
+                statusText: isClaimed ? "in progress" : "Open",
+                statusClass: isClaimed ? "in-progress" : "open",
+                assignee: isClaimed ? "You" : "Unclaimed",
+                actions: isClaimed ? ["Complete"] : ["Claimed", "Complete"],
+              }
               : t
           )
         );
@@ -332,9 +332,9 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           prev.map((t) =>
             t.id === taskId
               ? {
-                  ...t,
-                  notes: [...(t.notes || []), { ts, user: "You", line }],
-                }
+                ...t,
+                notes: [...(t.notes || []), { ts, user: "You", line }],
+              }
               : t
           )
         );

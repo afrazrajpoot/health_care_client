@@ -358,9 +358,8 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                     )}
                     <span className="copy-span-li">
                       <button
-                        className={`copy-btn-li ${
-                          copied[sectionId] ? "copied-li" : ""
-                        }`}
+                        className={`copy-btn-li ${copied[sectionId] ? "copied-li" : ""
+                          }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onCopySection(sectionId);

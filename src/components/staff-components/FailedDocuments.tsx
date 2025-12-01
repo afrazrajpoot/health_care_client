@@ -7,6 +7,7 @@ import {
   User,
   FileText,
   Hash,
+  Eye,
 } from "lucide-react";
 
 interface FailedDocument {
@@ -33,12 +34,34 @@ export default function FailedDocuments({
   documents,
   onRowClick,
 }: FailedDocumentsProps) {
+  const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
+  };
+
+  const handlePreviewFile = async (e: React.MouseEvent, doc: FailedDocument) => {
+    e.stopPropagation();
+
+    if (!doc.gcsFileLink) {
+      console.error("No file link available");
+      return;
+    }
+
+    setLoadingPreview(doc.id);
+
+    try {
+      // Open the GCS file link directly in a new tab
+      window.open(doc.gcsFileLink, "_blank");
+    } catch (error) {
+      console.error("Error opening file:", error);
+    } finally {
+      setLoadingPreview(null);
+    }
   };
 
   return (
@@ -83,12 +106,6 @@ export default function FailedDocuments({
                 <tr className="border-b-2 border-gray-200">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     <div className="flex items-center gap-2">
-                      <Hash className="w-4 h-4" />
-                      ID
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       Patient Name
                     </div>
@@ -99,12 +116,6 @@ export default function FailedDocuments({
                       Claim Number
                     </div>
                   </th>
-                  {/* <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      DOI
-                    </div>
-                  </th> */}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     File Name
                   </th>
@@ -132,9 +143,9 @@ export default function FailedDocuments({
                     onClick={() => onRowClick(doc)}
                     className="hover:bg-red-50 transition-colors duration-150 cursor-pointer group"
                   >
-                    <td className="px-4 py-4 text-sm text-gray-700 font-medium">
+                    {/* <td className="px-4 py-4 text-sm text-gray-700 font-medium">
                       {doc.id}
-                    </td>
+                    </td> */}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         {doc.patientName ? (
@@ -188,15 +199,31 @@ export default function FailedDocuments({
                       </div>
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRowClick(doc);
-                        }}
-                        className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-all duration-150"
-                      >
-                        Update
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        {doc.gcsFileLink && (
+                          <button
+                            onClick={(e) => handlePreviewFile(e, doc)}
+                            disabled={loadingPreview === doc.id}
+                            className="inline-flex items-center justify-center p-2 border border-blue-300 rounded-md text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Preview File"
+                          >
+                            {loadingPreview === doc.id ? (
+                              <div className="w-4 h-4 border-2 border-blue-700 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRowClick(doc);
+                          }}
+                          className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-all duration-150"
+                        >
+                          Update
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
