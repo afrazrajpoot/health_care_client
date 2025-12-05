@@ -160,16 +160,16 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       console.error("❌ Upload error:", error);
       setIsFileModalOpen(false);
 
-      if (error.name === "AbortError") {
-        setPaymentError("Request timeout. Please try again.");
-      } else if (error.message.includes("Failed to fetch")) {
-        setPaymentError(
-          "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-          (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com")
-        );
-      } else {
-        setPaymentError(`Upload failed: ${error.message}`);
-      }
+      // if (error.name === "AbortError") {
+      //   setPaymentError("Request timeout. Please try again.");
+      // } else if (error.message.includes("Failed to fetch")) {
+      //   setPaymentError(
+      //     "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
+      //     (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com")
+      //   );
+      // } else {
+      //   setPaymentError(`Upload failed: ${error.message}`);
+      // }
     } finally {
       setUploading(false);
     }
