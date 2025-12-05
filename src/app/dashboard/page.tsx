@@ -684,11 +684,9 @@ export default function PhysicianCard() {
         const currentIdx = snapshotIndex || 0;
         const currentSnap = snapshots[currentIdx];
         if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${
-            currentSnap.dx || "Not specified"
-          }\nKey Concern: ${
-            currentSnap.keyConcern || "Not specified"
-          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+          text = `Summary Snapshot\nDx: ${currentSnap.dx || "Not specified"
+            }\nKey Concern: ${currentSnap.keyConcern || "Not specified"
+            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
         }
         break;
       case "section-whatsnew":
@@ -708,22 +706,17 @@ export default function PhysicianCard() {
         }
         break;
       case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${
-          doc?.adl?.adls_affected || "Not specified"
-        }\nWork Restrictions: ${
-          doc?.adl?.work_restrictions || "Not specified"
-        }`;
+        text = `ADL / Work Status\nADLs Affected: ${doc?.adl?.adls_affected || "Not specified"
+          }\nWork Restrictions: ${doc?.adl?.work_restrictions || "Not specified"
+          }`;
         break;
       case "section-patient-quiz":
         if (doc?.patient_quiz) {
           const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
-            q.newAppt
-          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
-            q.trend
-          }\nWork Ability: ${q.workAbility}\nBarrier: ${
-            q.barrier
-          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${q.newAppt
+            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${q.trend
+            }\nWork Ability: ${q.workAbility}\nBarrier: ${q.barrier
+            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
           q.appts.forEach((appt) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
@@ -739,9 +732,8 @@ export default function PhysicianCard() {
           const index = parseInt(sectionId.split("-")[2]);
           const summary = doc?.document_summaries?.[index];
           if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${
-              summary.summary
-            }`;
+            text = `${summary.type} - ${formatDate(summary.date)}\n${summary.summary
+              }`;
           }
         }
         break;
@@ -854,35 +846,35 @@ export default function PhysicianCard() {
   const staffDashboardHref =
     selectedPatient && documentData && documentId
       ? `/staff-dashboard?patient_name=${encodeURIComponent(
-          currentPatient.patientName
-        )}&dob=${encodeURIComponent(
-          currentPatient.dob || ""
-        )}&claim=${encodeURIComponent(
-          currentPatient.claimNumber
-        )}&document_id=${encodeURIComponent(documentId)}`
+        currentPatient.patientName
+      )}&dob=${encodeURIComponent(
+        currentPatient.dob || ""
+      )}&claim=${encodeURIComponent(
+        currentPatient.claimNumber
+      )}&document_id=${encodeURIComponent(documentId)}`
       : selectedPatient
-      ? `/staff-dashboard?patient_name=${encodeURIComponent(
+        ? `/staff-dashboard?patient_name=${encodeURIComponent(
           currentPatient.patientName
         )}&dob=${encodeURIComponent(
           currentPatient.dob || ""
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-      : "/staff-dashboard";
+        : "/staff-dashboard";
   const rebutalHre =
     selectedPatient && documentData && documentId
       ? `/generate-rebuttal?patient_name=${encodeURIComponent(
-          currentPatient.patientName
-        )}&dob=${encodeURIComponent(
-          currentPatient.dob || ""
-        )}&claim=${encodeURIComponent(
-          currentPatient.claimNumber
-        )}&document_id=${encodeURIComponent(documentId)}`
+        currentPatient.patientName
+      )}&dob=${encodeURIComponent(
+        currentPatient.dob || ""
+      )}&claim=${encodeURIComponent(
+        currentPatient.claimNumber
+      )}&document_id=${encodeURIComponent(documentId)}`
       : selectedPatient
-      ? `/generate-rebuttal?patient_name=${encodeURIComponent(
+        ? `/generate-rebuttal?patient_name=${encodeURIComponent(
           currentPatient.patientName
         )}&dob=${encodeURIComponent(
           currentPatient.dob || ""
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-      : "/generate-rebuttal";
+        : "/generate-rebuttal";
   // Burger Icon Component
   const BurgerIcon = () => (
     <svg
@@ -1093,14 +1085,6 @@ export default function PhysicianCard() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <span className="bg-blue-100 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
-                      PR‑2
-                    </span>
-                    <span className="bg-indigo-50 text-gray-900 border border-blue-200 px-2 py-1 rounded-full text-xs font-bold">
-                      Visit: {getVisitDate()}
-                    </span>
-                  </div>
                 </div>
                 {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
                 <WhatsNewSection
@@ -1186,9 +1170,8 @@ export default function PhysicianCard() {
       )}
       {/* Sidebar */}
       <div
-        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="h-full">
           <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -1199,9 +1182,8 @@ export default function PhysicianCard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${
-              toast.type === "success" ? "bg-green-500" : "bg-red-500"
-            } animate-in slide-in-from-top-2 duration-300`}
+            className={`p-4 rounded-lg shadow-lg text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
+              } animate-in slide-in-from-top-2 duration-300`}
           >
             {toast.message}
           </div>

@@ -20,9 +20,16 @@ export const useOfficePulse = () => {
       return;
     }
 
+    // ✅ Determine physician ID based on role
+    const user = session?.user;
+    const physicianId =
+      user?.role === "Physician"
+        ? user?.id // if Physician, use their own ID
+        : user?.physicianId || ""; // otherwise, use assigned physician's ID
+
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/office-pulse`,
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/office-pulse?physicianId=${physicianId}`,
         {
           headers: {
             Authorization: `Bearer ${session.user.fastapi_token}`,
