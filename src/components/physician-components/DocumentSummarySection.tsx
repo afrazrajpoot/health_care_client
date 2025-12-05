@@ -145,6 +145,9 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
     handleViewFile,
     getDocumentSummary,
   } = useDocumentSummary(documentData, isCollapsed, onToggle);
+
+  // Show all document summaries without filtering duplicates
+  const allSummaries = documentData?.document_summaries || [];
   const { data: session } = useSession();
   const [loadingIndexes, setLoadingIndexes] = React.useState<Set<number>>(
     new Set()
@@ -291,11 +294,11 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
           aria-label="Parsed documents"
         >
           <ul className="doc-ul">
-            {uniqueSummaries.length > 0 ? (
-              uniqueSummaries.map((summary, index) => {
-                const hasPrevious =
-                  documentData.previous_summaries &&
-                  documentData.previous_summaries[summary.type];
+            {allSummaries.length > 0 ? (
+              allSummaries.map((summary, index) => {
+                // const hasPrevious =
+                //   documentData.previous_summaries &&
+                //   documentData.previous_summaries[summary.type];
                 const sectionId = `section-summary-${index}`;
                 const isLoading = loadingIndexes.has(index);
 
@@ -343,7 +346,8 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                         [{isLoading ? "Loading..." : "Download File"}]
                       </span>
                     )}
-                    {hasPrevious && (
+                    {/* Previous Summary - Commented out */}
+                    {/* {hasPrevious && (
                       <a
                         href="#"
                         className="pdf-link previous"
@@ -355,7 +359,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
                       >
                         [Previous Summary]
                       </a>
-                    )}
+                    )} */}
                     <span className="copy-span-li">
                       <button
                         className={`copy-btn-li ${copied[sectionId] ? "copied-li" : ""

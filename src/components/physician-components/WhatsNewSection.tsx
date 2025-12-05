@@ -501,34 +501,46 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
                     {/* Quick Notes - Show if available */}
                     {group.task_quick_notes &&
-                      group.task_quick_notes.length > 0 && (
-                        <div className="quick-notes-section">
-                          <div className="quick-notes-header">Quick Notes:</div>
-                          <div className="quick-notes-list">
-                            {group.task_quick_notes.map(
-                              (note: any, noteIndex: number) => (
-                                <div
-                                  key={noteIndex}
-                                  className="quick-note-item"
-                                >
-                                  <span className="note-status">
-                                    {note.status_update || "Note"}
-                                  </span>
-                                  <span className="note-one-line">
-                                    {note.one_line_note || ""}
-                                  </span>
-                                  <span className="note-details">
-                                    {note.details}
-                                  </span>
-                                  <span className="note-timestamp">
-                                    {formatTimestamp(note.timestamp || "")}
-                                  </span>
-                                </div>
-                              )
-                            )}
+                      group.task_quick_notes.length > 0 && (() => {
+                        // Filter out notes with empty details, one_line_note, and status_update
+                        const validNotes = group.task_quick_notes.filter(
+                          (note: any) =>
+                            note.details?.trim() ||
+                            note.one_line_note?.trim() ||
+                            note.status_update?.trim()
+                        );
+
+                        if (validNotes.length === 0) return null;
+
+                        return (
+                          <div className="quick-notes-section">
+                            <div className="quick-notes-header">Quick Notes:</div>
+                            <div className="quick-notes-list">
+                              {validNotes.map(
+                                (note: any, noteIndex: number) => (
+                                  <div
+                                    key={noteIndex}
+                                    className="quick-note-item"
+                                  >
+                                    <span className="note-status">
+                                      {note.status_update || "Note"}
+                                    </span>
+                                    <span className="note-one-line">
+                                      {note.one_line_note || ""}
+                                    </span>
+                                    <span className="note-details">
+                                      {note.details}
+                                    </span>
+                                    <span className="note-timestamp">
+                                      {formatTimestamp(note.timestamp || "")}
+                                    </span>
+                                  </div>
+                                )
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                     {/* Document metadata - smaller and less prominent */}
                     {/* <div className="document-metadata">
@@ -558,43 +570,39 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         )}
       </div>
 
-      {/* Modal for Detailed Summary with EXTRA WIDE MODAL */}
-      <Dialog
-        open={!!selectedSummary}
-        onOpenChange={() => setSelectedSummary(null)}
-      >
-        <DialogContent className="w-full max-h-[90vh] overflow-y-auto p-8">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold">
-              Detailed {selectedSummary?.type} Summary -{" "}
-              {formatDate(selectedSummary?.date)}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="detailed-summary-content extra-wide-modal">
-            {selectedSummary && renderFormattedSummary(selectedSummary.summary)}
+      {selectedSummary && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4">Detailed Summary</h2>
+            <p className="text-gray-700 whitespace-pre-wrap mb-6">
+              {selectedSummary?.summary}
+            </p>
+            <button
+              onClick={() => setSelectedSummary(null)}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            >
+              Close
+            </button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>}
 
-      {/* Modal for Case Context */}
-      <Dialog
-        open={!!selectedCaseContext}
-        onOpenChange={() => setSelectedCaseContext(null)}
-      >
-        <DialogContent className="w-full max-h-[90vh] overflow-y-auto p-8">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold">
-              Case Context - {selectedCaseContext?.type} -{" "}
-              {formatDate(selectedCaseContext?.date)}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="detailed-summary-content extra-wide-modal">
-            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+      {selectedCaseContext && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4">Brief Summary</h2>
+            <p className="text-gray-700 whitespace-pre-wrap mb-6">
               {selectedCaseContext?.context}
-            </div>
+            </p>
+            <button
+              onClick={() => setSelectedCaseContext(null)}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            >
+              Close
+            </button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>}
 
       <style jsx>{`
         .section {

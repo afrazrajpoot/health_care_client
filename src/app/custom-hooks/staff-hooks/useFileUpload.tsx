@@ -7,6 +7,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const [uploading, setUploading] = useState(false);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [ignoredFiles, setIgnoredFiles] = useState<any[]>([]);
   const snapInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
   const { setActiveTask } = useSocket();
@@ -51,6 +52,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const clearPaymentError = useCallback(() => {
     console.log("🧹 Clearing payment error");
     setPaymentError(null);
+    setIgnoredFiles([]);
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -106,6 +108,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
 
         setIsFileModalOpen(false);
 
+        // Don't show modal for document limit errors - skip these errors
         if (
           (response.status === 400 || response.status === 402) &&
           (errorText.toLowerCase().includes("limit exceeded") ||
@@ -113,8 +116,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
             errorText.toLowerCase().includes("upgrade your plan") ||
             errorText.toLowerCase().includes("no active subscription"))
         ) {
-          console.log("🚨 Payment error detected, setting modal state");
-          setPaymentError(errorText);
+          console.log("🚨 Document limit error detected, but not showing modal");
           return;
         }
 
@@ -122,7 +124,20 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       }
 
       const data = await response.json();
-      console.log("📦 Upload response:", data);
+      // Check if there are ignored files
+      if (data.ignored && data.ignored.length > 0) {
+        console.log(`⚠️ ${data.ignored_count} file(s) were ignored`);
+        setIgnoredFiles(data.ignored);
+        setPaymentError(
+          `${data.ignored_count} file${data.ignored_count > 1 ? 's' : ''} could not be uploaded. See details below.`
+        );
+        setIsFileModalOpen(false);
+        setSelectedFiles([]);
+        if (snapInputRef.current) {
+          snapInputRef.current.value = "";
+        }
+        return;
+      }
 
       if (data.task_id) {
         setActiveTask(data.task_id, data.payload_count);
@@ -167,6 +182,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     }
     setIsFileModalOpen(false);
     setPaymentError(null);
+    setIgnoredFiles([]);
   }, []);
 
   const handleSnap = useCallback(
@@ -190,5 +206,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     setSelectedFiles,
     paymentError,
     clearPaymentError,
+    ignoredFiles,
   };
 };
