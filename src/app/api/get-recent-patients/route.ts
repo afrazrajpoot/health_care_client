@@ -10,6 +10,42 @@ const prisma = new PrismaClient();
  * NORMALIZATION HELPERS
  * --------------------------------------------- */
 
+// Calculate Levenshtein distance for fuzzy matching
+function levenshteinDistance(str1: string, str2: string): number {
+  const m = str1.length;
+  const n = str2.length;
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]) + 1;
+      }
+    }
+  }
+
+  return dp[m][n];
+}
+
+// Fuzzy name match (allows 1-2 character difference)
+function fuzzyNameMatch(name1: string, name2: string): boolean {
+  if (!name1 || !name2) return false;
+  if (name1 === name2) return true;
+
+  const distance = levenshteinDistance(name1, name2);
+  const maxLen = Math.max(name1.length, name2.length);
+
+  // Allow up to 2 character difference or 15% difference
+  return distance <= 2 || distance / maxLen <= 0.15;
+}
+
 // Normalize name → remove commas/middle names, reorder alphabetically
 function normalizePatientName(name: string | null | undefined): string {
   if (!name) return "";
@@ -28,9 +64,46 @@ function normalizePatientName(name: string | null | undefined): string {
   return parts[0]; // Single name case
 }
 
+// Extract first and last name separately
+function getNameParts(name: string | null | undefined): {
+  first: string;
+  last: string;
+} {
+  if (!name) return { first: "", last: "" };
+
+  const cleaned = name.replace(/,/g, " ").toLowerCase().trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
+
+  return { first: parts[0], last: parts[parts.length - 1] };
+}
+
 // Normalize claim → uppercase alphanumeric only
+// Treat invalid claims as empty
 function normalizeClaimNumber(claim: string | null | undefined): string {
   if (!claim) return "";
+
+  const normalized = claim.trim().toLowerCase();
+
+  // Check for invalid/placeholder values
+  const invalidClaims = [
+    "not specified",
+    "notspecified",
+    "unspecified",
+    "n/a",
+    "na",
+    "none",
+    "unknown",
+    "undefined",
+    "",
+  ];
+
+  if (invalidClaims.includes(normalized)) {
+    return "";
+  }
+
   return claim.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 }
 
@@ -47,6 +120,25 @@ function normalizeDOB(dob: Date | string | null | undefined): string {
   }
 }
 
+// Check if two DOBs are within 1-2 days (for timezone/format issues)
+function dobsWithinTolerance(
+  dob1: string,
+  dob2: string,
+  toleranceDays: number = 2
+): boolean {
+  if (!dob1 || !dob2) return false;
+
+  try {
+    const d1 = new Date(dob1);
+    const d2 = new Date(dob2);
+    const diffMs = Math.abs(d1.getTime() - d2.getTime());
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    return diffDays <= toleranceDays;
+  } catch {
+    return false;
+  }
+}
+
 /* ---------------------------------------------
  * SAME-PATIENT LOGIC
  * --------------------------------------------- */
@@ -59,23 +151,47 @@ function isSamePatient(
   dob2: string,
   claim2: string
 ): boolean {
-  // Rule 1: Different claims → NOT same
+  // 🎯 Rule 1: Different claims → NOT same (only if BOTH have valid claims)
   if (claim1 && claim2 && claim1 !== claim2) return false;
 
-  // Rule 2: Same claim → ALWAYS same patient
+  // 🎯 Rule 2: Same claim → ALWAYS same patient
   if (claim1 && claim2 && claim1 === claim2) return true;
 
-  // Rule 3: Names must match (after normalization)
-  if (name1 !== name2) return false;
+  // 🎯 Rule 3: At least one has NO claim number (or "Not specified")
+  // In this case, match by name + DOB
+  if (!claim1 || !claim2) {
+    // Extract name parts for advanced matching
+    const parts1 = getNameParts(name1);
+    const parts2 = getNameParts(name2);
 
-  // 3A: Both have DOB and match
-  if (dob1 && dob2 && dob1 === dob2) return true;
+    // ➕ Rule 6: Last name + DOB match (ignore first name)
+    if (
+      parts1.last &&
+      parts2.last &&
+      parts1.last === parts2.last &&
+      dob1 &&
+      dob2 &&
+      (dob1 === dob2 || dobsWithinTolerance(dob1, dob2))
+    ) {
+      return true;
+    }
 
-  // 3B: Both missing DOB
-  if (!dob1 && !dob2) return true;
+    // Check if names match (exact or fuzzy)
+    const namesMatch = name1 === name2 || fuzzyNameMatch(name1, name2);
 
-  // 3C: One has DOB, the other doesn't → still same
-  if ((dob1 && !dob2) || (dob2 && !dob1)) return true;
+    if (!namesMatch) return false;
+
+    // 3A: Both have DOB and match (or within tolerance)
+    if (dob1 && dob2) {
+      return dob1 === dob2 || dobsWithinTolerance(dob1, dob2); // ➕ Rule 5
+    }
+
+    // 3B: Both missing DOB
+    if (!dob1 && !dob2) return true;
+
+    // 3C: One has DOB, the other doesn't → still same
+    if ((dob1 && !dob2) || (dob2 && !dob1)) return true;
+  }
 
   return false;
 }
@@ -132,42 +248,118 @@ export async function GET(request: Request) {
 
     /* ---------------------------------------------
      * Deduplication using SAME-PATIENT rules
+     * Group all matching documents together
      * --------------------------------------------- */
 
-    const uniqueDocs: typeof cleanedDocuments = [];
+    interface PatientGroup {
+      documents: typeof cleanedDocuments;
+      patientName: string | null;
+      dob: Date | string | null;
+      claimNumber: string | null;
+      createdAt: Date;
+    }
+
+    const patientGroups: PatientGroup[] = [];
 
     for (const doc of cleanedDocuments) {
       const docName = normalizePatientName(doc.patientName);
       const docClaim = normalizeClaimNumber(doc.claimNumber);
       const docDOB = normalizeDOB(doc.dob);
 
-      let alreadyExists = false;
+      let foundGroup = false;
 
-      for (const u of uniqueDocs) {
-        const uName = normalizePatientName(u.patientName);
-        const uClaim = normalizeClaimNumber(u.claimNumber);
-        const uDOB = normalizeDOB(u.dob);
+      // Try to find an existing group this document belongs to
+      for (const group of patientGroups) {
+        // Check against the first document in the group
+        const firstDoc = group.documents[0];
+        const groupName = normalizePatientName(firstDoc.patientName);
+        const groupClaim = normalizeClaimNumber(firstDoc.claimNumber);
+        const groupDOB = normalizeDOB(firstDoc.dob);
 
-        if (isSamePatient(docName, docDOB, docClaim, uName, uDOB, uClaim)) {
-          alreadyExists = true;
+        if (
+          isSamePatient(
+            docName,
+            docDOB,
+            docClaim,
+            groupName,
+            groupDOB,
+            groupClaim
+          )
+        ) {
+          group.documents.push(doc);
+
+          // Update group fields with best available data
+          // Prefer non-null, non-empty, valid values
+
+          // Update patientName if current is empty/invalid
+          if (!group.patientName && doc.patientName) {
+            group.patientName = doc.patientName;
+          }
+
+          // Update DOB if current is empty/invalid
+          if (!group.dob && doc.dob) {
+            group.dob = doc.dob;
+          }
+
+          // Update claimNumber: prefer valid claim over "Not specified"
+          const groupClaimNormalized = normalizeClaimNumber(group.claimNumber);
+          const docClaimNormalized = normalizeClaimNumber(doc.claimNumber);
+
+          // If group has no valid claim but doc does, use doc's claim
+          if (!groupClaimNormalized && docClaimNormalized) {
+            group.claimNumber = doc.claimNumber;
+          }
+          // Or if group has invalid placeholder but doc has valid claim
+          else if (!group.claimNumber && doc.claimNumber) {
+            group.claimNumber = doc.claimNumber;
+          }
+
+          // Keep the most recent createdAt
+          if (doc.createdAt > group.createdAt) {
+            group.createdAt = doc.createdAt;
+          }
+
+          foundGroup = true;
           break;
         }
       }
 
-      if (!alreadyExists) {
-        uniqueDocs.push(doc);
+      if (!foundGroup) {
+        // Create a new group for this patient
+        patientGroups.push({
+          documents: [doc],
+          patientName: doc.patientName,
+          dob: doc.dob,
+          claimNumber: doc.claimNumber,
+          createdAt: doc.createdAt,
+        });
       }
     }
 
     /* ---------------------------------------------
-     * Return latest 10 deduped patients
+     * Return latest 10 patient groups with all matching documents
      * --------------------------------------------- */
 
-    const recent = uniqueDocs.slice(0, 10).map((doc) => ({
-      patientName: doc.patientName,
-      dob: doc.dob,
-      claimNumber: doc.claimNumber,
-      createdAt: doc.createdAt,
+    // Sort by most recent activity
+    patientGroups.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    const recent = patientGroups.slice(0, 10).map((group) => ({
+      patientName: group.patientName,
+      dob: group.dob,
+      claimNumber: group.claimNumber,
+      createdAt: group.createdAt,
+      documentCount: group.documents.length,
+      documentIds: group.documents.map((d) => d.id),
+      // Include all document details if multiple matches
+      ...(group.documents.length > 1 && {
+        matchingDocuments: group.documents.map((d) => ({
+          id: d.id,
+          patientName: d.patientName,
+          dob: d.dob,
+          claimNumber: d.claimNumber,
+          createdAt: d.createdAt,
+        })),
+      }),
     }));
 
     return NextResponse.json(recent);
