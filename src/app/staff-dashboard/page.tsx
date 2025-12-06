@@ -4,7 +4,9 @@
 import IntakeModal from "@/components/staff-components/IntakeModal";
 import TaskTable from "@/components/staff-components/TaskTable";
 import FailedDocuments from "@/components/staff-components/FailedDocuments";
+import DuplicatePatients from "@/components/staff-components/DuplicatePatients";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
+import UpdateDuplicateModal from "@/components/staff-components/UpdateDuplicateModal";
 import { ProgressTracker } from "@/components/ProgressTracker";
 
 import { useEffect, useCallback, useMemo, useState } from "react";
@@ -24,6 +26,7 @@ import ManualTaskModal from "@/components/ManualTaskModal";
 import { useTasks } from "../custom-hooks/staff-hooks/useTasks";
 import { useOfficePulse } from "../custom-hooks/staff-hooks/useOfficePulse";
 import { useFailedDocuments } from "../custom-hooks/staff-hooks/useFailedDocuments";
+import { useDuplicatePatients } from "../custom-hooks/staff-hooks/useDuplicatePatients";
 import useOnboarding from "../custom-hooks/staff-hooks/useOnboarding";
 import { useUIState } from "../custom-hooks/staff-hooks/useUIState";
 import { useFileUpload } from "../custom-hooks/staff-hooks/useFileUpload";
@@ -307,6 +310,20 @@ export default function Dashboard() {
     handleUpdateSubmit,
     setIsUpdateModalOpen,
   } = useFailedDocuments();
+
+  const {
+    duplicateDocuments,
+    isUpdateModalOpen: isDuplicateModalOpen,
+    selectedDoc: selectedDuplicateDoc,
+    updateFormData: duplicateFormData,
+    updateLoading: duplicateUpdateLoading,
+    fetchDuplicateDocuments,
+    handleRowClick: handleDuplicateRowClick,
+    handleUpdateInputChange: handleDuplicateInputChange,
+    handleUpdateSubmit: handleDuplicateSubmit,
+    setIsUpdateModalOpen: setIsDuplicateModalOpen,
+  } = useDuplicatePatients();
+
   const {
     showOnboarding,
     currentStep,
@@ -388,12 +405,15 @@ export default function Dashboard() {
       }
     });
     fetchFailedDocuments();
+    fetchDuplicateDocuments(modeState, urlPatient);
     fetchOfficePulse(); // This will refresh the office pulse data
   }, [
     fetchTasks,
     modeState,
     urlClaim,
+    urlPatient,
     fetchFailedDocuments,
+    fetchDuplicateDocuments,
     fetchOfficePulse,
     currentPage,
     pageSize,
@@ -444,9 +464,11 @@ export default function Dashboard() {
     fetchOfficePulse();
     fetchWorkflowStats();
     fetchFailedDocuments();
+    fetchDuplicateDocuments(modeState, urlPatient);
   }, [
     modeState,
     urlClaim,
+    urlPatient,
     currentPage,
     pageSize,
     filters.search,
@@ -463,6 +485,7 @@ export default function Dashboard() {
     fetchOfficePulse,
     fetchWorkflowStats,
     fetchFailedDocuments,
+    fetchDuplicateDocuments,
     setTotalCount,
   ]);
 
@@ -900,6 +923,7 @@ export default function Dashboard() {
               type="file"
               ref={snapInputRef}
               multiple
+              max={10}
               className="hidden"
               onChange={handleSnap}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
@@ -1523,6 +1547,13 @@ export default function Dashboard() {
                     onRowClick={handleRowClick}
                   />
                 )}
+
+                {duplicateDocuments && duplicateDocuments.length > 0 && (
+                  <DuplicatePatients
+                    documents={duplicateDocuments}
+                    onRowClick={handleDuplicateRowClick}
+                  />
+                )}
               </>
             )}
           </div>
@@ -1549,6 +1580,16 @@ export default function Dashboard() {
         onInputChange={handleUpdateInputChange}
         onSubmit={handleUpdateSubmit}
         isLoading={updateLoading}
+      />
+
+      <UpdateDuplicateModal
+        open={isDuplicateModalOpen}
+        onOpenChange={setIsDuplicateModalOpen}
+        selectedDoc={selectedDuplicateDoc}
+        formData={duplicateFormData}
+        onInputChange={handleDuplicateInputChange}
+        onSubmit={handleDuplicateSubmit}
+        isLoading={duplicateUpdateLoading}
       />
 
       <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>

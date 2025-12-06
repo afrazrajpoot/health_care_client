@@ -50,8 +50,14 @@ function fuzzyNameMatch(name1: string, name2: string): boolean {
 function normalizePatientName(name: string | null | undefined): string {
   if (!name) return "";
 
+  // Remove commas and convert to lowercase
   const cleaned = name.replace(/,/g, " ").toLowerCase().trim();
-  const parts = cleaned.split(/\s+/).filter(Boolean);
+
+  // Split by whitespace and filter out empty strings and single-letter parts (middle initials)
+  const parts = cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((part) => part.length > 1); // Remove single-letter middle initials
 
   if (parts.length === 0) return "";
 
