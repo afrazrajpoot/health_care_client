@@ -6,41 +6,83 @@ import { authOptions } from "@/services/authSErvice";
 
 const prisma = new PrismaClient();
 
-// Remove spaces + dashes + lowercase
-function normalizeText(text: string): string {
-  return text.replace(/[\s-]/g, "").toLowerCase().trim();
-}
+/* ---------------------------------------------
+ * NORMALIZATION HELPERS
+ * --------------------------------------------- */
 
-// Normalize names + handle name swapping
-function normalizePatientName(patientName: string): string {
-  if (!patientName) return "";
+// Normalize name → remove commas/middle names, reorder alphabetically
+function normalizePatientName(name: string | null | undefined): string {
+  if (!name) return "";
 
-  const cleaned = patientName.replace(/\s+/g, " ").trim();
-  const parts = cleaned.split(" ");
+  const cleaned = name.replace(/,/g, " ").toLowerCase().trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
 
-  if (parts.length <= 1) {
-    return normalizeText(cleaned);
+  if (parts.length === 0) return "";
+
+  if (parts.length >= 2) {
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    return [first, last].sort().join(" ");
   }
 
-  if (parts.length === 2) {
-    const [a, b] = parts;
-    const combos = [normalizeText(`${a} ${b}`), normalizeText(`${b} ${a}`)];
-    return combos.sort()[0];
-  }
-
-  return normalizeText(cleaned);
+  return parts[0]; // Single name case
 }
 
-// Normalize DOB to YYYYMMDD
-function normalizeDOB(dob: Date | string | null): string {
+// Normalize claim → uppercase alphanumeric only
+function normalizeClaimNumber(claim: string | null | undefined): string {
+  if (!claim) return "";
+  return claim.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
+
+// Normalize DOB → YYYY-MM-DD
+function normalizeDOB(dob: Date | string | null | undefined): string {
   if (!dob) return "";
+
   try {
     const d = new Date(dob);
-    return d.toISOString().split("T")[0].replace(/-/g, "");
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0]; // YYYY-MM-DD
   } catch {
-    return String(dob).replace(/[\s-]/g, "");
+    return "";
   }
 }
+
+/* ---------------------------------------------
+ * SAME-PATIENT LOGIC
+ * --------------------------------------------- */
+
+function isSamePatient(
+  name1: string,
+  dob1: string,
+  claim1: string,
+  name2: string,
+  dob2: string,
+  claim2: string
+): boolean {
+  // Rule 1: Different claims → NOT same
+  if (claim1 && claim2 && claim1 !== claim2) return false;
+
+  // Rule 2: Same claim → ALWAYS same patient
+  if (claim1 && claim2 && claim1 === claim2) return true;
+
+  // Rule 3: Names must match (after normalization)
+  if (name1 !== name2) return false;
+
+  // 3A: Both have DOB and match
+  if (dob1 && dob2 && dob1 === dob2) return true;
+
+  // 3B: Both missing DOB
+  if (!dob1 && !dob2) return true;
+
+  // 3C: One has DOB, the other doesn't → still same
+  if ((dob1 && !dob2) || (dob2 && !dob1)) return true;
+
+  return false;
+}
+
+/* ---------------------------------------------
+ * GET RECENT UNIQUE PATIENT DOCUMENTS
+ * --------------------------------------------- */
 
 export async function GET(request: Request) {
   try {
@@ -53,13 +95,10 @@ export async function GET(request: Request) {
     }
 
     let physicianId;
-    if (session.user.role === "Physician") {
-      physicianId = session.user.id;
-    } else if (session.user.role === "Staff") {
+    if (session.user.role === "Physician") physicianId = session.user.id;
+    else if (session.user.role === "Staff")
       physicianId = session.user.physicianId;
-    }
 
-    // Prisma filter only handles obvious invalid names
     const whereClause: any = {
       physicianId,
       patientName: {
@@ -81,45 +120,57 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // JS cleanup for remaining invalid names
+    /* ---------------------------------------------
+     * Cleanup invalid names
+     * --------------------------------------------- */
     const cleanedDocuments = documents.filter((doc) => {
       const name = (doc.patientName || "").trim().toLowerCase();
-
       return (
-        name &&
-        name !== "Not specified" &&
-        name !== "undefined" &&
-        name !== "n/a" &&
-        name !== "na"
+        name && !["not specified", "undefined", "n/a", "na"].includes(name)
       );
     });
 
-    // Deduplication
-    const uniqueDocuments = [];
-    const seen = new Set();
+    /* ---------------------------------------------
+     * Deduplication using SAME-PATIENT rules
+     * --------------------------------------------- */
+
+    const uniqueDocs: typeof cleanedDocuments = [];
 
     for (const doc of cleanedDocuments) {
-      const normalizedName = normalizePatientName(doc.patientName || "");
-      const normalizedClaim = normalizeText(doc.claimNumber || "");
+      const docName = normalizePatientName(doc.patientName);
+      const docClaim = normalizeClaimNumber(doc.claimNumber);
+      const docDOB = normalizeDOB(doc.dob);
 
-      // Dedupe only by (name + claim number)
-      const key = `${normalizedName}_${normalizedClaim}`;
+      let alreadyExists = false;
 
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueDocuments.push(doc);
+      for (const u of uniqueDocs) {
+        const uName = normalizePatientName(u.patientName);
+        const uClaim = normalizeClaimNumber(u.claimNumber);
+        const uDOB = normalizeDOB(u.dob);
+
+        if (isSamePatient(docName, docDOB, docClaim, uName, uDOB, uClaim)) {
+          alreadyExists = true;
+          break;
+        }
+      }
+
+      if (!alreadyExists) {
+        uniqueDocs.push(doc);
       }
     }
 
-    // Latest 10
-    const recentDocuments = uniqueDocuments.slice(0, 10).map((doc) => ({
+    /* ---------------------------------------------
+     * Return latest 10 deduped patients
+     * --------------------------------------------- */
+
+    const recent = uniqueDocs.slice(0, 10).map((doc) => ({
       patientName: doc.patientName,
       dob: doc.dob,
       claimNumber: doc.claimNumber,
       createdAt: doc.createdAt,
     }));
 
-    return NextResponse.json(recentDocuments);
+    return NextResponse.json(recent);
   } catch (error) {
     console.error("Error fetching recent documents:", error);
     return NextResponse.json(
