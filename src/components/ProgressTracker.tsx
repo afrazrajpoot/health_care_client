@@ -139,12 +139,35 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   // Handle completion and auto-close
   useEffect(() => {
+    // CRITICAL: Don't auto-close if we're still in a phase (upload or processing)
+    const inTwoPhaseMode = currentPhase !== null;
+
+    // Backend now guarantees: status='completed' AND progress=100 when done
+    const progressComplete = progressData?.progress === 100;
+    const statusCompleted = progressData?.status === "completed";
+    const allFilesProcessed = progressData
+      ? progressData.processed_count >= progressData.total_files
+      : false;
+
     const isCompleted =
-      progressData?.status === "completed" ||
+      (!inTwoPhaseMode && statusCompleted && progressComplete && allFilesProcessed) ||
       queueProgressData?.status === "completed";
 
+    console.log("🔍 Auto-close check:", {
+      inTwoPhaseMode,
+      currentPhase,
+      statusCompleted,
+      progressComplete,
+      allFilesProcessed,
+      progressStatus: progressData?.status,
+      progressValue: progressData?.progress,
+      processed: progressData?.processed_count,
+      total: progressData?.total_files,
+      isCompleted
+    });
+
     if (isCompleted) {
-      console.log("✅ Processing completed - triggering onComplete callback");
+      console.log("✅ All completion conditions met - status=completed, progress=100%, all files done");
 
       // Call the onComplete callback first
       if (onComplete) {
@@ -155,12 +178,12 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       setDisplayProgress(100);
       setDisplayQueueProgress(100);
 
-      // Auto-close after a short delay (3 seconds for animation)
-      console.log("⏰ Setting auto-close timer");
+      // Auto-close after brief delay (SocketProvider already showed success for 3s)
+      console.log("⏰ Setting auto-close timer (500ms)");
       const timer = setTimeout(() => {
         console.log("🕒 Auto-closing progress tracker");
         handleClose();
-      }, 3000);
+      }, 500); // Short delay since success was already shown
 
       setAutoCloseTimer(timer);
     }
@@ -171,7 +194,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         clearTimeout(autoCloseTimer);
       }
     };
-  }, [progressData?.status, queueProgressData?.status, onComplete]);
+  }, [progressData?.status, progressData?.progress, currentPhase, queueProgressData?.status, onComplete]);
 
   // Smooth progress animation for task
   useEffect(() => {
@@ -486,7 +509,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               <div className="w-8 h-px bg-gray-300" />
 
               <div className={`w-2 h-2 rounded-full ${currentPhase === "processing" ? "bg-cyan-500 animate-pulse" :
-                  currentPhase === "upload" ? "bg-gray-300" : "bg-green-500"
+                currentPhase === "upload" ? "bg-gray-300" : "bg-green-500"
                 }`} />
               <span className="text-xs text-gray-500">Processing</span>
             </div>
