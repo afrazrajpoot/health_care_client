@@ -286,6 +286,7 @@ export default function Dashboard() {
     paymentError,
     clearPaymentError,
     ignoredFiles,
+    removeFile,
   } = useFileUpload(modeState);
   const {
     tasks,
@@ -1595,9 +1596,9 @@ export default function Dashboard() {
       <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Selected Files ({selectedFiles.length})</DialogTitle>
+            <DialogTitle>Selected Files ({selectedFiles.length}/10)</DialogTitle>
             <DialogDescription>
-              Review your selected files before submitting for processing.
+              Review your selected files before submitting for processing. Maximum 10 files allowed.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-60 overflow-y-auto">
@@ -1605,7 +1606,7 @@ export default function Dashboard() {
               {selectedFiles.map((file, index) => (
                 <li
                   key={index}
-                  className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                  className="flex justify-between items-center p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
                 >
                   <span
                     className="text-sm truncate flex-1 mr-2"
@@ -1613,9 +1614,19 @@ export default function Dashboard() {
                   >
                     {file.name}
                   </span>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">
-                    ({formatSize(file.size)})
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
+                      ({formatSize(file.size)})
+                    </span>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 transition-colors"
+                      title="Remove file"
+                      disabled={uploading}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -1631,7 +1642,7 @@ export default function Dashboard() {
             <button
               className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors disabled:opacity-50"
               onClick={handleSubmit}
-              disabled={uploading}
+              disabled={uploading || selectedFiles.length === 0}
             >
               {uploading ? (
                 <span className="flex items-center">

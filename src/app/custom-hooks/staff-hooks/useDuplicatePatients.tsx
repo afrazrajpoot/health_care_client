@@ -40,13 +40,10 @@ export const useDuplicatePatients = () => {
                 : `/api/get-duplicate-patients?${params.toString()}`;
 
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Failed to fetch duplicate documents");
-
             const data = await response.json();
             setDuplicateDocuments(data);
         } catch (error) {
             console.error("Error fetching duplicate documents:", error);
-            toast.error("Failed to fetch duplicate documents");
         }
     }, []);
 

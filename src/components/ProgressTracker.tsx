@@ -19,6 +19,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     activeQueueId,
     checkProgress,
     checkQueueProgress,
+    currentPhase,
+    combinedProgress,
   } = useSocket();
 
   const [displayProgress, setDisplayProgress] = useState(0);
@@ -198,7 +200,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   // Helper function for smooth progress animation
   const animateProgress = (
     targetProgress: number,
-    setter: (value: number) => void
+    setter: React.Dispatch<React.SetStateAction<number>>
   ) => {
     const duration = 500;
     const steps = 20;
@@ -210,7 +212,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     let currentStep = 0;
     const timer = setInterval(() => {
       currentStep++;
-      setter((prev) => {
+      setter((prev: number) => {
         const newProgress = prev + increment;
         if (currentStep >= steps) {
           clearInterval(timer);
@@ -258,8 +260,11 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   }
 
   // Get current progress for animation
-  const currentProgress =
-    viewMode === "queue" ? displayQueueProgress : displayProgress;
+  const currentProgress = currentPhase
+    ? combinedProgress // Use combined progress when two-phase tracking is active
+    : viewMode === "queue"
+      ? displayQueueProgress
+      : displayProgress;
   const uploadCount = Math.floor((currentProgress / 100) * 5);
 
   // Show loading state if processing but no progress data yet
@@ -273,14 +278,20 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Header */}
           <div className="relative z-10 mb-6">
             <h3 className="text-xl font-bold text-gray-800 mb-1">
-              Uploading Documents
+              {currentPhase === "upload"
+                ? "Uploading Documents"
+                : currentPhase === "processing"
+                  ? "Processing Documents"
+                  : "Uploading Documents"}
             </h3>
             <p className="text-sm text-gray-500">
-              DocLatch processing your documents...
+              {currentPhase === "upload"
+                ? "Validating and saving files..."
+                : currentPhase === "processing"
+                  ? "Extracting data with AI..."
+                  : "DocLatch processing your documents..."}
             </p>
-          </div>
-
-          {/* Loading Animation */}
+          </div>          {/* Loading Animation */}
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
           </div>
@@ -465,6 +476,21 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               </>
             )}
           </div>
+
+          {/* Phase Indicator - Show only when two-phase tracking is active */}
+          {currentPhase && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <div className={`w-2 h-2 rounded-full ${currentPhase === "upload" ? "bg-cyan-500 animate-pulse" : "bg-green-500"}`} />
+              <span className="text-xs text-gray-500">Upload</span>
+
+              <div className="w-8 h-px bg-gray-300" />
+
+              <div className={`w-2 h-2 rounded-full ${currentPhase === "processing" ? "bg-cyan-500 animate-pulse" :
+                  currentPhase === "upload" ? "bg-gray-300" : "bg-green-500"
+                }`} />
+              <span className="text-xs text-gray-500">Processing</span>
+            </div>
+          )}
         </div>
 
         {/* Processed Items */}

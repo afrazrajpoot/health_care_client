@@ -102,6 +102,11 @@ type SocketContextType = {
   clearProgress: () => void;
   checkProgress: (taskId: string) => Promise<BackendProgressData | null>;
   checkQueueProgress: (queueId: string) => Promise<QueueProgressData | null>;
+
+  // Two-phase tracking
+  startTwoPhaseTracking: (uploadTaskId: string, processingTaskId: string) => void;
+  currentPhase: "upload" | "processing" | null;
+  combinedProgress: number;
 };
 
 const SocketContext = createContext<SocketContextType | null>(null);
@@ -118,6 +123,20 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [activeQueueId, setActiveQueueId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Two-phase tracking state
+  const [activeUploadTaskId, setActiveUploadTaskId] = useState<string | null>(null);
+  const [activeProcessingTaskId, setActiveProcessingTaskId] = useState<string | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<"upload" | "processing" | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingProgress, setProcessingProgress] = useState(0);
+
+  // Calculate combined progress: Upload = 0-50%, Processing = 50-100%
+  const combinedProgress = currentPhase === "upload"
+    ? uploadProgress * 0.5
+    : currentPhase === "processing"
+      ? 50 + processingProgress * 0.5
+      : 0;
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -614,6 +633,109 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     startQueueProgressPolling(queueId);
   };
 
+  // Poll upload phase
+  const pollUploadPhase = async (uploadTaskId: string, processingTaskId: string) => {
+    console.log("🚀 Starting upload phase polling:", uploadTaskId);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${SOCKET_URL}/api/agent/progress/${uploadTaskId}`);
+        const data = await response.json();
+
+        const progress = data.progress_percentage || 0;
+        setUploadProgress(progress);
+        console.log(`📊 Upload progress: ${progress}%`);
+
+        // When upload completes, switch to processing phase
+        if (data.status === "completed" || progress >= 100) {
+          console.log("✅ Upload complete, switching to processing phase");
+          clearInterval(pollInterval);
+          setUploadProgress(100);
+          setCurrentPhase("processing");
+          setActiveTaskId(processingTaskId);
+          pollProcessingPhase(processingTaskId);
+        }
+
+        // Handle errors
+        if (data.status === "failed") {
+          console.error("❌ Upload failed");
+          clearInterval(pollInterval);
+          setIsProcessing(false);
+          toast.error("Upload failed", {
+            description: "There was an error uploading your documents",
+            position: "top-right",
+          });
+        }
+      } catch (error) {
+        console.error("❌ Upload poll error:", error);
+      }
+    }, 1000);
+
+    return pollInterval;
+  };
+
+  // Poll processing phase
+  const pollProcessingPhase = async (processingTaskId: string) => {
+    console.log("🚀 Starting processing phase polling:", processingTaskId);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${SOCKET_URL}/api/agent/progress/${processingTaskId}`);
+        const data = await response.json();
+
+        const progress = data.progress_percentage || 0;
+        setProcessingProgress(progress);
+        console.log(`📊 Processing progress: ${progress}%`);
+
+        // Update progressData for UI display
+        const mappedProgress = mapToProgressData(data);
+        setProgressData(mappedProgress);
+
+        // When processing completes
+        if (data.status === "completed" || progress >= 100) {
+          console.log("✅ Processing complete");
+          clearInterval(pollInterval);
+          setProcessingProgress(100);
+          setIsProcessing(false);
+          // toast.success("Processing complete", {
+          //   description: `Successfully processed ${data.completed_steps || 0}/${data.total_steps || 0} documents`,
+          //   position: "top-right",
+          // });
+        }
+
+        // Handle errors
+        if (data.status === "failed") {
+          console.error("❌ Processing failed");
+          clearInterval(pollInterval);
+          setIsProcessing(false);
+          toast.error("Processing failed", {
+            description: "There was an error processing your documents",
+            position: "top-right",
+          });
+        }
+      } catch (error) {
+        console.error("❌ Processing poll error:", error);
+      }
+    }, 1000);
+
+    return pollInterval;
+  };
+
+  // Start two-phase tracking
+  const startTwoPhaseTracking = (uploadTaskId: string, processingTaskId: string) => {
+    console.log("🚀 Starting two-phase tracking:", { uploadTaskId, processingTaskId });
+
+    setActiveUploadTaskId(uploadTaskId);
+    setActiveProcessingTaskId(processingTaskId);
+    setCurrentPhase("upload");
+    setUploadProgress(0);
+    setProcessingProgress(0);
+    setIsProcessing(true);
+
+    // Start polling upload phase
+    pollUploadPhase(uploadTaskId, processingTaskId);
+  };
+
   const clearProgress = () => {
     console.log("🧹 Manual clear progress");
     setActiveTaskId(null);
@@ -925,6 +1047,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         clearProgress,
         checkProgress,
         checkQueueProgress,
+        startTwoPhaseTracking,
+        currentPhase,
+        combinedProgress,
       }}
     >
       {children}

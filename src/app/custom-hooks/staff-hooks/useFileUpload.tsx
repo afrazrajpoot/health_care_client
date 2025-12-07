@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/providers/SocketProvider";
+import { toast } from "sonner";
 
 export const useFileUpload = (mode: "wc" | "gm") => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -10,7 +11,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const [ignoredFiles, setIgnoredFiles] = useState<any[]>([]);
   const snapInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
-  const { setActiveTask } = useSocket();
+  const { setActiveTask, startTwoPhaseTracking } = useSocket();
 
   const formatSize = useCallback((bytes: number) => {
     if (bytes < 1024) return bytes + " B";
@@ -21,16 +22,35 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const handleFileChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
+
+      // Check if more than 10 files selected
+      if (files.length > 10) {
+        toast.error("Maximum 10 files allowed", {
+          description: `You selected ${files.length} files. Please select up to 10 files only.`,
+          duration: 4000,
+        });
+        if (snapInputRef.current) {
+          snapInputRef.current.value = "";
+        }
+        return;
+      }
+
       if (files.length > 0) {
         const validFiles = files.filter((file) => {
           if (file.size > 40 * 1024 * 1024) {
             console.error(`File ${file.name} is too large (max 40MB)`);
+            toast.error(`File too large: ${file.name}`, {
+              description: "Maximum file size is 40MB",
+            });
             return false;
           }
           const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
           const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
           if (!allowedTypes.includes(fileExtension)) {
             console.error(`File ${file.name} has unsupported format`);
+            toast.error(`Unsupported format: ${file.name}`, {
+              description: "Allowed formats: PDF, DOCX, JPG, JPEG, PNG",
+            });
             return false;
           }
           return true;
@@ -43,6 +63,9 @@ export const useFileUpload = (mode: "wc" | "gm") => {
           console.error(
             "No valid files selected. Please check file types and size (max 40MB)."
           );
+          toast.error("No valid files selected", {
+            description: "Please check file types and size (max 40MB)",
+          });
         }
       }
     },
@@ -139,7 +162,13 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         return;
       }
 
-      if (data.task_id) {
+      // Check if we have both upload_task_id and task_id for two-phase tracking
+      if (data.upload_task_id && data.task_id) {
+        // Use two-phase tracking
+        startTwoPhaseTracking(data.upload_task_id, data.task_id);
+        console.log(`🎯 Starting two-phase tracking - Upload: ${data.upload_task_id}, Processing: ${data.task_id}`);
+      } else if (data.task_id) {
+        // Fallback to single-phase tracking
         setActiveTask(data.task_id, data.payload_count);
         console.log(`🎯 Tracking progress for task: ${data.task_id}`);
       } else {
@@ -185,6 +214,12 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     setIgnoredFiles([]);
   }, []);
 
+  const removeFile = useCallback((indexToRemove: number) => {
+    setSelectedFiles((prevFiles) =>
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
+  }, []);
+
   const handleSnap = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       handleFileChange(e);
@@ -207,5 +242,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     paymentError,
     clearPaymentError,
     ignoredFiles,
+    removeFile,
   };
 };
