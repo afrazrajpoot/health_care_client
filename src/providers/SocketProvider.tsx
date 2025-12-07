@@ -154,6 +154,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const queuePollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const uploadPollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const processingPollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Storage keys
   const STORAGE_KEYS = {
@@ -295,27 +297,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const total_files = backendData.total_steps || 1;
     const completed_steps = backendData.completed_steps || 0;
 
-    // Include skipped files in progress calculation
-    const effectiveProgress = Math.min(
-      ((successful_count + failed_count) / total_files) * 100,
-      100
-    );
+    // Use backend's progress percentage as primary source
+    let mappedProgress = backendData.progress_percentage || 0;
 
+    // Trust backend's status - don't override it
     let mappedStatus = backendData.status as
       | "processing"
       | "completed"
       | "failed";
-    let mappedProgress = backendData.progress_percentage || effectiveProgress;
-
-    // Force 100% if all files are processed (successfully or not)
-    if (
-      completed_steps >= total_files ||
-      successful_count + failed_count >= total_files
-    ) {
-      mappedProgress = 100;
-      mappedStatus = "completed";
-      console.log("🔧 Mapping: All files processed - forcing 100%");
-    }
 
     const mapped = {
       task_id: backendData.task_id,
@@ -331,12 +320,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     console.log("🔄 Mapped progress:", {
-      original: backendData.progress_percentage,
-      calculated: mappedProgress,
-      final: mapped.progress,
+      backendProgress: backendData.progress_percentage,
+      backendStatus: backendData.status,
       completed_steps,
       total_files,
-      status: mapped.status,
+      mappedStatus: mapped.status,
+      mappedProgress: mapped.progress,
     });
 
     return mapped;
@@ -377,27 +366,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         const mappedProgress = mapToProgressData(rawBackendProgress);
         console.log("📊 Setting new progressData:", mappedProgress);
 
-        // Force stop if all processed
-        if (mappedProgress.processed_count >= mappedProgress.total_files) {
-          console.log("🔧 Poll forcing final state");
-          const finalMapped = {
-            ...mappedProgress,
-            progress: 100,
-            status: "completed" as const,
-          };
-          setProgressData(finalMapped);
-          setIsProcessing(false);
-          stopProgressPolling();
-          // toast.success(
-          //   `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
-          //   {
-          //     duration: 5000,
-          //     position: "top-right",
-          //   }
-          // );
-        } else {
-          setProgressData(mappedProgress);
-        }
+        // Trust the backend's status - don't force completion
+        setProgressData(mappedProgress);
 
         console.log("📊 setProgressData called successfully");
 
@@ -637,19 +607,34 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const pollUploadPhase = async (uploadTaskId: string, processingTaskId: string) => {
     console.log("🚀 Starting upload phase polling:", uploadTaskId);
 
-    const pollInterval = setInterval(async () => {
+    // Clear any existing upload polling
+    if (uploadPollingIntervalRef.current) {
+      clearInterval(uploadPollingIntervalRef.current);
+      uploadPollingIntervalRef.current = null;
+    }
+
+    uploadPollingIntervalRef.current = setInterval(async () => {
       try {
         const response = await fetch(`${SOCKET_URL}/api/agent/progress/${uploadTaskId}`);
-        const data = await response.json();
 
+        if (!response.ok) {
+          console.warn(`⚠️ Upload poll failed with status: ${response.status}`);
+          return; // Continue polling on error
+        }
+
+        const data = await response.json();
         const progress = data.progress_percentage || 0;
         setUploadProgress(progress);
-        console.log(`📊 Upload progress: ${progress}%`);
+        console.log(`📊 Upload progress: ${progress}% - Status: ${data.status}`);
 
-        // When upload completes, switch to processing phase
-        if (data.status === "completed" || progress >= 100) {
-          console.log("✅ Upload complete, switching to processing phase");
-          clearInterval(pollInterval);
+        // Backend now sends 'upload_complete' status when upload phase is done (10-30%)
+        if (data.status === "upload_complete") {
+          console.log("✅ Upload complete (status: upload_complete), switching to processing phase");
+          if (uploadPollingIntervalRef.current) {
+            clearInterval(uploadPollingIntervalRef.current);
+            uploadPollingIntervalRef.current = null;
+          }
+          // Upload phase ends at ~30% of overall progress
           setUploadProgress(100);
           setCurrentPhase("processing");
           setActiveTaskId(processingTaskId);
@@ -659,8 +644,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         // Handle errors
         if (data.status === "failed") {
           console.error("❌ Upload failed");
-          clearInterval(pollInterval);
+          if (uploadPollingIntervalRef.current) {
+            clearInterval(uploadPollingIntervalRef.current);
+            uploadPollingIntervalRef.current = null;
+          }
           setIsProcessing(false);
+          setCurrentPhase(null);
           toast.error("Upload failed", {
             description: "There was an error uploading your documents",
             position: "top-right",
@@ -668,37 +657,64 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error("❌ Upload poll error:", error);
+        // Continue polling despite error
       }
     }, 1000);
-
-    return pollInterval;
   };
 
   // Poll processing phase
   const pollProcessingPhase = async (processingTaskId: string) => {
     console.log("🚀 Starting processing phase polling:", processingTaskId);
 
-    const pollInterval = setInterval(async () => {
+    // Clear any existing processing polling
+    if (processingPollingIntervalRef.current) {
+      clearInterval(processingPollingIntervalRef.current);
+      processingPollingIntervalRef.current = null;
+    }
+
+    processingPollingIntervalRef.current = setInterval(async () => {
       try {
         const response = await fetch(`${SOCKET_URL}/api/agent/progress/${processingTaskId}`);
-        const data = await response.json();
 
+        if (!response.ok) {
+          console.warn(`⚠️ Processing poll failed with status: ${response.status}`);
+          return; // Continue polling on error
+        }
+
+        const data = await response.json();
         const progress = data.progress_percentage || 0;
         setProcessingProgress(progress);
-        console.log(`📊 Processing progress: ${progress}%`);
+        console.log(`📊 Processing progress: ${progress}% - Status: ${data.status} - Files: ${data.completed_steps}/${data.total_steps}`);
 
         // Update progressData for UI display
         const mappedProgress = mapToProgressData(data);
         setProgressData(mappedProgress);
 
-        // When processing completes
-        if (data.status === "completed" || progress >= 100) {
-          console.log("✅ Processing complete");
-          clearInterval(pollInterval);
+        // CRITICAL: Only complete when status='completed' AND progress reaches 100%
+        const progressComplete = progress >= 100;
+        const statusCompleted = data.status === "completed";
+        const allFilesProcessed = data.completed_steps >= data.total_steps;
+
+        console.log(`🔍 Completion check - Status: ${data.status}, Progress: ${progress}%, Files: ${data.completed_steps}/${data.total_steps}`);
+
+        // Processing completes when ALL conditions are met
+        if (statusCompleted && progressComplete && allFilesProcessed) {
+          console.log("✅ Processing complete - status=completed, progress=100%, all files processed");
+          if (processingPollingIntervalRef.current) {
+            clearInterval(processingPollingIntervalRef.current);
+            processingPollingIntervalRef.current = null;
+          }
           setProcessingProgress(100);
-          setIsProcessing(false);
+
+          // Keep modal open for 3 seconds to show success state
+          console.log("⏰ Showing success state for 3 seconds before closing...");
+          setTimeout(() => {
+            setIsProcessing(false);
+            setCurrentPhase(null); // This triggers auto-close
+            console.log("✅ Success state complete - ready to close modal");
+          }, 3000);
           // toast.success("Processing complete", {
-          //   description: `Successfully processed ${data.completed_steps || 0}/${data.total_steps || 0} documents`,
+          //   description: `Successfully processed ${data.completed_steps}/${data.total_steps} documents`,
           //   position: "top-right",
           // });
         }
@@ -706,8 +722,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         // Handle errors
         if (data.status === "failed") {
           console.error("❌ Processing failed");
-          clearInterval(pollInterval);
+          if (processingPollingIntervalRef.current) {
+            clearInterval(processingPollingIntervalRef.current);
+            processingPollingIntervalRef.current = null;
+          }
           setIsProcessing(false);
+          setCurrentPhase(null);
           toast.error("Processing failed", {
             description: "There was an error processing your documents",
             position: "top-right",
@@ -715,10 +735,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error("❌ Processing poll error:", error);
+        // Continue polling despite error
       }
     }, 1000);
-
-    return pollInterval;
   };
 
   // Start two-phase tracking
@@ -740,11 +759,27 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     console.log("🧹 Manual clear progress");
     setActiveTaskId(null);
     setActiveQueueId(null);
+    setActiveUploadTaskId(null);
+    setActiveProcessingTaskId(null);
+    setCurrentPhase(null);
+    setUploadProgress(0);
+    setProcessingProgress(0);
     setIsProcessing(false);
     setProgressData(null);
     setQueueProgressData(null);
     stopProgressPolling();
     stopQueueProgressPolling();
+
+    // Clear two-phase polling intervals
+    if (uploadPollingIntervalRef.current) {
+      clearInterval(uploadPollingIntervalRef.current);
+      uploadPollingIntervalRef.current = null;
+    }
+    if (processingPollingIntervalRef.current) {
+      clearInterval(processingPollingIntervalRef.current);
+      processingPollingIntervalRef.current = null;
+    }
+
     clearPersistedProgress();
   };
 
@@ -761,6 +796,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       stopProgressPolling();
       stopQueueProgressPolling();
+
+      // Clear two-phase polling intervals on unmount
+      if (uploadPollingIntervalRef.current) {
+        clearInterval(uploadPollingIntervalRef.current);
+        uploadPollingIntervalRef.current = null;
+      }
+      if (processingPollingIntervalRef.current) {
+        clearInterval(processingPollingIntervalRef.current);
+        processingPollingIntervalRef.current = null;
+      }
     };
   }, []);
 
@@ -886,19 +931,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           console.log("📊 Socket setting progressData:", mappedProgress);
           setProgressData(mappedProgress);
 
-          // Force stop if all processed
-          if (mappedProgress.processed_count >= mappedProgress.total_files) {
-            console.log("🎉 Socket forcing final state");
-            setIsProcessing(false);
-            stopProgressPolling();
-            // toast.success(
-            //   `✅ Processing complete! ${mappedProgress.successful_count}/${mappedProgress.total_files} files processed`,
-            //   {
-            //     duration: 5000,
-            //     position: "top-right",
-            //   }
-            // );
-          }
+          // Don't force completion - let the backend control this via status field
         }
       }
     );

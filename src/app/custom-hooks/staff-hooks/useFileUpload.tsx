@@ -108,8 +108,10 @@ export const useFileUpload = (mode: "wc" | "gm") => {
 
       console.log("🌐 API URL:", apiUrl);
 
+      // Create AbortController but DON'T set a timeout
+      // The upload endpoint returns immediately with task IDs
+      // Progress tracking happens separately via polling
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -121,7 +123,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
+      // No timeout to clear since we removed it
       console.log("📡 Response status:", response.status);
 
       if (!response.ok) {
