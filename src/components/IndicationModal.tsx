@@ -32,7 +32,7 @@ function OnboardingModal({
   onNext,
 }: BaseOnboardingModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}} modal>
+    <Dialog open={isOpen} onOpenChange={() => { }} modal>
       <DialogContent className="max-w-sm p-6 shadow-xl border rounded-2xl bg-white">
         <DialogHeader className="space-y-2">
           <DialogTitle className="text-lg font-semibold text-gray-900">

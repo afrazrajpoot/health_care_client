@@ -24,8 +24,7 @@ export const useFailedDocuments = () => {
         setFailedDocuments(data.documents || []);
       }
     } catch (error) {
-      console.error("Error fetching failed documents:", error);
-      toast.error("❌ Error fetching failed documents", {
+      toast.error("Failed to fetch documents, please try again", {
         duration: 5000,
         position: "top-right",
       });

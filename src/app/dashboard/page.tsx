@@ -13,6 +13,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSocket } from "@/providers/SocketProvider";
 // Define TypeScript interfaces for data structures
 interface Patient {
   id?: number;
@@ -296,6 +297,7 @@ export default function PhysicianCard() {
   console.log("Session data:", session);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { startTwoPhaseTracking, setActiveTask } = useSocket();
   // Toast management
   const addToast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
@@ -332,14 +334,26 @@ export default function PhysicianCard() {
         return;
       }
       const data = await response.json();
-      const taskIds = data.task_ids || [];
-      files.forEach((file, index) => {
-        const taskId = taskIds[index] || "unknown";
+
+      // Support two-phase tracking if both task IDs are available
+      if (data.upload_task_id && data.task_id) {
+        startTwoPhaseTracking(data.upload_task_id, data.task_id);
         addToast(
-          `File "${file.name}" successfully queued for processing. Task ID: ${taskId}`,
+          `Started processing ${files.length} document(s) with two-phase tracking`,
           "success"
         );
-      });
+      } else {
+        // Fallback: show task IDs as before
+        const taskIds = data.task_ids || [];
+        files.forEach((file, index) => {
+          const taskId = taskIds[index] || "unknown";
+          addToast(
+            `File "${file.name}" successfully queued for processing. Task ID: ${taskId}`,
+            "success"
+          );
+        });
+      }
+
       // Clear files
       setFiles([]);
       if (fileInputRef.current) {
