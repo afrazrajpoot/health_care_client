@@ -12,6 +12,7 @@ import {
   CopyIcon,
   EyeIcon,
   EyeOffIcon,
+  FileTextIcon,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -32,12 +33,17 @@ interface WhatsNewSectionProps {
   onCopySection: (sectionId: string) => void;
   isCollapsed: boolean;
   onToggle: () => void;
+  mode?: string;
 }
 
 interface SelectedSummary {
   type: string;
   date: string;
   summary: string;
+  patientName?: string;
+  doctorName?: string;
+  briefSummary?: string;
+  isBriefOnly?: boolean;
 }
 
 interface SelectedCaseContext {
@@ -59,15 +65,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
     new Set()
   );
+  console.log(documentData,'what new data')
   const [selectedSummary, setSelectedSummary] =
     useState<SelectedSummary | null>(null);
   const [selectedCaseContext, setSelectedCaseContext] =
     useState<SelectedCaseContext | null>(null);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
-  console.log(documentData, "documentData what new");
 
-  // Helper for timestamp formatting
   const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return "—";
     try {
@@ -78,8 +83,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
-  // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
-  // Transform the new whats_new structure - GROUPED BY DOCUMENT ID
+  const getPatientName = () => {
+    if (!documentData?.documents?.[0]) return "Unknown Patient";
+    
+    const firstDoc = documentData.documents[0];
+    return (
+      firstDoc.patient_name ||
+      firstDoc.document_summary?.patient_name ||
+      documentData.patient_name ||
+      "Unknown Patient"
+    );
+  };
+
   const documentGroups = useMemo(() => {
     if (!documentData?.documents) return [];
 
@@ -87,7 +102,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       .map((doc, docIndex) => {
         const docId = doc.document_id || `doc_${docIndex}`;
 
-        // Extract both summaries from whats_new object
         const longSummary = doc.whats_new?.long_summary || "";
         const shortSummary = doc.whats_new?.short_summary || "";
         const caseContext = doc.brief_summary || "";
@@ -95,12 +109,15 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         // Fallback to legacy brief_summary if no short summary
         const fallbackShortSummary = doc.brief_summary || "";
 
-        // Extract consulting doctor from the first body part snapshot (or fallback)
         const consultingDoctor =
-          doc.body_part_snapshots?.[0]?.consultingDoctor || "Not specified";
+          doc.body_part_snapshots?.[0]?.consultingDoctor || 
+          doc.consulting_doctor ||
+          doc.document_summary?.consulting_doctor ||
+          "Not specified";
 
-        // Extract document type from document_summary
-        const documentType = doc.document_summary?.type || "Unknown";
+        const documentType = doc.document_summary?.type || 
+                            doc.document_type || 
+                            "Unknown";
 
         return {
           docId,
@@ -116,37 +133,31 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           status: doc.status || "pending",
           consultingDoctor,
           documentType,
-          task_quick_notes: doc.task_quick_notes || [], // Add quick notes per document
-          // Add mode field from document data for filtering
-          docMode: doc.mode, // Assuming your document has a mode field
+          task_quick_notes: doc.task_quick_notes || [],
+          docMode: doc.mode,
+
+          patientName: getPatientName(),
+          briefSummary: doc.brief_summary || "",
         };
       })
       .filter((group) => {
-        // First filter: only show documents with short summary
         if (!group.shortSummary) return false;
-
-        // Second filter: filter by mode if mode prop is provided
         if (mode && group.docMode) {
           return group.docMode === mode;
         }
-
-        // If no mode filter or document doesn't have mode, include it
         return true;
       });
-  }, [documentData?.documents, mode]); // Add mode to dependencies
+  }, [documentData?.documents, mode]);
 
-  // Format the long summary with bold headings and remove brackets/quotes
   const formatLongSummary = (summary: string): string => {
     if (!summary) return "";
 
-    // Remove brackets and quotes
     let formatted = summary
-      .replace(/[\[\]"]/g, "") // Remove brackets and quotes
-      .replace(/'/g, "") // Remove single quotes
+      .replace(/[\[\]"]/g, "")
+      .replace(/'/g, "")
       .replace(/\{/g, "")
-      .replace(/\}/g, ""); // Remove curly braces
+      .replace(/\}/g, "");
 
-    // Make headings bold
     formatted = formatted
       .replace(/(📋 REPORT OVERVIEW)/g, "**$1**")
       .replace(/(👤 PATIENT INFORMATION)/g, "**$1**")
@@ -178,11 +189,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return formatted;
   };
 
-  // Convert formatted text to JSX with bold styling
   const renderFormattedSummary = (text: string) => {
     const lines = text.split("\n");
     return lines.map((line, index) => {
-      // Check if line should be bold (contains **text**)
       if (line.includes("**") && line.includes("**")) {
         const parts = line.split("**");
         return (
@@ -198,7 +207,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         );
       }
 
-      // Regular line
       return (
         <div key={index} style={{ marginBottom: "8px" }}>
           {line}
@@ -207,7 +215,20 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     });
   };
 
-  // Automatically mark verified documents as viewed
+  const formatDisplayDate = (dateString: string): string => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
   useEffect(() => {
     const verifiedIds = documentGroups
       .filter((g) => g.status === "verified")
@@ -252,7 +273,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const handleReviewClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Mark all groups as reviewed
     setViewedWhatsNew(new Set(documentGroups.map((group) => group.docId)));
   };
 
@@ -287,7 +307,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         });
       }
 
-      // Mark as viewed
       setViewedWhatsNew((prev) => {
         const newSet = new Set(prev);
         newSet.add(groupId);
@@ -325,7 +344,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -339,13 +358,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         throw new Error(`Failed to fetch preview: ${response.status}`);
       }
 
-      // 🧩 Get blob instead of JSON
       const blob = await response.blob();
-
-      // Create local object URL
       const blobUrl = window.URL.createObjectURL(blob);
-
-      // Open in new tab
       window.open(blobUrl, "_blank");
     } catch (error) {
       console.error("Error fetching preview:", error);
@@ -365,6 +379,23 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         type: group.documentType,
         date: group.reportDate,
         summary: formattedSummary,
+        patientName: group.patientName,
+        doctorName: group.consultingDoctor,
+        briefSummary: group.shortSummary,
+      });
+    }
+  };
+
+  const handleViewSummaryClick = (group: any) => {
+    const summaryToShow = group.briefSummary || group.shortSummary;
+    if (summaryToShow) {
+      setSelectedSummary({
+        type: group.documentType,
+        date: group.reportDate,
+        summary: summaryToShow,
+        patientName: group.patientName,
+        doctorName: group.consultingDoctor,
+        isBriefOnly: true,
       });
     }
   };
@@ -422,9 +453,15 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 const isGroupCopied = copied[`whatsnew-${group.docId}`];
                 const isLoading = isLoadingForGroup(group);
                 const isPreviewLoading = isPreviewLoadingForGroup(group);
+                const formattedDate = formatDisplayDate(group.reportDate);
 
                 return (
                   <div key={group.docId} className="whats-new-bullet-item">
+                    {/* Report Heading */}
+                    <div className="report-heading">
+                      {group.documentType} Report for {group.patientName} by Dr. {group.consultingDoctor} ({formattedDate})
+                    </div>
+                    
                     {/* Bullet point with summary */}
                     <div className="bullet-content">
                       <div className="bullet-marker">•</div>
@@ -433,12 +470,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           {group.shortSummary}
                         </span>
 
-                        {/* Action buttons at the end of summary */}
+                        {/* Buttons with border like screenshot */}
                         <div className="action-buttons">
                           {group.longSummary && (
                             <button
                               onClick={() => handleReadMoreClick(group)}
-                              className="action-link read-more-link"
+                              className="action-btn read-more-btn"
+                              title="Read more"
                             >
                               Read more
                             </button>
@@ -459,12 +497,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             onClick={(e) => handleCopyClick(e, group.docId)}
                             title="Copy This Update"
                           >
-                            {isGroupCopied ? (
-                              <CheckIcon className="icon-micro" />
-                            ) : (
-                              <CopyIcon className="icon-micro" />
-                            )}
-                            Copy
+                            View brief summary
                           </button>
 
                           <button
@@ -472,34 +505,24 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                               } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
-                            title={isViewed ? "Reviewed" : "Mark as Reviewed"}
+                            title="Mark as Reviewed"
                           >
-                            {isLoading ? (
-                              <Loader2 className="icon-micro animate-spin" />
-                            ) : isViewed ? (
-                              "Reviewed"
-                            ) : (
-                              "Mark Reviewed"
-                            )}
+                            {isLoading ? "Loading..." : isViewed ? "Reviewed" : "Mark Reviewed"}
                           </button>
 
                           <button
-                            className="action-link preview-link"
+                            className="action-btn preview-btn"
                             onClick={(e) => handlePreviewClick(e, group.doc)}
                             disabled={isPreviewLoading}
                             title="Preview Document"
                           >
-                            {isPreviewLoading ? (
-                              <Loader2 className="icon-micro animate-spin" />
-                            ) : (
-                              "Preview"
-                            )}
+                            {isPreviewLoading ? "Loading..." : "Preview"}
                           </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Quick Notes - Show if available */}
+                    {/* Quick Notes */}
                     {group.task_quick_notes &&
                       group.task_quick_notes.length > 0 && (() => {
                         // Filter out notes with empty details, one_line_note, and status_update
@@ -648,14 +671,21 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .whats-new-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 12px;
         }
         .whats-new-bullet-item {
-          padding: 8px 0;
-          border-bottom: 1px solid #f1f5f9;
+          padding: 12px;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          background-color: #f9fafb;
         }
-        .whats-new-bullet-item:last-child {
-          border-bottom: none;
+        .report-heading {
+          font-size: 12px;
+          font-weight: 600;
+          color: #1f2937;
+          margin-bottom: 8px;
+          padding-bottom: 6px;
+          border-bottom: 1px solid #e5e7eb;
         }
         .bullet-content {
           display: flex;
@@ -669,10 +699,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-size: 14px;
           line-height: 1.3;
           min-width: 12px;
+          margin-top: 1px;
         }
         .bullet-text {
           flex: 1;
-          // display: flex;
           align-items: center;
           flex-wrap: wrap;
           gap: 8px;
@@ -684,40 +714,59 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           color: #374151;
           font-weight: 400;
           flex: 1;
+          margin-bottom: 8px;
+          display: block;
         }
         .action-buttons {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           flex-wrap: wrap;
+          margin-top: 8px;
         }
-        .action-link {
-          background: none;
-          border: none;
-          padding: 0;
-          font-size: 10px;
+        .action-btn {
+          background: white;
+          border: 1px solid #d1d5db;
+          padding: 4px 10px;
+          font-size: 11px;
           cursor: pointer;
-          display: flex;
+          color: #4b5563;
+          border-radius: 4px;
+          font-weight: 500;
+          transition: all 0.2s;
+          text-decoration: none;
+          font-family: inherit;
+          min-height: 24px;
+          display: inline-flex;
           align-items: center;
-          gap: 3px;
-          text-decoration: underline;
-          color: #3b82f6;
-          transition: color 0.2s;
+          justify-content: center;
         }
-        .action-link:hover:not(:disabled) {
-          color: #2563eb;
+        .action-btn:hover:not(:disabled) {
+          background: #f9fafb;
+          border-color: #9ca3af;
+          color: #374151;
         }
-        .action-link:disabled {
-          opacity: 0.6;
+        .action-btn:active:not(:disabled) {
+          background: #f3f4f6;
+          transform: translateY(1px);
+        }
+        .action-btn:disabled {
+          opacity: 0.5;
           cursor: not-allowed;
+          border-color: #e5e7eb;
+          background: #f9fafb;
         }
-        .read-more-link {
-          color: #059669;
-          text-decoration: underline;
+        .read-more-btn {
+          color: #1e40af;
+          border-color: #93c5fd;
+          background: #eff6ff;
         }
-        .read-more-link:hover {
-          color: #047857;
+        .read-more-btn:hover:not(:disabled) {
+          background: #dbeafe;
+          border-color: #60a5fa;
+          color: #1e3a8a;
         }
+<<<<<<< HEAD
         .case-context-link {
           color: #0891b2;
           text-decoration: underline;
@@ -770,15 +819,67 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .doc-latest {
           color: #059669;
+=======
+        .view-summary-btn {
+          color: #065f46;
+          border-color: #a7f3d0;
+>>>>>>> 5c0a3a6 (set the ui)
           background: #ecfdf5;
         }
-        .doc-doctor {
-          color: #6b21a8;
-          background: #ede9fe;
+        .view-summary-btn:hover:not(:disabled) {
+          background: #d1fae5;
+          border-color: #34d399;
+          color: #064e3b;
         }
-        .doc-date {
+        .copy-btn {
+          color: #7c3aed;
+          border-color: #ddd6fe;
+          background: #f5f3ff;
+        }
+        .copy-btn:hover:not(:disabled) {
+          background: #ede9fe;
+          border-color: #c4b5fd;
+          color: #6d28d9;
+        }
+        .copy-btn.copied {
+          color: #059669;
+          border-color: #a7f3d0;
+          background: #d1fae5;
+        }
+        .mark-viewed-btn {
+          color: #dc2626;
+          border-color: #fecaca;
+          background: #fef2f2;
+        }
+        .mark-viewed-btn:hover:not(:disabled) {
+          background: #fee2e2;
+          border-color: #fca5a5;
+          color: #b91c1c;
+        }
+        .mark-viewed-btn.viewed {
+          color: #059669;
+          border-color: #a7f3d0;
+          background: #d1fae5;
+        }
+        .mark-viewed-btn.viewed:hover:not(:disabled) {
+          background: #a7f3d0;
+          border-color: #34d399;
+          color: #047857;
+        }
+        .mark-viewed-btn.loading {
           color: #6b7280;
-          font-style: italic;
+          border-color: #d1d5db;
+          background: #f9fafb;
+        }
+        .preview-btn {
+          color: #ea580c;
+          border-color: #fed7aa;
+          background: #fff7ed;
+        }
+        .preview-btn:hover:not(:disabled) {
+          background: #ffedd5;
+          border-color: #fdba74;
+          color: #c2410c;
         }
         .no-items {
           font-size: 12px;
@@ -825,7 +926,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             transform: rotate(360deg);
           }
         }
-        /* Icon size classes - much smaller */
+        /* Icon size classes */
         .icon-sm {
           width: 12px;
           height: 12px;
@@ -834,13 +935,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           width: 10px;
           height: 10px;
         }
-        .icon-micro {
-          width: 8px;
-          height: 8px;
-        }
         /* Quick Notes Styles */
         .quick-notes-section {
-          margin-top: 8px;
+          margin-top: 12px;
           padding: 8px 0;
           border-top: 1px dashed #e5e7eb;
           margin-left: 20px;
