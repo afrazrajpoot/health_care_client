@@ -1068,77 +1068,98 @@ export default function PhysicianCard() {
               </div>
             ) : (
               <div
-                className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden"
+                className="flex flex-col gap-6"
                 role="region"
                 aria-label="Physician-facing card"
                 ref={patientCardRef}
               >
                 {/* Header with merge indicator */}
-                <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 bg-blue-50 border-b border-blue-200">
-                  <div
-                    className="flex flex-wrap gap-x-4 gap-y-2"
-                    aria-label="Patient summary"
-                  >
-                    <div className="bg-[#dcfce7] border border-blue-200 px-2 py-1 rounded-full text-sm">
-                      Patient: <b>{currentPatient.patientName}</b>
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <h1 className="px-5 py-3 text-xl font-bold">{currentPatient.patientName}</h1>
+                  <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 ">
+                    <div
+                      className="flex flex-wrap gap-x-4 gap-y-2"
+                      aria-label="Patient summary"
+                    >
+                   
+                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px]  bg-[#E7F0FF] text-black">
+                        DOB: {formatDate(currentPatient.dob)}
+                      </div>
+                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px] bg-[#E5D8FF] text-black">
+                        Claim #: {currentPatient.claimNumber}
+                      </div>
+                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px] bg-[#FFF1C2] text-black">
+                        DOI: {formatDate(currentPatient.doi)}
+                      </div>
+                      {documentData?.merge_metadata?.is_merged && (
+                        <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-xs">
+                          🔄 Combined{" "}
+                          {documentData.merge_metadata.total_documents_merged}{" "}
+                          visits
+                        </div>
+                      )}
                     </div>
-                    <div className="bg-[#ede9fe] text-[#6b21a8] border border-blue-200 px-2 py-1 rounded-full text-sm">
-                      DOB: {formatDate(currentPatient.dob)}
-                    </div>
-                    <div className="bg-[#e0f2fe] text-[#0369a1] border border-blue-200 px-2 py-1 rounded-full text-sm">
-                      Claim #: {currentPatient.claimNumber}
-                    </div>
-                    <div className="bg-[#fef3c7] text-[#92400e] border border-blue-200 px-2 py-1 rounded-full text-sm">
-                      DOI: {formatDate(currentPatient.doi)}
-                    </div>
-                    {documentData?.merge_metadata?.is_merged && (
-                      <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-sm">
-                        🔄 Combined{" "}
-                        {documentData.merge_metadata.total_documents_merged}{" "}
-                        visits
+                    {documentData?.document_summaries?.[0]?.type && (
+                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px] font-medium bg-[#D8F5D0] text-black">
+                        {documentData.document_summaries[0].type}
                       </div>
                     )}
                   </div>
                 </div>
+
                 {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
-                <WhatsNewSection
-                  documentData={documentData}
-                  mode={mode}
-                  copied={copied}
-                  onCopySection={handleSectionCopy}
-                  isCollapsed={collapsedSections.whatsNew}
-                  onToggle={() => toggleSection("whatsNew")}
-                />
-                <TreatmentHistorySection
-                  documentData={documentData}
-                  mode={mode}
-                  copied={copied}
-                  onCopySection={handleSectionCopy}
-                  isCollapsed={collapsedSections.treatmentHistory}
-                  onToggle={() => toggleSection("treatmentHistory")}
-                />
-                <ADLSection
-                  documentData={documentData}
-                  mode={mode} // Add this line
-                  copied={copied}
-                  onCopySection={handleSectionCopy}
-                  isCollapsed={collapsedSections.adlWorkStatus}
-                  onToggle={() => toggleSection("adlWorkStatus")}
-                />
-                <DocumentSummarySection
-                  documentData={documentData}
-                  openModal={openModal}
-                  handleShowPrevious={handleShowPrevious}
-                  copied={copied}
-                  onCopySection={handleSectionCopy}
-                  isCollapsed={collapsedSections.documentSummary}
-                  onToggle={() => toggleSection("documentSummary")}
-                />
-                <PatientQuizSection
-                  documentData={documentData}
-                  copied={copied}
-                  onCopySection={handleSectionCopy}
-                />
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <WhatsNewSection
+                    documentData={documentData}
+                    mode={mode}
+                    copied={copied}
+                    onCopySection={handleSectionCopy}
+                    isCollapsed={collapsedSections.whatsNew}
+                    onToggle={() => toggleSection("whatsNew")}
+                  />
+                </div>
+
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <TreatmentHistorySection
+                    documentData={documentData}
+                    mode={mode}
+                    copied={copied}
+                    onCopySection={handleSectionCopy}
+                    isCollapsed={collapsedSections.treatmentHistory}
+                    onToggle={() => toggleSection("treatmentHistory")}
+                  />
+                </div>
+
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <ADLSection
+                    documentData={documentData}
+                    mode={mode} // Add this line
+                    copied={copied}
+                    onCopySection={handleSectionCopy}
+                    isCollapsed={collapsedSections.adlWorkStatus}
+                    onToggle={() => toggleSection("adlWorkStatus")}
+                  />
+                </div>
+
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <DocumentSummarySection
+                    documentData={documentData}
+                    openModal={openModal}
+                    handleShowPrevious={handleShowPrevious}
+                    copied={copied}
+                    onCopySection={handleSectionCopy}
+                    isCollapsed={collapsedSections.documentSummary}
+                    onToggle={() => toggleSection("documentSummary")}
+                  />
+                </div>
+
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                  <PatientQuizSection
+                    documentData={documentData}
+                    copied={copied}
+                    onCopySection={handleSectionCopy}
+                  />
+                </div>
               </div>
             )}
             {/* Refresh button - only show when patient is selected */}

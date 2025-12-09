@@ -102,7 +102,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
           ? user?.id // if Physician, send their own ID
           : user?.physicianId || ""; // otherwise, send assigned physician’s ID
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
         }/api/documents/extract-documents?physicianId=${physicianId}&userId=${user?.id || ""
         }`;
 
@@ -196,7 +196,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       // } else if (error.message.includes("Failed to fetch")) {
       //   setPaymentError(
       //     "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-      //     (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com")
+      //     (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
       //   );
       // } else {
       //   setPaymentError(`Upload failed: ${error.message}`);

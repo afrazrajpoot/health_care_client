@@ -11,8 +11,12 @@ import {
   ChevronRightIcon,
   CopyIcon,
   EyeIcon,
-  EyeOffIcon,
   FileTextIcon,
+  CalendarIcon,
+  UserIcon,
+  StethoscopeIcon,
+  BookOpenIcon,
+  FileText,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +28,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -43,13 +48,11 @@ interface SelectedSummary {
   patientName?: string;
   doctorName?: string;
   briefSummary?: string;
-  isBriefOnly?: boolean;
-}
-
-interface SelectedCaseContext {
-  type: string;
-  date: string;
-  context: string;
+  patientAge?: number;
+  injuryDate?: string;
+  claimNumber?: string;
+  documentType?: string;
+  isLongSummary?: boolean;
 }
 
 const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
@@ -65,11 +68,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
     new Set()
   );
-  console.log(documentData,'what new data')
   const [selectedSummary, setSelectedSummary] =
     useState<SelectedSummary | null>(null);
-  const [selectedCaseContext, setSelectedCaseContext] =
-    useState<SelectedCaseContext | null>(null);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
 
@@ -95,6 +95,22 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     );
   };
 
+  const calculateAge = (dob: string): number | undefined => {
+    if (!dob) return undefined;
+    try {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    } catch {
+      return undefined;
+    }
+  };
+
   const documentGroups = useMemo(() => {
     if (!documentData?.documents) return [];
 
@@ -104,9 +120,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
         const longSummary = doc.whats_new?.long_summary || "";
         const shortSummary = doc.whats_new?.short_summary || "";
-        const caseContext = doc.brief_summary || "";
-
-        // Fallback to legacy brief_summary if no short summary
         const fallbackShortSummary = doc.brief_summary || "";
 
         const consultingDoctor =
@@ -119,6 +132,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             doc.document_type || 
                             "Unknown";
 
+        const patientAge = calculateAge(doc.dob || documentData.dob);
+        const injuryDate = doc.doi || documentData.doi;
+        const claimNumber = doc.claim_number || documentData.claim_number;
+
         return {
           docId,
           originalDocId: docId,
@@ -127,17 +144,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           reportDate: doc.report_date || doc.created_at || "",
           longSummary,
           shortSummary: shortSummary || fallbackShortSummary,
-          caseContext,
-          contentType: "summaries", // Now we have both summaries
-          doc, // Full document object for additional info
+          briefSummary: doc.brief_summary || "",
+          contentType: "summaries",
+          doc,
           status: doc.status || "pending",
           consultingDoctor,
           documentType,
           task_quick_notes: doc.task_quick_notes || [],
           docMode: doc.mode,
-
           patientName: getPatientName(),
-          briefSummary: doc.brief_summary || "",
+          patientAge,
+          injuryDate,
+          claimNumber,
         };
       })
       .filter((group) => {
@@ -189,32 +207,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return formatted;
   };
 
-  const renderFormattedSummary = (text: string) => {
-    const lines = text.split("\n");
-    return lines.map((line, index) => {
-      if (line.includes("**") && line.includes("**")) {
-        const parts = line.split("**");
-        return (
-          <div key={index} style={{ marginBottom: "8px" }}>
-            {parts.map((part, partIndex) =>
-              partIndex % 2 === 1 ? (
-                <strong key={partIndex}>{part}</strong>
-              ) : (
-                <span key={partIndex}>{part}</span>
-              )
-            )}
-          </div>
-        );
-      }
-
-      return (
-        <div key={index} style={{ marginBottom: "8px" }}>
-          {line}
-        </div>
-      );
-    });
-  };
-
   const formatDisplayDate = (dateString: string): string => {
     if (!dateString) return "";
     try {
@@ -227,6 +219,34 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     } catch {
       return dateString;
     }
+  };
+
+  const renderFormattedSummary = (text: string) => {
+    if (!text) return <div className="no-summary">No summary available</div>;
+    
+    const lines = text.split("\n");
+    return lines.map((line, index) => {
+      if (line.includes("**") && line.includes("**")) {
+        const parts = line.split("**");
+        return (
+          <div key={index} className="summary-line">
+            {parts.map((part, partIndex) =>
+              partIndex % 2 === 1 ? (
+                <strong key={partIndex} className="summary-heading">{part}</strong>
+              ) : (
+                <span key={partIndex}>{part}</span>
+              )
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div key={index} className="summary-line">
+          {line}
+        </div>
+      );
+    });
   };
 
   useEffect(() => {
@@ -373,41 +393,36 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const handleReadMoreClick = (group: any) => {
-    if (group.longSummary) {
-      const formattedSummary = formatLongSummary(group.longSummary);
-      setSelectedSummary({
-        type: group.documentType,
-        date: group.reportDate,
-        summary: formattedSummary,
-        patientName: group.patientName,
-        doctorName: group.consultingDoctor,
-        briefSummary: group.shortSummary,
-      });
-    }
+    const formattedSummary = formatLongSummary(group.longSummary || group.briefSummary || "");
+    setSelectedSummary({
+      type: group.documentType,
+      date: group.reportDate,
+      summary: formattedSummary,
+      patientName: group.patientName,
+      doctorName: group.consultingDoctor,
+      briefSummary: group.briefSummary,
+      patientAge: group.patientAge,
+      injuryDate: group.injuryDate,
+      claimNumber: group.claimNumber,
+      documentType: group.documentType,
+      isLongSummary: true,
+    });
   };
 
   const handleViewSummaryClick = (group: any) => {
-    const summaryToShow = group.briefSummary || group.shortSummary;
-    if (summaryToShow) {
-      setSelectedSummary({
-        type: group.documentType,
-        date: group.reportDate,
-        summary: summaryToShow,
-        patientName: group.patientName,
-        doctorName: group.consultingDoctor,
-        isBriefOnly: true,
-      });
-    }
-  };
-
-  const handleCaseContextClick = (group: any) => {
-    if (group.caseContext) {
-      setSelectedCaseContext({
-        type: group.documentType,
-        date: group.reportDate,
-        context: group.caseContext,
-      });
-    }
+    setSelectedSummary({
+      type: group.documentType,
+      date: group.reportDate,
+      summary: group.briefSummary || "",
+      patientName: group.patientName,
+      doctorName: group.consultingDoctor,
+      briefSummary: group.briefSummary,
+      patientAge: group.patientAge,
+      injuryDate: group.injuryDate,
+      claimNumber: group.claimNumber,
+      documentType: group.documentType,
+      isLongSummary: false,
+    });
   };
 
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
@@ -476,33 +491,34 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             <button
                               onClick={() => handleReadMoreClick(group)}
                               className="action-btn read-more-btn"
-                              title="Read more"
+                              title="Read detailed summary"
                             >
                               Read more
                             </button>
                           )}
 
-                          {group.caseContext && (
-                            <button
-                              onClick={() => handleCaseContextClick(group)}
-                              className="action-link case-context-link"
-                            >
-                              View brief summary
-                            </button>
-                          )}
-
                           <button
-                            className={`action-link copy-link ${isGroupCopied ? "copied" : ""
-                              }`}
-                            onClick={(e) => handleCopyClick(e, group.docId)}
-                            title="Copy This Update"
+                            onClick={() => handleViewSummaryClick(group)}
+                            className="action-btn view-summary-btn"
+                            title="View brief summary"
                           >
                             View brief summary
                           </button>
 
                           <button
-                            className={`action-link mark-viewed-link ${isViewed ? "viewed" : ""
-                              } ${isLoading ? "loading" : ""}`}
+                            className={`action-btn copy-btn ${
+                              isGroupCopied ? "copied" : ""
+                            }`}
+                            onClick={(e) => handleCopyClick(e, group.docId)}
+                            title="Copy Macro"
+                          >
+                            {isGroupCopied ? "Copied" : "Copy Macro"}
+                          </button>
+
+                          <button
+                            className={`action-btn mark-viewed-btn ${
+                              isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
                             title="Mark as Reviewed"
@@ -524,62 +540,34 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
                     {/* Quick Notes */}
                     {group.task_quick_notes &&
-                      group.task_quick_notes.length > 0 && (() => {
-                        // Filter out notes with empty details, one_line_note, and status_update
-                        const validNotes = group.task_quick_notes.filter(
-                          (note: any) =>
-                            note.details?.trim() ||
-                            note.one_line_note?.trim() ||
-                            note.status_update?.trim()
-                        );
-
-                        if (validNotes.length === 0) return null;
-
-                        return (
-                          <div className="quick-notes-section">
-                            <div className="quick-notes-header">Quick Notes:</div>
-                            <div className="quick-notes-list">
-                              {validNotes.map(
-                                (note: any, noteIndex: number) => (
-                                  <div
-                                    key={noteIndex}
-                                    className="quick-note-item"
-                                  >
-                                    <span className="note-status">
-                                      {note.status_update || "Note"}
-                                    </span>
-                                    <span className="note-one-line">
-                                      {note.one_line_note || ""}
-                                    </span>
-                                    <span className="note-details">
-                                      {note.details}
-                                    </span>
-                                    <span className="note-timestamp">
-                                      {formatTimestamp(note.timestamp || "")}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
+                      group.task_quick_notes.length > 0 && (
+                        <div className="quick-notes-section">
+                          <div className="quick-notes-header">Quick Notes:</div>
+                          <div className="quick-notes-list">
+                            {group.task_quick_notes.map(
+                              (note: any, noteIndex: number) => (
+                                <div
+                                  key={noteIndex}
+                                  className="quick-note-item"
+                                >
+                                  <span className="note-status">
+                                    {note.status_update || "Note"}
+                                  </span>
+                                  <span className="note-one-line">
+                                    {note.one_line_note || ""}
+                                  </span>
+                                  <span className="note-details">
+                                    {note.details}
+                                  </span>
+                                  <span className="note-timestamp">
+                                    {formatTimestamp(note.timestamp || "")}
+                                  </span>
+                                </div>
+                              )
+                            )}
                           </div>
-                        );
-                      })()}
-
-                    {/* Document metadata - smaller and less prominent */}
-                    {/* <div className="document-metadata">
-                      <span className="meta-item doc-type">
-                        {group.documentType}
-                      </span>
-                      <span className="meta-item doc-date">
-                        {formatDate(group.reportDate)}
-                      </span>
-                      <span className="meta-item doc-doctor">
-                        {group.consultingDoctor}
-                      </span>
-                      {group.isLatest && (
-                        <span className="meta-item doc-latest">Latest</span>
+                        </div>
                       )}
-                    </div> */}
                   </div>
                 );
               })}
@@ -593,44 +581,138 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         )}
       </div>
 
-      {selectedSummary && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Detailed Summary</h2>
-            <p className="text-gray-700 whitespace-pre-wrap mb-6">
-              {selectedSummary?.summary}
-            </p>
-            <button
-              onClick={() => setSelectedSummary(null)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-            >
-              Close
-            </button>
+      {/* Modal for Summary */}
+      <Dialog
+        open={!!selectedSummary}
+        onOpenChange={() => setSelectedSummary(null)}
+      >
+        <DialogContent className="max-w-4xl h-[85vh] overflow-y-auto p-0">
+          <div className="modal-header bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b">
+            <DialogHeader className="mb-4">
+              <div className="flex items-center gap-3 mb-2">
+                {selectedSummary?.isLongSummary ? (
+                  <BookOpenIcon className="h-6 w-6 text-blue-600" />
+                ) : (
+                  <FileText className="h-6 w-6 text-green-600" />
+                )}
+                <DialogTitle className="text-2xl font-bold text-gray-800">
+                  {selectedSummary?.isLongSummary ? "Detailed Report Summary" : "Brief Report Summary"}
+                </DialogTitle>
+              </div>
+              
+              <div className="patient-info-grid">
+                <div className="info-item">
+                  <div className="info-label">
+                    <UserIcon className="icon-sm mr-2" />
+                    Patient Name
+                  </div>
+                  <div className="info-value">{selectedSummary?.patientName || "Not specified"}</div>
+                </div>
+                
+                {selectedSummary?.patientAge && (
+                  <div className="info-item">
+                    <div className="info-label">Age</div>
+                    <div className="info-value">{selectedSummary.patientAge} years</div>
+                  </div>
+                )}
+                
+                {selectedSummary?.injuryDate && (
+                  <div className="info-item">
+                    <div className="info-label">
+                      <CalendarIcon className="icon-sm mr-2" />
+                      Date of Injury
+                    </div>
+                    <div className="info-value">{formatDisplayDate(selectedSummary.injuryDate)}</div>
+                  </div>
+                )}
+                
+                {selectedSummary?.claimNumber && (
+                  <div className="info-item">
+                    <div className="info-label">Claim #</div>
+                    <div className="info-value font-mono">{selectedSummary.claimNumber}</div>
+                  </div>
+                )}
+                
+                <div className="info-item">
+                  <div className="info-label">
+                    <StethoscopeIcon className="icon-sm mr-2" />
+                    Consulting Physician
+                  </div>
+                  <div className="info-value">Dr. {selectedSummary?.doctorName || "Not specified"}</div>
+                </div>
+                
+                {selectedSummary?.date && (
+                  <div className="info-item">
+                    <div className="info-label">Report Date</div>
+                    <div className="info-value">{formatDisplayDate(selectedSummary.date)}</div>
+                  </div>
+                )}
+              </div>
+            </DialogHeader>
           </div>
-        </div>
-      </div>}
 
-      {selectedCaseContext && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Brief Summary</h2>
-            <p className="text-gray-700 whitespace-pre-wrap mb-6">
-              {selectedCaseContext?.context}
-            </p>
-            <button
-              onClick={() => setSelectedCaseContext(null)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+          <div className="modal-body p-6">
+            <div className="summary-section">
+              <h3 className="summary-title">
+                {selectedSummary?.isLongSummary ? (
+                  <>
+                    <BookOpenIcon className="icon-sm mr-2" />
+                    Detailed Summary
+                  </>
+                ) : (
+                  <>
+                    <FileTextIcon className="icon-sm mr-2" />
+                    Brief Summary
+                  </>
+                )}
+              </h3>
+              <div className="summary-content">
+                {selectedSummary?.summary ? (
+                  <div className={`summary-text ${selectedSummary?.isLongSummary ? 'detailed-summary-text' : 'brief-summary-text'}`}>
+                    {selectedSummary?.isLongSummary ? (
+                      renderFormattedSummary(selectedSummary.summary)
+                    ) : (
+                      selectedSummary.summary
+                    )}
+                  </div>
+                ) : (
+                  <div className="no-summary">
+                    No {selectedSummary?.isLongSummary ? "detailed" : "brief"} summary available for this document.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-footer border-t bg-gray-50 p-4 flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedSummary(null)}
+              className="mr-3"
             >
               Close
-            </button>
+            </Button>
+            {selectedSummary?.summary && (
+              <Button
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedSummary.summary || "");
+                  toast.success("Summary copied to clipboard");
+                }}
+                className={`${selectedSummary?.isLongSummary ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                <CopyIcon className="h-4 w-4 mr-2" />
+                Copy Summary
+              </Button>
+            )}
           </div>
-        </div>
-      </div>}
+        </DialogContent>
+      </Dialog>
 
       <style jsx>{`
         .section {
           padding: 16px;
           border-bottom: 1px solid #e5e7eb;
+          border-left: 4px solid #10b981;
           transition: background-color 0.2s;
         }
         .section-header {
@@ -766,64 +848,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           border-color: #60a5fa;
           color: #1e3a8a;
         }
-<<<<<<< HEAD
-        .case-context-link {
-          color: #0891b2;
-          text-decoration: underline;
-        }
-        .case-context-link:hover {
-          color: #0e7490;
-        }
-        .copy-link {
-          color: #7c3aed;
-          text-decoration: underline;
-        }
-        .copy-link.copied {
-          color: #059669;
-        }
-        .copy-link:hover {
-          color: #6d28d9;
-        }
-        .mark-viewed-link {
-          color: #dc2626;
-          text-decoration: underline;
-        }
-        .mark-viewed-link.viewed {
-          color: #059669;
-        }
-        .mark-viewed-link:hover:not(:disabled) {
-          color: #b91c1c;
-        }
-        .preview-link {
-          color: #ea580c;
-          text-decoration: underline;
-        }
-        .preview-link:hover:not(:disabled) {
-          color: #c2410c;
-        }
-        .document-metadata {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-left: 20px;
-          flex-wrap: wrap;
-        }
-        .meta-item {
-          font-size: 10px;
-          padding: 1px 4px;
-          border-radius: 3px;
-        }
-        .doc-type {
-          color: #1f2937;
-          background: #e0f2fe;
-        }
-        .doc-latest {
-          color: #059669;
-=======
         .view-summary-btn {
           color: #065f46;
           border-color: #a7f3d0;
->>>>>>> 5c0a3a6 (set the ui)
           background: #ecfdf5;
         }
         .view-summary-btn:hover:not(:disabled) {
@@ -889,52 +916,104 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           padding: 16px;
           font-style: italic;
         }
-        .detailed-summary-content {
-          white-space: pre-wrap;
+        
+        /* Modal Styles */
+        .modal-header {
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .patient-info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 16px;
+          margin-top: 12px;
+        }
+        
+        .info-item {
+          padding: 8px 0;
+        }
+        
+        .info-label {
+          font-size: 12px;
+          font-weight: 500;
+          color: #6b7280;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+        }
+        
+        .info-value {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1f2937;
+        }
+        
+        .summary-section {
+          margin-bottom: 24px;
+        }
+        
+        .summary-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #1f2937;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #3b82f6;
+          display: flex;
+          align-items: center;
+        }
+        
+        .summary-content {
+          background: #f9fafb;
+          border-radius: 8px;
+          padding: 20px;
+          border: 1px solid #e5e7eb;
+        }
+        
+        .brief-summary-text {
           font-size: 14px;
           line-height: 1.6;
           color: #374151;
+          white-space: pre-wrap;
         }
-        .extra-wide-modal {
-          width: 100%;
-          max-width: none;
+        
+        .detailed-summary-text {
+          font-size: 13px;
+          line-height: 1.5;
+          color: #4b5563;
+        }
+        
+        .summary-line {
+          margin-bottom: 12px;
+        }
+        
+        .summary-heading {
+          color: #1e40af;
+          font-weight: 600;
+        }
+        
+        .no-summary {
           font-size: 14px;
-          line-height: 1.7;
-        }
-        .collapse-btn {
-          background: none;
-          border: none;
-          padding: 2px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           color: #6b7280;
-          transition: color 0.2s;
+          font-style: italic;
+          text-align: center;
+          padding: 20px;
         }
-        .collapse-btn:hover {
-          color: #374151;
+        
+        .modal-footer {
+          border-top: 1px solid #e5e7eb;
         }
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        /* Icon size classes */
+        
         .icon-sm {
-          width: 12px;
-          height: 12px;
+          width: 14px;
+          height: 14px;
         }
+        
         .icon-xs {
           width: 10px;
           height: 10px;
         }
+        
         /* Quick Notes Styles */
         .quick-notes-section {
           margin-top: 12px;
