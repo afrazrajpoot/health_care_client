@@ -85,7 +85,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const getPatientName = () => {
     if (!documentData?.documents?.[0]) return "Unknown Patient";
-    
+
     const firstDoc = documentData.documents[0];
     return (
       firstDoc.patient_name ||
@@ -123,14 +123,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         const fallbackShortSummary = doc.brief_summary || "";
 
         const consultingDoctor =
-          doc.body_part_snapshots?.[0]?.consultingDoctor || 
+          doc.body_part_snapshots?.[0]?.consultingDoctor ||
           doc.consulting_doctor ||
           doc.document_summary?.consulting_doctor ||
           "Not specified";
 
-        const documentType = doc.document_summary?.type || 
-                            doc.document_type || 
-                            "Unknown";
+        const documentType = doc.document_summary?.type ||
+          doc.document_type ||
+          "Unknown";
 
         const patientAge = calculateAge(doc.dob || documentData.dob);
         const injuryDate = doc.doi || documentData.doi;
@@ -223,7 +223,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const renderFormattedSummary = (text: string) => {
     if (!text) return <div className="no-summary">No summary available</div>;
-    
+
     const lines = text.split("\n");
     return lines.map((line, index) => {
       if (line.includes("**") && line.includes("**")) {
@@ -364,7 +364,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -476,7 +476,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     <div className="report-heading">
                       {group.documentType} Report for {group.patientName} by Dr. {group.consultingDoctor} ({formattedDate})
                     </div>
-                    
+
                     {/* Bullet point with summary */}
                     <div className="bullet-content">
                       <div className="bullet-marker">•</div>
@@ -506,9 +506,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-btn copy-btn ${
-                              isGroupCopied ? "copied" : ""
-                            }`}
+                            className={`action-btn copy-btn ${isGroupCopied ? "copied" : ""
+                              }`}
                             onClick={(e) => handleCopyClick(e, group.docId)}
                             title="Copy Macro"
                           >
@@ -516,9 +515,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-btn mark-viewed-btn ${
-                              isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
+                            className={`action-btn mark-viewed-btn ${isViewed ? "viewed" : ""
+                              } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
                             title="Mark as Reviewed"
@@ -599,7 +597,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   {selectedSummary?.isLongSummary ? "Detailed Report Summary" : "Brief Report Summary"}
                 </DialogTitle>
               </div>
-              
+
               <div className="patient-info-grid">
                 <div className="info-item">
                   <div className="info-label">
@@ -608,14 +606,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   </div>
                   <div className="info-value">{selectedSummary?.patientName || "Not specified"}</div>
                 </div>
-                
+
                 {selectedSummary?.patientAge && (
                   <div className="info-item">
                     <div className="info-label">Age</div>
                     <div className="info-value">{selectedSummary.patientAge} years</div>
                   </div>
                 )}
-                
+
                 {selectedSummary?.injuryDate && (
                   <div className="info-item">
                     <div className="info-label">
@@ -625,14 +623,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     <div className="info-value">{formatDisplayDate(selectedSummary.injuryDate)}</div>
                   </div>
                 )}
-                
+
                 {selectedSummary?.claimNumber && (
                   <div className="info-item">
                     <div className="info-label">Claim #</div>
                     <div className="info-value font-mono">{selectedSummary.claimNumber}</div>
                   </div>
                 )}
-                
+
                 <div className="info-item">
                   <div className="info-label">
                     <StethoscopeIcon className="icon-sm mr-2" />
@@ -640,7 +638,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   </div>
                   <div className="info-value">Dr. {selectedSummary?.doctorName || "Not specified"}</div>
                 </div>
-                
+
                 {selectedSummary?.date && (
                   <div className="info-item">
                     <div className="info-label">Report Date</div>
