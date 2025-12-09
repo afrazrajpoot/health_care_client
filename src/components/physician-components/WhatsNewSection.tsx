@@ -807,12 +807,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           margin-top: 8px;
         }
         .action-btn {
-          background: white;
+          background: transparent;
           border: 1px solid #d1d5db;
           padding: 4px 10px;
           font-size: 11px;
           cursor: pointer;
-          color: #4b5563;
+          color: black;
           border-radius: 4px;
           font-weight: 500;
           transition: all 0.2s;
@@ -824,89 +824,37 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           justify-content: center;
         }
         .action-btn:hover:not(:disabled) {
-          background: #f9fafb;
-          border-color: #9ca3af;
-          color: #374151;
+          background: #f3f4f6;
         }
         .action-btn:active:not(:disabled) {
-          background: #f3f4f6;
+          background: #e5e7eb;
           transform: translateY(1px);
         }
         .action-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
-          border-color: #e5e7eb;
-          background: #f9fafb;
-        }
-        .read-more-btn {
-          color: #1e40af;
-          border-color: #93c5fd;
-          background: #eff6ff;
-        }
-        .read-more-btn:hover:not(:disabled) {
-          background: #dbeafe;
-          border-color: #60a5fa;
-          color: #1e3a8a;
-        }
-        .view-summary-btn {
-          color: #065f46;
-          border-color: #a7f3d0;
-          background: #ecfdf5;
-        }
-        .view-summary-btn:hover:not(:disabled) {
-          background: #d1fae5;
-          border-color: #34d399;
-          color: #064e3b;
-        }
-        .copy-btn {
-          color: #7c3aed;
-          border-color: #ddd6fe;
-          background: #f5f3ff;
-        }
-        .copy-btn:hover:not(:disabled) {
-          background: #ede9fe;
-          border-color: #c4b5fd;
-          color: #6d28d9;
-        }
-        .copy-btn.copied {
-          color: #059669;
-          border-color: #a7f3d0;
-          background: #d1fae5;
-        }
-        .mark-viewed-btn {
-          color: #dc2626;
-          border-color: #fecaca;
-          background: #fef2f2;
-        }
-        .mark-viewed-btn:hover:not(:disabled) {
-          background: #fee2e2;
-          border-color: #fca5a5;
-          color: #b91c1c;
-        }
-        .mark-viewed-btn.viewed {
-          color: #059669;
-          border-color: #a7f3d0;
-          background: #d1fae5;
-        }
-        .mark-viewed-btn.viewed:hover:not(:disabled) {
-          background: #a7f3d0;
-          border-color: #34d399;
-          color: #047857;
-        }
-        .mark-viewed-btn.loading {
-          color: #6b7280;
           border-color: #d1d5db;
-          background: #f9fafb;
+          color: #9ca3af;
         }
+        /* Removed colorful variants to match "not color full" request */
+        .read-more-btn,
+        .view-summary-btn,
+        .copy-btn,
+        .mark-viewed-btn,
         .preview-btn {
-          color: #ea580c;
-          border-color: #fed7aa;
-          background: #fff7ed;
+          /* Inherit base styles */
         }
-        .preview-btn:hover:not(:disabled) {
-          background: #ffedd5;
-          border-color: #fdba74;
-          color: #c2410c;
+        
+        .copy-btn.copied {
+          background: #f0fdf4;
+          border-color: #16a34a;
+          color: #16a34a;
+        }
+        
+        .mark-viewed-btn.viewed {
+          background: #f0fdf4;
+          border-color: #16a34a;
+          color: #16a34a;
         }
         .no-items {
           font-size: 12px;
