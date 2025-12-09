@@ -66,22 +66,19 @@ export default function RecentPatientsSidebar({
     }
   };
 
-  // Get display type like in screenshot
+  // Show exact document type from API data
   const getDocType = (patient: RecentPatient): string => {
+    // Return the exact documentType from API if it exists
     if (patient.documentType) {
-      const type = patient.documentType.split('(')[0].trim();
-      
-      // Map to screenshot-like types
-      if (type === "UR") return "UR";
-      if (type.includes("PR") || patient.documentCount > 1) {
-        return `PR-${patient.documentCount}`;
-      }
-      if (type.includes("QME")) return "QME";
-      if (type.includes("Follow")) return "Follow-Up";
-      return "New Patient";
+      return patient.documentType;
     }
     
-    return patient.documentCount > 1 ? `PR-${patient.documentCount}` : "New Patient";
+    // Fallback: if no documentType but has documentCount
+    if (patient.documentCount > 0) {
+      return `${patient.documentCount} document(s)`;
+    }
+    
+    return "Unknown document type";
   };
 
   return (
