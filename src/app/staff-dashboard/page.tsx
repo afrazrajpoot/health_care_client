@@ -508,85 +508,121 @@ export default function Dashboard() {
         body {
           margin: 0;
           font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
-            Helvetica, Arial;
+            Helvetica, Arial, sans-serif;
           background: var(--bg);
           color: var(--text);
         }
         .wrap {
-          max-width: 1280px;
-          margin: 0 auto;
-          padding: 8px;
-          font-size: 12px;
+          width: 100%;
+          padding: 20px 40px;
+          font-size: 14px;
         }
         .header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 12px;
-          position: sticky;
-          top: 0;
-          background: var(--bg);
-          z-index: 5;
-          padding-bottom: 6px;
+          margin-bottom: 24px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid var(--border);
         }
         h1 {
-          font-size: 20px;
+          font-size: 24px;
           margin: 0;
+          font-weight: bold;
+          color: #1f2937;
         }
         .btn {
-          padding: 6px 10px;
+          padding: 8px 16px;
           border: none;
-          border-radius: 8px;
+          border-radius: 6px;
           font-weight: 600;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 14px;
+          transition: all 0.2s;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
         }
         .btn.primary {
-          background: var(--accent);
+          background: #2563eb;
           color: #fff;
         }
+        .btn.primary:hover {
+          background: #1d4ed8;
+        }
         .btn.light {
-          background: #eef2ff;
-          color: #1e3a8a;
-          border: 1px solid #c7d2fe;
+          background: #f3f4f6;
+          color: #1f2937;
+          border: 1px solid #d1d5db;
+        }
+        .btn.light:hover {
+          background: #e5e7eb;
         }
         .filter {
-          padding: 6px 10px;
-          border: 1px solid var(--border);
+          padding: 8px 16px;
+          border: 1px solid #d1d5db;
           border-radius: 999px;
-          background: #fff;
+          background: #f9fafb;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 14px;
+          transition: all 0.2s;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 500;
+        }
+        .filter:hover {
+          background: #e5e7eb;
+        }
+        .filter.active {
+          background: #2563eb;
+          color: #fff;
+          border-color: #2563eb;
         }
         .ttab.active {
           background: var(--accent);
           color: #fff;
         }
         .card {
-          background: var(--panel);
+          background: #ffffff;
           border: 1px solid var(--border);
           border-radius: 8px;
-          padding: 12px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          margin-bottom: 8px;
+          padding: 24px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          margin-bottom: 24px;
         }
         h2 {
-          margin: 0 0 8px;
-          font-size: 16px;
+          margin: 0 0 24px;
+          font-size: 20px;
           display: flex;
           align-items: center;
           justify-content: space-between;
+          font-weight: bold;
+          color: #1f2937;
         }
         table {
           width: 100%;
           border-collapse: collapse;
         }
-        th,
-        td {
+        th {
           border-bottom: 1px solid var(--border);
-          padding: 6px 8px;
+          padding: 12px;
           text-align: left;
-          font-size: 11px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        td {
+          border-bottom: 1px solid #f3f4f6;
+          padding: 16px 12px;
+          text-align: left;
+          font-size: 14px;
+          color: #1f2937;
+        }
+        tr:hover {
+          background: #f9fafb;
         }
         td.ur-reason-cell {
           max-width: 200px;
@@ -598,12 +634,13 @@ export default function Dashboard() {
         }
         .pill {
           display: inline-block;
-          padding: 4px 8px;
+          padding: 4px 12px;
           border-radius: 999px;
           font-size: 12px;
           font-weight: 700;
+          text-transform: uppercase;
         }
-        .pill.pending {
+        .pill.pending, .pill.medium {
           background: #fef3c7;
           color: #92400e;
         }
@@ -611,13 +648,21 @@ export default function Dashboard() {
           background: #e0e7ff;
           color: #3730a3;
         }
-        .pill.done {
+        .pill.done, .pill.low {
           background: #dcfce7;
           color: #166534;
         }
+        .pill.signature, .pill.high {
+          background: #ef4444;
+          color: #fff;
+        }
+        .pill.completed {
+          background: #10b981;
+          color: #fff;
+        }
         .muted {
           color: #6b7280;
-          font-size: 12px;
+          font-size: 14px;
         }
         /* Quick Notes */
         .qnote {
@@ -712,31 +757,34 @@ export default function Dashboard() {
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 6px;
-          margin-bottom: 6px;
+          gap: 8px;
+          margin-bottom: 24px;
         }
         .collapse-btn {
-          font-size: 11px;
-          padding: 3px 6px;
+          font-size: 14px;
+          padding: 6px 12px;
           min-height: auto;
-          background: transparent;
+          background: #f3f4f6;
           border: 1px solid var(--border);
           border-radius: 6px;
+          cursor: pointer;
         }
         .kpi {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 8px;
+          gap: 12px;
         }
         .kpi h4 {
-          font-size: 11px;
+          font-size: 12px;
           margin: 0 0 4px 0;
           color: var(--muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         .kpi .val {
           font-size: 18px;
           font-weight: 700;
-          color: var(--accent);
+          color: #2563eb;
         }
         .tile {
           padding: 6px;
@@ -765,15 +813,36 @@ export default function Dashboard() {
         .dense .filter {
           padding: 4px 8px;
         }
-        .kpi {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+        .mini-table th {
+          padding: 12px 8px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
-        .mini-table th,
         .mini-table td {
-          padding: 3px 6px;
-          font-size: 11px;
+          padding: 16px 8px;
+          font-size: 14px;
+        }
+        .mini-table th.red-header {
+          color: #ef4444;
+        }
+        .clickable-number {
+          font-weight: bold;
+          color: #2563eb;
+          cursor: pointer;
+        }
+        .clickable-number:hover {
+          color: #1d4ed8;
+          text-decoration: underline;
+        }
+        .red-number {
+          font-weight: bold;
+          color: #ef4444;
+          cursor: pointer;
+        }
+        .red-number:hover {
+          color: #dc2626;
+          text-decoration: underline;
         }
         /* Additional styles for failed docs */
         .failed-row {
@@ -800,23 +869,32 @@ export default function Dashboard() {
         .submit-btn,
         .cancel-btn {
           margin-right: 8px;
-          padding: 6px 12px;
+          padding: 8px 16px;
           border-radius: 6px;
-          font-size: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
         }
         .submit-btn {
-          background: var(--accent);
+          background: #2563eb;
           color: #fff;
           border: none;
+        }
+        .submit-btn:hover {
+          background: #1d4ed8;
         }
         .cancel-btn {
           background: #f3f4f6;
           color: var(--text);
           border: 1px solid var(--border);
         }
+        .cancel-btn:hover {
+          background: #e5e7eb;
+        }
         .no-data {
           text-align: center;
-          padding: 20px;
+          padding: 40px 20px;
           color: var(--muted);
           font-style: italic;
         }
@@ -932,18 +1010,24 @@ export default function Dashboard() {
           </div>
 
           <div className="wrap">
+            {/* Add Font Awesome CDN */}
+            <link
+              rel="stylesheet"
+              href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+            />
+            
             <div className="header">
-              <h1>🧭 DocLatch Staff Dashboard — Mission Control v6.3</h1>
-              <div
-                style={{ display: "flex", gap: "8px", alignItems: "center" }}
-              >
+              <h1 className="text-2xl font-bold text-gray-800">
+                DocLatch Mission Control
+              </h1>
+              <div className="flex flex-wrap gap-2 items-center">
                 <label
                   className="muted"
                   style={{
                     display: "flex",
                     gap: "6px",
                     alignItems: "center",
-                    fontSize: "12px",
+                    fontSize: "14px",
                   }}
                 >
                   Mode:
@@ -956,7 +1040,7 @@ export default function Dashboard() {
                       padding: "6px 8px",
                       border: "1px solid var(--border)",
                       borderRadius: "8px",
-                      fontSize: "12px",
+                      fontSize: "14px",
                     }}
                   >
                     <option value="wc">Workers&apos; Comp</option>
@@ -969,7 +1053,7 @@ export default function Dashboard() {
                     display: "flex",
                     gap: "6px",
                     alignItems: "center",
-                    fontSize: "12px",
+                    fontSize: "14px",
                   }}
                 >
                   <input
@@ -979,25 +1063,32 @@ export default function Dashboard() {
                   />
                   Dense
                 </label>
-                <button className="btn light">Dept Settings</button>
                 <button
                   ref={createLinkButtonRef}
-                  className="bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-teal-700 hover:to-teal-600 transition-all duration-200"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                   onClick={() => setShowModal(true)}
                 >
+                  <i className="fas fa-link"></i>
                   Create Intake Link
                 </button>
                 {session?.user?.role === "Physician" && (
                   <button
                     ref={addManualTaskButtonRef}
-                    className="bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold py-[0.3vw] px-[0.3vw] rounded-md hover:from-teal-700 hover:to-teal-600 transition-all duration-200"
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
                     onClick={() => setShowTaskModal(true)}
                   >
-                    + Add Manual Task
+                    <i className="fas fa-plus"></i>
+                    Add Manual Task
                   </button>
                 )}
                 <button
-                  className="btn light"
+                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Department Settings"
+                >
+                  <i className="fas fa-cog"></i>
+                </button>
+                <button
+                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
                   onClick={() => {
                     const params = {
                       page: currentPage,
@@ -1020,8 +1111,9 @@ export default function Dashboard() {
                     });
                   }}
                   disabled={loading}
+                  title="Refresh Data"
                 >
-                  {loading ? "Refreshing..." : "Refresh Tasks"}
+                  <i className={`fas fa-sync-alt ${loading ? 'animate-spin' : ''}`}></i>
                 </button>
               </div>
             </div>
@@ -1037,398 +1129,420 @@ export default function Dashboard() {
 
             {!loading && (
               <>
-                <div className="card">
-                  <h2>
-                    📊 Office Pulse
-                    <button
-                      className="btn light"
-                      onClick={() =>
-                        setIsOfficePulseCollapsed(!isOfficePulseCollapsed)
-                      }
-                      style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        minHeight: "auto",
-                      }}
-                    >
-                      {isOfficePulseCollapsed ? "▼ Expand" : "▲ Collapse"}
-                    </button>
-                  </h2>
-                  {!isOfficePulseCollapsed && (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1.4fr 1fr",
-                        gap: "12px",
-                        alignItems: "start",
-                      }}
-                    >
-                      <div>
-                        <table className="mini-table">
-                          <thead>
-                            <tr>
-                              <th>Department</th>
-                              <th>Open</th>
-                              <th>Overdue</th>
-                              <th>Unclaimed</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {pulse ? (
-                              pulse.depts.map(
-                                (rowOrObj: any, index: number) => {
-                                  if (
-                                    typeof rowOrObj === "object" &&
-                                    "department" in rowOrObj
-                                  ) {
-                                    const dept = rowOrObj;
-                                    return (
-                                      <tr key={index}>
-                                        <td>{dept.department}</td>
-                                        <td>{dept.open}</td>
-                                        <td>{dept.overdue}</td>
-                                        <td>{dept.unclaimed}</td>
-                                      </tr>
-                                    );
-                                  } else {
-                                    const row = rowOrObj as [
-                                      string,
-                                      number,
-                                      number,
-                                      number,
-                                      number
-                                    ];
-                                    return (
-                                      <tr key={index}>
-                                        <td>{row[0]}</td>
-                                        <td>{row[1]}</td>
-                                        <td>{row[2]}</td>
-                                        <td>{row[4]}</td>
-                                      </tr>
-                                    );
-                                  }
-                                }
-                              )
-                            ) : (
-                              <tr>
-                                <td colSpan={4} className="no-data">
-                                  No pulse data available
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="kpi relative">
-                        <button
-                          onClick={fetchWorkflowStats}
-                          className="btn light absolute top-0 right-0"
-                          style={{
-                            fontSize: "12px",
-                            padding: "4px 8px",
-                            minHeight: "auto",
-                          }}
-                        >
-                          🔄 Refresh
-                        </button>
-                        {workflowStats ? (
-                          workflowStats.labels.map(
-                            (label: string, index: number) => (
-                              <div key={index} className="text-gray-700">
-                                <h4>{label}</h4>
-                                <div className="val">
-                                  {workflowStats.vals[index]}
-                                </div>
-                              </div>
-                            )
-                          )
-                        ) : (
-                          <div className="tile">
-                            <h4>No Workflow Stats</h4>
-                            <div className="val">—</div>
-                          </div>
-                        )}
-                      </div>
+                {/* Physician Signature Required Card */}
+                <div className="bg-white rounded-lg shadow-md mb-6 border-l-4 border-yellow-400">
+                  <div className="p-6">
+                    <div className="flex items-center mb-3">
+                      <i className="fas fa-exclamation-triangle text-yellow-500 mr-3 text-xl"></i>
+                      <h2 className="text-xl font-bold text-gray-800 mb-0">
+                        Physician Signature Required
+                      </h2>
                     </div>
-                  )}
+                    <p className="text-gray-600 italic text-sm mb-6">
+                      These documents require direct physician signature. <strong>Please review documents prior to execution.</strong>
+                    </p>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200">
+                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-2/5">
+                              DOCUMENT
+                            </th>
+                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              DATE
+                            </th>
+                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              STATUS
+                            </th>
+                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              ACTIONS
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-4 font-medium text-gray-900">
+                              <strong>UR Determination - PT Plan of Care</strong>
+                            </td>
+                            <td className="py-4 text-gray-700">
+                              12/04/2025
+                            </td>
+                            <td className="py-4">
+                              <span className="pill signature">
+                                Signature Needed
+                              </span>
+                            </td>
+                            <td className="py-4">
+                              <div className="flex justify-end space-x-2">
+                                <button className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium">
+                                  Review Document
+                                </button>
+                                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                                  Sign
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-4 font-medium text-gray-900">
+                              <strong>DME Certification - Lumbar Brace</strong>
+                            </td>
+                            <td className="py-4 text-gray-700">
+                              12/03/2025
+                            </td>
+                            <td className="py-4">
+                              <span className="pill signature">
+                                Signature Needed
+                              </span>
+                            </td>
+                            <td className="py-4">
+                              <div className="flex justify-end space-x-2">
+                                <button className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium">
+                                  Review Document
+                                </button>
+                                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+                                  Sign
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-4 font-medium text-gray-900">
+                              <strong>Plan of Care - Physical Therapy</strong>
+                            </td>
+                            <td className="py-4 text-gray-700">
+                              12/01/2025
+                            </td>
+                            <td className="py-4">
+                              <span className="pill pending">
+                                Pending Review
+                              </span>
+                            </td>
+                            <td className="py-4">
+                              <div className="flex justify-end space-x-2">
+                                <button className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium">
+                                  Review
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="card">
-                  <h2>
-                    🧩 Task & Workflow Tracker
-                    <button
-                      className="btn light"
-                      onClick={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
-                      style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        minHeight: "auto",
-                      }}
-                    >
-                      {isFiltersCollapsed ? "▼ Show Filters" : "▲ Hide Filters"}
-                    </button>
-                    {/* show all tasks ( this will reset the url params and the url becomes `/staff-dashboard`) */}
-                  </h2>
-                  <div className="muted" style={{ marginBottom: "8px" }}>
-                    Tabs keep this compact. Use Overdue to triage. Search
-                    filters by task/patient. Quick Notes allow multiple
-                    timestamped entries per task.
-                  </div>
-                  <div className="filters">
-                    <div
-                      style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}
-                    >
-                      {/* {filteredTabs.map((tab) => (
-                        <button
-                          key={tab.pane}
-                          className={`filter ttab ${
-                            currentPane === tab.pane ? "active" : ""
-                          }`}
-                          onClick={() => handleTabClick(tab)}
-                        >
-                          {tab.text}
-                        </button>
-                      ))} */}
-                    </div>
-                    {!isFiltersCollapsed && (
-                      <>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            marginBottom: "8px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          {/* <button
-                            className={`filter ttab ${
-                              filters.viewMode === "all" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              setFilters((p) => ({
-                                ...p,
-                                viewMode: "all",
-                                status: "",
-                                overdueOnly: false,
-                                priority: "",
-                                dueDate: "",
-                              }))
-                            }
-                          >
-                            Show All
-                          </button> */}
-                          {/* <button
-                            className={`filter ttab ${
-                              filters.viewMode === "urgent" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              setFilters((p) => ({
-                                ...p,
-                                viewMode: "urgent",
-                                overdueOnly: true,
-                                priority: "high",
-                                dueDate: "today",
-                              }))
-                            }
-                          >
-                            Urgent & Due Soon
-                          </button> */}
+                {/* Dashboard Grid - Office Pulse and Task Tracker Side by Side */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Office Pulse Card */}
+                  <div className="lg:col-span-1">
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                      <div className="flex items-center mb-6">
+                        <i className="fas fa-chart-line text-blue-600 mr-3 text-xl"></i>
+                        <h2 className="text-xl font-bold text-gray-800 m-0">Office Pulse</h2>
+                      </div>
+                      
+                      {!isOfficePulseCollapsed && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                  DEPARTMENT
+                                </th>
+                                <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                  OPEN
+                                </th>
+                                <th className="text-left py-3 text-xs font-semibold text-red-500 uppercase tracking-wider">
+                                  OVERDUE
+                                </th>
+                                <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                  UNCLAIMED
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pulse ? (
+                                pulse.depts.map(
+                                  (rowOrObj: any, index: number) => {
+                                    if (
+                                      typeof rowOrObj === "object" &&
+                                      "department" in rowOrObj
+                                    ) {
+                                      const dept = rowOrObj;
+                                      return (
+                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="py-4 text-gray-700">
+                                            {dept.department}
+                                          </td>
+                                          <td className="py-4">
+                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
+                                              {dept.open}
+                                            </span>
+                                          </td>
+                                          <td className="py-4">
+                                            <span className="font-bold text-red-500 hover:text-red-700 hover:underline cursor-pointer">
+                                              {dept.overdue}
+                                            </span>
+                                          </td>
+                                          <td className="py-4">
+                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
+                                              {dept.unclaimed}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    } else {
+                                      const row = rowOrObj as [
+                                        string,
+                                        number,
+                                        number,
+                                        number,
+                                        number
+                                      ];
+                                      return (
+                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="py-4 text-gray-700">
+                                            {row[0]}
+                                          </td>
+                                          <td className="py-4">
+                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
+                                              {row[1]}
+                                            </span>
+                                          </td>
+                                          <td className="py-4">
+                                            <span className="font-bold text-red-500 hover:text-red-700 hover:underline cursor-pointer">
+                                              {row[2]}
+                                            </span>
+                                          </td>
+                                          <td className="py-4">
+                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
+                                              {row[4]}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    }
+                                  }
+                                )
+                              ) : (
+                                <tr>
+                                  <td colSpan={4} className="py-4 text-center text-gray-500">
+                                    No pulse data available
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <input
-                            placeholder="Search tasks/patients…"
-                            value={filters.search}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                search: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 10px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                              minWidth: "220px",
-                            }}
-                          />
-                          <span className="muted">Dept:</span>
-                          <select
-                            value={filters.dept}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                dept: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="">All</option>
-                            {departments.map((d) => (
-                              <option key={d} value={d}>
-                                {d}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="muted">Status:</span>
-                          <select
-                            value={filters.status}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                status: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="">All</option>
-                            <option value="in progress">in progress</option>
-                            <option value="Completed">Completed</option>
-                            <option value="overdue">Overdue</option>
-                          </select>
-                          <span className="muted">Priority:</span>
-                          <select
-                            value={filters.priority || ""}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                priority: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="">All</option>
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                          </select>
-                          <span className="muted">Due:</span>
-                          <select
-                            value={filters.dueDate || ""}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                dueDate: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="">All</option>
-                            <option value="today">Today</option>
-                            <option value="week">This Week</option>
-                            <option value="month">This Month</option>
-                          </select>
-                          {/* <span className="muted">Type:</span>
-                          <select
-                            value={filters.taskType || ""}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                taskType: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="">All</option>
-                            <option value="intake">Intake</option>
-                            <option value="review">Review</option>
-                            <option value="approval">Approval</option>
-                          </select> */}
-                          {/* <span className="muted">Assigned:</span>
-                          <select
-                            value={filters.assignedTo || ""}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                assignedTo: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="">All</option>
-                            <option value="me">Me</option>
-                            <option value="unassigned">Unassigned</option>
-                          </select> */}
-                          <span className="muted">Sort:</span>
-                          <select
-                            value={filters.sortBy || "dueDate"}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                sortBy: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="dueDate">Due Date</option>
-                            <option value="priority">Priority</option>
-                            <option value="createdAt">Created</option>
-                            <option value="taskType">Type</option>
-                          </select>
-                          <span className="muted">Order:</span>
-                          <select
-                            value={filters.sortOrder || "desc"}
-                            onChange={(e) =>
-                              setFilters((p) => ({
-                                ...p,
-                                sortOrder: e.target.value,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="asc">Asc</option>
-                            <option value="desc">Desc</option>
-                          </select>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Task & Workflow Tracker Card */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                      <div className="flex items-center mb-6">
+                        <i className="fas fa-list-check text-green-500 mr-3 text-xl"></i>
+                        <h2 className="text-xl font-bold text-gray-800 m-0">
+                          Task & Workflow Tracker
+                        </h2>
+                      </div>
+                      
+                      {/* Filter Bar */}
+                      {!isFiltersCollapsed && (
+                        <div className="flex flex-wrap gap-2 mb-6">
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                            <i className="fas fa-search text-gray-500"></i>
+                            <input
+                              placeholder="Search tasks/patients…"
+                              value={filters.search}
+                              onChange={(e) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  search: e.target.value,
+                                }))
+                              }
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                outline: "none",
+                                fontSize: "14px",
+                                minWidth: "200px",
+                              }}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-sm">Dept:</span>
+                            <select
+                              value={filters.dept}
+                              onChange={(e) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  dept: e.target.value,
+                                }))
+                              }
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                outline: "none",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="">All</option>
+                              {departments.map((d) => (
+                                <option key={d} value={d}>
+                                  {d}
+                                </option>
+                              ))}
+                            </select>
+                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
+                          </div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-sm">Status:</span>
+                            <select
+                              value={filters.status}
+                              onChange={(e) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  status: e.target.value,
+                                }))
+                              }
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                outline: "none",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="">All</option>
+                              <option value="in progress">in progress</option>
+                              <option value="Completed">Completed</option>
+                              <option value="overdue">Overdue</option>
+                            </select>
+                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
+                          </div>
+                          {filters.priority && (
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-blue-600 bg-blue-600 text-white">
+                              <span className="font-medium text-sm">Priority: {filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)}</span>
+                              <button
+                                onClick={() =>
+                                  setFilters((p) => ({
+                                    ...p,
+                                    priority: "",
+                                  }))
+                                }
+                                className="hover:bg-blue-700 rounded-full p-1"
+                              >
+                                <i className="fas fa-times text-xs"></i>
+                              </button>
+                            </div>
+                          )}
+                          {!filters.priority && (
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                              <span className="text-gray-700 font-medium text-sm">Priority:</span>
+                              <select
+                                value={filters.priority || ""}
+                                onChange={(e) =>
+                                  setFilters((p) => ({
+                                    ...p,
+                                    priority: e.target.value,
+                                  }))
+                                }
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  outline: "none",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <option value="">All</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                              </select>
+                              <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-sm">Due:</span>
+                            <select
+                              value={filters.dueDate || ""}
+                              onChange={(e) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  dueDate: e.target.value,
+                                }))
+                              }
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                outline: "none",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="">All</option>
+                              <option value="today">Today</option>
+                              <option value="week">This Week</option>
+                              <option value="month">This Month</option>
+                            </select>
+                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
+                          </div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-sm">Sort:</span>
+                            <select
+                              value={filters.sortBy || "dueDate"}
+                              onChange={(e) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  sortBy: e.target.value,
+                                }))
+                              }
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                outline: "none",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="dueDate">Due Date</option>
+                              <option value="priority">Priority</option>
+                              <option value="createdAt">Created</option>
+                              <option value="taskType">Type</option>
+                            </select>
+                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
+                          </div>
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-sm">Order:</span>
+                            <select
+                              value={filters.sortOrder || "desc"}
+                              onChange={(e) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  sortOrder: e.target.value,
+                                }))
+                              }
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                outline: "none",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="asc">Asc</option>
+                              <option value="desc">Desc</option>
+                            </select>
+                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
+                          </div>
                           <button
-                            className="filter"
+                            className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-full hover:bg-gray-200 transition-colors text-sm font-medium"
                             onClick={() =>
                               setFilters({
                                 search: "",
@@ -1446,12 +1560,11 @@ export default function Dashboard() {
                               })
                             }
                           >
-                            Clear
+                            Clear All
                           </button>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      )}
+                      
                   {tasks.length === 0 ? (
                     <div className="no-data">No tasks available</div>
                   ) : (
@@ -1540,26 +1653,29 @@ export default function Dashboard() {
                       </div>
                     </>
                   )}
+                    </div>
+                  </div>
                 </div>
 
-                {failedDocuments && failedDocuments.length > 0 && (
-                  <FailedDocuments
-                    documents={failedDocuments}
-                    onRowClick={handleRowClick}
-                  />
-                )}
-
-                {duplicateDocuments && duplicateDocuments.length > 0 && (
-                  <DuplicatePatients
-                    documents={duplicateDocuments}
-                    onRowClick={handleDuplicateRowClick}
-                  />
-                )}
-              </>
+            {failedDocuments && failedDocuments.length > 0 && (
+              <FailedDocuments
+                documents={failedDocuments}
+                onRowClick={handleRowClick}
+              />
             )}
-          </div>
-        </div>
+
+
+            {duplicateDocuments && duplicateDocuments.length > 0 && (
+              <DuplicatePatients
+                documents={duplicateDocuments}
+                onRowClick={handleDuplicateRowClick}
+              />
+            )}
+          </>
+        )}
       </div>
+    </div>
+  </div>
 
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
 
