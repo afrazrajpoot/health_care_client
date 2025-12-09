@@ -1,7 +1,8 @@
 // components/ProgressTracker.tsx
 import { useSocket } from "@/providers/SocketProvider";
 import React, { useEffect, useState } from "react";
-import { FileText, FolderOpen, Check, Sparkles, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import DocLatchAnimation from "./DocLatchAnimation";
 
 interface ProgressTrackerProps {
   onComplete?: () => void;
@@ -32,10 +33,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(
     null
   );
-
-  // File types for animation
-  // we need almost all file types
-  const fileTypes = ["PDF", "PNG", "JPG", "DICOM", "PDF", "TXT", "DOCX", "GIF", "BMP", "TIFF", "SVG", "HEIC", "WEBP"];
 
   // Check localStorage on mount for persisted visibility
   useEffect(() => {
@@ -288,7 +285,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     : viewMode === "queue"
       ? displayQueueProgress
       : displayProgress;
-  const uploadCount = Math.floor((currentProgress / 100) * 5);
 
   // Show loading state if processing but no progress data yet
   if (!progressData && !queueProgressData && isProcessing) {
@@ -314,9 +310,19 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
                   ? "Extracting data with AI..."
                   : "DocLatch processing your documents..."}
             </p>
-          </div>          {/* Loading Animation */}
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+          </div>
+          
+          {/* DocLatch Animation */}
+          <div className="flex items-center justify-center">
+            <DocLatchAnimation 
+              text={currentPhase === "upload"
+                ? "Validating & Uploading Files..."
+                : currentPhase === "processing"
+                  ? "Extracting Data → Updating Dashboard…"
+                  : "Processing Documents…"}
+              width={170}
+              height={150}
+            />
           </div>
         </div>
       </div>
@@ -354,95 +360,18 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         </div>
 
         {/* Animation Area */}
-        <div className="relative h-64 mb-6">
-          {/* Floating Files */}
-          {[0, 1, 2, 3, 4].map((index) => (
-            <div
-              key={index}
-              className="absolute"
-              style={{
-                left: `${10 + index * 18}%`,
-                animation: `floatToFolder 4s ease-in-out ${index * 0.8
-                  }s infinite`,
-                opacity: index < uploadCount ? 1 : 0.3,
-              }}
-            >
-              <div
-                className={`bg-white rounded-lg shadow-lg p-3 border-2 ${index < uploadCount ? "border-cyan-500" : "border-cyan-100"
-                  }`}
-              >
-                <FileText
-                  className={`w-8 h-8 ${index < uploadCount ? "text-cyan-500" : "text-gray-300"
-                    }`}
-                />
-                <span className="text-xs font-medium text-gray-600 mt-1 block">
-                  {fileTypes[index]}
-                </span>
-              </div>
-            </div>
-          ))}
-
-          {/* Central Folder */}
-          <div className="absolute left-1/2 bottom-8 transform -translate-x-1/2">
-            <div className="relative">
-              {/* Glow Effect */}
-              <div
-                className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl blur-xl opacity-40 animate-pulse"
-                style={{ width: "120px", height: "120px", margin: "-10px" }}
-              />
-
-              {/* Folder Container */}
-              <div className="relative bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl p-6 shadow-xl">
-                <FolderOpen
-                  className="w-16 h-16 text-white"
-                  strokeWidth={1.5}
-                />
-
-                {/* AI Sparkle */}
-                <div className="absolute -top-2 -right-2 bg-white rounded-full p-1.5 shadow-lg">
-                  <Sparkles className="w-4 h-4 text-cyan-500 animate-pulse" />
-                </div>
-
-                {/* Processing Waves */}
-                {isProcessing && (
-                  <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="absolute inset-0 border-2 border-white rounded-2xl"
-                        style={{
-                          animation: `wave 2s ease-out ${i * 0.5}s infinite`,
-                          opacity: 0,
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* File Counter Badge */}
-              <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white rounded-full px-4 py-1 shadow-lg border-2 border-cyan-100">
-                <span className="text-sm font-bold text-cyan-600">
-                  {uploadCount}/{progressData?.total_files}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Success Particles */}
-          {!isProcessing &&
-            [...Array(6)].map((_, i) => (
-              <div
-                key={`particle-${i}`}
-                className="absolute w-1.5 h-1.5 bg-teal-400 rounded-full"
-                style={{
-                  left: "50%",
-                  top: "70%",
-                  animation: `particle-burst 2s ease-out ${i * 0.2}s infinite`,
-                  opacity: 0,
-                }}
-              />
-            ))}
+        <div className="relative mb-6">
+          <DocLatchAnimation 
+            text={isProcessing
+              ? currentPhase === "upload"
+                ? "Validating & Uploading Files..."
+                : currentPhase === "processing"
+                  ? "Extracting Data → Updating Dashboard…"
+                  : "Processing Documents…"
+              : "Processing Complete ✓"}
+            width={200}
+            height={180}
+          />
         </div>
 
         {/* Progress Info */}
@@ -572,58 +501,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
       {/* Animation Styles */}
       <style jsx>{`
-        @keyframes floatToFolder {
-          0% {
-            transform: translateY(-100px) translateX(-20px) rotate(-5deg)
-              scale(0.8);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          50% {
-            transform: translateY(100px) translateX(80px) rotate(5deg)
-              scale(0.9);
-            opacity: 1;
-          }
-          70% {
-            transform: translateY(140px) translateX(120px) rotate(0deg)
-              scale(0.5);
-            opacity: 0.5;
-          }
-          100% {
-            transform: translateY(150px) translateX(130px) rotate(0deg)
-              scale(0.2);
-            opacity: 0;
-          }
-        }
-        @keyframes wave {
-          0% {
-            transform: scale(1);
-            opacity: 0.8;
-          }
-          100% {
-            transform: scale(1.5);
-            opacity: 0;
-          }
-        }
-        @keyframes particle-burst {
-          0% {
-            transform: translate(0, 0) scale(1);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          100% {
-            transform: translate(
-                calc(var(--x, 0) * 40px),
-                calc(var(--y, 0) * -40px)
-              )
-              scale(0);
-            opacity: 0;
-          }
-        }
         @keyframes fadeInSlide {
           from {
             opacity: 0;
@@ -633,30 +510,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             opacity: 1;
             transform: translateX(0);
           }
-        }
-        div[style*="particle-burst"]:nth-child(1) {
-          --x: -1;
-          --y: 1;
-        }
-        div[style*="particle-burst"]:nth-child(2) {
-          --x: 1;
-          --y: 1;
-        }
-        div[style*="particle-burst"]:nth-child(3) {
-          --x: -0.5;
-          --y: 1.5;
-        }
-        div[style*="particle-burst"]:nth-child(4) {
-          --x: 0.5;
-          --y: 1.5;
-        }
-        div[style*="particle-burst"]:nth-child(5) {
-          --x: 0;
-          --y: 1.8;
-        }
-        div[style*="particle-burst"]:nth-child(6) {
-          --x: 0;
-          --y: 1.2;
         }
       `}</style>
     </div>
