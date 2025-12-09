@@ -5,8 +5,12 @@ import { useState, useEffect } from "react";
 
 interface RecentPatient {
   patientName: string;
-  dob: string;
-  claimNumber: string;
+  dob: string | null;
+  claimNumber: string | null;
+  createdAt: string;
+  documentCount: number;
+  documentIds: string[];
+  documentType: string | null;
 }
 
 interface Props {
@@ -20,23 +24,18 @@ export default function RecentPatientsSidebar({
 }: Props) {
   const [recentPatients, setRecentPatients] = useState<RecentPatient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRecentPatients = async () => {
       try {
         setLoading(true);
-        setError(null);
         const url = `/api/get-recent-patients?mode=${mode}`;
         const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error("Failed to fetch recent patients");
-        }
+        if (!response.ok) throw new Error("Failed to fetch");
         const data: RecentPatient[] = await response.json();
         setRecentPatients(data);
       } catch (err) {
-        console.error("Error fetching recent patients:", err);
-        setError(err instanceof Error ? err.message : "An error occurred");
+        console.error("Error:", err);
       } finally {
         setLoading(false);
       }
@@ -46,76 +45,76 @@ export default function RecentPatientsSidebar({
   }, [mode]);
 
   const handleSelect = (patient: RecentPatient) => {
-    const patientData: any = {
+    onPatientSelect({
       patientName: patient.patientName,
       dob: patient.dob,
-      doi: "",
       claimNumber: patient.claimNumber,
-    };
-    onPatientSelect(patientData);
+      documentType: patient.documentType,
+      documentIds: patient.documentIds,
+    });
   };
 
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return "Not specified";
+  // Format date like "12/4/2025" (no leading zeros)
+  const formatShortDate = (dateString: string): string => {
+    if (!dateString) return "";
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "Not specified";
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "2-digit",
-        year: "numeric",
-      });
+      if (isNaN(date.getTime())) return "";
+      return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
     } catch {
-      return "Not specified";
+      return "";
     }
   };
 
+  // Get display type like in screenshot
+  const getDocType = (patient: RecentPatient): string => {
+    if (patient.documentType) {
+      const type = patient.documentType.split('(')[0].trim();
+      
+      // Map to screenshot-like types
+      if (type === "UR") return "UR";
+      if (type.includes("PR") || patient.documentCount > 1) {
+        return `PR-${patient.documentCount}`;
+      }
+      if (type.includes("QME")) return "QME";
+      if (type.includes("Follow")) return "Follow-Up";
+      return "New Patient";
+    }
+    
+    return patient.documentCount > 1 ? `PR-${patient.documentCount}` : "New Patient";
+  };
+
   return (
-    <div className="flex flex-col h-[500px]">
+    <div className="w-full bg-white border border-gray-200 rounded-lg">
       {/* Header */}
-      <div className="flex items-center justify-center p-3 border-b border-gray-200 bg-gray-50 shrink-0">
-        <h2 className="text-sm font-semibold text-gray-900">Recent Patients</h2>
+      <div className="p-3 border-b border-gray-200">
+        <h2 className="text-sm font-semibold text-gray-900 text-center">
+          Recent Patients
+        </h2>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="p-3">
         {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-            <span className="ml-2 text-gray-600 text-xs">
-              Loading recent patients...
-            </span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-6 text-red-600 text-sm">
-            <p>{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-2 text-blue-500 hover:underline text-xs"
-            >
-              Retry
-            </button>
-          </div>
+          <div className="text-center py-3 text-gray-500 text-sm">Loading...</div>
         ) : recentPatients.length === 0 ? (
-          <div className="text-center py-6 text-gray-500 text-sm">
-            <p>No recent patients found.</p>
-          </div>
+          <div className="text-center py-3 text-gray-500 text-sm">No patients found</div>
         ) : (
           <div className="space-y-2">
             {recentPatients.map((patient, index) => (
               <div
                 key={index}
-                className="p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+                className="p-2 hover:bg-gray-50 rounded cursor-pointer"
                 onClick={() => handleSelect(patient)}
               >
-                <div className="font-medium text-gray-900 text-sm">
-                  {patient.patientName}
-                </div>
-                <div className="text-xs text-gray-600 mt-1">
-                  DOB: {formatDate(patient.dob)}
-                </div>
-                <div className="text-xs text-gray-600">
-                  Claim #: {patient.claimNumber}
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-gray-900">
+                    <span className="font-medium">{patient.patientName}</span>
+                    <span className="mx-2 text-gray-400">—</span>
+                    <span className="text-gray-600">
+                      {getDocType(patient)} • {formatShortDate(patient.createdAt)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}

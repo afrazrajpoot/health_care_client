@@ -275,16 +275,8 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
         id="doc-title"
       >
         <div className={`doc-summary ${isAccordionOpen ? "open" : ""}`}>
-          📑 Document Summary (click to expand)
-          {documentData?.document_summaries &&
-            documentData.document_summaries.length > 1 && (
-              <span className="count-span">
-                {documentData.document_summaries.length} reports
-              </span>
-            )}
-          {isCollapsed && (
-            <span className="collapsed-span">({getDocumentSummary()})</span>
-          )}
+          📑 Document Summary 
+        
         </div>
         <div
           id="doc-body"
@@ -392,7 +384,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
         }
         .doc-summary {
           font-weight: 600;
-          color: #1e3a8a;
+          color: black;
           margin-bottom: 8px;
           font-size: 15px;
           position: relative;

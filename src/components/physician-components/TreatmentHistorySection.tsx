@@ -529,7 +529,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         <div className="section-header" onClick={handleSectionHeaderClick}>
           <div className="section-title">
             <MedicalIcon />
-            <h3>Treatment History by Body Part ({mode.toUpperCase()})</h3>
+            <h3 className="text-black">Treatment History by Body Part</h3>
+            <button className="bg-blue-500 text-[0.8vw] hover:bg-blue-700 text-white px-2 py-1 rounded-md">AI timeline</button>
           </div>
           <div className="header-actions">
             <button
@@ -554,14 +555,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         {!isCollapsed && (
           <div className="section-content" onClick={(e) => e.stopPropagation()}>
             {/* Summary Stats */}
-            {bodyPartSnapshots.length > 0 && (
-              <div className="summary-stats">
-                <div className="stat-text">
-                  {Object.keys(groupedBodyParts).length} body part(s) •{" "}
-                  {bodyPartSnapshots.length} total snapshot(s)
-                </div>
-              </div>
-            )}
+          
             {/* Body Part Snapshots */}
             {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => {
               const sortedSnapshots = sortSnapshotsByDate(snapshots);
@@ -846,7 +840,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         }
         h3 {
           font-weight: 600;
-          color: #1e3a8a;
+          color: black;
           margin: 0;
           font-size: 15px;
           display: flex;

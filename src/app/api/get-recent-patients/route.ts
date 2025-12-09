@@ -230,6 +230,7 @@ export async function GET(request: Request) {
 
     if (mode) whereClause.mode = mode;
 
+    // Fetch documents with their documentSummary relation
     const documents = await prisma.document.findMany({
       select: {
         id: true,
@@ -237,6 +238,14 @@ export async function GET(request: Request) {
         dob: true,
         claimNumber: true,
         createdAt: true,
+        mode: true, // Also include mode if needed
+        documentSummary: { // ✅ Include the related DocumentSummary
+          select: {
+            type: true, // This is the document type you want
+            date: true,
+            summary: true,
+          },
+        },
       },
       where: whereClause,
       orderBy: { createdAt: "desc" },
@@ -349,24 +358,35 @@ export async function GET(request: Request) {
     // Sort by most recent activity
     patientGroups.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    const recent = patientGroups.slice(0, 10).map((group) => ({
-      patientName: group.patientName,
-      dob: group.dob,
-      claimNumber: group.claimNumber,
-      createdAt: group.createdAt,
-      documentCount: group.documents.length,
-      documentIds: group.documents.map((d) => d.id),
-      // Include all document details if multiple matches
-      ...(group.documents.length > 1 && {
-        matchingDocuments: group.documents.map((d) => ({
-          id: d.id,
-          patientName: d.patientName,
-          dob: d.dob,
-          claimNumber: d.claimNumber,
-          createdAt: d.createdAt,
-        })),
-      }),
-    }));
+    const recent = patientGroups.slice(0, 10).map((group) => {
+      // Get the most recent document from the group
+      const mostRecentDoc = group.documents.reduce((latest, current) =>
+        current.createdAt > latest.createdAt ? current : latest
+      );
+
+      return {
+        patientName: group.patientName,
+        dob: group.dob,
+        claimNumber: group.claimNumber,
+        createdAt: group.createdAt,
+        documentCount: group.documents.length,
+        documentIds: group.documents.map((d) => d.id),
+        // Include document type from the most recent document's summary
+        documentType: mostRecentDoc.documentSummary?.type || null,
+        // Include all document details if multiple matches
+        ...(group.documents.length > 1 && {
+          matchingDocuments: group.documents.map((d) => ({
+            id: d.id,
+            patientName: d.patientName,
+            dob: d.dob,
+            claimNumber: d.claimNumber,
+            createdAt: d.createdAt,
+            mode: d.mode,
+            documentType: d.documentSummary?.type || null, // Include type for each matching document
+          })),
+        }),
+      };
+    });
 
     return NextResponse.json(recent);
   } catch (error) {
