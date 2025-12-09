@@ -532,16 +532,16 @@ export default function Dashboard() {
           color: #1f2937;
         }
         .btn {
-          padding: 8px 16px;
+          padding: 6px 12px;
           border: none;
           border-radius: 6px;
           font-weight: 600;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 12px;
           transition: all 0.2s;
           display: inline-flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
         .btn.primary {
           background: #2563eb;
@@ -606,9 +606,9 @@ export default function Dashboard() {
         }
         th {
           border-bottom: 1px solid var(--border);
-          padding: 12px;
+          padding: 10px 16px;
           text-align: left;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           color: #6b7280;
           text-transform: uppercase;
@@ -616,9 +616,9 @@ export default function Dashboard() {
         }
         td {
           border-bottom: 1px solid #f3f4f6;
-          padding: 16px 12px;
+          padding: 12px 16px;
           text-align: left;
-          font-size: 14px;
+          font-size: 13px;
           color: #1f2937;
         }
         tr:hover {
@@ -1373,8 +1373,8 @@ export default function Dashboard() {
                               }}
                             />
                           </div>
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-sm">Dept:</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-xs">Dept:</span>
                             <select
                               value={filters.dept}
                               onChange={(e) =>
@@ -1383,11 +1383,12 @@ export default function Dashboard() {
                                   dept: e.target.value,
                                 }))
                               }
+                              className="appearance-none pr-2"
                               style={{
                                 border: "none",
                                 background: "transparent",
                                 outline: "none",
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 cursor: "pointer",
                               }}
                             >
@@ -1398,10 +1399,9 @@ export default function Dashboard() {
                                 </option>
                               ))}
                             </select>
-                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
                           </div>
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-sm">Status:</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-xs">Status:</span>
                             <select
                               value={filters.status}
                               onChange={(e) =>
@@ -1410,11 +1410,12 @@ export default function Dashboard() {
                                   status: e.target.value,
                                 }))
                               }
+                              className="appearance-none pr-2"
                               style={{
                                 border: "none",
                                 background: "transparent",
                                 outline: "none",
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 cursor: "pointer",
                               }}
                             >
@@ -1423,11 +1424,10 @@ export default function Dashboard() {
                               <option value="Completed">Completed</option>
                               <option value="overdue">Overdue</option>
                             </select>
-                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
                           </div>
                           {filters.priority && (
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-blue-600 bg-blue-600 text-white">
-                              <span className="font-medium text-sm">Priority: {filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)}</span>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-600 bg-blue-600 text-white">
+                              <span className="font-medium text-xs">Priority: {filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)}</span>
                               <button
                                 onClick={() =>
                                   setFilters((p) => ({
@@ -1435,15 +1435,15 @@ export default function Dashboard() {
                                     priority: "",
                                   }))
                                 }
-                                className="hover:bg-blue-700 rounded-full p-1"
+                                className="hover:bg-blue-700 rounded-full p-0.5"
                               >
                                 <i className="fas fa-times text-xs"></i>
                               </button>
                             </div>
                           )}
                           {!filters.priority && (
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                              <span className="text-gray-700 font-medium text-sm">Priority:</span>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
+                              <span className="text-gray-700 font-medium text-xs">Priority:</span>
                               <select
                                 value={filters.priority || ""}
                                 onChange={(e) =>
@@ -1452,11 +1452,12 @@ export default function Dashboard() {
                                     priority: e.target.value,
                                   }))
                                 }
+                                className="appearance-none pr-2"
                                 style={{
                                   border: "none",
                                   background: "transparent",
                                   outline: "none",
-                                  fontSize: "14px",
+                                  fontSize: "12px",
                                   cursor: "pointer",
                                 }}
                               >
@@ -1465,11 +1466,10 @@ export default function Dashboard() {
                                 <option value="medium">Medium</option>
                                 <option value="low">Low</option>
                               </select>
-                              <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
                             </div>
                           )}
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-sm">Due:</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-xs">Due:</span>
                             <select
                               value={filters.dueDate || ""}
                               onChange={(e) =>
@@ -1478,11 +1478,12 @@ export default function Dashboard() {
                                   dueDate: e.target.value,
                                 }))
                               }
+                              className="appearance-none pr-2"
                               style={{
                                 border: "none",
                                 background: "transparent",
                                 outline: "none",
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 cursor: "pointer",
                               }}
                             >
@@ -1491,10 +1492,9 @@ export default function Dashboard() {
                               <option value="week">This Week</option>
                               <option value="month">This Month</option>
                             </select>
-                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
                           </div>
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-sm">Sort:</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-xs">Sort:</span>
                             <select
                               value={filters.sortBy || "dueDate"}
                               onChange={(e) =>
@@ -1503,11 +1503,12 @@ export default function Dashboard() {
                                   sortBy: e.target.value,
                                 }))
                               }
+                              className="appearance-none pr-2"
                               style={{
                                 border: "none",
                                 background: "transparent",
                                 outline: "none",
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 cursor: "pointer",
                               }}
                             >
@@ -1516,10 +1517,9 @@ export default function Dashboard() {
                               <option value="createdAt">Created</option>
                               <option value="taskType">Type</option>
                             </select>
-                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
                           </div>
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-sm">Order:</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
+                            <span className="text-gray-700 font-medium text-xs">Order:</span>
                             <select
                               value={filters.sortOrder || "desc"}
                               onChange={(e) =>
@@ -1528,21 +1528,21 @@ export default function Dashboard() {
                                   sortOrder: e.target.value,
                                 }))
                               }
+                              className="appearance-none pr-2"
                               style={{
                                 border: "none",
                                 background: "transparent",
                                 outline: "none",
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 cursor: "pointer",
                               }}
                             >
                               <option value="asc">Asc</option>
                               <option value="desc">Desc</option>
                             </select>
-                            <i className="fas fa-chevron-down text-gray-500 text-xs"></i>
                           </div>
                           <button
-                            className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-full hover:bg-gray-200 transition-colors text-sm font-medium"
+                            className="px-3 py-1.5 bg-gray-100 text-gray-800 border border-gray-300 rounded-full hover:bg-gray-200 transition-colors text-xs font-medium"
                             onClick={() =>
                               setFilters({
                                 search: "",
@@ -1569,16 +1569,18 @@ export default function Dashboard() {
                     <div className="no-data">No tasks available</div>
                   ) : (
                     <>
-                      <TaskTable
-                        currentPane={currentPane}
-                        tasks={tasks}
-                        filters={filters}
-                        mode={modeState}
-                        onClaim={toggleClaim}
-                        onComplete={completeTask}
-                        onSaveNote={saveNote}
-                        getPresets={getPresets}
-                      />
+                      <div className="overflow-x-auto" style={{ maxHeight: "600px", overflowY: "auto" }}>
+                        <TaskTable
+                          currentPane={currentPane}
+                          tasks={tasks}
+                          filters={filters}
+                          mode={modeState}
+                          onClaim={toggleClaim}
+                          onComplete={completeTask}
+                          onSaveNote={saveNote}
+                          getPresets={getPresets}
+                        />
+                      </div>
                       {/* Pagination Controls */}
                       <div
                         style={{
@@ -1590,7 +1592,7 @@ export default function Dashboard() {
                           borderTop: "1px solid var(--border)",
                         }}
                       >
-                        <div className="muted">
+                        <div className="muted" style={{ fontSize: "12px" }}>
                           Showing {(currentPage - 1) * pageSize + 1} -{" "}
                           {Math.min(currentPage * pageSize, totalCount)} of{" "}
                           {totalCount} tasks
@@ -1612,7 +1614,7 @@ export default function Dashboard() {
                           >
                             Previous
                           </button>
-                          <span className="muted">
+                          <span className="muted" style={{ fontSize: "12px" }}>
                             Page {currentPage} of{" "}
                             {Math.ceil(totalCount / pageSize) || 1}
                           </span>
@@ -1637,6 +1639,7 @@ export default function Dashboard() {
                               setPageSize(Number(e.target.value));
                               setCurrentPage(1);
                             }}
+                            className="appearance-none"
                             style={{
                               padding: "6px 8px",
                               border: "1px solid var(--border)",
