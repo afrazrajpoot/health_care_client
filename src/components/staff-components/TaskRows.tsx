@@ -240,9 +240,28 @@ export function StandardRow({
         ] || []
       : [];
 
+  const truncateText = (text: string, maxLength: number) => {
+    if (!text) return "—";
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
+  };
+
+  const patientName = getPatientName(task);
+  const taskText = task.task || "—";
+
   return (
     <tr data-taskid={task.id} data-dept={task.dept} data-overdue={task.overdue}>
-      <td>{task.task}</td>
+      <td>
+        {taskText.length > 30 ? (
+          <div className="task-tooltip truncate-cell-long">
+            <span className="truncate-cell-long">{taskText}</span>
+            <span className="tooltip-text">{taskText}</span>
+          </div>
+        ) : (
+          taskText
+        )}
+      </td>
 
       {showDept && (
         <td>
@@ -256,12 +275,28 @@ export function StandardRow({
 
       <td>{task.due}</td>
 
-      <td>{getPatientName(task)}</td>
+      <td>
+        {patientName.length > 20 ? (
+          <div className="task-tooltip truncate-cell">
+            <span className="truncate-cell">{patientName}</span>
+            <span className="tooltip-text">{patientName}</span>
+          </div>
+        ) : (
+          patientName
+        )}
+      </td>
 
       {showUrDenial && (
         <td className="ur-reason-cell">
           {urDenialReason ? (
-            <span title={urDenialReason}>{urDenialReason}</span>
+            urDenialReason.length > 50 ? (
+              <div className="task-tooltip truncate-cell-long">
+                <span className="truncate-cell-long">{urDenialReason}</span>
+                <span className="tooltip-text">{urDenialReason}</span>
+              </div>
+            ) : (
+              <span>{urDenialReason}</span>
+            )
           ) : (
             "—"
           )}
@@ -348,11 +383,26 @@ export function StandardRow({
       <td className="preview-cell">
         {task.document?.blobPath ? (
           previewLoading ? (
-            <span className="preview-loading">Loading…</span>
+            <span style={{ color: "#6b7280", fontSize: "12px" }}>Loading…</span>
           ) : (
             <a
               href="#"
-              className="preview-link"
+              style={{
+                color: "#2563eb",
+                textDecoration: "underline",
+                fontSize: "13px",
+                fontWeight: "500",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#1d4ed8";
+                e.currentTarget.style.textDecoration = "none";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "#2563eb";
+                e.currentTarget.style.textDecoration = "underline";
+              }}
               onClick={(e) => onPreview(e, task.document, index)}
             >
               Preview
@@ -395,9 +445,28 @@ export function OverdueRow({
   const urDenialReason =
     task.ur_denial_reason || task.document?.ur_denial_reason;
 
+  const truncateText = (text: string, maxLength: number) => {
+    if (!text) return "—";
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
+  };
+
+  const taskText = task.task || "—";
+  const patientName = getPatientName(task);
+
   return (
     <tr data-dept={task.dept} data-overdue="true">
-      <td>{task.task}</td>
+      <td>
+        {taskText.length > 30 ? (
+          <div className="task-tooltip truncate-cell-long">
+            <span className="truncate-cell-long">{taskText}</span>
+            <span className="tooltip-text">{taskText}</span>
+          </div>
+        ) : (
+          taskText
+        )}
+      </td>
 
       <td>
         <span className="pill waiting">{task.dept}</span>
@@ -405,12 +474,28 @@ export function OverdueRow({
 
       <td>{task.due}</td>
 
-      <td>{getPatientName(task)}</td>
+      <td>
+        {patientName.length > 20 ? (
+          <div className="task-tooltip truncate-cell">
+            <span className="truncate-cell">{patientName}</span>
+            <span className="tooltip-text">{patientName}</span>
+          </div>
+        ) : (
+          patientName
+        )}
+      </td>
 
       {showUrDenial && (
         <td className="ur-reason-cell">
           {urDenialReason ? (
-            <span title={urDenialReason}>{urDenialReason}</span>
+            urDenialReason.length > 50 ? (
+              <div className="task-tooltip truncate-cell-long">
+                <span className="truncate-cell-long">{urDenialReason}</span>
+                <span className="tooltip-text">{urDenialReason}</span>
+              </div>
+            ) : (
+              <span>{urDenialReason}</span>
+            )
           ) : (
             "—"
           )}
@@ -421,11 +506,26 @@ export function OverdueRow({
       <td className="preview-cell">
         {task.document?.blobPath ? (
           previewLoading ? (
-            <span className="preview-loading">Loading…</span>
+            <span style={{ color: "#6b7280", fontSize: "12px" }}>Loading…</span>
           ) : (
             <a
               href="#"
-              className="preview-link"
+              style={{
+                color: "#2563eb",
+                textDecoration: "underline",
+                fontSize: "13px",
+                fontWeight: "500",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#1d4ed8";
+                e.currentTarget.style.textDecoration = "none";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "#2563eb";
+                e.currentTarget.style.textDecoration = "underline";
+              }}
               onClick={(e) => onPreview(e, task.document, index)}
             >
               Preview

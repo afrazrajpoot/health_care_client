@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.kebilo.com";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "htpps://api.kebilo.com";
 
 // Backend progress data interfaces
 interface BackendProgressData {
@@ -104,7 +104,10 @@ type SocketContextType = {
   checkQueueProgress: (queueId: string) => Promise<QueueProgressData | null>;
 
   // Two-phase tracking
-  startTwoPhaseTracking: (uploadTaskId: string, processingTaskId: string) => void;
+  startTwoPhaseTracking: (
+    uploadTaskId: string,
+    processingTaskId: string
+  ) => void;
   currentPhase: "upload" | "processing" | null;
   combinedProgress: number;
 };
@@ -125,16 +128,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Two-phase tracking state
-  const [activeUploadTaskId, setActiveUploadTaskId] = useState<string | null>(null);
-  const [activeProcessingTaskId, setActiveProcessingTaskId] = useState<string | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<"upload" | "processing" | null>(null);
+  const [activeUploadTaskId, setActiveUploadTaskId] = useState<string | null>(
+    null
+  );
+  const [activeProcessingTaskId, setActiveProcessingTaskId] = useState<
+    string | null
+  >(null);
+  const [currentPhase, setCurrentPhase] = useState<
+    "upload" | "processing" | null
+  >(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingProgress, setProcessingProgress] = useState(0);
 
   // Calculate combined progress: Upload = 0-50%, Processing = 50-100%
-  const combinedProgress = currentPhase === "upload"
-    ? uploadProgress * 0.5
-    : currentPhase === "processing"
+  const combinedProgress =
+    currentPhase === "upload"
+      ? uploadProgress * 0.5
+      : currentPhase === "processing"
       ? 50 + processingProgress * 0.5
       : 0;
 
@@ -184,11 +194,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         if (storedProgress) {
           const parsedProgress: StoredProgress = JSON.parse(storedProgress);
 
-          // Check if the stored progress is not too old (e.g., within last 1 hour)
+          // Check if the stored progress is not too old (e.g., within last 10 minutes ONLY)
+          // Reduced from 1 hour to 10 minutes to prevent stale data from showing
           const isRecent =
-            Date.now() - parsedProgress.timestamp < 60 * 60 * 1000;
+            Date.now() - parsedProgress.timestamp < 10 * 60 * 1000;
 
-          if (isRecent) {
+          // ALSO check if it's actually still processing and has valid data
+          const hasValidProgressData =
+            parsedProgress.isProcessing &&
+            (parsedProgress.progressData || parsedProgress.queueProgressData);
+
+          if (isRecent && hasValidProgressData) {
             console.log("🔄 Restoring progress state from localStorage");
             setProgressData(parsedProgress.progressData);
             setQueueProgressData(parsedProgress.queueProgressData);
@@ -208,7 +224,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }
           } else {
-            console.log("🧹 Clearing stale progress data");
+            console.log(
+              "🧹 Clearing stale or invalid progress data (age:",
+              Date.now() - parsedProgress.timestamp,
+              "ms)"
+            );
             clearPersistedProgress();
           }
         }
@@ -468,7 +488,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     pollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${activeTaskId === taskId
+        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${
+          activeTaskId === taskId
         } | Processing: ${isProcessing}`
       );
       if (activeTaskId === taskId && isProcessing) {
@@ -505,7 +526,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     queuePollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${activeQueueId === queueId
+        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${
+          activeQueueId === queueId
         } | Processing: ${isProcessing}`
       );
       if (activeQueueId === queueId && isProcessing) {
@@ -562,7 +584,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     console.log(
-      `🎯 Setting active task: ${taskId}, total: ${totalFiles || "unknown"
+      `🎯 Setting active task: ${taskId}, total: ${
+        totalFiles || "unknown"
       }, queue: ${queueId || "none"}`
     );
     setActiveTaskId(taskId);
@@ -604,7 +627,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Poll upload phase
-  const pollUploadPhase = async (uploadTaskId: string, processingTaskId: string) => {
+  const pollUploadPhase = async (
+    uploadTaskId: string,
+    processingTaskId: string
+  ) => {
     console.log("🚀 Starting upload phase polling:", uploadTaskId);
 
     // Clear any existing upload polling
@@ -615,7 +641,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     uploadPollingIntervalRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`${SOCKET_URL}/api/agent/progress/${uploadTaskId}`);
+        const response = await fetch(
+          `${SOCKET_URL}/api/agent/progress/${uploadTaskId}`
+        );
 
         if (!response.ok) {
           console.warn(`⚠️ Upload poll failed with status: ${response.status}`);
@@ -625,11 +653,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         const data = await response.json();
         const progress = data.progress_percentage || 0;
         setUploadProgress(progress);
-        console.log(`📊 Upload progress: ${progress}% - Status: ${data.status}`);
+        console.log(
+          `📊 Upload progress: ${progress}% - Status: ${data.status}`
+        );
 
         // Backend now sends 'upload_complete' status when upload phase is done (10-30%)
         if (data.status === "upload_complete") {
-          console.log("✅ Upload complete (status: upload_complete), switching to processing phase");
+          console.log(
+            "✅ Upload complete (status: upload_complete), switching to processing phase"
+          );
           if (uploadPollingIntervalRef.current) {
             clearInterval(uploadPollingIntervalRef.current);
             uploadPollingIntervalRef.current = null;
@@ -674,17 +706,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     processingPollingIntervalRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`${SOCKET_URL}/api/agent/progress/${processingTaskId}`);
+        const response = await fetch(
+          `${SOCKET_URL}/api/agent/progress/${processingTaskId}`
+        );
 
         if (!response.ok) {
-          console.warn(`⚠️ Processing poll failed with status: ${response.status}`);
+          console.warn(
+            `⚠️ Processing poll failed with status: ${response.status}`
+          );
           return; // Continue polling on error
         }
 
         const data = await response.json();
         const progress = data.progress_percentage || 0;
         setProcessingProgress(progress);
-        console.log(`📊 Processing progress: ${progress}% - Status: ${data.status} - Files: ${data.completed_steps}/${data.total_steps}`);
+        console.log(
+          `📊 Processing progress: ${progress}% - Status: ${data.status} - Files: ${data.completed_steps}/${data.total_steps}`
+        );
 
         // Update progressData for UI display
         const mappedProgress = mapToProgressData(data);
@@ -695,11 +733,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         const statusCompleted = data.status === "completed";
         const allFilesProcessed = data.completed_steps >= data.total_steps;
 
-        console.log(`🔍 Completion check - Status: ${data.status}, Progress: ${progress}%, Files: ${data.completed_steps}/${data.total_steps}`);
+        console.log(
+          `🔍 Completion check - Status: ${data.status}, Progress: ${progress}%, Files: ${data.completed_steps}/${data.total_steps}`
+        );
 
         // Processing completes when ALL conditions are met
         if (statusCompleted && progressComplete && allFilesProcessed) {
-          console.log("✅ Processing complete - status=completed, progress=100%, all files processed");
+          console.log(
+            "✅ Processing complete - status=completed, progress=100%, all files processed"
+          );
           if (processingPollingIntervalRef.current) {
             clearInterval(processingPollingIntervalRef.current);
             processingPollingIntervalRef.current = null;
@@ -707,7 +749,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setProcessingProgress(100);
 
           // Keep modal open for 3 seconds to show success state
-          console.log("⏰ Showing success state for 3 seconds before closing...");
+          console.log(
+            "⏰ Showing success state for 3 seconds before closing..."
+          );
           setTimeout(() => {
             setIsProcessing(false);
             setCurrentPhase(null); // This triggers auto-close
@@ -741,8 +785,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Start two-phase tracking
-  const startTwoPhaseTracking = (uploadTaskId: string, processingTaskId: string) => {
-    console.log("🚀 Starting two-phase tracking:", { uploadTaskId, processingTaskId });
+  const startTwoPhaseTracking = (
+    uploadTaskId: string,
+    processingTaskId: string
+  ) => {
+    console.log("🚀 Starting two-phase tracking:", {
+      uploadTaskId,
+      processingTaskId,
+    });
 
     setActiveUploadTaskId(uploadTaskId);
     setActiveProcessingTaskId(processingTaskId);

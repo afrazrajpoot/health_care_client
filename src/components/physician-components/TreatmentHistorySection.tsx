@@ -1,7 +1,14 @@
 // components/physician-components/TreatmentHistorySection.tsx
 import { useTreatmentHistory } from "@/app/custom-hooks/staff-hooks/physician-hooks/useTreatmentHistory";
-import React from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 // Define TypeScript interfaces for body part snapshots - Extended for GM fields
 interface BodyPartSnapshot {
   id: string;
@@ -210,6 +217,11 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
   const [showTimeline, setShowTimeline] = React.useState<{
     [key: string]: boolean;
   }>({});
+
+  // State for summarize modal
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryText, setSummaryText] = useState("");
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   // Handle section header click (only for collapse/expand)
   const handleSectionHeaderClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -448,12 +460,12 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     const adjustedId =
       mode === "gm" && !bodyPartId
         ? `section-${(
-            bodyPartSnapshots[0]?.dx ||
-            bodyPartSnapshots[0]?.condition ||
-            "general-health"
-          )
-            .toLowerCase()
-            .replace(/\s+/g, "-")}`
+          bodyPartSnapshots[0]?.dx ||
+          bodyPartSnapshots[0]?.condition ||
+          "general-health"
+        )
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`
         : sectionId;
     // Get the content to copy based on what's being copied
     const contentToCopy = bodyPartId
@@ -498,6 +510,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       return dateB - dateA; // Descending
     });
   };
+
   // Group body part snapshots by body part name for better organization
   const groupedBodyParts = bodyPartSnapshots.reduce((acc, snapshot) => {
     // Mode-aware key: For "gm", use dx as disease name if bodyPart is null
@@ -512,6 +525,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     acc[bodyPart].push(snapshot);
     return acc;
   }, {} as Record<string, BodyPartSnapshot[]>);
+
   // Format date for display
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "—";
@@ -522,6 +536,90 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       return dateString;
     }
   };
+
+  // Handle summarize button click
+  const handleSummarize = async () => {
+    setShowSummaryModal(true);
+    setIsGeneratingSummary(true);
+    setSummaryText("");
+
+    try {
+      // Prepare context from all body parts
+      const context = Object.entries(groupedBodyParts)
+        .map(([bodyPart, snapshots]) => {
+          const sortedSnapshots = sortSnapshotsByDate(snapshots);
+          const latest = sortedSnapshots[0];
+
+          let bodyPartContext = `${bodyPart}: `;
+          const details = [];
+
+          if (latest.dx && latest.dx !== "Not specified") details.push(`Dx: ${latest.dx}`);
+          if (mode === "gm" && latest.condition) details.push(`Condition: ${latest.condition}`);
+          if (mode === "gm" && latest.symptoms) details.push(`Symptoms: ${latest.symptoms}`);
+          if (latest.recommended && latest.recommended !== "Not specified") details.push(`Treatment: ${latest.recommended}`);
+          if (latest.consultingDoctor && latest.consultingDoctor !== "Not specified") details.push(`Doctor: ${latest.consultingDoctor}`);
+
+          bodyPartContext += details.join("; ");
+          return bodyPartContext;
+        })
+        .join("\n");
+
+      const response = await fetch("/api/openai-summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          context,
+          maxWords: 300,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate summary");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      let accumulatedText = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices[0]?.delta?.content || "";
+              accumulatedText += content;
+              setSummaryText(accumulatedText);
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+
+      setIsGeneratingSummary(false);
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      toast.error("Failed to generate summary");
+      setSummaryText("Failed to generate summary. Please try again.");
+      setIsGeneratingSummary(false);
+    }
+  };
+
   return (
     <>
       <div className="section">
@@ -530,13 +628,20 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           <div className="section-title">
             <MedicalIcon />
             <h3 className="text-black">Treatment History by Body Part</h3>
-            <button className="bg-blue-500 text-[0.8vw] hover:bg-blue-700 text-white px-2 py-1 rounded-md">AI timeline</button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSummarize();
+              }}
+              className="bg-blue-500 text-[0.8vw] hover:bg-blue-700 text-white px-2 py-1 rounded-md"
+            >
+              Summarize
+            </button>
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${
-                copied["section-treatment"] ? "copied" : ""
-              }`}
+              className={`copy-btn ${copied["section-treatment"] ? "copied" : ""
+                }`}
               onClick={(e) => handleCopyClick(e)}
               title="Copy All Body Parts"
             >
@@ -555,7 +660,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         {!isCollapsed && (
           <div className="section-content" onClick={(e) => e.stopPropagation()}>
             {/* Summary Stats */}
-          
+
             {/* Body Part Snapshots */}
             {Object.entries(groupedBodyParts).map(([bodyPart, snapshots]) => {
               const sortedSnapshots = sortSnapshotsByDate(snapshots);
@@ -587,9 +692,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                       {snapshots.length === 1 ? "snapshot" : "snapshots"}
                     </span>
                     <button
-                      className={`copy-btn small ${
-                        copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
-                      }`}
+                      className={`copy-btn small ${copied[`section-bodypart-${bodyPart}`] ? "copied" : ""
+                        }`}
                       onClick={(e) => handleCopyClick(e, bodyPart)}
                       title={`Copy ${bodyPart} Details`}
                     >
@@ -647,7 +751,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.medications &&
                                 latestSnapshot.medications !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.medications !== "" && (
                                   <li>
                                     <strong>Medications:</strong>{" "}
@@ -657,7 +761,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.comorbidities &&
                                 latestSnapshot.comorbidities !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.comorbidities !== "" && (
                                   <li>
                                     <strong>Comorbidities:</strong>{" "}
@@ -667,7 +771,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.keyFindings &&
                                 latestSnapshot.keyFindings !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.keyFindings !== "" && (
                                   <li>
                                     <strong>Key Findings:</strong>{" "}
@@ -677,7 +781,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.treatmentApproach &&
                                 latestSnapshot.treatmentApproach !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.treatmentApproach !== "" && (
                                   <li>
                                     <strong>Treatment Approach:</strong>{" "}
@@ -687,7 +791,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.clinicalSummary &&
                                 latestSnapshot.clinicalSummary !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.clinicalSummary !== "" && (
                                   <li>
                                     <strong>Clinical Summary:</strong>{" "}
@@ -697,7 +801,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.adlsAffected &&
                                 latestSnapshot.adlsAffected !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.adlsAffected !== "" && (
                                   <li>
                                     <strong>ADLs Affected:</strong>{" "}
@@ -707,7 +811,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               {mode === "gm" &&
                                 latestSnapshot.functionalLimitations &&
                                 latestSnapshot.functionalLimitations !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.functionalLimitations !== "" && (
                                   <li>
                                     <strong>Functional Limitations:</strong>{" "}
@@ -716,7 +820,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                 )}
                               {latestSnapshot.recommended &&
                                 latestSnapshot.recommended !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.recommended !== "" && (
                                   <li>
                                     <strong>Treatment Plan:</strong>{" "}
@@ -725,7 +829,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                 )}
                               {latestSnapshot.consultingDoctor &&
                                 latestSnapshot.consultingDoctor !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.consultingDoctor !== "" && (
                                   <li>
                                     <strong>Consulting Doctor:</strong>{" "}
@@ -734,7 +838,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                 )}
                               {latestSnapshot.referralDoctor &&
                                 latestSnapshot.referralDoctor !==
-                                  "Not specified" &&
+                                "Not specified" &&
                                 latestSnapshot.referralDoctor !== "" && (
                                   <li>
                                     <strong>Referral Doctor:</strong>{" "}
@@ -788,7 +892,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                                     )}
                                   {snapshot.consultingDoctor &&
                                     snapshot.consultingDoctor !==
-                                      "Not specified" &&
+                                    "Not specified" &&
                                     snapshot.consultingDoctor !== "" && (
                                       <div className="timeline-entry">
                                         <strong>Consulting Doctor:</strong>{" "}
@@ -816,6 +920,60 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Summary Modal */}
+      <Dialog open={showSummaryModal} onOpenChange={setShowSummaryModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <MedicalIcon />
+              Treatment History Summary
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {isGeneratingSummary && !summaryText && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <span className="ml-3 text-gray-600">Generating summary...</span>
+              </div>
+            )}
+            {summaryText && (
+              <div className="prose prose-sm max-w-none">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {summaryText}
+                  </p>
+                </div>
+                {isGeneratingSummary && (
+                  <div className="mt-2 flex items-center text-sm text-gray-500">
+                    <div className="animate-pulse">Generating...</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowSummaryModal(false)}
+            >
+              Close
+            </Button>
+            {summaryText && !isGeneratingSummary && (
+              <Button
+                onClick={() => {
+                  copyToClipboard(summaryText);
+                }}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                <CopyIcon />
+                <span className="ml-2">Copy Summary</span>
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <style jsx>{`
         .section {
           border-bottom: 1px solid #e5e7eb;

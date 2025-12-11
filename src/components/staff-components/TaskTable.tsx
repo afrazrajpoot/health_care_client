@@ -46,7 +46,7 @@ export default function TaskTable({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `htpps://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blobPath
         )}`,
         {

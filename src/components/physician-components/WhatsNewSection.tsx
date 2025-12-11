@@ -102,7 +102,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       const today = new Date();
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
         age--;
       }
       return age;
@@ -128,9 +131,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           doc.document_summary?.consulting_doctor ||
           "Not specified";
 
-        const documentType = doc.document_summary?.type ||
-          doc.document_type ||
-          "Unknown";
+        const documentType =
+          doc.document_summary?.type || doc.document_type || "Unknown";
 
         const patientAge = calculateAge(doc.dob || documentData.dob);
         const injuryDate = doc.doi || documentData.doi;
@@ -211,10 +213,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     if (!dateString) return "";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: 'numeric'
+      return date.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
       });
     } catch {
       return dateString;
@@ -232,7 +234,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           <div key={index} className="summary-line">
             {parts.map((part, partIndex) =>
               partIndex % 2 === 1 ? (
-                <strong key={partIndex} className="summary-heading">{part}</strong>
+                <strong key={partIndex} className="summary-heading">
+                  {part}
+                </strong>
               ) : (
                 <span key={partIndex}>{part}</span>
               )
@@ -279,7 +283,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
 
     const textToCopy =
-      `DOCUMENT SUMMARY\n\n` +
       `📋 Brief Summary:\n${group.shortSummary}\n\n` +
       `These findings have been reviewed by Physician`;
 
@@ -364,7 +367,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `htpps://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -393,7 +396,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const handleReadMoreClick = (group: any) => {
-    const formattedSummary = formatLongSummary(group.longSummary || group.briefSummary || "");
+    const formattedSummary = formatLongSummary(
+      group.longSummary || group.briefSummary || ""
+    );
     setSelectedSummary({
       type: group.documentType,
       date: group.reportDate,
@@ -435,6 +440,24 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return docId ? loadingPreviews.has(docId) : false;
   };
 
+  const handleCopyAllReports = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    const reportNames = documentGroups
+      .map((group) => {
+        const formattedDate = formatDisplayDate(group.reportDate);
+        return `${group.documentType} Report for ${group.patientName} by  ${group.consultingDoctor} (${formattedDate})`;
+      })
+      .join("\n");
+
+    const textToCopy = `The following external data was reviewed and incorporated into the current patient's treatment plan, including:\n\n${reportNames}`;
+
+    navigator.clipboard
+      .writeText(textToCopy)
+      .then(() => toast.success("All reports copied to clipboard"))
+      .catch(() => toast.error("Failed to copy reports"));
+  };
+
   return (
     <>
       <div className="section">
@@ -444,6 +467,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             <h3>What's New Since Last Visit</h3>
           </div>
           <div className="header-actions">
+            <button
+              className="copy-all-btn"
+              onClick={handleCopyAllReports}
+              title="Copy all report names"
+            >
+              <CopyIcon className="icon-xs" />
+              Copy All
+            </button>
             <button
               className="collapse-btn"
               onClick={(e) => {
@@ -462,7 +493,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         </div>
         {!isCollapsed && (
           <div className="section-content">
-            <div className="whats-new-list">
+            <div className="whats-new-list overflow-y-auto max-h-96">
               {documentGroups.map((group, groupIndex) => {
                 const isViewed = isGroupViewed(group.docId);
                 const isGroupCopied = copied[`whatsnew-${group.docId}`];
@@ -474,9 +505,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <div key={group.docId} className="whats-new-bullet-item">
                     {/* Report Heading */}
                     <div className="report-heading">
-                      {group.documentType} Report for {group.patientName} by Dr. {group.consultingDoctor} ({formattedDate})
+                      {group.documentType} Report for {group.patientName} by{" "}
+                      {group.consultingDoctor} ({formattedDate})
                     </div>
-
                     {/* Bullet point with summary */}
                     <div className="bullet-content">
                       <div className="bullet-marker">•</div>
@@ -506,8 +537,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-btn copy-btn ${isGroupCopied ? "copied" : ""
-                              }`}
+                            className={`action-btn copy-btn ${
+                              isGroupCopied ? "copied" : ""
+                            }`}
                             onClick={(e) => handleCopyClick(e, group.docId)}
                             title="Copy Macro"
                           >
@@ -515,13 +547,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </button>
 
                           <button
-                            className={`action-btn mark-viewed-btn ${isViewed ? "viewed" : ""
-                              } ${isLoading ? "loading" : ""}`}
+                            className={`action-btn mark-viewed-btn ${
+                              isViewed ? "viewed" : ""
+                            } ${isLoading ? "loading" : ""}`}
                             onClick={(e) => handleMarkViewed(e, group)}
                             disabled={isLoading}
                             title="Mark as Reviewed"
                           >
-                            {isLoading ? "Loading..." : isViewed ? "Reviewed" : "Mark Reviewed"}
+                            {isLoading
+                              ? "Loading..."
+                              : isViewed
+                              ? "Reviewed"
+                              : "Mark Reviewed"}
                           </button>
 
                           <button
@@ -538,30 +575,54 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
                     {/* Quick Notes */}
                     {group.task_quick_notes &&
-                      group.task_quick_notes.length > 0 && (
+                      group.task_quick_notes.length > 0 &&
+                      group.task_quick_notes.some(
+                        (note: any) =>
+                          note.status_update ||
+                          note.one_line_note ||
+                          note.details ||
+                          note.timestamp
+                      ) && (
                         <div className="quick-notes-section">
                           <div className="quick-notes-header">Quick Notes:</div>
                           <div className="quick-notes-list">
                             {group.task_quick_notes.map(
-                              (note: any, noteIndex: number) => (
-                                <div
-                                  key={noteIndex}
-                                  className="quick-note-item"
-                                >
-                                  <span className="note-status">
-                                    {note.status_update || "Note"}
-                                  </span>
-                                  <span className="note-one-line">
-                                    {note.one_line_note || ""}
-                                  </span>
-                                  <span className="note-details">
-                                    {note.details}
-                                  </span>
-                                  <span className="note-timestamp">
-                                    {formatTimestamp(note.timestamp || "")}
-                                  </span>
-                                </div>
-                              )
+                              (note: any, noteIndex: number) => {
+                                const hasContent =
+                                  note.status_update ||
+                                  note.one_line_note ||
+                                  note.details ||
+                                  note.timestamp;
+                                if (!hasContent) return null;
+
+                                return (
+                                  <div
+                                    key={noteIndex}
+                                    className="quick-note-item"
+                                  >
+                                    {note.status_update && (
+                                      <span className="note-status">
+                                        {note.status_update}
+                                      </span>
+                                    )}
+                                    {note.one_line_note && (
+                                      <span className="note-one-line">
+                                        {note.one_line_note}
+                                      </span>
+                                    )}
+                                    {note.details && (
+                                      <span className="note-details">
+                                        {note.details}
+                                      </span>
+                                    )}
+                                    {note.timestamp && (
+                                      <span className="note-timestamp">
+                                        {formatTimestamp(note.timestamp)}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
                             )}
                           </div>
                         </div>
@@ -594,7 +655,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <FileText className="h-6 w-6 text-green-600" />
                 )}
                 <DialogTitle className="text-2xl font-bold text-gray-800">
-                  {selectedSummary?.isLongSummary ? "Detailed Report Summary" : "Brief Report Summary"}
+                  {selectedSummary?.isLongSummary
+                    ? "Detailed Report Summary"
+                    : "Brief Report Summary"}
                 </DialogTitle>
               </div>
 
@@ -604,13 +667,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     <UserIcon className="icon-sm mr-2" />
                     Patient Name
                   </div>
-                  <div className="info-value">{selectedSummary?.patientName || "Not specified"}</div>
+                  <div className="info-value">
+                    {selectedSummary?.patientName || "Not specified"}
+                  </div>
                 </div>
 
                 {selectedSummary?.patientAge && (
                   <div className="info-item">
                     <div className="info-label">Age</div>
-                    <div className="info-value">{selectedSummary.patientAge} years</div>
+                    <div className="info-value">
+                      {selectedSummary.patientAge} years
+                    </div>
                   </div>
                 )}
 
@@ -620,14 +687,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       <CalendarIcon className="icon-sm mr-2" />
                       Date of Injury
                     </div>
-                    <div className="info-value">{formatDisplayDate(selectedSummary.injuryDate)}</div>
+                    <div className="info-value">
+                      {formatDisplayDate(selectedSummary.injuryDate)}
+                    </div>
                   </div>
                 )}
 
                 {selectedSummary?.claimNumber && (
                   <div className="info-item">
                     <div className="info-label">Claim #</div>
-                    <div className="info-value font-mono">{selectedSummary.claimNumber}</div>
+                    <div className="info-value font-mono">
+                      {selectedSummary.claimNumber}
+                    </div>
                   </div>
                 )}
 
@@ -636,13 +707,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     <StethoscopeIcon className="icon-sm mr-2" />
                     Consulting Physician
                   </div>
-                  <div className="info-value">Dr. {selectedSummary?.doctorName || "Not specified"}</div>
+                  <div className="info-value">
+                    {" "}
+                    {selectedSummary?.doctorName || "Not specified"}
+                  </div>
                 </div>
 
                 {selectedSummary?.date && (
                   <div className="info-item">
                     <div className="info-label">Report Date</div>
-                    <div className="info-value">{formatDisplayDate(selectedSummary.date)}</div>
+                    <div className="info-value">
+                      {formatDisplayDate(selectedSummary.date)}
+                    </div>
                   </div>
                 )}
               </div>
@@ -666,16 +742,21 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               </h3>
               <div className="summary-content">
                 {selectedSummary?.summary ? (
-                  <div className={`summary-text ${selectedSummary?.isLongSummary ? 'detailed-summary-text' : 'brief-summary-text'}`}>
-                    {selectedSummary?.isLongSummary ? (
-                      renderFormattedSummary(selectedSummary.summary)
-                    ) : (
-                      selectedSummary.summary
-                    )}
+                  <div
+                    className={`summary-text ${
+                      selectedSummary?.isLongSummary
+                        ? "detailed-summary-text"
+                        : "brief-summary-text"
+                    }`}
+                  >
+                    {selectedSummary?.isLongSummary
+                      ? renderFormattedSummary(selectedSummary.summary)
+                      : selectedSummary.summary}
                   </div>
                 ) : (
                   <div className="no-summary">
-                    No {selectedSummary?.isLongSummary ? "detailed" : "brief"} summary available for this document.
+                    No {selectedSummary?.isLongSummary ? "detailed" : "brief"}{" "}
+                    summary available for this document.
                   </div>
                 )}
               </div>
@@ -696,7 +777,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   navigator.clipboard.writeText(selectedSummary.summary || "");
                   toast.success("Summary copied to clipboard");
                 }}
-                className={`${selectedSummary?.isLongSummary ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
+                className={`${
+                  selectedSummary?.isLongSummary
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
               >
                 <CopyIcon className="h-4 w-4 mr-2" />
                 Copy Summary
@@ -734,10 +819,43 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         h3 {
           margin: 0;
           font-size: 13px;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-weight: 600;
+          .header-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+          }
+          .copy-all-btn {
+            background: transparent;
+            border: 1px solid #d1d5db;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            color: #1f2937;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .copy-all-btn:hover {
+            background: #f3f4f6;
+            border-color: #3b82f6;
+            color: #3b82f6;
+          }
+          .collapse-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+          }
+          .collapse-btn:hover {
+            background: #f3f4f6;
+            border-radius: 4px;
+          }
           color: #1f2937;
         }
         .header-actions {
@@ -752,6 +870,21 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           display: flex;
           flex-direction: column;
           gap: 12px;
+        }
+        .whats-new-list::-webkit-scrollbar {
+          width: 8px;
+        }
+        .whats-new-list::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 10px;
+        }
+        .whats-new-list::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
+          transition: background 0.2s;
+        }
+        .whats-new-list::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
         }
         .whats-new-bullet-item {
           padding: 12px;
@@ -842,13 +975,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .preview-btn {
           /* Inherit base styles */
         }
-        
+
         .copy-btn.copied {
           background: #f0fdf4;
           border-color: #16a34a;
           color: #16a34a;
         }
-        
+
         .mark-viewed-btn.viewed {
           background: #f0fdf4;
           border-color: #16a34a;
@@ -862,23 +995,23 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           padding: 16px;
           font-style: italic;
         }
-        
+
         /* Modal Styles */
         .modal-header {
           border-bottom: 1px solid #e5e7eb;
         }
-        
+
         .patient-info-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
           gap: 16px;
           margin-top: 12px;
         }
-        
+
         .info-item {
           padding: 8px 0;
         }
-        
+
         .info-label {
           font-size: 12px;
           font-weight: 500;
@@ -887,17 +1020,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           display: flex;
           align-items: center;
         }
-        
+
         .info-value {
           font-size: 14px;
           font-weight: 600;
           color: #1f2937;
         }
-        
+
         .summary-section {
           margin-bottom: 24px;
         }
-        
+
         .summary-title {
           font-size: 18px;
           font-weight: 600;
@@ -908,36 +1041,36 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           display: flex;
           align-items: center;
         }
-        
+
         .summary-content {
           background: #f9fafb;
           border-radius: 8px;
           padding: 20px;
           border: 1px solid #e5e7eb;
         }
-        
+
         .brief-summary-text {
           font-size: 14px;
           line-height: 1.6;
           color: #374151;
           white-space: pre-wrap;
         }
-        
+
         .detailed-summary-text {
           font-size: 13px;
           line-height: 1.5;
           color: #4b5563;
         }
-        
+
         .summary-line {
           margin-bottom: 12px;
         }
-        
+
         .summary-heading {
           color: #1e40af;
           font-weight: 600;
         }
-        
+
         .no-summary {
           font-size: 14px;
           color: #6b7280;
@@ -945,21 +1078,21 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           text-align: center;
           padding: 20px;
         }
-        
+
         .modal-footer {
           border-top: 1px solid #e5e7eb;
         }
-        
+
         .icon-sm {
           width: 14px;
           height: 14px;
         }
-        
+
         .icon-xs {
           width: 10px;
           height: 10px;
         }
-        
+
         /* Quick Notes Styles */
         .quick-notes-section {
           margin-top: 12px;
