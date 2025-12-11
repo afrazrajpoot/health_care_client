@@ -36,43 +36,44 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   // Check localStorage on mount for persisted visibility
   useEffect(() => {
-    const isOpen = localStorage.getItem("progressTrackerOpen");
-    const hasActiveProgress = isProcessing || progressData || queueProgressData;
+    // Only show if there's actual active processing, not just because localStorage says so
+    const hasActiveProgress =
+      isProcessing && (progressData || queueProgressData);
 
     console.log("🔍 Mount check:", {
-      isOpen,
       hasActiveProgress,
       isProcessing,
       progressData,
       queueProgressData,
     });
 
-    // Show if explicitly open OR if there's active processing
-    if (isOpen === "true" || hasActiveProgress) {
-      console.log("👁️ Setting visible on mount");
+    // ONLY show if there's ACTIVE processing with data
+    if (hasActiveProgress) {
+      console.log("👁️ Setting visible on mount - active processing detected");
       setIsVisible(true);
+      localStorage.setItem("progressTrackerOpen", "true");
+    } else {
+      // Clear stale localStorage on mount if no active processing
+      console.log("🧹 Clearing stale localStorage - no active processing");
+      localStorage.removeItem("progressTrackerOpen");
+      setIsVisible(false);
     }
 
     // Auto-detect view mode: prefer queue if available
     if (queueProgressData) {
       setViewMode("queue");
     }
-  }, [isProcessing, progressData, queueProgressData]);
+  }, []); // Run only once on mount
 
-  // Save to localStorage when becoming visible
+  // Show modal only when processing starts (not on every state change)
   useEffect(() => {
-    if (isVisible) {
-      localStorage.setItem("progressTrackerOpen", "true");
-      console.log("💾 Saved visibility to localStorage");
-    }
-  }, [isVisible]);
-
-  // Force visibility if processing or data exists
-  useEffect(() => {
-    if (isProcessing || progressData || queueProgressData) {
-      console.log("👁️ Forcing visibility - processing or data present");
+    // Only show if isProcessing becomes true AND we have data
+    if (isProcessing && (progressData || queueProgressData)) {
+      console.log("👁️ Showing modal - processing started with data");
       setIsVisible(true);
+      localStorage.setItem("progressTrackerOpen", "true");
     }
+    // Don't hide automatically - let completion logic or manual close handle that
   }, [isProcessing, progressData, queueProgressData]);
 
   // Auto-switch to queue view when queue data is available
@@ -147,7 +148,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       : false;
 
     const isCompleted =
-      (!inTwoPhaseMode && statusCompleted && progressComplete && allFilesProcessed) ||
+      (!inTwoPhaseMode &&
+        statusCompleted &&
+        progressComplete &&
+        allFilesProcessed) ||
       queueProgressData?.status === "completed";
 
     console.log("🔍 Auto-close check:", {
@@ -160,11 +164,13 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       progressValue: progressData?.progress,
       processed: progressData?.processed_count,
       total: progressData?.total_files,
-      isCompleted
+      isCompleted,
     });
 
     if (isCompleted) {
-      console.log("✅ All completion conditions met - status=completed, progress=100%, all files done");
+      console.log(
+        "✅ All completion conditions met - status=completed, progress=100%, all files done"
+      );
 
       // Call the onComplete callback first
       if (onComplete) {
@@ -191,7 +197,13 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         clearTimeout(autoCloseTimer);
       }
     };
-  }, [progressData?.status, progressData?.progress, currentPhase, queueProgressData?.status, onComplete]);
+  }, [
+    progressData?.status,
+    progressData?.progress,
+    currentPhase,
+    queueProgressData?.status,
+    onComplete,
+  ]);
 
   // Smooth progress animation for task
   useEffect(() => {
@@ -266,16 +278,16 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       setAutoCloseTimer(null);
     }
 
-    // Clear progress data after a short delay to allow animation
-    setTimeout(() => clearProgress(), 300);
+    // Clear progress data immediately to prevent re-showing
+    clearProgress();
   };
 
   const toggleViewMode = () => {
     setViewMode(viewMode === "task" ? "queue" : "task");
   };
 
-  // Don't render if not visible and no active processing
-  if (!isVisible && !isProcessing && !progressData && !queueProgressData) {
+  // Don't render if not visible OR if there's no active processing
+  if (!isVisible || (!isProcessing && !progressData && !queueProgressData)) {
     return null;
   }
 
@@ -283,8 +295,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const currentProgress = currentPhase
     ? combinedProgress // Use combined progress when two-phase tracking is active
     : viewMode === "queue"
-      ? displayQueueProgress
-      : displayProgress;
+    ? displayQueueProgress
+    : displayProgress;
 
   // Show loading state if processing but no progress data yet
   if (!progressData && !queueProgressData && isProcessing) {
@@ -300,26 +312,28 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               {currentPhase === "upload"
                 ? "Uploading Documents"
                 : currentPhase === "processing"
-                  ? "Processing Documents"
-                  : "Uploading Documents"}
+                ? "Processing Documents"
+                : "Uploading Documents"}
             </h3>
             <p className="text-sm text-gray-500">
               {currentPhase === "upload"
                 ? "Validating and saving files..."
                 : currentPhase === "processing"
-                  ? "Extracting data with AI..."
-                  : "DocLatch processing your documents..."}
+                ? "Extracting data with AI..."
+                : "DocLatch processing your documents..."}
             </p>
           </div>
-          
+
           {/* DocLatch Animation */}
           <div className="flex items-center justify-center">
-            <DocLatchAnimation 
-              text={currentPhase === "upload"
-                ? "Validating & Uploading Files..."
-                : currentPhase === "processing"
+            <DocLatchAnimation
+              text={
+                currentPhase === "upload"
+                  ? "Validating & Uploading Files..."
+                  : currentPhase === "processing"
                   ? "Extracting Data → Updating Dashboard…"
-                  : "Processing Documents…"}
+                  : "Processing Documents…"
+              }
               width={170}
               height={150}
             />
@@ -348,9 +362,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         {/* Header */}
         <div className="relative z-10 mb-6">
           <h3 className="text-xl font-bold text-gray-800 mb-1">
-            {viewMode === "queue"
-              ? "Processing Queue"
-              : "Uploading Documents"}
+            {viewMode === "queue" ? "Processing Queue" : "Uploading Documents"}
           </h3>
           <p className="text-sm text-gray-500">
             {isProcessing
@@ -361,14 +373,16 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
         {/* Animation Area */}
         <div className="relative mb-6">
-          <DocLatchAnimation 
-            text={isProcessing
-              ? currentPhase === "upload"
-                ? "Validating & Uploading Files..."
-                : currentPhase === "processing"
+          <DocLatchAnimation
+            text={
+              isProcessing
+                ? currentPhase === "upload"
+                  ? "Validating & Uploading Files..."
+                  : currentPhase === "processing"
                   ? "Extracting Data → Updating Dashboard…"
                   : "Processing Documents…"
-              : "Processing Complete ✓"}
+                : "Processing Complete ✓"
+            }
             width={200}
             height={180}
           />
@@ -432,14 +446,26 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           {/* Phase Indicator - Show only when two-phase tracking is active */}
           {currentPhase && (
             <div className="flex items-center justify-center gap-2 mt-4">
-              <div className={`w-2 h-2 rounded-full ${currentPhase === "upload" ? "bg-cyan-500 animate-pulse" : "bg-green-500"}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  currentPhase === "upload"
+                    ? "bg-cyan-500 animate-pulse"
+                    : "bg-green-500"
+                }`}
+              />
               <span className="text-xs text-gray-500">Upload</span>
 
               <div className="w-8 h-px bg-gray-300" />
 
-              <div className={`w-2 h-2 rounded-full ${currentPhase === "processing" ? "bg-cyan-500 animate-pulse" :
-                currentPhase === "upload" ? "bg-gray-300" : "bg-green-500"
-                }`} />
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  currentPhase === "processing"
+                    ? "bg-cyan-500 animate-pulse"
+                    : currentPhase === "upload"
+                    ? "bg-gray-300"
+                    : "bg-green-500"
+                }`}
+              />
               <span className="text-xs text-gray-500">Processing</span>
             </div>
           )}
@@ -461,8 +487,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
                   key={item}
                   className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
                   style={{
-                    animation: `fadeInSlide 0.5s ease-out ${0.5 + index * 0.15
-                      }s forwards`,
+                    animation: `fadeInSlide 0.5s ease-out ${
+                      0.5 + index * 0.15
+                    }s forwards`,
                   }}
                 >
                   <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />

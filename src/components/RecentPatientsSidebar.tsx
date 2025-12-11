@@ -72,12 +72,12 @@ export default function RecentPatientsSidebar({
     if (patient.documentType) {
       return patient.documentType;
     }
-    
+
     // Fallback: if no documentType but has documentCount
     if (patient.documentCount > 0) {
       return `${patient.documentCount} document(s)`;
     }
-    
+
     return "Unknown document type";
   };
 
@@ -97,7 +97,7 @@ export default function RecentPatientsSidebar({
         ) : recentPatients.length === 0 ? (
           <div className="text-center py-3 text-gray-500 text-sm">No patients found</div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-96 overflow-y-auto recent-patients-scroll">
             {recentPatients.map((patient, index) => (
               <div
                 key={index}
@@ -118,6 +118,24 @@ export default function RecentPatientsSidebar({
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .recent-patients-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .recent-patients-scroll::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 10px;
+        }
+        .recent-patients-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
+          transition: background 0.2s;
+        }
+        .recent-patients-scroll::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
     </div>
   );
 }

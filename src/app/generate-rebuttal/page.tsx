@@ -282,7 +282,7 @@ export default function RebuttalFormPage() {
     setResponse(null);
     setIsModalOpen(false);
     try {
-      const res = await fetch("https://api.kebilo.com/api/agent/rebuttal", {
+      const res = await fetch("htpps://api.kebilo.com/api/agent/rebuttal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

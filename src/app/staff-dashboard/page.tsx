@@ -8,18 +8,11 @@ import DuplicatePatients from "@/components/staff-components/DuplicatePatients";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
 import UpdateDuplicateModal from "@/components/staff-components/UpdateDuplicateModal";
 import { ProgressTracker } from "@/components/ProgressTracker";
+import StyledTaskTracker from "@/components/staff-components/StyledTaskTracker";
 
 import { useEffect, useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/navigation/sidebar";
 import ManualTaskModal from "@/components/ManualTaskModal";
@@ -152,10 +145,13 @@ const PaymentErrorModal = ({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
         {/* Header with close button */}
-        <div className={`relative p-6 pb-8 flex-shrink-0 ${hasIgnoredFiles
-          ? 'bg-gradient-to-r from-orange-600 to-red-600'
-          : 'bg-gradient-to-r from-red-600 to-red-700'
-          }`}>
+        <div
+          className={`relative p-6 pb-8 flex-shrink-0 ${
+            hasIgnoredFiles
+              ? "bg-gradient-to-r from-orange-600 to-red-600"
+              : "bg-gradient-to-r from-red-600 to-red-700"
+          }`}
+        >
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
@@ -168,7 +164,7 @@ const PaymentErrorModal = ({
               <AlertCircle className="text-white" size={24} />
             </div>
             <h2 className="text-xl font-bold text-white">
-              {hasIgnoredFiles ? 'Files Not Uploaded' : 'Upload Error'}
+              {hasIgnoredFiles ? "Files Not Uploaded" : "Upload Error"}
             </h2>
           </div>
         </div>
@@ -178,12 +174,18 @@ const PaymentErrorModal = ({
           {hasIgnoredFiles ? (
             <>
               <p className="text-gray-700 leading-relaxed">
-                {errorMessage || `${ignoredFiles.length} file${ignoredFiles.length > 1 ? 's' : ''} could not be uploaded:`}
+                {errorMessage ||
+                  `${ignoredFiles.length} file${
+                    ignoredFiles.length > 1 ? "s" : ""
+                  } could not be uploaded:`}
               </p>
 
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {ignoredFiles.map((file, index) => (
-                  <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div
+                    key={index}
+                    className="bg-red-50 border border-red-200 rounded-lg p-4"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="bg-red-100 rounded-full p-2 flex-shrink-0">
                         <AlertCircle className="text-red-600" size={16} />
@@ -197,7 +199,10 @@ const PaymentErrorModal = ({
                         </p>
                         {file.existing_file && (
                           <p className="text-xs text-red-600 mt-1">
-                            Already uploaded as: <span className="font-medium">{file.existing_file}</span>
+                            Already uploaded as:{" "}
+                            <span className="font-medium">
+                              {file.existing_file}
+                            </span>
                           </p>
                         )}
                         {file.document_id && (
@@ -214,7 +219,8 @@ const PaymentErrorModal = ({
           ) : (
             <>
               <p className="text-gray-700 leading-relaxed">
-                {errorMessage || 'An error occurred during upload. Please try again.'}
+                {errorMessage ||
+                  "An error occurred during upload. Please try again."}
               </p>
             </>
           )}
@@ -276,13 +282,11 @@ export default function Dashboard() {
   const {
     selectedFiles,
     uploading,
-    isFileModalOpen,
     snapInputRef,
     formatSize,
     handleSnap,
     handleCancel,
     handleSubmit,
-    setIsFileModalOpen,
     paymentError,
     clearPaymentError,
     ignoredFiles,
@@ -490,6 +494,52 @@ export default function Dashboard() {
     setTotalCount,
   ]);
 
+  // Add tooltip positioning on mount and hover
+  useEffect(() => {
+    const positionTooltip = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const tooltipParent = target.closest(".task-tooltip");
+      if (!tooltipParent) return;
+
+      const tooltip = tooltipParent.querySelector(
+        ".tooltip-text"
+      ) as HTMLElement;
+      if (!tooltip) return;
+
+      const rect = tooltipParent.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+
+      // Position tooltip below the element
+      tooltip.style.position = "fixed";
+      tooltip.style.top = `${rect.bottom + 5}px`;
+      tooltip.style.left = `${rect.left}px`;
+
+      // Adjust if tooltip goes off-screen to the right
+      if (rect.left + tooltipRect.width > window.innerWidth) {
+        tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+      }
+
+      // Adjust if tooltip goes off-screen to the left
+      if (rect.left < 0) {
+        tooltip.style.left = "10px";
+      }
+    };
+
+    const tooltips = document.querySelectorAll(".task-tooltip");
+    tooltips.forEach((tooltip) => {
+      tooltip.addEventListener("mouseenter", positionTooltip as EventListener);
+    });
+
+    return () => {
+      tooltips.forEach((tooltip) => {
+        tooltip.removeEventListener(
+          "mouseenter",
+          positionTooltip as EventListener
+        );
+      });
+    };
+  }, [tasks]);
+
   return (
     <>
       <style jsx global>{`
@@ -632,6 +682,107 @@ export default function Dashboard() {
           white-space: normal;
           word-wrap: break-word;
         }
+        .truncate-cell {
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          cursor: help;
+          transition: color 0.2s;
+        }
+        .truncate-cell:hover {
+          color: #1f2937;
+          text-decoration: underline;
+          text-decoration-style: dotted;
+        }
+        .truncate-cell-long {
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          cursor: help;
+          transition: color 0.2s;
+        }
+        .truncate-cell-long:hover {
+          color: #1f2937;
+          text-decoration: underline;
+          text-decoration-style: dotted;
+        }
+        .truncate-cell-short {
+          max-width: 100px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          cursor: help;
+          transition: color 0.2s;
+        }
+        .truncate-cell-short:hover {
+          color: #1f2937;
+          text-decoration: underline;
+          text-decoration-style: dotted;
+        }
+        .task-tooltip {
+          position: relative;
+          display: inline-block;
+          cursor: help;
+        }
+        .task-tooltip .tooltip-text {
+          visibility: hidden;
+          width: max-content;
+          max-width: 600px;
+          min-width: 200px;
+          background-color: #1f2937;
+          color: #fff;
+          text-align: left;
+          border-radius: 8px;
+          padding: 12px 16px;
+          position: fixed;
+          z-index: 99999;
+          opacity: 0;
+          transition: opacity 0.2s ease-in-out;
+          font-size: 13px;
+          line-height: 1.6;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+          pointer-events: none;
+          margin-top: -10px;
+        }
+        .task-tooltip .tooltip-text::after {
+          content: "";
+          position: absolute;
+          bottom: 100%;
+          left: 20px;
+          margin-left: -6px;
+          border-width: 6px;
+          border-style: solid;
+          border-color: transparent transparent #1f2937 transparent;
+        }
+        .task-tooltip:hover .tooltip-text {
+          visibility: visible;
+          opacity: 1;
+        }
+        /* Custom Scrollbar for Task Table */
+        .overflow-y-auto::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+          background: #f8f9fa;
+          border-radius: 4px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+          background: #cbd5e0;
+          border-radius: 4px;
+          transition: background 0.2s ease;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+          background: #a0aec0;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:active {
+          background: #718096;
+        }
         .pill {
           display: inline-block;
           padding: 4px 12px;
@@ -640,7 +791,8 @@ export default function Dashboard() {
           font-weight: 700;
           text-transform: uppercase;
         }
-        .pill.pending, .pill.medium {
+        .pill.pending,
+        .pill.medium {
           background: #fef3c7;
           color: #92400e;
         }
@@ -648,11 +800,13 @@ export default function Dashboard() {
           background: #e0e7ff;
           color: #3730a3;
         }
-        .pill.done, .pill.low {
+        .pill.done,
+        .pill.low {
           background: #dcfce7;
           color: #166534;
         }
-        .pill.signature, .pill.high {
+        .pill.signature,
+        .pill.high {
           background: #ef4444;
           color: #fff;
         }
@@ -944,8 +1098,9 @@ export default function Dashboard() {
 
       <div className="flex min-h-screen relative">
         <div
-          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+          className={`sidebar-container fixed top-0 left-0 h-full z-50 transition-transform duration-300 ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         >
           <div className="h-full">
             <Sidebar onClose={() => setIsSidebarOpen(false)} />
@@ -953,32 +1108,37 @@ export default function Dashboard() {
         </div>
 
         <div
-          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${isSidebarOpen
-            ? "left-64 bg-transparent hover:bg-transparent shadow-none"
-            : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
-            }`}
+          className={`toggle-btn fixed top-4 z-50 h-8 w-8 cursor-pointer flex items-center justify-center transition-all duration-300 rounded-full ${
+            isSidebarOpen
+              ? "left-64 bg-transparent hover:bg-transparent shadow-none"
+              : "left-4 bg-gray-200 hover:bg-gray-300 shadow-md"
+          }`}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
         >
           <div className="flex flex-col items-center justify-center w-4 h-4">
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "rotate-45 translate-y-1.5" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${isSidebarOpen ? "opacity-0" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 mb-1 transition-all duration-200 ${
+                isSidebarOpen ? "opacity-0" : ""
+              }`}
             ></div>
             <div
-              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
-                }`}
+              className={`w-4 h-0.5 bg-gray-700 transition-all duration-200 ${
+                isSidebarOpen ? "-rotate-45 -translate-y-1.5" : ""
+              }`}
             ></div>
           </div>
         </div>
 
         <div
-          className={`flex-1 transition-all duration-300 ${isSidebarOpen ? "ml-0" : "ml-0"
-            }`}
+          className={`flex-1 transition-all duration-300 ${
+            isSidebarOpen ? "ml-0" : "ml-0"
+          }`}
         >
           <div className="p-6">
             {/* {session?.user?.role === "Staff" && ( */}
@@ -1015,7 +1175,7 @@ export default function Dashboard() {
               rel="stylesheet"
               href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
             />
-            
+
             <div className="header">
               <h1 className="text-2xl font-bold text-gray-800">
                 DocLatch Mission Control
@@ -1113,7 +1273,11 @@ export default function Dashboard() {
                   disabled={loading}
                   title="Refresh Data"
                 >
-                  <i className={`fas fa-sync-alt ${loading ? 'animate-spin' : ''}`}></i>
+                  <i
+                    className={`fas fa-sync-alt ${
+                      loading ? "animate-spin" : ""
+                    }`}
+                  ></i>
                 </button>
               </div>
             </div>
@@ -1139,9 +1303,12 @@ export default function Dashboard() {
                       </h2>
                     </div>
                     <p className="text-gray-600 italic text-sm mb-6">
-                      These documents require direct physician signature. <strong>Please review documents prior to execution.</strong>
+                      These documents require direct physician signature.{" "}
+                      <strong>
+                        Please review documents prior to execution.
+                      </strong>
                     </p>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
@@ -1163,11 +1330,11 @@ export default function Dashboard() {
                         <tbody>
                           <tr className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="py-4 font-medium text-gray-900">
-                              <strong>UR Determination - PT Plan of Care</strong>
+                              <strong>
+                                UR Determination - PT Plan of Care
+                              </strong>
                             </td>
-                            <td className="py-4 text-gray-700">
-                              12/04/2025
-                            </td>
+                            <td className="py-4 text-gray-700">12/04/2025</td>
                             <td className="py-4">
                               <span className="pill signature">
                                 Signature Needed
@@ -1188,9 +1355,7 @@ export default function Dashboard() {
                             <td className="py-4 font-medium text-gray-900">
                               <strong>DME Certification - Lumbar Brace</strong>
                             </td>
-                            <td className="py-4 text-gray-700">
-                              12/03/2025
-                            </td>
+                            <td className="py-4 text-gray-700">12/03/2025</td>
                             <td className="py-4">
                               <span className="pill signature">
                                 Signature Needed
@@ -1211,9 +1376,7 @@ export default function Dashboard() {
                             <td className="py-4 font-medium text-gray-900">
                               <strong>Plan of Care - Physical Therapy</strong>
                             </td>
-                            <td className="py-4 text-gray-700">
-                              12/01/2025
-                            </td>
+                            <td className="py-4 text-gray-700">12/01/2025</td>
                             <td className="py-4">
                               <span className="pill pending">
                                 Pending Review
@@ -1240,9 +1403,11 @@ export default function Dashboard() {
                     <div className="bg-white rounded-lg shadow-md p-6">
                       <div className="flex items-center mb-6">
                         <i className="fas fa-chart-line text-blue-600 mr-3 text-xl"></i>
-                        <h2 className="text-xl font-bold text-gray-800 m-0">Office Pulse</h2>
+                        <h2 className="text-xl font-bold text-gray-800 m-0">
+                          Office Pulse
+                        </h2>
                       </div>
-                      
+
                       {!isOfficePulseCollapsed && (
                         <div className="overflow-x-auto">
                           <table className="w-full">
@@ -1272,7 +1437,10 @@ export default function Dashboard() {
                                     ) {
                                       const dept = rowOrObj;
                                       return (
-                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <tr
+                                          key={index}
+                                          className="border-b border-gray-100 hover:bg-gray-50"
+                                        >
                                           <td className="py-4 text-gray-700">
                                             {dept.department}
                                           </td>
@@ -1302,7 +1470,10 @@ export default function Dashboard() {
                                         number
                                       ];
                                       return (
-                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <tr
+                                          key={index}
+                                          className="border-b border-gray-100 hover:bg-gray-50"
+                                        >
                                           <td className="py-4 text-gray-700">
                                             {row[0]}
                                           </td>
@@ -1328,7 +1499,10 @@ export default function Dashboard() {
                                 )
                               ) : (
                                 <tr>
-                                  <td colSpan={4} className="py-4 text-center text-gray-500">
+                                  <td
+                                    colSpan={4}
+                                    className="py-4 text-center text-gray-500"
+                                  >
                                     No pulse data available
                                   </td>
                                 </tr>
@@ -1342,343 +1516,45 @@ export default function Dashboard() {
 
                   {/* Task & Workflow Tracker Card */}
                   <div className="lg:col-span-2">
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                      <div className="flex items-center mb-6">
-                        <i className="fas fa-list-check text-green-500 mr-3 text-xl"></i>
-                        <h2 className="text-xl font-bold text-gray-800 m-0">
-                          Task & Workflow Tracker
-                        </h2>
-                      </div>
-                      
-                      {/* Filter Bar */}
-                      {!isFiltersCollapsed && (
-                        <div className="flex flex-wrap gap-2 mb-6">
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-gray-50">
-                            <i className="fas fa-search text-gray-500"></i>
-                            <input
-                              placeholder="Search tasks/patients…"
-                              value={filters.search}
-                              onChange={(e) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  search: e.target.value,
-                                }))
-                              }
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                outline: "none",
-                                fontSize: "14px",
-                                minWidth: "200px",
-                              }}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-xs">Dept:</span>
-                            <select
-                              value={filters.dept}
-                              onChange={(e) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  dept: e.target.value,
-                                }))
-                              }
-                              className="appearance-none pr-2"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                outline: "none",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <option value="">All</option>
-                              {departments.map((d) => (
-                                <option key={d} value={d}>
-                                  {d}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-xs">Status:</span>
-                            <select
-                              value={filters.status}
-                              onChange={(e) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  status: e.target.value,
-                                }))
-                              }
-                              className="appearance-none pr-2"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                outline: "none",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <option value="">All</option>
-                              <option value="in progress">in progress</option>
-                              <option value="Completed">Completed</option>
-                              <option value="overdue">Overdue</option>
-                            </select>
-                          </div>
-                          {filters.priority && (
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-600 bg-blue-600 text-white">
-                              <span className="font-medium text-xs">Priority: {filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)}</span>
-                              <button
-                                onClick={() =>
-                                  setFilters((p) => ({
-                                    ...p,
-                                    priority: "",
-                                  }))
-                                }
-                                className="hover:bg-blue-700 rounded-full p-0.5"
-                              >
-                                <i className="fas fa-times text-xs"></i>
-                              </button>
-                            </div>
-                          )}
-                          {!filters.priority && (
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
-                              <span className="text-gray-700 font-medium text-xs">Priority:</span>
-                              <select
-                                value={filters.priority || ""}
-                                onChange={(e) =>
-                                  setFilters((p) => ({
-                                    ...p,
-                                    priority: e.target.value,
-                                  }))
-                                }
-                                className="appearance-none pr-2"
-                                style={{
-                                  border: "none",
-                                  background: "transparent",
-                                  outline: "none",
-                                  fontSize: "12px",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <option value="">All</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                              </select>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-xs">Due:</span>
-                            <select
-                              value={filters.dueDate || ""}
-                              onChange={(e) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  dueDate: e.target.value,
-                                }))
-                              }
-                              className="appearance-none pr-2"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                outline: "none",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <option value="">All</option>
-                              <option value="today">Today</option>
-                              <option value="week">This Week</option>
-                              <option value="month">This Month</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-xs">Sort:</span>
-                            <select
-                              value={filters.sortBy || "dueDate"}
-                              onChange={(e) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  sortBy: e.target.value,
-                                }))
-                              }
-                              className="appearance-none pr-2"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                outline: "none",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <option value="dueDate">Due Date</option>
-                              <option value="priority">Priority</option>
-                              <option value="createdAt">Created</option>
-                              <option value="taskType">Type</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50">
-                            <span className="text-gray-700 font-medium text-xs">Order:</span>
-                            <select
-                              value={filters.sortOrder || "desc"}
-                              onChange={(e) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  sortOrder: e.target.value,
-                                }))
-                              }
-                              className="appearance-none pr-2"
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                outline: "none",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <option value="asc">Asc</option>
-                              <option value="desc">Desc</option>
-                            </select>
-                          </div>
-                          <button
-                            className="px-3 py-1.5 bg-gray-100 text-gray-800 border border-gray-300 rounded-full hover:bg-gray-200 transition-colors text-xs font-medium"
-                            onClick={() =>
-                              setFilters({
-                                search: "",
-                                overdueOnly: false,
-                                myDeptOnly: false,
-                                dept: "",
-                                status: "",
-                                priority: "",
-                                dueDate: "",
-                                taskType: "",
-                                assignedTo: "",
-                                sortBy: "dueDate",
-                                sortOrder: "desc",
-                                viewMode: "all",
-                              })
-                            }
-                          >
-                            Clear All
-                          </button>
-                        </div>
-                      )}
-                      
-                  {tasks.length === 0 ? (
-                    <div className="no-data">No tasks available</div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto" style={{ maxHeight: "600px", overflowY: "auto" }}>
-                        <TaskTable
-                          currentPane={currentPane}
-                          tasks={tasks}
-                          filters={filters}
-                          mode={modeState}
-                          onClaim={toggleClaim}
-                          onComplete={completeTask}
-                          onSaveNote={saveNote}
-                          getPresets={getPresets}
-                        />
-                      </div>
-                      {/* Pagination Controls */}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginTop: "12px",
-                          padding: "8px",
-                          borderTop: "1px solid var(--border)",
-                        }}
-                      >
-                        <div className="muted" style={{ fontSize: "12px" }}>
-                          Showing {(currentPage - 1) * pageSize + 1} -{" "}
-                          {Math.min(currentPage * pageSize, totalCount)} of{" "}
-                          {totalCount} tasks
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                          }}
-                        >
-                          <button
-                            className="btn light"
-                            onClick={() =>
-                              setCurrentPage((p) => Math.max(1, p - 1))
-                            }
-                            disabled={currentPage === 1}
-                            style={{ opacity: currentPage === 1 ? 0.5 : 1 }}
-                          >
-                            Previous
-                          </button>
-                          <span className="muted" style={{ fontSize: "12px" }}>
-                            Page {currentPage} of{" "}
-                            {Math.ceil(totalCount / pageSize) || 1}
-                          </span>
-                          <button
-                            className="btn light"
-                            onClick={() => setCurrentPage((p) => p + 1)}
-                            disabled={
-                              currentPage >= Math.ceil(totalCount / pageSize)
-                            }
-                            style={{
-                              opacity:
-                                currentPage >= Math.ceil(totalCount / pageSize)
-                                  ? 0.5
-                                  : 1,
-                            }}
-                          >
-                            Next
-                          </button>
-                          <select
-                            value={pageSize}
-                            onChange={(e) => {
-                              setPageSize(Number(e.target.value));
-                              setCurrentPage(1);
-                            }}
-                            className="appearance-none"
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "8px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <option value="10">10 per page</option>
-                            <option value="20">20 per page</option>
-                            <option value="50">50 per page</option>
-                            <option value="100">100 per page</option>
-                          </select>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                    </div>
+                    <StyledTaskTracker
+                      tasks={tasks}
+                      loading={loading}
+                      filters={filters}
+                      setFilters={setFilters}
+                      isFiltersCollapsed={isFiltersCollapsed}
+                      setIsFiltersCollapsed={setIsFiltersCollapsed}
+                      currentPage={currentPage}
+                      setCurrentPage={setCurrentPage}
+                      pageSize={pageSize}
+                      setPageSize={setPageSize}
+                      totalCount={totalCount}
+                      departments={departments}
+                      onTaskView={(task) => {
+                        console.log("View task:", task);
+                        // Add your task view logic here
+                      }}
+                    />
                   </div>
                 </div>
 
-            {failedDocuments && failedDocuments.length > 0 && (
-              <FailedDocuments
-                documents={failedDocuments}
-                onRowClick={handleRowClick}
-              />
-            )}
+                {failedDocuments && failedDocuments.length > 0 && (
+                  <FailedDocuments
+                    documents={failedDocuments}
+                    onRowClick={handleRowClick}
+                  />
+                )}
 
-
-            {duplicateDocuments && duplicateDocuments.length > 0 && (
-              <DuplicatePatients
-                documents={duplicateDocuments}
-                onRowClick={handleDuplicateRowClick}
-              />
+                {duplicateDocuments && duplicateDocuments.length > 0 && (
+                  <DuplicatePatients
+                    documents={duplicateDocuments}
+                    onRowClick={handleDuplicateRowClick}
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
       <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
 
@@ -1712,69 +1588,7 @@ export default function Dashboard() {
         isLoading={duplicateUpdateLoading}
       />
 
-      <Dialog open={isFileModalOpen} onOpenChange={setIsFileModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Selected Files ({selectedFiles.length}/10)</DialogTitle>
-            <DialogDescription>
-              Review your selected files before submitting for processing. Maximum 10 files allowed.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-60 overflow-y-auto">
-            <ul className="space-y-2">
-              {selectedFiles.map((file, index) => (
-                <li
-                  key={index}
-                  className="flex justify-between items-center p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-                >
-                  <span
-                    className="text-sm truncate flex-1 mr-2"
-                    title={file.name}
-                  >
-                    {file.name}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                      ({formatSize(file.size)})
-                    </span>
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 transition-colors"
-                      title="Remove file"
-                      disabled={uploading}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <DialogFooter className="flex space-x-2">
-            <button
-              className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
-              onClick={handleCancel}
-              disabled={uploading}
-            >
-              Cancel
-            </button>
-            <button
-              className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors disabled:opacity-50"
-              onClick={handleSubmit}
-              disabled={uploading || selectedFiles.length === 0}
-            >
-              {uploading ? (
-                <span className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Uploading...
-                </span>
-              ) : (
-                "Submit for Processing"
-              )}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* File selection modal removed - files auto-submit with ProgressTracker */}
 
       <PaymentErrorModal
         isOpen={!!paymentError}

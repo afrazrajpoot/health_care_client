@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -135,6 +136,7 @@ interface IntakeModalProps {
 }
 
 export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     modalFields.forEach((field) => (initial[field.id] = field.value));
@@ -264,6 +266,46 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Populate form fields from URL parameters when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const patientName = searchParams.get("patient_name");
+    const dob = searchParams.get("dob");
+    const claim = searchParams.get("claim");
+
+    if (patientName || dob || claim) {
+      setFormData((prev) => {
+        const updated = { ...prev };
+
+        if (patientName) {
+          updated.lkPatient = decodeURIComponent(patientName);
+        }
+
+        if (dob) {
+          // Parse the ISO date string and format as YYYY-MM-DD
+          try {
+            const date = new Date(dob);
+            if (!isNaN(date.getTime())) {
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, "0");
+              const day = String(date.getDate()).padStart(2, "0");
+              updated.lkDob = `${year}-${month}-${day}`;
+            }
+          } catch (e) {
+            console.error("Error parsing date from URL:", e);
+          }
+        }
+
+        if (claim && claim !== "Not specified" && claim !== "Not+specified") {
+          updated.lkClaimNumber = decodeURIComponent(claim);
+        }
+
+        return updated;
+      });
+    }
+  }, [isOpen, searchParams]);
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -475,12 +517,17 @@ Thank you.`);
                 <>
                   {field.id === "lkDob" ? (
                     <DatePicker
-                      selected={formData[field.id] ? new Date(formData[field.id]) : null}
+                      selected={
+                        formData[field.id] ? new Date(formData[field.id]) : null
+                      }
                       onChange={(date) => {
                         if (date) {
                           const year = date.getFullYear();
-                          const month = String(date.getMonth() + 1).padStart(2, '0');
-                          const day = String(date.getDate()).padStart(2, '0');
+                          const month = String(date.getMonth() + 1).padStart(
+                            2,
+                            "0"
+                          );
+                          const day = String(date.getDate()).padStart(2, "0");
                           handleChange(field.id, `${year}-${month}-${day}`);
                         } else {
                           handleChange(field.id, "");
@@ -507,7 +554,9 @@ Thank you.`);
                     />
                   ) : (
                     <input
-                      ref={field.id === "lkPatient" ? patientInputRef : undefined}
+                      ref={
+                        field.id === "lkPatient" ? patientInputRef : undefined
+                      }
                       id={field.id}
                       type="text"
                       value={formData[field.id]}
@@ -579,28 +628,32 @@ Thank you.`);
                               fontSize: "14px",
                             }}
                             onMouseEnter={(e) => {
-                              (e.currentTarget as HTMLElement).style.backgroundColor =
-                                "#f5f5f5";
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.backgroundColor = "#f5f5f5";
                             }}
                             onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLElement).style.backgroundColor =
-                                "transparent";
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.backgroundColor = "transparent";
                             }}
                           >
                             <div
                               style={{
                                 fontWeight: "500",
                                 marginBottom: "4px",
-                                pointerEvents: "none"
+                                pointerEvents: "none",
                               }}
                             >
                               {patient.patientName}
                             </div>
-                            <div style={{
-                              color: "#666",
-                              fontSize: "12px",
-                              pointerEvents: "none"
-                            }}>
+                            <div
+                              style={{
+                                color: "#666",
+                                fontSize: "12px",
+                                pointerEvents: "none",
+                              }}
+                            >
                               DOB: {patient.dob || "Not specified"} | Claim:{" "}
                               {patient.claimNumber}
                             </div>
@@ -680,8 +733,8 @@ Thank you.`);
                 copyStatus === "copied"
                   ? "#22c55e"
                   : copyStatus === "error"
-                    ? "#ef4444"
-                    : "",
+                  ? "#ef4444"
+                  : "",
               color:
                 copyStatus === "copied" || copyStatus === "error"
                   ? "white"
@@ -692,8 +745,8 @@ Thank you.`);
             {copyStatus === "copied"
               ? "Copied!"
               : copyStatus === "error"
-                ? "Error"
-                : "Copy"}
+              ? "Error"
+              : "Copy"}
           </button>
         </div>
         <div className="muted" style={{ marginTop: "6px" }}>
