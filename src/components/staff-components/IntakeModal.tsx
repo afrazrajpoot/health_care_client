@@ -333,6 +333,15 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
     }
   }, [isOpen]);
 
+  // Convert YYYY-MM-DD string to Date object (for DatePicker only)
+  const stringToDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    // Use UTC to avoid timezone offset issues
+    return new Date(Date.UTC(year, month - 1, day));
+  };
+
   const generateLink = async () => {
     console.log("Generating link...");
 
@@ -515,17 +524,18 @@ Thank you.`);
                 <>
                   {field.id === "lkDob" ? (
                     <DatePicker
-                      selected={
-                        formData[field.id] ? new Date(formData[field.id]) : null
-                      }
+                      selected={stringToDate(formData[field.id])}
                       onChange={(date) => {
                         if (date) {
-                          const year = date.getFullYear();
-                          const month = String(date.getMonth() + 1).padStart(
+                          const year = date.getUTCFullYear();
+                          const month = String(date.getUTCMonth() + 1).padStart(
                             2,
                             "0"
                           );
-                          const day = String(date.getDate()).padStart(2, "0");
+                          const day = String(date.getUTCDate()).padStart(
+                            2,
+                            "0"
+                          );
                           handleChange(field.id, `${year}-${month}-${day}`);
                         } else {
                           handleChange(field.id, "");
