@@ -284,14 +284,12 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
         }
 
         if (dob) {
-          // Parse the ISO date string and format as YYYY-MM-DD
           try {
-            const date = new Date(dob);
-            if (!isNaN(date.getTime())) {
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, "0");
-              const day = String(date.getDate()).padStart(2, "0");
-              updated.lkDob = `${year}-${month}-${day}`;
+            // Extract date part and validate format
+            const dateStr = dob.split("T")[0];
+            // Optional: validate it's a proper YYYY-MM-DD format
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+              updated.lkDob = dateStr;
             }
           } catch (e) {
             console.error("Error parsing date from URL:", e);
