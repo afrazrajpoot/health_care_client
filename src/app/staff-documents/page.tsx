@@ -112,7 +112,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `htpps://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -148,7 +148,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `htpps://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -207,7 +207,7 @@ export default function RecentDocumentsPage() {
         );
 
         const response = await fetch(
-          `htpps://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+          `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
             filePath
           )}`,
           {
