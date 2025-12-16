@@ -1219,6 +1219,50 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
 
+  // Patient Intake Submissions state
+  const [intakeSubmissions, setIntakeSubmissions] = useState<any[]>([]);
+  const [intakesExpanded, setIntakesExpanded] = useState(false);
+  const [loadingIntakes, setLoadingIntakes] = useState(false);
+
+  // Fetch patient intake submissions
+  useEffect(() => {
+    const fetchIntakeSubmissions = async () => {
+      if (!documentData?.patient_name) return;
+
+      setLoadingIntakes(true);
+      try {
+        const params = new URLSearchParams({
+          patientName: documentData.patient_name,
+        });
+        if (documentData.dob) {
+          params.append("dob", documentData.dob.split("T")[0]);
+        }
+        if (
+          documentData.claim_number &&
+          documentData.claim_number !== "Not specified"
+        ) {
+          params.append("claimNumber", documentData.claim_number);
+        }
+
+        const response = await fetch(`/api/patient-intakes?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setIntakeSubmissions(data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching intake submissions:", error);
+      } finally {
+        setLoadingIntakes(false);
+      }
+    };
+
+    fetchIntakeSubmissions();
+  }, [
+    documentData?.patient_name,
+    documentData?.dob,
+    documentData?.claim_number,
+  ]);
+
   const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return "—";
     try {
@@ -1797,6 +1841,163 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Patient Intake Submissions Section */}
+            {intakeSubmissions.length > 0 && (
+              <div className="intake-submissions-section">
+                <div
+                  className="intake-header"
+                  onClick={() => setIntakesExpanded(!intakesExpanded)}
+                >
+                  <div className="intake-title">
+                    <svg
+                      className="icon-sm"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M9 11l3 3L22 4"></path>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    <span>
+                      Patient Intake Submissions ({intakeSubmissions.length})
+                    </span>
+                  </div>
+                  <button className="collapse-btn">
+                    {intakesExpanded ? (
+                      <ChevronDownIcon className="icon-xs" />
+                    ) : (
+                      <ChevronRightIcon className="icon-xs" />
+                    )}
+                  </button>
+                </div>
+
+                {intakesExpanded && (
+                  <div className="intake-list">
+                    {loadingIntakes ? (
+                      <div className="loading-intakes">
+                        Loading intake submissions...
+                      </div>
+                    ) : (
+                      intakeSubmissions.map((intake, index) => (
+                        <div key={intake.id || index} className="intake-item">
+                          <div className="intake-item-header">
+                            <span className="intake-date">
+                              {new Date(intake.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </span>
+                            <span className="intake-lang">
+                              {intake.lang === "es" ? "Español" : "English"}
+                            </span>
+                          </div>
+
+                          <div className="intake-details">
+                            {intake.bodyAreas && (
+                              <div className="intake-row">
+                                <span className="intake-label">
+                                  Body Areas:
+                                </span>
+                                <span className="intake-value">
+                                  {intake.bodyAreas}
+                                </span>
+                              </div>
+                            )}
+
+                            {intake.newAppointments &&
+                              intake.newAppointments.length > 0 && (
+                                <div className="intake-row">
+                                  <span className="intake-label">
+                                    New Appointments:
+                                  </span>
+                                  <span className="intake-value">
+                                    {intake.newAppointments.map(
+                                      (appt: any, i: number) => (
+                                        <span key={i} className="appt-badge">
+                                          {appt.type} ({appt.date || "No date"})
+                                        </span>
+                                      )
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+
+                            {intake.refill && intake.refill.needed && (
+                              <div className="intake-row">
+                                <span className="intake-label">
+                                  Medication Refill:
+                                </span>
+                                <span className="intake-value">
+                                  Pain: {intake.refill.before}/10 →{" "}
+                                  {intake.refill.after}/10
+                                </span>
+                              </div>
+                            )}
+
+                            {intake.adl && (
+                              <div className="intake-row">
+                                <span className="intake-label">
+                                  ADL Status:
+                                </span>
+                                <span
+                                  className={`intake-value adl-status-${intake.adl.state}`}
+                                >
+                                  {intake.adl.state === "same"
+                                    ? "No Change"
+                                    : intake.adl.state === "better"
+                                    ? "Improved"
+                                    : intake.adl.state === "worse"
+                                    ? "Worsened"
+                                    : intake.adl.state}
+                                  {intake.adl.list &&
+                                    intake.adl.list.length > 0 && (
+                                      <span className="adl-list">
+                                        {" "}
+                                        - {intake.adl.list.join(", ")}
+                                      </span>
+                                    )}
+                                </span>
+                              </div>
+                            )}
+
+                            {intake.therapies &&
+                              intake.therapies.length > 0 && (
+                                <div className="intake-row">
+                                  <span className="intake-label">
+                                    Therapies:
+                                  </span>
+                                  <span className="intake-value">
+                                    {intake.therapies.map(
+                                      (t: any, i: number) => (
+                                        <span
+                                          key={i}
+                                          className={`therapy-badge effect-${t.effect
+                                            ?.toLowerCase()
+                                            .replace(/\s+/g, "-")}`}
+                                        >
+                                          {t.therapy}: {t.effect}
+                                        </span>
+                                      )
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2359,6 +2560,141 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-size: 9px;
           color: #9ca3af;
           white-space: nowrap;
+        }
+
+        /* Patient Intake Submissions Styles */
+        .intake-submissions-section {
+          margin-top: 16px;
+          border: 1px solid #c7d2fe;
+          border-radius: 8px;
+          background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+          overflow: hidden;
+        }
+        .intake-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 14px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .intake-header:hover {
+          background-color: rgba(99, 102, 241, 0.1);
+        }
+        .intake-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #4338ca;
+        }
+        .intake-list {
+          border-top: 1px solid #c7d2fe;
+          max-height: 400px;
+          overflow-y: auto;
+        }
+        .intake-item {
+          padding: 12px 14px;
+          border-bottom: 1px solid #e0e7ff;
+          background: white;
+        }
+        .intake-item:last-child {
+          border-bottom: none;
+        }
+        .intake-item:hover {
+          background: #f8fafc;
+        }
+        .intake-item-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        .intake-date {
+          font-size: 11px;
+          font-weight: 600;
+          color: #4338ca;
+        }
+        .intake-lang {
+          font-size: 10px;
+          padding: 2px 8px;
+          background: #e0e7ff;
+          color: #4338ca;
+          border-radius: 12px;
+        }
+        .intake-details {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .intake-row {
+          display: flex;
+          gap: 8px;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+        .intake-label {
+          font-weight: 600;
+          color: #6b7280;
+          min-width: 110px;
+          flex-shrink: 0;
+        }
+        .intake-value {
+          color: #374151;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+        .appt-badge {
+          display: inline-block;
+          padding: 2px 6px;
+          background: #dbeafe;
+          color: #1e40af;
+          border-radius: 4px;
+          font-size: 10px;
+          margin-right: 4px;
+        }
+        .therapy-badge {
+          display: inline-block;
+          padding: 2px 6px;
+          background: #f3e8ff;
+          color: #7c3aed;
+          border-radius: 4px;
+          font-size: 10px;
+          margin-right: 4px;
+        }
+        .therapy-badge.effect-much-better {
+          background: #d1fae5;
+          color: #059669;
+        }
+        .therapy-badge.effect-slightly-better {
+          background: #fef3c7;
+          color: #d97706;
+        }
+        .therapy-badge.effect-no-change {
+          background: #f3f4f6;
+          color: #6b7280;
+        }
+        .adl-status-better {
+          color: #059669;
+        }
+        .adl-status-worse {
+          color: #dc2626;
+        }
+        .adl-status-same {
+          color: #6b7280;
+        }
+        .adl-list {
+          font-weight: normal;
+          color: #6b7280;
+        }
+        .loading-intakes {
+          padding: 16px;
+          text-align: center;
+          color: #6b7280;
+          font-size: 12px;
+          font-style: italic;
         }
       `}</style>
     </>
