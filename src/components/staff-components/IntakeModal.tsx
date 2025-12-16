@@ -338,8 +338,8 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
     if (!dateStr) return null;
     const [year, month, day] = dateStr.split("-").map(Number);
     if (!year || !month || !day) return null;
-    // Use UTC to avoid timezone offset issues
-    return new Date(Date.UTC(year, month - 1, day));
+    // Use local time to avoid timezone offset issues
+    return new Date(year, month - 1, day);
   };
 
   const generateLink = async () => {
@@ -527,12 +527,12 @@ Thank you.`);
                       selected={stringToDate(formData[field.id])}
                       onChange={(date) => {
                         if (date) {
-                          const year = date.getUTCFullYear();
-                          const month = String(date.getUTCMonth() + 1).padStart(
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(
                             2,
                             "0"
                           );
-                          const day = String(date.getUTCDate()).padStart(
+                          const day = String(date.getDate()).padStart(
                             2,
                             "0"
                           );

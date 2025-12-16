@@ -858,7 +858,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                         </div>
                       )}
                       {/* Timeline Dropdown/Button - Only show if multiple snapshots */}
-                      {hasMultiple && (
+                      {/* {hasMultiple && (
                         <div className="timeline-toggle">
                           <button
                             className="timeline-btn"
@@ -868,7 +868,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                             {showTimeline[bodyPart] ? "Hide" : "View"} Timeline
                           </button>
                         </div>
-                      )}
+                      )} */}
                       {/* Timeline Section */}
                       {hasMultiple && showTimeline[bodyPart] && (
                         <div className="timeline-section">
