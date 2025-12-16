@@ -220,13 +220,28 @@ export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
   };
 
   // Helper function to format date for input field (YYYY-MM-DD)
+  // Avoids timezone issues by extracting date string directly or using local time methods
   const formatDateForInput = (
     date: Date | string | null | undefined
   ): string => {
     if (!date) return "";
+
+    // If it's already a string, extract the date part directly
+    if (typeof date === "string") {
+      const dateOnly = date.split("T")[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+        return dateOnly;
+      }
+    }
+
+    // For Date objects, use local time methods to avoid timezone shift
     const d = typeof date === "string" ? new Date(date) : date;
     if (isNaN(d.getTime())) return "";
-    return d.toISOString().split("T")[0];
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   // Debounced version of fetchPatientRecommendations
@@ -532,10 +547,7 @@ Thank you.`);
                             2,
                             "0"
                           );
-                          const day = String(date.getDate()).padStart(
-                            2,
-                            "0"
-                          );
+                          const day = String(date.getDate()).padStart(2, "0");
                           handleChange(field.id, `${year}-${month}-${day}`);
                         } else {
                           handleChange(field.id, "");
