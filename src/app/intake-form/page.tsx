@@ -65,7 +65,7 @@ const TRANSLATIONS = {
     auth_name: "Full Name",
     auth_dob: "Date of Birth",
     auth_submit: "Authenticate",
-    auth_error: "Invalid name or DOB. Please try again.",
+    auth_error: "Invalid date of birth. Please enter correct date.",
   },
   es: {
     title: "Ingreso del Paciente",
@@ -86,7 +86,8 @@ const TRANSLATIONS = {
     auth_name: "Nombre Completo",
     auth_dob: "Fecha de Nacimiento",
     auth_submit: "Autenticar",
-    auth_error: "Nombre o fecha de nacimiento inválidos. Intente de nuevo.",
+    auth_error:
+      "Fecha de nacimiento inválida. Por favor, ingrese la fecha correcta.",
   },
 };
 
@@ -149,6 +150,15 @@ function Loader() {
 function PatientIntakeContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+
+  // Helper function to parse YYYY-MM-DD string to Date (for DatePicker display only)
+  // Creates date at noon to avoid timezone rollover issues
+  const stringToDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day, 12, 0, 0);
+  };
 
   // Authentication state
   const [showAuth, setShowAuth] = useState(false);
@@ -223,6 +233,9 @@ function PatientIntakeContent() {
           setLanguage((patientData.language as "en" | "es") || "en");
           setShowAuth(false);
         } else {
+          // Pre-fill patient name for display, only DOB verification needed
+          setAuthName(patientData.patientName);
+          setLanguage((patientData.language as "en" | "es") || "en");
           setShowAuth(true);
         }
       } catch (error) {
@@ -251,20 +264,13 @@ function PatientIntakeContent() {
     const expected = expectedPatientData;
     const expectedDob = expected.dateOfBirth.split("T")[0];
 
-    const normalizedAuthName = authName.trim().toLowerCase();
-    const normalizedExpectedName = expected.patientName.trim().toLowerCase();
-
     console.log("Auth comparison:", {
-      authName: normalizedAuthName,
-      expectedName: normalizedExpectedName,
       authDob,
       expectedDob,
     });
 
-    if (
-      normalizedAuthName === normalizedExpectedName &&
-      authDob === expectedDob
-    ) {
+    // Only verify DOB - patient name is already shown from token
+    if (authDob === expectedDob) {
       setPatient(expected.patientName);
       setBodyAreas(expected.bodyParts || "Back, Neck");
       setLanguage((expected.language as "en" | "es") || "en");
@@ -452,10 +458,8 @@ function PatientIntakeContent() {
               <input
                 type="text"
                 value={authName}
-                onChange={(e) => setAuthName(e.target.value)}
-                placeholder="Enter your full name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
+                readOnly
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
               />
             </div>
 
@@ -464,7 +468,7 @@ function PatientIntakeContent() {
                 {t.auth_dob}
               </label>
               <DatePicker
-                selected={authDob ? new Date(authDob) : null}
+                selected={stringToDate(authDob)}
                 onChange={(date) => {
                   if (date) {
                     const year = date.getFullYear();
@@ -594,7 +598,7 @@ function PatientIntakeContent() {
                         {t.q1b}
                       </label>
                       <DatePicker
-                        selected={appt.date ? new Date(appt.date) : null}
+                        selected={stringToDate(appt.date)}
                         onChange={(date) => {
                           if (date) {
                             const year = date.getFullYear();
