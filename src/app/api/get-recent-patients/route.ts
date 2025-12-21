@@ -238,6 +238,7 @@ export async function GET(request: Request) {
         dob: true,
         claimNumber: true,
         createdAt: true,
+        reportDate: true,
         mode: true, // Also include mode if needed
         documentSummary: { // ✅ Include the related DocumentSummary
           select: {
@@ -369,6 +370,7 @@ export async function GET(request: Request) {
         dob: group.dob,
         claimNumber: group.claimNumber,
         createdAt: group.createdAt,
+        reportDate: mostRecentDoc.reportDate,
         documentCount: group.documents.length,
         documentIds: group.documents.map((d) => d.id),
         // Include document type from the most recent document's summary
@@ -381,6 +383,7 @@ export async function GET(request: Request) {
             dob: d.dob,
             claimNumber: d.claimNumber,
             createdAt: d.createdAt,
+            reportDate: d.reportDate,
             mode: d.mode,
             documentType: d.documentSummary?.type || null, // Include type for each matching document
           })),

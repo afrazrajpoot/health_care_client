@@ -8,6 +8,7 @@ interface RecentPatient {
   dob: string | null;
   claimNumber: string | null;
   createdAt: string;
+  reportDate: string;
   documentCount: number;
   documentIds: string[];
   documentType: string | null;
@@ -93,9 +94,13 @@ export default function RecentPatientsSidebar({
       {/* Content */}
       <div className="p-3">
         {loading ? (
-          <div className="text-center py-3 text-gray-500 text-sm">Loading...</div>
+          <div className="text-center py-3 text-gray-500 text-sm">
+            Loading...
+          </div>
         ) : recentPatients.length === 0 ? (
-          <div className="text-center py-3 text-gray-500 text-sm">No patients found</div>
+          <div className="text-center py-3 text-gray-500 text-sm">
+            No patients found
+          </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto recent-patients-scroll">
             {recentPatients.map((patient, index) => (
@@ -109,7 +114,8 @@ export default function RecentPatientsSidebar({
                     <span className="font-medium">{patient.patientName}</span>
                     <span className="mx-2 text-gray-400">—</span>
                     <span className="text-gray-600">
-                      {getDocType(patient)} • {formatShortDate(patient.createdAt)}
+                      {getDocType(patient)} •{" "}
+                      {formatShortDate(patient.reportDate)}
                     </span>
                   </div>
                 </div>
