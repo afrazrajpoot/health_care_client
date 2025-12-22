@@ -8,7 +8,6 @@ import TreatmentHistorySection from "@/components/physician-components/Treatment
 import { WelcomeModal } from "@/components/physician-components/WelcomeModal";
 import WhatsNewSection from "@/components/physician-components/WhatsNewSection";
 import RecentPatientsSidebar from "@/components/RecentPatientsSidebar";
-import SearchBar from "@/components/SearchBar";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,7 +15,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 // Define TypeScript interfaces for data structures
 interface Patient {
-  id?: number;
+  id?: string | number;
   patientName: string;
   name?: string;
   dob: string;
@@ -120,6 +119,12 @@ interface DocumentData {
   body_part_snapshots?: any[];
 }
 export default function PhysicianCard() {
+  // All hooks must be called at the top, before any conditional returns
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { startTwoPhaseTracking, setActiveTask } = useSocket();
+
   const [mode, setMode] = useState<"wc" | "gm">("wc");
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [verifyTime, setVerifyTime] = useState<string>("—");
@@ -140,6 +145,7 @@ export default function PhysicianCard() {
     { id: number; message: string; type: "success" | "error" }[]
   >([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [rpToggle, setRpToggle] = useState(true); // Default to open/visible
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
   // Onboarding states
@@ -149,7 +155,6 @@ export default function PhysicianCard() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   // Refs for onboarding target elements
   const staffButtonRef = useRef<HTMLAnchorElement>(null);
-  const searchBarRef = useRef<HTMLDivElement>(null);
   const modeSelectorRef = useRef<HTMLSelectElement>(null);
   const patientCardRef = useRef<HTMLDivElement>(null);
   // Collapsible section states
@@ -169,12 +174,6 @@ export default function PhysicianCard() {
         "Switch to the Staff Dashboard to manage tasks, upload documents, and track workflow.",
       target: staffButtonRef,
     },
-    {
-      title: "Patient Search",
-      content:
-        "Search for patients by name to view their medical records and physician cards.",
-      target: searchBarRef,
-    },
   ];
   // Calculate positions for onboarding steps
   const calculateStepPositions = useCallback(() => {
@@ -182,23 +181,6 @@ export default function PhysicianCard() {
     // Position for Staff Dashboard button
     if (staffButtonRef.current) {
       const rect = staffButtonRef.current.getBoundingClientRect();
-      positions.push({
-        top: `${rect.bottom + 10}px`,
-        left: `${rect.left + rect.width / 2}px`,
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    } else {
-      positions.push({
-        top: "50%",
-        left: "50%",
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    }
-    // Position for Search Bar
-    if (searchBarRef.current) {
-      const rect = searchBarRef.current.getBoundingClientRect();
       positions.push({
         top: `${rect.bottom + 10}px`,
         left: `${rect.left + rect.width / 2}px`,
@@ -293,11 +275,7 @@ export default function PhysicianCard() {
       [sectionKey]: !prev[sectionKey],
     }));
   };
-  const { data: session, status } = useSession();
   console.log("Session data:", session);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { startTwoPhaseTracking, setActiveTask } = useSocket();
   // Toast management
   const addToast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
@@ -369,8 +347,8 @@ export default function PhysicianCard() {
   const getPhysicianId = (): string | null => {
     if (!session?.user) return null;
     return session.user.role === "Physician"
-      ? session.user.id
-      : session.user.physicianId;
+      ? (session.user.id as string) || null
+      : session.user.physicianId || null;
   };
   // Handle patient selection from recommendations
   const handlePatientSelect = (patient: Patient) => {
@@ -550,9 +528,6 @@ export default function PhysicianCard() {
             consultingDoctor: snap.consultingDoctor,
             document_created_at: snap.document_created_at,
             document_report_date: snap.document_report_date,
-            treatmentPlane: snap.treatmentApproach,
-            refrelDoctor: snap.referralDoctor,
-            clinicalSummary: snap.clinicalSummary,
           })
         )
       );
@@ -698,9 +673,11 @@ export default function PhysicianCard() {
         const currentIdx = snapshotIndex || 0;
         const currentSnap = snapshots[currentIdx];
         if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${currentSnap.dx || "Not specified"
-            }\nKey Concern: ${currentSnap.keyConcern || "Not specified"
-            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
+          text = `Summary Snapshot\nDx: ${
+            currentSnap.dx || "Not specified"
+          }\nKey Concern: ${
+            currentSnap.keyConcern || "Not specified"
+          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
         }
         break;
       case "section-whatsnew":
@@ -720,17 +697,22 @@ export default function PhysicianCard() {
         }
         break;
       case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${doc?.adl?.adls_affected || "Not specified"
-          }\nWork Restrictions: ${doc?.adl?.work_restrictions || "Not specified"
-          }`;
+        text = `ADL / Work Status\nADLs Affected: ${
+          doc?.adl?.adls_affected || "Not specified"
+        }\nWork Restrictions: ${
+          doc?.adl?.work_restrictions || "Not specified"
+        }`;
         break;
       case "section-patient-quiz":
         if (doc?.patient_quiz) {
           const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${q.newAppt
-            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${q.trend
-            }\nWork Ability: ${q.workAbility}\nBarrier: ${q.barrier
-            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
+            q.newAppt
+          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
+            q.trend
+          }\nWork Ability: ${q.workAbility}\nBarrier: ${
+            q.barrier
+          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
           q.appts.forEach((appt) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
@@ -746,8 +728,9 @@ export default function PhysicianCard() {
           const index = parseInt(sectionId.split("-")[2]);
           const summary = doc?.document_summaries?.[index];
           if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${summary.summary
-              }`;
+            text = `${summary.type} - ${formatDate(summary.date)}\n${
+              summary.summary
+            }`;
           }
         }
         break;
@@ -826,8 +809,8 @@ export default function PhysicianCard() {
     if (documentData) {
       return {
         patientName: documentData.patient_name || "Not specified",
-        dob: documentData.dob || undefined,
-        doi: documentData.doi || undefined,
+        dob: documentData.dob || "",
+        doi: documentData.doi || "",
         claimNumber: documentData.claim_number || "Not specified",
       };
     }
@@ -837,15 +820,15 @@ export default function PhysicianCard() {
           selectedPatient.patientName ||
           selectedPatient.name ||
           "Not specified",
-        dob: selectedPatient.dob || undefined,
-        doi: selectedPatient.doi || undefined,
+        dob: selectedPatient.dob || "",
+        doi: selectedPatient.doi || "",
         claimNumber: selectedPatient.claimNumber || "Not specified",
       };
     }
     return {
       patientName: "Select a patient",
-      dob: undefined,
-      doi: undefined,
+      dob: "",
+      doi: "",
       claimNumber: "Not specified",
     };
   };
@@ -860,35 +843,35 @@ export default function PhysicianCard() {
   const staffDashboardHref =
     selectedPatient && documentData && documentId
       ? `/staff-dashboard?patient_name=${encodeURIComponent(
-        currentPatient.patientName
-      )}&dob=${encodeURIComponent(
-        currentPatient.dob || ""
-      )}&claim=${encodeURIComponent(
-        currentPatient.claimNumber
-      )}&document_id=${encodeURIComponent(documentId)}`
+          currentPatient.patientName
+        )}&dob=${encodeURIComponent(
+          currentPatient.dob || ""
+        )}&claim=${encodeURIComponent(
+          currentPatient.claimNumber
+        )}&document_id=${encodeURIComponent(documentId)}`
       : selectedPatient
-        ? `/staff-dashboard?patient_name=${encodeURIComponent(
+      ? `/staff-dashboard?patient_name=${encodeURIComponent(
           currentPatient.patientName
         )}&dob=${encodeURIComponent(
           currentPatient.dob || ""
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-        : "/staff-dashboard";
+      : "/staff-dashboard";
   const rebutalHre =
     selectedPatient && documentData && documentId
       ? `/generate-rebuttal?patient_name=${encodeURIComponent(
-        currentPatient.patientName
-      )}&dob=${encodeURIComponent(
-        currentPatient.dob || ""
-      )}&claim=${encodeURIComponent(
-        currentPatient.claimNumber
-      )}&document_id=${encodeURIComponent(documentId)}`
+          currentPatient.patientName
+        )}&dob=${encodeURIComponent(
+          currentPatient.dob || ""
+        )}&claim=${encodeURIComponent(
+          currentPatient.claimNumber
+        )}&document_id=${encodeURIComponent(documentId)}`
       : selectedPatient
-        ? `/generate-rebuttal?patient_name=${encodeURIComponent(
+      ? `/generate-rebuttal?patient_name=${encodeURIComponent(
           currentPatient.patientName
         )}&dob=${encodeURIComponent(
           currentPatient.dob || ""
         )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-        : "/generate-rebuttal";
+      : "/generate-rebuttal";
   // Burger Icon Component
   const BurgerIcon = () => (
     <svg
@@ -930,9 +913,289 @@ export default function PhysicianCard() {
     );
   }
   const physicianId = getPhysicianId();
+
+  // Calculate visit count from document summaries
+  const visitCount = documentData?.document_summaries?.length || 0;
+
   return (
     <>
-      <div className="min-h-screen font-sans bg-blue-50 text-gray-900 relative">
+      <style jsx global>{`
+        :root {
+          --bg: #f5f7fa;
+          --card: #ffffff;
+          --ink: #111827;
+          --muted: #6b7280;
+          --border: #e5e7eb;
+          --accent: #3f51b5;
+          --accent2: #1a237e;
+          --chip: #eef2ff;
+          --chip2: #e8f5e9;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        html,
+        body {
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+        body {
+          font-family: Arial, sans-serif;
+          background: var(--bg);
+          margin: 0;
+          padding: 0;
+          color: var(--ink);
+        }
+        .main-header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: white;
+          border-bottom: 1px solid var(--border);
+          z-index: 1000;
+          padding: 12px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .main-header .logo-container {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        .main-content {
+          margin-top: 64px;
+          padding: 20px;
+        }
+        .topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+        .patient-header {
+          background: var(--card);
+          padding: 14px 16px;
+          border-radius: 14px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .patient-name {
+          font-size: 18px;
+          font-weight: 700;
+          margin-right: 4px;
+        }
+        .tag {
+          background: var(--chip);
+          padding: 6px 10px;
+          border-radius: 999px;
+          font-size: 13px;
+          color: var(--ink);
+        }
+        .tag.good {
+          background: var(--chip2);
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 320px;
+          gap: 14px;
+          align-items: start;
+          max-width: 100%;
+        }
+        @media (max-width: 980px) {
+          .grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .rightcol {
+            display: none; /* Hide on mobile */
+          }
+        }
+        .rightcol {
+          display: block; /* Always visible */
+        }
+        .rp-handle {
+          display: none; /* Hide toggle handle since sidebar is always visible */
+        }
+        .panel {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+          overflow: hidden;
+        }
+        .panel-h {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--border);
+        }
+        .panel-h .title {
+          font-weight: 800;
+        }
+        .panel-h .meta {
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .panel-body {
+          padding: 12px 14px;
+          overflow: hidden;
+        }
+        .section-scroll {
+          max-height: 420px;
+          overflow: auto;
+          padding: 10px 10px 12px;
+        }
+        .recent-item {
+          padding: 10px 14px;
+          border-top: 1px solid var(--border);
+          font-size: 13px;
+        }
+        .recent-item:first-child {
+          border-top: none;
+        }
+        /* Staff status chips (horizontal scroll) */
+        .status-wrap {
+          width: 100%;
+          max-width: 100%;
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 10px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding-bottom: 8px;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x proximity;
+        }
+        .status-wrap > .s-chip {
+          scroll-snap-align: start;
+        }
+        .status-wrap::-webkit-scrollbar {
+          height: 6px;
+        }
+        .status-wrap::-webkit-scrollbar-thumb {
+          background: #d1d5db;
+          border-radius: 999px;
+        }
+        .status-wrap::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .s-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: #fff;
+          font-size: 12px;
+          font-weight: 800;
+          color: var(--ink);
+          flex: 0 0 auto;
+        }
+        .s-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: #9ca3af;
+        }
+        .s-dot.red {
+          background: #ef4444;
+        }
+        .s-dot.amber {
+          background: #f59e0b;
+        }
+        .s-dot.green {
+          background: #22c55e;
+        }
+        .s-dot.blue {
+          background: #3b82f6;
+        }
+        .s-dot.gray {
+          background: #9ca3af;
+        }
+        .s-chip.small {
+          padding: 6px 12px;
+          font-weight: 800;
+        }
+        .floating-new-order {
+          position: fixed;
+          bottom: 18px;
+          right: 18px;
+          background: var(--accent);
+          color: #fff;
+          padding: 12px 16px;
+          border-radius: 999px;
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 700;
+          z-index: 9999;
+        }
+      `}</style>
+
+      {/* Fixed Header - Outside Layout */}
+      <div className="main-header">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <BurgerIcon />
+          </button>
+          <div className="logo-container">
+            <img
+              src="/logo.png"
+              alt="DocLatch Logo"
+              style={{ height: "80px", maxHeight: "80px", width: "auto" }}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {session.user.role === "Physician" && (
+            <Link href={staffDashboardHref} ref={staffButtonRef}>
+              <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                Staff Dashboard
+              </button>
+            </Link>
+          )}
+          {session.user.role === "Physician" && (
+            <Link href={rebutalHre} ref={staffButtonRef}>
+              <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                Generate Rebuttal
+              </button>
+            </Link>
+          )}
+          <select
+            id="mode"
+            className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
+            value={mode}
+            onChange={(e) => switchMode(e.target.value as "wc" | "gm")}
+            ref={modeSelectorRef}
+            title="Filter search by mode (Workers Comp or General Medicine)"
+          >
+            <option value="wc">Workers Comp</option>
+            <option value="gm">General Medicine</option>
+          </select>
+        </div>
+      </div>
+
+      <div
+        className="main-content"
+        style={{
+          fontFamily: "Arial, sans-serif",
+          background: "var(--bg)",
+          color: "var(--ink)",
+          minHeight: "calc(100vh - 64px)",
+        }}
+      >
         {/* Onboarding Tour */}
         <PhysicianOnboardingTour
           isOpen={showOnboarding}
@@ -950,251 +1213,395 @@ export default function PhysicianCard() {
         />
         {/* Onboarding Help Button */}
         <OnboardingHelpButton />
-        {/* Full-width header for burger at left edge */}
-        <div className="w-full flex items-center justify-between px-6 py-4 bg-white border-b border-blue-200">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-            aria-label="Toggle sidebar"
-          >
-            <BurgerIcon />
-          </button>
-          <div className="font-bold absolute left-[5vw]">
-            DocLatch Physician Dashboard
-          </div>
-          <div className="flex items-center gap-4">
-            {session.user.role === "Physician" && (
-              <Link href={staffDashboardHref} ref={staffButtonRef}>
-                <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
-                  Staff Dashboard
-                </button>
-              </Link>
-            )}
-            {session.user.role === "Physician" && (
-              <Link href={rebutalHre} ref={staffButtonRef}>
-                <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded">
-                  Generate Rebuttal
-                </button>
-              </Link>
-            )}
-            <select
-              id="mode"
-              className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
-              value={mode}
-              onChange={(e) => switchMode(e.target.value as "wc" | "gm")}
-              ref={modeSelectorRef}
-              title="Filter search by mode (Workers Comp or General Medicine)"
-            >
-              <option value="wc">Workers Comp</option>
-              <option value="gm">General Medicine</option>
-            </select>
-          </div>
-        </div>
-        <div className="p-6 lg:ml-[-20vw]">
-          <div className="max-w-5xl mx-auto">
-            {/* Search Bar */}
-            <div ref={searchBarRef}>
-              <SearchBar
-                physicianId={physicianId}
-                mode={mode}
-                onPatientSelect={handlePatientSelect}
-              />
+
+        {/* Upload Section */}
+        <div style={{ marginBottom: "14px" }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          {files.length > 0 && (
+            <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
+              <span className="text-sm text-gray-600">
+                Selected: {files.map((f) => f.name).join(", ")}
+              </span>
+              <button
+                onClick={handleUpload}
+                className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm"
+                disabled={loading}
+              >
+                Queue for Processing
+              </button>
+              <button
+                onClick={() => {
+                  setFiles([]);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="text-red-500 hover:text-red-700 text-sm"
+              >
+                Cancel
+              </button>
             </div>
-            {/* Upload Section */}
-            <div className="mb-6">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              {files.length > 0 && (
-                <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
-                  <span className="text-sm text-gray-600">
-                    Selected: {files.map((f) => f.name).join(", ")}
-                  </span>
-                  <button
-                    onClick={handleUpload}
-                    className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm"
-                    disabled={loading}
-                  >
-                    Queue for Processing
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFiles([]);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    Cancel
-                  </button>
+          )}
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div
+            style={{
+              marginBottom: "14px",
+              padding: "16px",
+              background: "#dbeafe",
+              border: "1px solid #93c5fd",
+              borderRadius: "14px",
+              textAlign: "center",
+            }}
+          >
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+            <p style={{ color: "#1e40af" }}>Loading patient data...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div
+            style={{
+              marginBottom: "14px",
+              padding: "16px",
+              background: "#fee2e2",
+              border: "1px solid #fca5a5",
+              borderRadius: "14px",
+            }}
+          >
+            <div
+              style={{ color: "#dc2626", fontWeight: 600, marginBottom: "8px" }}
+            >
+              Error
+            </div>
+            <p style={{ color: "#991b1b" }}>{error}</p>
+            <button
+              onClick={() =>
+                selectedPatient && fetchDocumentData(selectedPatient)
+              }
+              style={{
+                marginTop: "8px",
+                background: "#dc2626",
+                color: "#fff",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Patient Header Topbar - Show when patient is selected */}
+        {selectedPatient && documentData && (
+          <div className="topbar">
+            <div className="patient-header">
+              <div className="patient-name">{currentPatient.patientName}</div>
+              <div className="tag">DOB: {formatDate(currentPatient.dob)}</div>
+              <div className="tag">Claim: {currentPatient.claimNumber}</div>
+              <div className="tag">DOI: {formatDate(currentPatient.doi)}</div>
+              {visitCount > 0 && (
+                <div className="tag good">
+                  {visitCount} {visitCount === 1 ? "Visit" : "Visits"}
                 </div>
               )}
             </div>
-            {/* Loading State */}
-            {loading && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                <p className="text-gray-600">Loading patient data...</p>
-              </div>
-            )}
-            {/* Error State */}
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
-                <div className="text-red-500 font-semibold mb-2">Error</div>
-                <p className="text-red-600">{error}</p>
-                <button
-                  onClick={() =>
-                    selectedPatient && fetchDocumentData(selectedPatient)
-                  }
-                  className="mt-2 bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 text-sm"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
+          </div>
+        )}
+
+        {/* Main Grid Layout - Always visible */}
+        <div className="grid">
+          <div>
             {!selectedPatient && !documentData ? (
-              <div className="bg-white border border-blue-200 rounded-2xl shadow-sm p-8 text-center">
-                <div className="text-gray-500 text-lg mb-4">
-                  👆 Search for a patient above to get started
+              <div
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "14px",
+                  padding: "32px",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "18px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  Select a patient from Recent Patients to view their details
                 </div>
-                <p className="text-gray-400">
-                  Type a patient name in the search bar to view their physician
-                  card
+                <p style={{ color: "var(--muted)" }}>
+                  Use the search in Recent Patients to find and select a patient
                 </p>
               </div>
             ) : (
-              <div
-                className="flex flex-col gap-6"
-                role="region"
-                aria-label="Physician-facing card"
-                ref={patientCardRef}
-              >
-                {/* Header with merge indicator */}
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <h1 className="px-5 py-3 text-xl font-bold">{currentPatient.patientName}</h1>
-                  <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-5 ">
-                    <div
-                      className="flex flex-wrap gap-x-4 gap-y-2"
-                      aria-label="Patient summary"
-                    >
-                   
-                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px]  bg-[#E7F0FF] text-black">
-                        DOB: {formatDate(currentPatient.dob)}
+              <>
+                {/* Staff Status Section - Quick Notes */}
+                {documentData && (
+                  <div className="panel" style={{ marginBottom: "14px" }}>
+                    <div className="panel-h">
+                      <div>
+                        <div className="title">Staff Status</div>
+                        <div className="meta">Patient-specific • Read-only</div>
                       </div>
-                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px] bg-[#E5D8FF] text-black">
-                        Claim #: {currentPatient.claimNumber}
-                      </div>
-                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px] bg-[#FFF1C2] text-black">
-                        DOI: {formatDate(currentPatient.doi)}
-                      </div>
-                      {documentData?.merge_metadata?.is_merged && (
-                        <div className="bg-amber-100 border border-amber-300 px-2 py-1 rounded-full text-xs">
-                          🔄 Combined{" "}
-                          {documentData.merge_metadata.total_documents_merged}{" "}
-                          visits
+                    </div>
+                    <div className="panel-body">
+                      {documentData.quick_notes_snapshots &&
+                      documentData.quick_notes_snapshots.length > 0 ? (
+                        <div className="status-wrap">
+                          {documentData.quick_notes_snapshots.map(
+                            (note, index) => {
+                              // Determine status color based on status_update or content
+                              const getStatusColor = () => {
+                                const status = (
+                                  note.status_update || ""
+                                ).toLowerCase();
+                                if (
+                                  status.includes("urgent") ||
+                                  status.includes("critical") ||
+                                  status.includes("time-sensitive")
+                                ) {
+                                  return "red";
+                                }
+                                if (
+                                  status.includes("pending") ||
+                                  status.includes("waiting") ||
+                                  status.includes("scheduling")
+                                ) {
+                                  return "amber";
+                                }
+                                if (
+                                  status.includes("completed") ||
+                                  status.includes("done") ||
+                                  status.includes("approved")
+                                ) {
+                                  return "green";
+                                }
+                                if (
+                                  status.includes("authorization") ||
+                                  status.includes("decision")
+                                ) {
+                                  return "blue";
+                                }
+                                return "gray";
+                              };
+
+                              const statusColor = getStatusColor();
+                              // Build display text: prefer status_update, then one_line_note, then details
+                              let displayText = "";
+                              if (note.status_update) {
+                                displayText = note.status_update;
+                                // Append one_line_note if available and different
+                                if (
+                                  note.one_line_note &&
+                                  note.one_line_note !== note.status_update
+                                ) {
+                                  displayText += ` — ${note.one_line_note}`;
+                                }
+                              } else if (note.one_line_note) {
+                                displayText = note.one_line_note;
+                              } else if (note.details) {
+                                // Truncate details if too long
+                                displayText =
+                                  note.details.length > 50
+                                    ? note.details.substring(0, 50) + "..."
+                                    : note.details;
+                              } else {
+                                displayText = "Quick Note";
+                              }
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="s-chip small"
+                                  title={note.details || displayText}
+                                >
+                                  <span
+                                    className={`s-dot ${statusColor}`}
+                                  ></span>
+                                  {displayText}
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            color: "var(--muted)",
+                            padding: "8px",
+                            textAlign: "center",
+                          }}
+                        >
+                          No quick notes available
                         </div>
                       )}
                     </div>
-                    {documentData?.document_summaries?.[0]?.type && (
-                      <div className="inline-block px-[12px] py-[6px] rounded-[20px] text-[12px] font-medium bg-[#D8F5D0] text-black">
-                        {documentData.document_summaries[0].type}
-                      </div>
-                    )}
                   </div>
-                </div>
+                )}
 
-                {/* Render Sub-Components - Using Treatment History as Summary Snapshot */}
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <WhatsNewSection
-                    documentData={documentData}
-                    mode={mode}
-                    copied={copied}
-                    onCopySection={handleSectionCopy}
-                    isCollapsed={collapsedSections.whatsNew}
-                    onToggle={() => toggleSection("whatsNew")}
-                  />
-                </div>
+                {/* What's New Section */}
+                {documentData && (
+                  <div className="panel" style={{ marginBottom: "14px" }}>
+                    <div className="panel-h">
+                      <div>
+                        <div className="title">What's New Since Last Visit</div>
+                        <div className="meta">
+                          Scan-only cards • Click to expand • Expanded content
+                          scrolls inside the card
+                        </div>
+                      </div>
+                      <div className="meta">
+                        {documentData?.documents?.length || 0}{" "}
+                        {documentData?.documents?.length === 1
+                          ? "item"
+                          : "items"}
+                      </div>
+                    </div>
+                    <div className="section-scroll">
+                      <WhatsNewSection
+                        documentData={documentData}
+                        mode={mode}
+                        copied={copied}
+                        onCopySection={handleSectionCopy}
+                        isCollapsed={collapsedSections.whatsNew}
+                        onToggle={() => toggleSection("whatsNew")}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <TreatmentHistorySection
-                    documentData={documentData}
-                    mode={mode}
-                    copied={copied}
-                    onCopySection={handleSectionCopy}
-                    isCollapsed={collapsedSections.treatmentHistory}
-                    onToggle={() => toggleSection("treatmentHistory")}
-                  />
-                </div>
+                {/* Treatment History Section */}
+                {documentData && (
+                  <div className="panel" style={{ marginBottom: "14px" }}>
+                    <div className="panel-h">
+                      <div>
+                        <div className="title">Treatment History</div>
+                        <div className="meta">
+                          Summary snapshots and history
+                        </div>
+                      </div>
+                    </div>
+                    <div className="panel-body">
+                      <TreatmentHistorySection
+                        documentData={documentData}
+                        mode={mode}
+                        copied={copied}
+                        onCopySection={handleSectionCopy}
+                        isCollapsed={collapsedSections.treatmentHistory}
+                        onToggle={() => toggleSection("treatmentHistory")}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <ADLSection
-                    documentData={documentData}
-                    mode={mode} // Add this line
-                    copied={copied}
-                    onCopySection={handleSectionCopy}
-                    isCollapsed={collapsedSections.adlWorkStatus}
-                    onToggle={() => toggleSection("adlWorkStatus")}
-                  />
-                </div>
+                {/* ADL Section */}
+                {documentData && (
+                  <div className="panel" style={{ marginBottom: "14px" }}>
+                    <div className="panel-h">
+                      <div>
+                        <div className="title">ADL / Work Status</div>
+                        <div className="meta">
+                          Activities of daily living and work restrictions
+                        </div>
+                      </div>
+                    </div>
+                    <div className="panel-body">
+                      <ADLSection
+                        documentData={documentData}
+                        mode={mode}
+                        copied={copied}
+                        onCopySection={handleSectionCopy}
+                        isCollapsed={collapsedSections.adlWorkStatus}
+                        onToggle={() => toggleSection("adlWorkStatus")}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <DocumentSummarySection
-                    documentData={documentData}
-                    openModal={openModal}
-                    handleShowPrevious={handleShowPrevious}
-                    copied={copied}
-                    onCopySection={handleSectionCopy}
-                    isCollapsed={collapsedSections.documentSummary}
-                    onToggle={() => toggleSection("documentSummary")}
-                  />
-                </div>
+                {/* Document Summary Section */}
+                {documentData && (
+                  <div className="panel" style={{ marginBottom: "14px" }}>
+                    <div className="panel-h">
+                      <div>
+                        <div className="title">Document Summary</div>
+                        <div className="meta">
+                          Parsed documents and summaries
+                        </div>
+                      </div>
+                    </div>
+                    <div className="panel-body">
+                      <DocumentSummarySection
+                        documentData={documentData}
+                        openModal={openModal}
+                        handleShowPrevious={handleShowPrevious}
+                        copied={copied}
+                        onCopySection={handleSectionCopy}
+                        isCollapsed={collapsedSections.documentSummary}
+                        onToggle={() => toggleSection("documentSummary")}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                  <PatientQuizSection
-                    documentData={documentData}
-                    copied={copied}
-                    onCopySection={handleSectionCopy}
-                  />
-                </div>
-              </div>
-            )}
-            {/* Refresh button - only show when patient is selected */}
-            {selectedPatient && (
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => fetchDocumentData(selectedPatient)}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
-                  disabled={loading}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  {loading ? "Refreshing..." : "Refresh Data"}
-                </button>
-              </div>
+                {/* Patient Quiz Section */}
+                {documentData && (
+                  <div className="panel" style={{ marginBottom: "14px" }}>
+                    <div className="panel-h">
+                      <div>
+                        <div className="title">Patient Quiz</div>
+                        <div className="meta">
+                          Patient intake and questionnaire data
+                        </div>
+                      </div>
+                    </div>
+                    <div className="panel-body">
+                      <PatientQuizSection
+                        documentData={documentData}
+                        copied={copied}
+                        onCopySection={handleSectionCopy}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
+
+          {/* Right Column - Recent Patients (Always Visible) */}
+          <div className="rightcol">
+            <div className="panel">
+              <div className="panel-h">
+                <div className="title">Recent Patients</div>
+                <div className="meta">Quick jump list</div>
+              </div>
+              <div className="panel-body" style={{ padding: 0 }}>
+                <RecentPatientsSidebar
+                  onPatientSelect={handlePatientSelect}
+                  mode={mode}
+                  physicianId={physicianId}
+                  autoSelectFirst={true}
+                  hasSelectedPatient={!!selectedPatient}
+                />
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="absolute top-[5.5vw] right-0 bg-white z-30 rounded-lg shadow-lg w-full max-w-[20vw]">
-        <RecentPatientsSidebar
-          onPatientSelect={handlePatientSelect}
-          mode={mode}
-        />
+
+        {/* Floating New Order Button */}
+        <div className="floating-new-order">+ New Order</div>
       </div>
       {/* Sidebar Overlay - Closes on click */}
       {isSidebarOpen && (
@@ -1205,11 +1612,12 @@ export default function PhysicianCard() {
       )}
       {/* Sidebar */}
       <div
-        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
         <div className="h-full">
-          <Sidebar onClose={() => setIsSidebarOpen(false)} />
+          <Sidebar />
         </div>
       </div>
       {/* Toasts */}
@@ -1217,8 +1625,9 @@ export default function PhysicianCard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
-              } animate-in slide-in-from-top-2 duration-300`}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.type === "success" ? "bg-green-500" : "bg-red-500"
+            } animate-in slide-in-from-top-2 duration-300`}
           >
             {toast.message}
           </div>
