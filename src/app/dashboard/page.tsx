@@ -148,6 +148,7 @@ export default function PhysicianCard() {
   const [rpToggle, setRpToggle] = useState(true); // Default to open/visible
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const [taskQuickNotes, setTaskQuickNotes] = useState<QuickNoteSnapshot[]>([]);
   // Onboarding states
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -594,6 +595,50 @@ export default function PhysicianCard() {
       urlParams.set("claim_number", latestDoc.claim_number || "");
       urlParams.set("mode", docMode);
       router.replace(`?${urlParams.toString()}`, { scroll: false });
+
+      // Fetch task quick notes for this patient
+      try {
+        const taskParams = new URLSearchParams({
+          mode: docMode,
+        });
+        // Use claim number if available, otherwise use patient name for search
+        if (latestDoc.claim_number) {
+          taskParams.set("claim", latestDoc.claim_number);
+        } else if (latestDoc.patient_name || patientInfo.patientName) {
+          taskParams.set(
+            "search",
+            latestDoc.patient_name || patientInfo.patientName || ""
+          );
+        }
+
+        const taskResponse = await fetch(`/api/tasks?${taskParams}`, {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        });
+        if (taskResponse.ok) {
+          const taskData = await taskResponse.json();
+          // Extract quick notes from tasks
+          const allTaskQuickNotes: QuickNoteSnapshot[] = [];
+          if (taskData.tasks && Array.isArray(taskData.tasks)) {
+            taskData.tasks.forEach((task: any) => {
+              // Only include tasks with quick notes
+              if (task.quickNotes) {
+                allTaskQuickNotes.push({
+                  details: task.quickNotes.details || "",
+                  timestamp: task.quickNotes.timestamp || task.updatedAt || "",
+                  one_line_note: task.quickNotes.one_line_note || "",
+                  status_update: task.quickNotes.status_update || "",
+                });
+              }
+            });
+          }
+          setTaskQuickNotes(allTaskQuickNotes);
+        }
+      } catch (err) {
+        console.error("Error fetching task quick notes:", err);
+        setTaskQuickNotes([]);
+      }
     } catch (err: unknown) {
       console.error("Error fetching document data:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -1357,11 +1402,90 @@ export default function PhysicianCard() {
                       </div>
                     </div>
                     <div className="panel-body">
-                      {documentData.quick_notes_snapshots &&
-                      documentData.quick_notes_snapshots.length > 0 ? (
+                      {(documentData.quick_notes_snapshots &&
+                        documentData.quick_notes_snapshots.length > 0) ||
+                      (taskQuickNotes && taskQuickNotes.length > 0) ? (
                         <div className="status-wrap">
-                          {documentData.quick_notes_snapshots.map(
-                            (note, index) => {
+                          {/* Document Quick Notes */}
+                          {documentData.quick_notes_snapshots &&
+                            documentData.quick_notes_snapshots.map(
+                              (note, index) => {
+                                // Determine status color based on status_update or content
+                                const getStatusColor = () => {
+                                  const status = (
+                                    note.status_update || ""
+                                  ).toLowerCase();
+                                  if (
+                                    status.includes("urgent") ||
+                                    status.includes("critical") ||
+                                    status.includes("time-sensitive")
+                                  ) {
+                                    return "red";
+                                  }
+                                  if (
+                                    status.includes("pending") ||
+                                    status.includes("waiting") ||
+                                    status.includes("scheduling")
+                                  ) {
+                                    return "amber";
+                                  }
+                                  if (
+                                    status.includes("completed") ||
+                                    status.includes("done") ||
+                                    status.includes("approved")
+                                  ) {
+                                    return "green";
+                                  }
+                                  if (
+                                    status.includes("authorization") ||
+                                    status.includes("decision")
+                                  ) {
+                                    return "blue";
+                                  }
+                                  return "gray";
+                                };
+
+                                const statusColor = getStatusColor();
+                                // Build display text: prefer status_update, then one_line_note, then details
+                                let displayText = "";
+                                if (note.status_update) {
+                                  displayText = note.status_update;
+                                  // Append one_line_note if available and different
+                                  if (
+                                    note.one_line_note &&
+                                    note.one_line_note !== note.status_update
+                                  ) {
+                                    displayText += ` — ${note.one_line_note}`;
+                                  }
+                                } else if (note.one_line_note) {
+                                  displayText = note.one_line_note;
+                                } else if (note.details) {
+                                  // Truncate details if too long
+                                  displayText =
+                                    note.details.length > 50
+                                      ? note.details.substring(0, 50) + "..."
+                                      : note.details;
+                                } else {
+                                  displayText = "Quick Note";
+                                }
+
+                                return (
+                                  <div
+                                    key={`doc-note-${index}`}
+                                    className="s-chip small"
+                                    title={note.details || displayText}
+                                  >
+                                    <span
+                                      className={`s-dot ${statusColor}`}
+                                    ></span>
+                                    {displayText}
+                                  </div>
+                                );
+                              }
+                            )}
+                          {/* Task Quick Notes */}
+                          {taskQuickNotes &&
+                            taskQuickNotes.map((note, index) => {
                               // Determine status color based on status_update or content
                               const getStatusColor = () => {
                                 const status = (
@@ -1423,7 +1547,7 @@ export default function PhysicianCard() {
 
                               return (
                                 <div
-                                  key={index}
+                                  key={`task-note-${index}`}
                                   className="s-chip small"
                                   title={note.details || displayText}
                                 >
@@ -1433,8 +1557,7 @@ export default function PhysicianCard() {
                                   {displayText}
                                 </div>
                               );
-                            }
-                          )}
+                            })}
                         </div>
                       ) : (
                         <div

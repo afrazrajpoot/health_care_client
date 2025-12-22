@@ -240,6 +240,329 @@ const PaymentErrorModal = ({
   );
 };
 
+// Quick Notes Options (same as TaskRows.tsx)
+const quickNoteOptions = {
+  "Scheduling-Related": {
+    "Outbound Scheduling": [
+      "Called patient – left voicemail.",
+      "Called patient – scheduled appointment.",
+      "Called patient – patient declined appointment.",
+      "Unable to reach patient – no voicemail available.",
+      "Text message sent – awaiting response.",
+      "Email sent – awaiting response.",
+      "Patient reports appointment already scheduled elsewhere.",
+      "Specialist office contacted – awaiting available dates.",
+      "Specialist office contacted – appointment confirmed.",
+      "Specialist office requested updated referral/authorization.",
+      "Specialist office does not accept patient's insurance.",
+    ],
+    "Inbound Scheduling": [
+      "Outside office sent appointment date – updated in system.",
+      "Outside office cancelled/rescheduled appointment.",
+      "Specialist requested additional documentation before scheduling.",
+    ],
+  },
+  "Lab / Imaging Follow-Up": {
+    "Lab Results": [
+      "Lab results received – forwarded to provider.",
+      "Critical lab flagged – provider notified.",
+    ],
+    "Imaging Follow-Up": [
+      "Imaging report received – provider notified.",
+      "Imaging center requesting updated order.",
+      "Imaging center unable to proceed – insurance issue.",
+      "Patient instructed to schedule imaging.",
+      "Patient completed imaging – awaiting report.",
+    ],
+  },
+  "Pharmacy / Medication": {
+    "Pharmacy Requests": [
+      "Pharmacy requested clarification – forwarded to provider.",
+      "Pharmacy refill request received – sent to provider.",
+      "Medication not covered – pharmacy requested alternative.",
+    ],
+    "Prior Authorization": [
+      "Prior authorization required – beginning process.",
+      "Prior authorization submitted.",
+      "Prior authorization approved.",
+      "Prior authorization denied – provider notified.",
+    ],
+  },
+  "Insurance / Care Coordination": {
+    "Insurance Issues": [
+      "Insurance requested additional documentation.",
+      "Insurance denied request – report uploaded for provider.",
+      "Insurance authorization received – ready to schedule.",
+      "Patient's insurance inactive – requested updated information.",
+    ],
+    "Authorization & Forms": [
+      "Insurance form completed and faxed.",
+      "Insurance form incomplete – need missing details.",
+    ],
+  },
+  "Hospital / ER Records": {
+    "Hospital Reports": [
+      "Hospital discharge summary received – forwarded to provider.",
+      "ED visit report received – provider notified.",
+      "Hospital requested follow-up appointment.",
+    ],
+    "Care Transition": [
+      "Care transition call made – left voicemail.",
+      "Care transition call completed – appointment scheduled.",
+    ],
+  },
+  "Specialist Reports": {
+    "Consult Reports": [
+      "Consult report received – provider notified.",
+      "Consult report recommends follow-up – scheduling patient.",
+      "Consult report recommends new medication – awaiting provider decision.",
+    ],
+    "Specialist Requests": [
+      "Specialist requested updated labs/imaging.",
+      "Specialist requested new referral.",
+    ],
+  },
+  "Administrative Documents": {
+    "Forms Processing": [
+      "Form received – routed to provider.",
+      "Form completed – faxed/emailed.",
+      "Form incomplete – need missing patient information.",
+    ],
+    "Form Status": [
+      "Employer requested additional information.",
+      "Patient notified form is ready for pick-up.",
+    ],
+  },
+  "Attempt / Outcome": {
+    "Completion Status": [
+      "Completed as requested.",
+      "Unable to complete – missing documentation.",
+      "Unable to complete – requires provider review.",
+      "Task resolved – no further action needed.",
+    ],
+    "Pending Status": [
+      "Pending patient response.",
+      "Pending outside office response.",
+      "Pending insurance response.",
+    ],
+  },
+  "Patient Communication": {
+    "Notification Methods": [
+      "Patient notified via phone.",
+      "Patient notified via text.",
+      "Patient notified via patient portal.",
+      "Patient notified via email.",
+    ],
+    "Patient Response": [
+      "Patient acknowledged and understands.",
+      "Patient needs clarification – routed to provider.",
+    ],
+  },
+  Escalation: {
+    "Escalation Types": [
+      "Escalated to provider.",
+      "Escalated to supervisor.",
+      "Requires clinical decision – provider notified.",
+      "Requires insurance specialist – forwarded.",
+      "Requires follow-up from management.",
+    ],
+  },
+};
+
+// Quick Notes Form Component
+const QuickNotesForm = ({
+  taskId,
+  taskDept,
+  quickNotesData,
+  onUpdate,
+  onSave,
+  onCancel,
+}: {
+  taskId: string;
+  taskDept: string;
+  quickNotesData: {
+    category: string;
+    subcategory: string;
+    note: string;
+    customNote: string;
+  };
+  onUpdate: (data: {
+    category: string;
+    subcategory: string;
+    note: string;
+    customNote: string;
+  }) => void;
+  onSave: (note: string) => void;
+  onCancel: () => void;
+}) => {
+  const availableSubcategories = quickNotesData.category
+    ? Object.keys(
+        quickNoteOptions[
+          quickNotesData.category as keyof typeof quickNoteOptions
+        ] || {}
+      )
+    : [];
+
+  const availableNotes =
+    quickNotesData.category && quickNotesData.subcategory
+      ? (
+          quickNoteOptions[
+            quickNotesData.category as keyof typeof quickNoteOptions
+          ] as any
+        )?.[quickNotesData.subcategory] || []
+      : [];
+
+  const handleSave = () => {
+    const finalNote = quickNotesData.note || quickNotesData.customNote;
+    if (finalNote.trim()) {
+      onSave(finalNote);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+        <select
+          value={quickNotesData.category}
+          onChange={(e) => {
+            onUpdate({
+              ...quickNotesData,
+              category: e.target.value,
+              subcategory: "",
+              note: "",
+            });
+          }}
+          style={{
+            padding: "6px 8px",
+            border: "1px solid #cbd5e1",
+            borderRadius: "6px",
+            fontSize: "12px",
+            minWidth: "150px",
+          }}
+        >
+          <option value="">Select Category</option>
+          {Object.keys(quickNoteOptions).map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+
+        {availableSubcategories.length > 0 && (
+          <select
+            value={quickNotesData.subcategory}
+            onChange={(e) => {
+              onUpdate({
+                ...quickNotesData,
+                subcategory: e.target.value,
+                note: "",
+              });
+            }}
+            style={{
+              padding: "6px 8px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "6px",
+              fontSize: "12px",
+              minWidth: "150px",
+            }}
+          >
+            <option value="">Select Subcategory</option>
+            {availableSubcategories.map((subcategory) => (
+              <option key={subcategory} value={subcategory}>
+                {subcategory}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {availableNotes.length > 0 && (
+          <select
+            value={quickNotesData.note}
+            onChange={(e) => {
+              onUpdate({
+                ...quickNotesData,
+                note: e.target.value,
+              });
+            }}
+            style={{
+              padding: "6px 8px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "6px",
+              fontSize: "12px",
+              minWidth: "200px",
+            }}
+          >
+            <option value="">Select Quick Note</option>
+            {availableNotes.map((note: string, index: number) => (
+              <option key={index} value={note}>
+                {note}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <input
+          type="text"
+          placeholder="Or enter custom note"
+          value={quickNotesData.customNote}
+          onChange={(e) => {
+            onUpdate({
+              ...quickNotesData,
+              customNote: e.target.value,
+            });
+          }}
+          style={{
+            padding: "6px 8px",
+            border: "1px solid #cbd5e1",
+            borderRadius: "6px",
+            fontSize: "12px",
+            flex: "1",
+            minWidth: "200px",
+          }}
+        />
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+        <button
+          onClick={onCancel}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "6px",
+            border: "1px solid #cbd5e1",
+            background: "white",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!quickNotesData.note && !quickNotesData.customNote.trim()}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "6px",
+            border: "none",
+            background: "#6366f1",
+            color: "white",
+            cursor:
+              !quickNotesData.note && !quickNotesData.customNote.trim()
+                ? "not-allowed"
+                : "pointer",
+            opacity:
+              !quickNotesData.note && !quickNotesData.customNote.trim()
+                ? 0.6
+                : 1,
+            fontSize: "12px",
+          }}
+        >
+          Save Note
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // In the main Dashboard component, keep the PaymentErrorModal usage as before:
 
 export default function Dashboard() {
@@ -344,6 +667,21 @@ export default function Dashboard() {
   } = useOnboarding();
 
   const [initialized] = useState(false);
+  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+  const [loadingButtons, setLoadingButtons] = useState<{
+    [taskId: string]: "claim" | "complete" | "note" | null;
+  }>({});
+  const [showQuickNotes, setShowQuickNotes] = useState<{
+    [taskId: string]: boolean;
+  }>({});
+  const [quickNotesData, setQuickNotesData] = useState<{
+    [taskId: string]: {
+      category: string;
+      subcategory: string;
+      note: string;
+      customNote: string;
+    };
+  }>({});
 
   const handleUpgrade = useCallback(() => {
     clearPaymentError();
@@ -1075,6 +1413,240 @@ export default function Dashboard() {
           background: var(--accent2);
           transform: scale(1.05);
         }
+        /* Left Sidebar Styles */
+        .layout {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
+        #leftSidebar {
+          position: relative;
+          width: 260px;
+          min-width: 260px;
+          height: 100vh;
+          background: white;
+          border-right: 1px solid #e2e8f0;
+          padding: 20px;
+          overflow-y: auto;
+          transition: all 0.25s;
+        }
+        #leftSidebar.collapsed {
+          width: 60px;
+          min-width: 60px;
+          padding: 20px 8px;
+        }
+        #leftSidebar.collapsed h3 {
+          display: none;
+        }
+        #leftSidebar.collapsed button {
+          font-size: 0;
+          height: 40px;
+        }
+        #leftSidebar.collapsed button::before {
+          font-size: 18px;
+          content: "📁";
+        }
+        #leftSidebar h3 {
+          font-size: 16px;
+          font-weight: bold;
+          margin-bottom: 16px;
+          color: #1e293b;
+        }
+        #leftSidebar button {
+          width: 100%;
+          padding: 10px;
+          border: none;
+          border-radius: 8px;
+          margin-bottom: 8px;
+          cursor: pointer;
+          text-align: left;
+          background: #f3f4f6;
+          color: #1e293b;
+          font-size: 14px;
+          transition: all 0.2s;
+        }
+        #leftSidebar button:hover {
+          background: #e5e7eb;
+        }
+        #leftSidebar button.active {
+          background: #2563eb;
+          color: white;
+        }
+        .mainContent {
+          flex: 1;
+          padding: 25px;
+          position: relative;
+          overflow-x: auto;
+          overflow-y: auto;
+          background: #f7f9fc;
+        }
+        .topbar {
+          background: white;
+          padding: 15px 25px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #e2e8f0;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          margin-bottom: 20px;
+          border-radius: 8px;
+        }
+        .searchbar input {
+          width: 260px;
+          padding: 10px;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          font-size: 14px;
+        }
+        .filters select,
+        #staffLogin {
+          padding: 8px;
+          border-radius: 6px;
+          border: 1px solid #cbd5e1;
+          margin-left: 10px;
+          font-size: 14px;
+        }
+        #collapseToggle {
+          position: absolute;
+          left: 260px;
+          top: 10px;
+          width: 24px;
+          height: 24px;
+          border: none;
+          border-radius: 4px;
+          background: #2563eb;
+          color: white;
+          cursor: pointer;
+          transition: left 0.25s;
+          z-index: 20;
+        }
+        #leftSidebar.collapsed ~ #collapseToggle {
+          left: 70px;
+        }
+        .floating-intake-btn {
+          position: fixed;
+          bottom: 25px;
+          right: 25px;
+          background: linear-gradient(135deg, #3b82f6, #10b981);
+          color: white;
+          padding: 14px 22px;
+          border-radius: 50px;
+          cursor: pointer;
+          font-weight: bold;
+          border: none;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+          z-index: 9999;
+        }
+        .floating-intake-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+        }
+        /* Task Card Styles */
+        .taskcard {
+          background: white;
+          padding: 18px;
+          border-radius: 12px;
+          margin: 20px 0;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+          border-left: 6px solid #2563eb;
+        }
+        .task-header {
+          font-size: 15px;
+          font-weight: bold;
+          margin-bottom: 8px;
+        }
+        .task-actions {
+          margin-top: 10px;
+        }
+        .btn {
+          padding: 8px 14px;
+          border-radius: 6px;
+          border: none;
+          cursor: pointer;
+          margin-right: 10px;
+          font-size: 13px;
+          transition: all 0.2s;
+        }
+        .btn-view {
+          background: #e2e8f0;
+          color: #1e293b;
+        }
+        .btn-view:hover {
+          background: #cbd5e1;
+        }
+        .btn-complete {
+          background: #3b82f6;
+          color: white;
+        }
+        .btn-complete:hover {
+          background: #2563eb;
+        }
+        .btn-claim {
+          background: #10b981;
+          color: white;
+        }
+        .btn-claim:hover {
+          background: #059669;
+        }
+        .btn-assign {
+          background: #f59e0b;
+          color: white;
+        }
+        .btn-assign:hover {
+          background: #d97706;
+        }
+        .activity-history {
+          margin-top: 10px;
+          font-size: 13px;
+          color: #475569;
+        }
+        .history-entry {
+          padding: 3px 0;
+        }
+        /* Upload Button Styles - DocLatch */
+        .upload-btn-new {
+          position: fixed;
+          bottom: 25px;
+          left: 25px;
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          border: none;
+          background: #2563eb;
+          color: white;
+          font-size: 26px;
+          cursor: pointer;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+          z-index: 9999;
+          animation: floating 3s ease-in-out infinite;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        @keyframes floating {
+          0% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+          100% {
+            transform: translateY(0);
+          }
+        }
+        .upload-btn-new:hover {
+          background: #1d4ed8;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        .upload-btn-new:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          animation: none;
+        }
       `}</style>
       <ProgressTracker onComplete={handleProgressComplete} />
 
@@ -1135,29 +1707,143 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div
-          className={`flex-1 transition-all duration-300 ${
-            isSidebarOpen ? "ml-0" : "ml-0"
-          }`}
-        >
-          <div className="p-6">
-            {/* {session?.user?.role === "Staff" && ( */}
+        <div className="layout">
+          {/* Left Sidebar - Global Tasks */}
+          <div
+            id="leftSidebar"
+            className={isLeftSidebarCollapsed ? "collapsed" : ""}
+          >
+            <h3>Global Tasks</h3>
+            <button
+              className={filters.viewMode === "all" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "all" })}
+            >
+              📌 All Tasks
+            </button>
+            <button
+              className={filters.viewMode === "signature" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "signature" })}
+            >
+              🔴 Signature Required
+            </button>
+            <button
+              className={filters.viewMode === "denials" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "denials" })}
+            >
+              🟠 Denials & Appeals
+            </button>
+            <button
+              className={filters.viewMode === "approvals" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "approvals" })}
+            >
+              🟦 Approvals to Schedule
+            </button>
+            <button
+              className={filters.viewMode === "scheduling" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "scheduling" })}
+            >
+              🟩 Scheduling Tasks
+            </button>
+            <button
+              className={filters.viewMode === "admin" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "admin" })}
+            >
+              📁 Administrative Tasks
+            </button>
+            <button
+              className={filters.viewMode === "provider" ? "active" : ""}
+              onClick={() => setFilters({ ...filters, viewMode: "provider" })}
+            >
+              ⚕️ Provider Action Required
+            </button>
+          </div>
+          <button
+            id="collapseToggle"
+            onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
+            title={
+              isLeftSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"
+            }
+          >
+            {isLeftSidebarCollapsed ? "⇥" : "⇤"}
+          </button>
+
+          <div className="mainContent">
+            {/* Topbar with Search and Filters */}
+            <div className="topbar">
+              <div className="searchbar">
+                <input
+                  type="text"
+                  placeholder="Search tasks…"
+                  value={filters.search || ""}
+                  onChange={(e) =>
+                    setFilters({ ...filters, search: e.target.value })
+                  }
+                />
+              </div>
+              <div className="filters">
+                <select
+                  value={filters.dept || ""}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dept: e.target.value })
+                  }
+                >
+                  <option value="">Dept: All</option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={filters.status || ""}
+                  onChange={(e) =>
+                    setFilters({ ...filters, status: e.target.value })
+                  }
+                >
+                  <option value="">Status: All</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+                <select
+                  value={filters.dueDate || ""}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dueDate: e.target.value })
+                  }
+                >
+                  <option value="">Due: All</option>
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+                <select id="staffLogin">
+                  <option disabled selected>
+                    Login as…
+                  </option>
+                  <option>Maria</option>
+                  <option>Monica</option>
+                  <option>Marc</option>
+                  <option>Sonia</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Upload Button - DocLatch */}
             <button
               ref={createSnapLinkButtonRef}
-              className="snaplink-btn"
+              className="upload-btn-new"
               onClick={() => snapInputRef.current?.click()}
               disabled={uploading}
+              title="Upload Documents to DocLatch"
             >
               {uploading ? (
-                <span className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Uploading...
-                </span>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto"></div>
               ) : (
-                "📁 DocLatch"
+                "📁"
               )}
             </button>
-            {/* )} */}
             <input
               type="file"
               ref={snapInputRef}
@@ -1167,391 +1853,682 @@ export default function Dashboard() {
               onChange={handleSnap}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             />
-          </div>
 
-          <div className="wrap">
-            {/* Add Font Awesome CDN */}
-            <link
-              rel="stylesheet"
-              href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-            />
+            {/* Create Intake Link Button */}
+            <button
+              ref={createLinkButtonRef}
+              className="floating-intake-btn"
+              onClick={() => setShowModal(true)}
+            >
+              Create Intake Link
+            </button>
 
-            <div className="header">
-              <h1 className="text-2xl font-bold text-gray-800">
-                DocLatch Mission Control
-              </h1>
-              <div className="flex flex-wrap gap-2 items-center">
-                <label
-                  className="muted"
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    alignItems: "center",
-                    fontSize: "14px",
-                  }}
-                >
-                  Mode:
-                  <select
-                    value={modeState}
-                    onChange={(e) =>
-                      setModeState(e.target.value as "wc" | "gm")
-                    }
+            <div className="wrap">
+              {/* Add Font Awesome CDN */}
+              <link
+                rel="stylesheet"
+                href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+              />
+
+              <div className="header" style={{ marginBottom: "20px" }}>
+                <h1 className="text-2xl font-bold text-gray-800">
+                  DocLatch Mission Control
+                </h1>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <label
+                    className="muted"
                     style={{
-                      padding: "6px 8px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
                       fontSize: "14px",
                     }}
                   >
-                    <option value="wc">Workers&apos; Comp</option>
-                    <option value="gm">General Medicine</option>
-                  </select>
-                </label>
-                <label
-                  className="muted"
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    alignItems: "center",
-                    fontSize: "14px",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={dense}
-                    onChange={(e) => setDense(e.target.checked)}
-                  />
-                  Dense
-                </label>
-                <button
-                  ref={createLinkButtonRef}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-                  onClick={() => setShowModal(true)}
-                >
-                  <i className="fas fa-link"></i>
-                  Create Intake Link
-                </button>
-                {session?.user?.role === "Physician" && (
-                  <button
-                    ref={addManualTaskButtonRef}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
-                    onClick={() => setShowTaskModal(true)}
-                  >
-                    <i className="fas fa-plus"></i>
-                    Add Manual Task
-                  </button>
-                )}
-                <button
-                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Department Settings"
-                >
-                  <i className="fas fa-cog"></i>
-                </button>
-                <button
-                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-                  onClick={() => {
-                    const params = {
-                      page: currentPage,
-                      pageSize,
-                      search: filters.search,
-                      dept: filters.dept,
-                      status: filters.status,
-                      overdueOnly: filters.overdueOnly,
-                      priority: filters.priority || undefined,
-                      dueDate: filters.dueDate || undefined,
-                      taskType: filters.taskType || undefined,
-                      assignedTo: filters.assignedTo || undefined,
-                      sortBy: filters.sortBy || "dueDate",
-                      sortOrder: filters.sortOrder || "desc",
-                    };
-                    fetchTasks(modeState, urlClaim, params).then((result) => {
-                      if (result) {
-                        setTotalCount(result.totalCount);
+                    Mode:
+                    <select
+                      value={modeState}
+                      onChange={(e) =>
+                        setModeState(e.target.value as "wc" | "gm")
                       }
-                    });
-                  }}
-                  disabled={loading}
-                  title="Refresh Data"
-                >
-                  <i
-                    className={`fas fa-sync-alt ${
-                      loading ? "animate-spin" : ""
-                    }`}
-                  ></i>
-                </button>
-              </div>
-            </div>
-
-            {loading && (
-              <div className="card">
-                <div style={{ textAlign: "center", padding: "20px" }}>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-2"></div>
-                  Loading tasks...
+                      style={{
+                        padding: "6px 8px",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <option value="wc">Workers&apos; Comp</option>
+                      <option value="gm">General Medicine</option>
+                    </select>
+                  </label>
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={dense}
+                      onChange={(e) => setDense(e.target.checked)}
+                    />
+                    Dense
+                  </label>
+                  {session?.user?.role === "Physician" && (
+                    <button
+                      ref={addManualTaskButtonRef}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+                      onClick={() => setShowTaskModal(true)}
+                    >
+                      <i className="fas fa-plus"></i>
+                      Add Manual Task
+                    </button>
+                  )}
+                  <button
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Department Settings"
+                  >
+                    <i className="fas fa-cog"></i>
+                  </button>
+                  <button
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                    onClick={() => {
+                      const params = {
+                        page: currentPage,
+                        pageSize,
+                        search: filters.search,
+                        dept: filters.dept,
+                        status: filters.status,
+                        overdueOnly: filters.overdueOnly,
+                        priority: filters.priority || undefined,
+                        dueDate: filters.dueDate || undefined,
+                        taskType: filters.taskType || undefined,
+                        assignedTo: filters.assignedTo || undefined,
+                        sortBy: filters.sortBy || "dueDate",
+                        sortOrder: filters.sortOrder || "desc",
+                      };
+                      fetchTasks(modeState, urlClaim, params).then((result) => {
+                        if (result) {
+                          setTotalCount(result.totalCount);
+                        }
+                      });
+                    }}
+                    disabled={loading}
+                    title="Refresh Data"
+                  >
+                    <i
+                      className={`fas fa-sync-alt ${
+                        loading ? "animate-spin" : ""
+                      }`}
+                    ></i>
+                  </button>
                 </div>
               </div>
-            )}
 
-            {!loading && (
-              <>
-                {/* Physician Signature Required Card */}
-                <div className="bg-white rounded-lg shadow-md mb-6 border-l-4 border-yellow-400">
-                  <div className="p-6">
-                    <div className="flex items-center mb-3">
-                      <i className="fas fa-exclamation-triangle text-yellow-500 mr-3 text-xl"></i>
-                      <h2 className="text-xl font-bold text-gray-800 mb-0">
-                        Physician Signature Required
-                      </h2>
-                    </div>
-                    <p className="text-gray-600 italic text-sm mb-6">
-                      These documents require direct physician signature.{" "}
-                      <strong>
-                        Please review documents prior to execution.
-                      </strong>
-                    </p>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-2/5">
-                              DOCUMENT
-                            </th>
-                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                              DATE
-                            </th>
-                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                              STATUS
-                            </th>
-                            <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                              ACTIONS
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 font-medium text-gray-900">
-                              <strong>
-                                UR Determination - PT Plan of Care
-                              </strong>
-                            </td>
-                            <td className="py-4 text-gray-700">12/04/2025</td>
-                            <td className="py-4">
-                              <span className="pill signature">
-                                Signature Needed
-                              </span>
-                            </td>
-                            <td className="py-4">
-                              <div className="flex justify-end space-x-2">
-                                <button className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium">
-                                  Review Document
-                                </button>
-                                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
-                                  Sign
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                          <tr className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 font-medium text-gray-900">
-                              <strong>DME Certification - Lumbar Brace</strong>
-                            </td>
-                            <td className="py-4 text-gray-700">12/03/2025</td>
-                            <td className="py-4">
-                              <span className="pill signature">
-                                Signature Needed
-                              </span>
-                            </td>
-                            <td className="py-4">
-                              <div className="flex justify-end space-x-2">
-                                <button className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium">
-                                  Review Document
-                                </button>
-                                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
-                                  Sign
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                          <tr className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 font-medium text-gray-900">
-                              <strong>Plan of Care - Physical Therapy</strong>
-                            </td>
-                            <td className="py-4 text-gray-700">12/01/2025</td>
-                            <td className="py-4">
-                              <span className="pill pending">
-                                Pending Review
-                              </span>
-                            </td>
-                            <td className="py-4">
-                              <div className="flex justify-end space-x-2">
-                                <button className="px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium">
-                                  Review
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+              {loading && (
+                <div className="card">
+                  <div style={{ textAlign: "center", padding: "20px" }}>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-2"></div>
+                    Loading tasks...
                   </div>
                 </div>
+              )}
 
-                {/* Dashboard Grid - Office Pulse and Task Tracker Side by Side */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Office Pulse Card */}
-                  <div className="lg:col-span-1">
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                      <div className="flex items-center mb-6">
-                        <i className="fas fa-chart-line text-blue-600 mr-3 text-xl"></i>
-                        <h2 className="text-xl font-bold text-gray-800 m-0">
-                          Office Pulse
-                        </h2>
-                      </div>
+              {!loading && (
+                <>
+                  {/* Task Cards */}
+                  <div>
+                    {tasks && tasks.length > 0 ? (
+                      tasks.map((task) => {
+                        // Determine task type icon and color based on department
+                        const getTaskTypeInfo = (
+                          dept: string,
+                          taskText: string
+                        ) => {
+                          const deptLower = dept.toLowerCase();
+                          const taskLower = taskText.toLowerCase();
 
-                      {!isOfficePulseCollapsed && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b border-gray-200">
-                                <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                  DEPARTMENT
-                                </th>
-                                <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                  OPEN
-                                </th>
-                                <th className="text-left py-3 text-xs font-semibold text-red-500 uppercase tracking-wider">
-                                  OVERDUE
-                                </th>
-                                <th className="text-left py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                  UNCLAIMED
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {pulse ? (
-                                pulse.depts.map(
-                                  (rowOrObj: any, index: number) => {
-                                    if (
-                                      typeof rowOrObj === "object" &&
-                                      "department" in rowOrObj
-                                    ) {
-                                      const dept = rowOrObj;
-                                      return (
-                                        <tr
-                                          key={index}
-                                          className="border-b border-gray-100 hover:bg-gray-50"
-                                        >
-                                          <td className="py-4 text-gray-700">
-                                            {dept.department}
-                                          </td>
-                                          <td className="py-4">
-                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
-                                              {dept.open}
-                                            </span>
-                                          </td>
-                                          <td className="py-4">
-                                            <span className="font-bold text-red-500 hover:text-red-700 hover:underline cursor-pointer">
-                                              {dept.overdue}
-                                            </span>
-                                          </td>
-                                          <td className="py-4">
-                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
-                                              {dept.unclaimed}
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      );
-                                    } else {
-                                      const row = rowOrObj as [
-                                        string,
-                                        number,
-                                        number,
-                                        number,
-                                        number
-                                      ];
-                                      return (
-                                        <tr
-                                          key={index}
-                                          className="border-b border-gray-100 hover:bg-gray-50"
-                                        >
-                                          <td className="py-4 text-gray-700">
-                                            {row[0]}
-                                          </td>
-                                          <td className="py-4">
-                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
-                                              {row[1]}
-                                            </span>
-                                          </td>
-                                          <td className="py-4">
-                                            <span className="font-bold text-red-500 hover:text-red-700 hover:underline cursor-pointer">
-                                              {row[2]}
-                                            </span>
-                                          </td>
-                                          <td className="py-4">
-                                            <span className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
-                                              {row[4]}
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      );
+                          if (
+                            deptLower.includes("scheduling") ||
+                            taskLower.includes("schedule")
+                          ) {
+                            return {
+                              icon: "🟦",
+                              type: "scheduling",
+                              color: "#3b82f6",
+                            };
+                          }
+                          if (
+                            deptLower.includes("authorization") ||
+                            deptLower.includes("rfa") ||
+                            deptLower.includes("imr") ||
+                            taskLower.includes("authorization")
+                          ) {
+                            return {
+                              icon: "🟠",
+                              type: "authorization",
+                              color: "#f59e0b",
+                            };
+                          }
+                          if (
+                            taskLower.includes("signature") ||
+                            taskLower.includes("sign")
+                          ) {
+                            return {
+                              icon: "🔴",
+                              type: "signature",
+                              color: "#ef4444",
+                            };
+                          }
+                          if (
+                            deptLower.includes("follow") ||
+                            taskLower.includes("follow")
+                          ) {
+                            return {
+                              icon: "🟡",
+                              type: "followup",
+                              color: "#eab308",
+                            };
+                          }
+                          if (
+                            deptLower.includes("admin") ||
+                            deptLower.includes("compliance") ||
+                            deptLower.includes("billing")
+                          ) {
+                            return {
+                              icon: "🟢",
+                              type: "admin",
+                              color: "#10b981",
+                            };
+                          }
+                          return {
+                            icon: "📋",
+                            type: "default",
+                            color: "#2563eb",
+                          };
+                        };
+
+                        const taskInfo = getTaskTypeInfo(task.dept, task.task);
+                        const isClaimed = task.statusText === "in progress";
+                        const isCompleted =
+                          task.statusText?.toLowerCase() === "done" ||
+                          task.statusText?.toLowerCase() === "completed" ||
+                          task.statusClass === "completed";
+                        const isClaimLoading =
+                          loadingButtons[task.id] === "claim";
+                        const isCompleteLoading =
+                          loadingButtons[task.id] === "complete";
+                        const isNoteLoading =
+                          loadingButtons[task.id] === "note";
+
+                        const handleClaim = async () => {
+                          setLoadingButtons((prev) => ({
+                            ...prev,
+                            [task.id]: "claim",
+                          }));
+                          try {
+                            await toggleClaim(task.id);
+                          } catch (error) {
+                            console.error("Error toggling claim:", error);
+                          } finally {
+                            setLoadingButtons((prev) => {
+                              const newState = { ...prev };
+                              delete newState[task.id];
+                              return newState;
+                            });
+                          }
+                        };
+
+                        const handleComplete = async () => {
+                          if (isCompleted) return;
+                          setLoadingButtons((prev) => ({
+                            ...prev,
+                            [task.id]: "complete",
+                          }));
+                          try {
+                            await completeTask(task.id);
+                          } catch (error) {
+                            console.error("Error completing task:", error);
+                          } finally {
+                            setLoadingButtons((prev) => {
+                              const newState = { ...prev };
+                              delete newState[task.id];
+                              return newState;
+                            });
+                          }
+                        };
+
+                        return (
+                          <div
+                            key={task.id}
+                            className="taskcard"
+                            data-type={taskInfo.type}
+                            style={{
+                              background: "white",
+                              padding: "18px",
+                              borderRadius: "12px",
+                              margin: "20px 0",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                              borderLeft: `6px solid ${taskInfo.color}`,
+                            }}
+                          >
+                            <div
+                              className="task-header"
+                              style={{
+                                fontSize: "15px",
+                                fontWeight: "bold",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              {taskInfo.icon} {task.dept} Task — {task.task}
+                            </div>
+
+                            {/* Task Description Section Box */}
+                            <div
+                              style={{
+                                background: "#f8f9fa",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "8px",
+                                padding: "12px",
+                                marginBottom: "12px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                  color: "#6b7280",
+                                  marginBottom: "6px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                Task Description
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "14px",
+                                  color: "#1e293b",
+                                  lineHeight: "1.5",
+                                }}
+                              >
+                                {task.task}
+                              </div>
+                            </div>
+
+                            {task.patient && task.patient !== "—" && (
+                              <div
+                                style={{
+                                  fontSize: "13px",
+                                  color: "#475569",
+                                  marginBottom: "8px",
+                                }}
+                              >
+                                Patient:{" "}
+                                {typeof task.patient === "string"
+                                  ? task.patient
+                                  : (task.patient as any)?.name || "—"}
+                              </div>
+                            )}
+
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                color: "#475569",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              Due: {task.due}{" "}
+                              {task.overdue && (
+                                <span
+                                  style={{
+                                    color: "#ef4444",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  • Overdue
+                                </span>
+                              )}
+                            </div>
+
+                            <div
+                              className="task-actions"
+                              style={{
+                                marginTop: "10px",
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "8px",
+                                alignItems: "center",
+                              }}
+                            >
+                              <button
+                                className="btn btn-claim"
+                                onClick={handleClaim}
+                                disabled={isClaimLoading || isCompleteLoading}
+                                style={{
+                                  padding: "8px 14px",
+                                  borderRadius: "6px",
+                                  border: "none",
+                                  cursor:
+                                    isClaimLoading || isCompleteLoading
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  background: "#10b981",
+                                  color: "white",
+                                  opacity:
+                                    isClaimLoading || isCompleteLoading
+                                      ? 0.6
+                                      : 1,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {isClaimLoading ? (
+                                  <>
+                                    <div
+                                      className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+                                      style={{
+                                        width: "14px",
+                                        height: "14px",
+                                        borderWidth: "2px",
+                                      }}
+                                    ></div>
+                                    {isClaimed
+                                      ? "Unclaiming..."
+                                      : "Claiming..."}
+                                  </>
+                                ) : isClaimed ? (
+                                  "Unclaim"
+                                ) : (
+                                  "Claim"
+                                )}
+                              </button>
+                              <button
+                                className="btn btn-complete"
+                                onClick={handleComplete}
+                                disabled={
+                                  isCompleted ||
+                                  isClaimLoading ||
+                                  isCompleteLoading
+                                }
+                                style={{
+                                  padding: "8px 14px",
+                                  borderRadius: "6px",
+                                  border: "none",
+                                  cursor:
+                                    isCompleted ||
+                                    isClaimLoading ||
+                                    isCompleteLoading
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  background: "#3b82f6",
+                                  color: "white",
+                                  opacity:
+                                    isCompleted ||
+                                    isClaimLoading ||
+                                    isCompleteLoading
+                                      ? 0.6
+                                      : 1,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {isCompleteLoading ? (
+                                  <>
+                                    <div
+                                      className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+                                      style={{
+                                        width: "14px",
+                                        height: "14px",
+                                        borderWidth: "2px",
+                                      }}
+                                    ></div>
+                                    Completing...
+                                  </>
+                                ) : (
+                                  "Complete"
+                                )}
+                              </button>
+                              <button
+                                className="btn btn-notes"
+                                onClick={() => {
+                                  if (isNoteLoading) return;
+                                  setShowQuickNotes((prev) => ({
+                                    ...prev,
+                                    [task.id]: !prev[task.id],
+                                  }));
+                                  if (!quickNotesData[task.id]) {
+                                    setQuickNotesData((prev) => ({
+                                      ...prev,
+                                      [task.id]: {
+                                        category: "",
+                                        subcategory: "",
+                                        note: "",
+                                        customNote: "",
+                                      },
+                                    }));
+                                  }
+                                }}
+                                disabled={
+                                  isClaimLoading ||
+                                  isCompleteLoading ||
+                                  isNoteLoading
+                                }
+                                style={{
+                                  padding: "8px 14px",
+                                  borderRadius: "6px",
+                                  border: "none",
+                                  cursor:
+                                    isClaimLoading ||
+                                    isCompleteLoading ||
+                                    isNoteLoading
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  background: "#6366f1",
+                                  color: "white",
+                                  opacity:
+                                    isClaimLoading ||
+                                    isCompleteLoading ||
+                                    isNoteLoading
+                                      ? 0.6
+                                      : 1,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {isNoteLoading ? (
+                                  <>
+                                    <div
+                                      className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+                                      style={{
+                                        width: "14px",
+                                        height: "14px",
+                                        borderWidth: "2px",
+                                      }}
+                                    ></div>
+                                    Saving...
+                                  </>
+                                ) : (
+                                  "📝 Quick Note"
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Quick Notes Form */}
+                            {showQuickNotes[task.id] && (
+                              <div
+                                style={{
+                                  marginTop: "12px",
+                                  padding: "12px",
+                                  background: "#f8f9fa",
+                                  borderRadius: "8px",
+                                  border: "1px solid #e5e7eb",
+                                }}
+                              >
+                                <QuickNotesForm
+                                  taskId={task.id}
+                                  taskDept={task.dept}
+                                  quickNotesData={
+                                    quickNotesData[task.id] || {
+                                      category: "",
+                                      subcategory: "",
+                                      note: "",
+                                      customNote: "",
                                     }
                                   }
-                                )
-                              ) : (
-                                <tr>
-                                  <td
-                                    colSpan={4}
-                                    className="py-4 text-center text-gray-500"
-                                  >
-                                    No pulse data available
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
+                                  onUpdate={(data) => {
+                                    setQuickNotesData((prev) => ({
+                                      ...prev,
+                                      [task.id]: data,
+                                    }));
+                                  }}
+                                  onSave={async (note) => {
+                                    setLoadingButtons((prev) => ({
+                                      ...prev,
+                                      [task.id]: "note",
+                                    }));
+                                    try {
+                                      const ts = new Date().toLocaleString();
+
+                                      // Update local state
+                                      const updatedTasks = tasks.map((t) =>
+                                        t.id === task.id
+                                          ? {
+                                              ...t,
+                                              notes: [
+                                                ...(t.notes || []),
+                                                { ts, user: "You", line: note },
+                                              ],
+                                            }
+                                          : t
+                                      );
+
+                                      // Save to API
+                                      const response = await fetch(
+                                        `/api/tasks/${task.id}`,
+                                        {
+                                          method: "PATCH",
+                                          headers: {
+                                            "Content-Type": "application/json",
+                                          },
+                                          body: JSON.stringify({
+                                            quickNotes: {
+                                              status_update:
+                                                quickNotesData[task.id]
+                                                  ?.category || "",
+                                              details:
+                                                quickNotesData[task.id]
+                                                  ?.subcategory || "",
+                                              one_line_note: note,
+                                              timestamp:
+                                                new Date().toISOString(),
+                                            },
+                                          }),
+                                        }
+                                      );
+
+                                      if (!response.ok) {
+                                        throw new Error("Failed to save note");
+                                      }
+
+                                      setShowQuickNotes((prev) => ({
+                                        ...prev,
+                                        [task.id]: false,
+                                      }));
+                                      setQuickNotesData((prev) => {
+                                        const newState = { ...prev };
+                                        delete newState[task.id];
+                                        return newState;
+                                      });
+
+                                      // Refresh tasks
+                                      await fetchTasks(modeState, urlClaim);
+                                    } catch (error) {
+                                      console.error(
+                                        "Error saving note:",
+                                        error
+                                      );
+                                    } finally {
+                                      setLoadingButtons((prev) => {
+                                        const newState = { ...prev };
+                                        delete newState[task.id];
+                                        return newState;
+                                      });
+                                    }
+                                  }}
+                                  onCancel={() => {
+                                    setShowQuickNotes((prev) => ({
+                                      ...prev,
+                                      [task.id]: false,
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            )}
+
+                            {task.notes && task.notes.length > 0 && (
+                              <div
+                                className="activity-history"
+                                style={{
+                                  marginTop: "10px",
+                                  fontSize: "13px",
+                                  color: "#475569",
+                                }}
+                              >
+                                {task.notes
+                                  .slice(-3)
+                                  .map((note: any, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className="history-entry"
+                                      style={{ padding: "3px 0" }}
+                                    >
+                                      {note.ts} — {note.user}: {note.line}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "40px",
+                          color: "#6b7280",
+                        }}
+                      >
+                        No tasks available
+                      </div>
+                    )}
                   </div>
 
-                  {/* Task & Workflow Tracker Card */}
-                  <div className="lg:col-span-2">
-                    <StyledTaskTracker
-                      tasks={tasks}
-                      loading={loading}
-                      filters={filters}
-                      setFilters={setFilters}
-                      isFiltersCollapsed={isFiltersCollapsed}
-                      setIsFiltersCollapsed={setIsFiltersCollapsed}
-                      currentPage={currentPage}
-                      setCurrentPage={setCurrentPage}
-                      pageSize={pageSize}
-                      setPageSize={setPageSize}
-                      totalCount={totalCount}
-                      departments={departments}
-                      onTaskView={(task) => {
-                        console.log("View task:", task);
-                        // Add your task view logic here
-                      }}
+                  {failedDocuments && failedDocuments.length > 0 && (
+                    <FailedDocuments
+                      documents={failedDocuments}
+                      onRowClick={handleRowClick}
                     />
-                  </div>
-                </div>
+                  )}
 
-                {failedDocuments && failedDocuments.length > 0 && (
-                  <FailedDocuments
-                    documents={failedDocuments}
-                    onRowClick={handleRowClick}
-                  />
-                )}
-
-                {duplicateDocuments && duplicateDocuments.length > 0 && (
-                  <DuplicatePatients
-                    documents={duplicateDocuments}
-                    onRowClick={handleDuplicateRowClick}
-                  />
-                )}
-              </>
-            )}
+                  {duplicateDocuments && duplicateDocuments.length > 0 && (
+                    <DuplicatePatients
+                      documents={duplicateDocuments}
+                      onRowClick={handleDuplicateRowClick}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
