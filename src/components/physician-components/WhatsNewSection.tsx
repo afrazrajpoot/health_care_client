@@ -22,15 +22,6 @@ import {
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -39,20 +30,6 @@ interface WhatsNewSectionProps {
   isCollapsed: boolean;
   onToggle: () => void;
   mode?: string;
-}
-
-interface SelectedSummary {
-  type: string;
-  date: string;
-  summary: string;
-  patientName?: string;
-  doctorName?: string;
-  briefSummary?: string;
-  patientAge?: number;
-  injuryDate?: string;
-  claimNumber?: string;
-  documentType?: string;
-  isLongSummary?: boolean;
 }
 
 const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
@@ -68,8 +45,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
     new Set()
   );
-  const [selectedSummary, setSelectedSummary] =
-    useState<SelectedSummary | null>(null);
+  const [expandedLongSummary, setExpandedLongSummary] = useState<string | null>(
+    null
+  );
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
 
@@ -456,39 +435,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
-  const handleReadMoreClick = (group: any) => {
-    const formattedSummary = formatLongSummaryWithColors(
-      group.longSummary || group.briefSummary || ""
-    );
-    setSelectedSummary({
-      type: group.documentType,
-      date: group.reportDate,
-      summary: formattedSummary,
-      patientName: group.patientName,
-      doctorName: group.consultingDoctor,
-      briefSummary: group.briefSummary,
-      patientAge: group.patientAge,
-      injuryDate: group.injuryDate,
-      claimNumber: group.claimNumber,
-      documentType: group.documentType,
-      isLongSummary: true,
-    });
-  };
-
-  const handleViewSummaryClick = (group: any) => {
-    setSelectedSummary({
-      type: group.documentType,
-      date: group.reportDate,
-      summary: group.briefSummary || "",
-      patientName: group.patientName,
-      doctorName: group.consultingDoctor,
-      briefSummary: group.briefSummary,
-      patientAge: group.patientAge,
-      injuryDate: group.injuryDate,
-      claimNumber: group.claimNumber,
-      documentType: group.documentType,
-      isLongSummary: false,
-    });
+  const handleReadMoreClick = (e: React.MouseEvent, group: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Toggle the expanded state for this card
+    if (expandedLongSummary === group.docId) {
+      setExpandedLongSummary(null);
+    } else {
+      setExpandedLongSummary(group.docId);
+      // Ensure the details element is open
+      setOpenCards((prev) => new Set([...prev, group.docId]));
+    }
   };
 
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
@@ -521,572 +478,511 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   return (
     <>
-      <div className="section">
-        <div className="section-header" onClick={handleSectionClick}>
-          <div className="section-title">
-            <BriefcaseMedicalIcon className="icon-sm" />
-            <h3>What's New Since Last Visit</h3>
-          </div>
-          <div className="header-actions">
-            <button
-              className="copy-all-btn"
-              onClick={handleCopyAllReports}
-              title="Copy all report names"
-            >
-              <CopyIcon className="icon-xs" />
-              Copy All
-            </button>
-            <button
-              className="collapse-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggle();
-              }}
-              title={isCollapsed ? "Expand" : "Collapse"}
-            >
-              {isCollapsed ? (
-                <ChevronRightIcon className="icon-xs" />
-              ) : (
-                <ChevronDownIcon className="icon-xs" />
-              )}
-            </button>
-          </div>
-        </div>
-        {!isCollapsed && (
-          <div className="section-content">
-            <div className="whats-new-list overflow-y-auto max-h-96">
-              {documentGroups.map((group, groupIndex) => {
-                const isViewed = isGroupViewed(group.docId);
-                const isGroupCopied = copied[`whatsnew-${group.docId}`];
-                const isLoading = isLoadingForGroup(group);
-                const isPreviewLoading = isPreviewLoadingForGroup(group);
-                const formattedDate = formatDisplayDate(group.reportDate);
+      {!isCollapsed && (
+        <div className="section-content">
+          <div className="whats-new-list">
+            {documentGroups.map((group, groupIndex) => {
+              const isViewed = isGroupViewed(group.docId);
+              const isGroupCopied = copied[`whatsnew-${group.docId}`];
+              const isLoading = isLoadingForGroup(group);
+              const isPreviewLoading = isPreviewLoadingForGroup(group);
+              const formattedDate = formatDisplayDate(group.reportDate);
 
-                return (
-                  <div key={group.docId} className="whats-new-bullet-item">
-                    {/* Report Heading */}
-                    <div className="report-heading">
-                      {group.documentType} Report for {group.patientName} by{" "}
-                      {group.consultingDoctor} ({formattedDate})
-                    </div>
-                    {/* Bullet point with summary */}
-                    <div className="bullet-content">
-                      <div className="bullet-marker">•</div>
-                      <div className="bullet-text">
-                        <div className="summary-text-wrapper">
-                          {renderSummaryWithHTML(group.shortSummary, false)}
+              // Get icon based on document type
+              const getIcon = () => {
+                const type = (group.documentType || "").toLowerCase();
+                if (type.includes("mri")) return "📘";
+                if (type.includes("emg") || type.includes("ncs")) return "⚡";
+                if (type.includes("ortho")) return "🩺";
+                if (type.includes("pt") || type.includes("physical therapy"))
+                  return "�";
+                return "📘";
+              };
+
+              // Extract key findings from summary for pills
+              const extractPills = (summary: string) => {
+                const pills: string[] = [];
+                const lines = summary.split("\n").slice(0, 3);
+                lines.forEach((line) => {
+                  const words = line.split(" ").slice(0, 3).join(" ");
+                  if (words.length > 0 && words.length < 30) {
+                    pills.push(words);
+                  }
+                });
+                return pills.slice(0, 3);
+              };
+
+              const pills = extractPills(group.shortSummary || "");
+
+              return (
+                <details
+                  key={group.docId}
+                  className="card"
+                  open={openCards.has(group.docId)}
+                  onToggle={(e) => {
+                    const isOpen = (e.currentTarget as HTMLDetailsElement).open;
+                    setOpenCards((prev) => {
+                      const newSet = new Set(prev);
+                      if (isOpen) {
+                        newSet.add(group.docId);
+                      } else {
+                        newSet.delete(group.docId);
+                        // If closing, also collapse long summary if it was expanded
+                        if (expandedLongSummary === group.docId) {
+                          setExpandedLongSummary(null);
+                        }
+                      }
+                      return newSet;
+                    });
+                  }}
+                >
+                  <summary>
+                    <div className="icon">{getIcon()}</div>
+                    <div className="main">
+                      <div className="row1">
+                        <div className="left">
+                          <div className="t">
+                            {group.documentType || "Document"}
+                          </div>
+                          <div className="sub">
+                            {group.consultingDoctor || "Unknown"} •{" "}
+                            {formattedDate}
+                          </div>
                         </div>
-
-                        {/* Buttons with border like screenshot */}
-                        <div className="action-buttons">
-                          {group.longSummary && (
-                            <button
-                              onClick={() => handleReadMoreClick(group)}
-                              className="action-btn read-more-btn"
-                              title="Read detailed summary"
-                            >
-                              Read more
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => handleViewSummaryClick(group)}
-                            className="action-btn view-summary-btn"
-                            title="View brief summary"
+                        <div className="cta">
+                          <span
+                            className="doc-pill"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handlePreviewClick(e, group.doc);
+                            }}
                           >
-                            View brief summary
-                          </button>
-
-                          <button
-                            className={`action-btn copy-btn ${
-                              isGroupCopied ? "copied" : ""
-                            }`}
-                            onClick={(e) => handleCopyClick(e, group.docId)}
-                            title="Copy Macro"
-                          >
-                            {isGroupCopied ? "Copied" : "Copy Macro"}
-                          </button>
-
-                          <button
-                            className={`action-btn mark-viewed-btn ${
-                              isViewed ? "viewed" : ""
-                            } ${isLoading ? "loading" : ""}`}
-                            onClick={(e) => handleMarkViewed(e, group)}
-                            disabled={isLoading}
-                            title="Mark as Reviewed"
-                          >
-                            {isLoading
-                              ? "Loading..."
-                              : isViewed
-                              ? "Reviewed"
-                              : "Mark Reviewed"}
-                          </button>
-
-                          <button
-                            className="action-btn preview-btn"
-                            onClick={(e) => handlePreviewClick(e, group.doc)}
-                            disabled={isPreviewLoading}
-                            title="Preview Document"
-                          >
-                            {isPreviewLoading ? "Loading..." : "Preview"}
-                          </button>
+                            📄 View Original
+                          </span>
                         </div>
                       </div>
+                      <div className="scanline">
+                        {pills.map((pill, idx) => (
+                          <span
+                            key={idx}
+                            className={idx === 0 ? "pill" : "pill gray"}
+                          >
+                            {pill}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-
-                    {/* Quick Notes */}
-                    {group.task_quick_notes &&
-                      group.task_quick_notes.length > 0 &&
-                      group.task_quick_notes.some(
-                        (note: any) =>
-                          note.status_update ||
-                          note.one_line_note ||
-                          note.details ||
-                          note.timestamp
-                      ) && (
-                        <div className="quick-notes-section">
-                          <div className="quick-notes-header">Quick Notes:</div>
-                          <div className="quick-notes-list">
-                            {group.task_quick_notes.map(
-                              (note: any, noteIndex: number) => {
-                                const hasContent =
-                                  note.status_update ||
-                                  note.one_line_note ||
-                                  note.details ||
-                                  note.timestamp;
-                                if (!hasContent) return null;
-
-                                return (
-                                  <div
-                                    key={noteIndex}
-                                    className="quick-note-item"
-                                  >
-                                    {note.status_update && (
-                                      <span className="note-status">
-                                        {note.status_update}
-                                      </span>
-                                    )}
-                                    {note.one_line_note && (
-                                      <span className="note-one-line">
-                                        {note.one_line_note}
-                                      </span>
-                                    )}
-                                    {note.details && (
-                                      <span className="note-details">
-                                        {note.details}
-                                      </span>
-                                    )}
-                                    {note.timestamp && (
-                                      <span className="note-timestamp">
-                                        {formatTimestamp(note.timestamp)}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              }
+                  </summary>
+                  <div className="detail">
+                    <div className="detail-grid">
+                      {expandedLongSummary === group.docId &&
+                      group.longSummary ? (
+                        <div className="detail-box">
+                          <div className="label">Long Summary</div>
+                          <div className="text long">
+                            {renderFormattedSummary(
+                              formatLongSummaryWithColors(
+                                group.longSummary || group.briefSummary || ""
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="detail-box">
+                          <div className="label">Key Findings</div>
+                          <div className="text long">
+                            {renderSummaryWithHTML(
+                              group.shortSummary || "",
+                              false
                             )}
                           </div>
                         </div>
                       )}
+                    </div>
+                    <div className="actions">
+                      {group.longSummary && (
+                        <button
+                          onClick={(e) => handleReadMoreClick(e, group)}
+                          className="action-btn read-more-btn"
+                          title={
+                            expandedLongSummary === group.docId
+                              ? "Show brief summary"
+                              : "Read detailed summary"
+                          }
+                        >
+                          {expandedLongSummary === group.docId
+                            ? "Show brief"
+                            : "Read more"}
+                        </button>
+                      )}
+
+                      <button
+                        className={`action-btn copy-btn ${
+                          isGroupCopied ? "copied" : ""
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleCopyClick(e, group.docId);
+                        }}
+                        title="Copy Macro"
+                      >
+                        {isGroupCopied ? "Copied" : "Copy Macro"}
+                      </button>
+
+                      <button
+                        className={`action-btn mark-viewed-btn ${
+                          isViewed ? "viewed" : ""
+                        } ${isLoading ? "loading" : ""}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleMarkViewed(e, group);
+                        }}
+                        disabled={isLoading}
+                        title="Mark as Reviewed"
+                      >
+                        {isLoading
+                          ? "Loading..."
+                          : isViewed
+                          ? "Reviewed"
+                          : "Mark Reviewed"}
+                      </button>
+
+                      <button
+                        className="action-btn preview-btn"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handlePreviewClick(e, group.doc);
+                        }}
+                        disabled={isPreviewLoading}
+                        title="Preview Document"
+                      >
+                        {isPreviewLoading ? "Loading..." : "Preview"}
+                      </button>
+                    </div>
                   </div>
-                );
-              })}
-              {documentGroups.length === 0 && (
-                <div className="no-items">
-                  No significant changes since last visit
+                </details>
+              );
+            })}
+            {documentGroups.length === 0 && (
+              <div className="no-items">
+                No significant changes since last visit
+              </div>
+            )}
+          </div>
+
+          {/* Patient Intake Submissions Section */}
+          {intakeSubmissions.length > 0 && (
+            <div className="intake-submissions-section">
+              <div
+                className="intake-header"
+                onClick={() => setIntakesExpanded(!intakesExpanded)}
+              >
+                <div className="intake-title">
+                  <svg
+                    className="icon-sm"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M9 11l3 3L22 4"></path>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                  <span>
+                    Patient Intake Submissions ({intakeSubmissions.length})
+                  </span>
+                </div>
+                <button className="collapse-btn">
+                  {intakesExpanded ? (
+                    <ChevronDownIcon className="icon-xs" />
+                  ) : (
+                    <ChevronRightIcon className="icon-xs" />
+                  )}
+                </button>
+              </div>
+
+              {intakesExpanded && (
+                <div className="intake-list">
+                  {loadingIntakes ? (
+                    <div className="loading-intakes">
+                      Loading intake submissions...
+                    </div>
+                  ) : (
+                    intakeSubmissions.map((intake, index) => (
+                      <div key={intake.id || index} className="intake-item">
+                        <div className="intake-item-header">
+                          <span className="intake-date">
+                            {new Date(intake.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </span>
+                          <span className="intake-lang">
+                            {intake.lang === "es" ? "Español" : "English"}
+                          </span>
+                        </div>
+
+                        <div className="intake-details">
+                          {intake.bodyAreas && (
+                            <div className="intake-row">
+                              <span className="intake-label">Body Areas:</span>
+                              <span className="intake-value">
+                                {intake.bodyAreas}
+                              </span>
+                            </div>
+                          )}
+
+                          {intake.newAppointments &&
+                            intake.newAppointments.length > 0 && (
+                              <div className="intake-row">
+                                <span className="intake-label">
+                                  New Appointments:
+                                </span>
+                                <span className="intake-value">
+                                  {intake.newAppointments.map(
+                                    (appt: any, i: number) => (
+                                      <span key={i} className="appt-badge">
+                                        {appt.type} ({appt.date || "No date"})
+                                      </span>
+                                    )
+                                  )}
+                                </span>
+                              </div>
+                            )}
+
+                          {intake.refill && intake.refill.needed && (
+                            <div className="intake-row">
+                              <span className="intake-label">
+                                Medication Refill:
+                              </span>
+                              <span className="intake-value">
+                                Pain: {intake.refill.before}/10 →{" "}
+                                {intake.refill.after}/10
+                              </span>
+                            </div>
+                          )}
+
+                          {intake.adl && (
+                            <div className="intake-row">
+                              <span className="intake-label">ADL Status:</span>
+                              <span
+                                className={`intake-value adl-status-${intake.adl.state}`}
+                              >
+                                {intake.adl.state === "same"
+                                  ? "No Change"
+                                  : intake.adl.state === "better"
+                                  ? "Improved"
+                                  : intake.adl.state === "worse"
+                                  ? "Worsened"
+                                  : intake.adl.state}
+                                {intake.adl.list &&
+                                  intake.adl.list.length > 0 && (
+                                    <span className="adl-list">
+                                      {" "}
+                                      - {intake.adl.list.join(", ")}
+                                    </span>
+                                  )}
+                              </span>
+                            </div>
+                          )}
+
+                          {intake.therapies && intake.therapies.length > 0 && (
+                            <div className="intake-row">
+                              <span className="intake-label">Therapies:</span>
+                              <span className="intake-value">
+                                {intake.therapies.map((t: any, i: number) => (
+                                  <span
+                                    key={i}
+                                    className={`therapy-badge effect-${t.effect
+                                      ?.toLowerCase()
+                                      .replace(/\s+/g, "-")}`}
+                                  >
+                                    {t.therapy}: {t.effect}
+                                  </span>
+                                ))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Patient Intake Submissions Section */}
-            {intakeSubmissions.length > 0 && (
-              <div className="intake-submissions-section">
-                <div
-                  className="intake-header"
-                  onClick={() => setIntakesExpanded(!intakesExpanded)}
-                >
-                  <div className="intake-title">
-                    <svg
-                      className="icon-sm"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M9 11l3 3L22 4"></path>
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                    </svg>
-                    <span>
-                      Patient Intake Submissions ({intakeSubmissions.length})
-                    </span>
-                  </div>
-                  <button className="collapse-btn">
-                    {intakesExpanded ? (
-                      <ChevronDownIcon className="icon-xs" />
-                    ) : (
-                      <ChevronRightIcon className="icon-xs" />
-                    )}
-                  </button>
-                </div>
-
-                {intakesExpanded && (
-                  <div className="intake-list">
-                    {loadingIntakes ? (
-                      <div className="loading-intakes">
-                        Loading intake submissions...
-                      </div>
-                    ) : (
-                      intakeSubmissions.map((intake, index) => (
-                        <div key={intake.id || index} className="intake-item">
-                          <div className="intake-item-header">
-                            <span className="intake-date">
-                              {new Date(intake.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}
-                            </span>
-                            <span className="intake-lang">
-                              {intake.lang === "es" ? "Español" : "English"}
-                            </span>
-                          </div>
-
-                          <div className="intake-details">
-                            {intake.bodyAreas && (
-                              <div className="intake-row">
-                                <span className="intake-label">
-                                  Body Areas:
-                                </span>
-                                <span className="intake-value">
-                                  {intake.bodyAreas}
-                                </span>
-                              </div>
-                            )}
-
-                            {intake.newAppointments &&
-                              intake.newAppointments.length > 0 && (
-                                <div className="intake-row">
-                                  <span className="intake-label">
-                                    New Appointments:
-                                  </span>
-                                  <span className="intake-value">
-                                    {intake.newAppointments.map(
-                                      (appt: any, i: number) => (
-                                        <span key={i} className="appt-badge">
-                                          {appt.type} ({appt.date || "No date"})
-                                        </span>
-                                      )
-                                    )}
-                                  </span>
-                                </div>
-                              )}
-
-                            {intake.refill && intake.refill.needed && (
-                              <div className="intake-row">
-                                <span className="intake-label">
-                                  Medication Refill:
-                                </span>
-                                <span className="intake-value">
-                                  Pain: {intake.refill.before}/10 →{" "}
-                                  {intake.refill.after}/10
-                                </span>
-                              </div>
-                            )}
-
-                            {intake.adl && (
-                              <div className="intake-row">
-                                <span className="intake-label">
-                                  ADL Status:
-                                </span>
-                                <span
-                                  className={`intake-value adl-status-${intake.adl.state}`}
-                                >
-                                  {intake.adl.state === "same"
-                                    ? "No Change"
-                                    : intake.adl.state === "better"
-                                    ? "Improved"
-                                    : intake.adl.state === "worse"
-                                    ? "Worsened"
-                                    : intake.adl.state}
-                                  {intake.adl.list &&
-                                    intake.adl.list.length > 0 && (
-                                      <span className="adl-list">
-                                        {" "}
-                                        - {intake.adl.list.join(", ")}
-                                      </span>
-                                    )}
-                                </span>
-                              </div>
-                            )}
-
-                            {intake.therapies &&
-                              intake.therapies.length > 0 && (
-                                <div className="intake-row">
-                                  <span className="intake-label">
-                                    Therapies:
-                                  </span>
-                                  <span className="intake-value">
-                                    {intake.therapies.map(
-                                      (t: any, i: number) => (
-                                        <span
-                                          key={i}
-                                          className={`therapy-badge effect-${t.effect
-                                            ?.toLowerCase()
-                                            .replace(/\s+/g, "-")}`}
-                                        >
-                                          {t.therapy}: {t.effect}
-                                        </span>
-                                      )
-                                    )}
-                                  </span>
-                                </div>
-                              )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Modal for Summary */}
-      <Dialog
-        open={!!selectedSummary}
-        onOpenChange={() => setSelectedSummary(null)}
-      >
-        <DialogContent className="max-w-4xl h-[85vh] overflow-y-auto p-0">
-          <div className="modal-header bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b">
-            <DialogHeader className="mb-4">
-              <div className="flex items-center gap-3 mb-2">
-                {selectedSummary?.isLongSummary ? (
-                  <BookOpenIcon className="h-6 w-6 text-blue-600" />
-                ) : (
-                  <FileText className="h-6 w-6 text-green-600" />
-                )}
-                <DialogTitle className="text-2xl font-bold text-gray-800">
-                  {selectedSummary?.isLongSummary
-                    ? "Detailed Report Summary"
-                    : "Brief Report Summary"}
-                </DialogTitle>
-              </div>
-
-              <div className="patient-info-grid">
-                <div className="info-item">
-                  <div className="info-label">
-                    <UserIcon className="icon-sm mr-2" />
-                    Patient Name
-                  </div>
-                  <div className="info-value">
-                    {selectedSummary?.patientName || "Not specified"}
-                  </div>
-                </div>
-
-                {selectedSummary?.patientAge && (
-                  <div className="info-item">
-                    <div className="info-label">Age</div>
-                    <div className="info-value">
-                      {selectedSummary.patientAge} years
-                    </div>
-                  </div>
-                )}
-
-                {selectedSummary?.injuryDate && (
-                  <div className="info-item">
-                    <div className="info-label">
-                      <CalendarIcon className="icon-sm mr-2" />
-                      Date of Injury
-                    </div>
-                    <div className="info-value">
-                      {formatDisplayDate(selectedSummary.injuryDate)}
-                    </div>
-                  </div>
-                )}
-
-                {selectedSummary?.claimNumber && (
-                  <div className="info-item">
-                    <div className="info-label">Claim #</div>
-                    <div className="info-value font-mono">
-                      {selectedSummary.claimNumber}
-                    </div>
-                  </div>
-                )}
-
-                <div className="info-item">
-                  <div className="info-label">
-                    <StethoscopeIcon className="icon-sm mr-2" />
-                    Consulting Physician
-                  </div>
-                  <div className="info-value">
-                    {" "}
-                    {selectedSummary?.doctorName || "Not specified"}
-                  </div>
-                </div>
-
-                {selectedSummary?.date && (
-                  <div className="info-item">
-                    <div className="info-label">Report Date</div>
-                    <div className="info-value">
-                      {formatDisplayDate(selectedSummary.date)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </DialogHeader>
-          </div>
-
-          <div className="modal-body p-6">
-            <div className="summary-section">
-              <h3 className="summary-title">
-                {selectedSummary?.isLongSummary ? (
-                  <>
-                    <BookOpenIcon className="icon-sm mr-2" />
-                    Detailed Summary
-                  </>
-                ) : (
-                  <>
-                    <FileTextIcon className="icon-sm mr-2" />
-                    Brief Summary
-                  </>
-                )}
-              </h3>
-              <div className="summary-content">
-                {selectedSummary?.summary ? (
-                  <div
-                    className={`summary-text-wrapper ${
-                      selectedSummary?.isLongSummary
-                        ? "detailed-summary-text"
-                        : "brief-summary-text"
-                    }`}
-                  >
-                    {selectedSummary?.isLongSummary
-                      ? renderFormattedSummary(selectedSummary.summary)
-                      : renderSummaryWithHTML(selectedSummary.summary, true)}
-                  </div>
-                ) : (
-                  <div className="no-summary">
-                    No {selectedSummary?.isLongSummary ? "detailed" : "brief"}{" "}
-                    summary available for this document.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="modal-footer border-t bg-gray-50 p-4 flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setSelectedSummary(null)}
-              className="mr-3"
-            >
-              Close
-            </Button>
-            {selectedSummary?.summary && (
-              <Button
-                onClick={() => {
-                  // Remove HTML tags when copying
-                  const cleanText = selectedSummary.summary.replace(
-                    /<[^>]*>/g,
-                    ""
-                  );
-                  navigator.clipboard.writeText(cleanText);
-                  toast.success("Summary copied to clipboard");
-                }}
-                className={`${
-                  selectedSummary?.isLongSummary
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                <CopyIcon className="h-4 w-4 mr-2" />
-                Copy Summary
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
       <style jsx>{`
         .section {
-          padding: 16px;
-          border-bottom: 1px solid #e5e7eb;
-          border-left: 4px solid #10b981;
-          transition: background-color 0.2s;
+          padding: 0;
+          border: none;
         }
         .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          cursor: pointer;
-          padding: 2px;
-          border-radius: 4px;
-          transition: background-color 0.2s;
-        }
-        .section-header:hover {
-          background-color: #f8fafc;
-        }
-        .section-title {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex: 1;
-        }
-        h3 {
-          margin: 0;
-          font-size: 13px;
-          color: #1f2937;
-        }
-        .header-actions {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-        }
-        .copy-all-btn {
-          background: transparent;
-          border: 1px solid #d1d5db;
-          padding: 4px 8px;
-          font-size: 11px;
-          cursor: pointer;
-          color: #1f2937;
-          border-radius: 4px;
-          font-weight: 500;
-          transition: all 0.2s;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .copy-all-btn:hover {
-          background: #f3f4f6;
-          border-color: #3b82f6;
-          color: #3b82f6;
-        }
-        .collapse-btn {
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          padding: 4px;
-          display: flex;
-          align-items: center;
-          transition: all 0.2s;
-        }
-        .collapse-btn:hover {
-          background: #f3f4f6;
-          border-radius: 4px;
+          display: none;
         }
         .section-content {
-          margin-top: 10px;
+          margin-top: 0;
         }
         .whats-new-list {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
+        }
+        /* Card styles from HTML */
+        .card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          margin: 0;
+          overflow: hidden;
+        }
+        .card summary {
+          list-style: none;
+          cursor: pointer;
+          padding: 10px 12px;
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+        }
+        .card summary::-webkit-details-marker {
+          display: none;
+        }
+        .icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f3f4f6;
+          font-size: 16px;
+          flex: 0 0 34px;
+        }
+        .main {
+          flex: 1;
+          min-width: 0;
+        }
+        .row1 {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .left {
+          min-width: 0;
+        }
+        .t {
+          font-size: 14px;
+          font-weight: 800;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sub {
+          font-size: 12px;
+          color: var(--muted);
+          margin-top: 2px;
+        }
+        .scanline {
+          margin-top: 6px;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .pill {
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          background: var(--chip);
+          color: var(--accent2);
+          font-weight: 700;
+        }
+        .pill.gray {
+          background: #f3f4f6;
+          color: #374151;
+          font-weight: 600;
+        }
+        .cta {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex: 0 0 auto;
+        }
+        .doc-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: #fff;
+          font-size: 12px;
+          font-weight: 800;
+          color: var(--accent2);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .doc-pill:hover {
+          background: var(--chip);
+        }
+        .detail {
+          border-top: 1px solid var(--border);
+          padding: 10px 12px;
+          background: #fafafa;
+        }
+        .detail-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .detail-box {
+          background: #fff;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 10px;
+        }
+        .label {
+          font-size: 12px;
+          color: var(--muted);
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+        .text {
+          font-size: 13px;
+          margin-top: 6px;
+          line-height: 1.35;
+          color: #111827;
+        }
+        .long {
+          max-height: 120px;
+          overflow: auto;
+          padding-right: 6px;
+        }
+        .actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 10px;
+        }
+        details[open] summary {
+          background: #f9fafb;
+        }
+        details[open] .t {
+          color: #0f172a;
         }
         .whats-new-list::-webkit-scrollbar {
           width: 8px;
