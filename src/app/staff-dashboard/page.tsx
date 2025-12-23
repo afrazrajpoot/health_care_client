@@ -633,6 +633,7 @@ export default function Dashboard() {
     updateFormData,
     updateLoading,
     fetchFailedDocuments,
+    removeFailedDocument,
     handleRowClick,
     handleUpdateInputChange,
     handleUpdateSubmit,
@@ -2517,6 +2518,7 @@ export default function Dashboard() {
                     <FailedDocuments
                       documents={failedDocuments}
                       onRowClick={handleRowClick}
+                      onDocumentDeleted={removeFailedDocument}
                     />
                   )}
 

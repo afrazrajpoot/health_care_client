@@ -1,9 +1,75 @@
 // app/api/documents/[id]/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/services/authSErvice";
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
 
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { error: "Unauthorized: No valid session" },
+        { status: 401 }
+      );
+    }
 
+    const physicianId = session?.user?.physicianId || session?.user?.id;
+
+    if (!physicianId) {
+      return NextResponse.json(
+        { error: "Physician ID not found in session" },
+        { status: 400 }
+      );
+    }
+
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Document ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // First verify the document belongs to this physician
+    const document = await prisma.failDocs.findFirst({
+      where: {
+        id: id,
+        physicianId: physicianId,
+      },
+    });
+
+    if (!document) {
+      return NextResponse.json(
+        { error: "Document not found or access denied" },
+        { status: 404 }
+      );
+    }
+
+    // Delete the document
+    await prisma.failDocs.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Document deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting failed document:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PATCH(
   request: NextRequest,

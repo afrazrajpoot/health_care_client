@@ -31,6 +31,14 @@ export const useFailedDocuments = () => {
     }
   }, []);
 
+  const removeFailedDocument = useCallback((docId: string) => {
+    setFailedDocuments((prev) => prev.filter((doc) => doc.id !== docId));
+    toast.success("Document deleted successfully", {
+      duration: 3000,
+      position: "top-right",
+    });
+  }, []);
+
   const handleRowClick = useCallback((doc: any) => {
     setSelectedDoc(doc);
     let parsedDob: Date | null = null;
@@ -134,6 +142,7 @@ export const useFailedDocuments = () => {
     updateFormData,
     updateLoading,
     fetchFailedDocuments,
+    removeFailedDocument,
     handleRowClick,
     handleUpdateInputChange,
     handleUpdateSubmit,
