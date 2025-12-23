@@ -2519,6 +2519,8 @@ export default function Dashboard() {
                       documents={failedDocuments}
                       onRowClick={handleRowClick}
                       onDocumentDeleted={removeFailedDocument}
+                      mode={modeState}
+                      physicianId={session?.user?.physicianId || session?.user?.id}
                     />
                   )}
 
