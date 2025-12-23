@@ -1,5 +1,6 @@
 // app/dashboard/components/FailedDocuments.tsx
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   AlertCircle,
   FileX,
@@ -10,6 +11,9 @@ import {
   Eye,
   Trash2,
   X,
+  Scissors,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 
 interface FailedDocument {
@@ -31,18 +35,30 @@ interface FailedDocumentsProps {
   documents: FailedDocument[];
   onRowClick: (doc: FailedDocument) => void;
   onDocumentDeleted?: (docId: string) => void;
+  mode?: "wc" | "gm";
+  physicianId?: string;
 }
 
 export default function FailedDocuments({
   documents,
   onRowClick,
   onDocumentDeleted,
+  mode = "wc",
+  physicianId,
 }: FailedDocumentsProps) {
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] =
     useState<FailedDocument | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
+  const [documentToSplit, setDocumentToSplit] =
+    useState<FailedDocument | null>(null);
+  const [isSplitting, setIsSplitting] = useState(false);
+  const [splitResults, setSplitResults] = useState<any>(null);
+  const [pageRanges, setPageRanges] = useState<
+    Array<{ start_page: number; end_page: number; report_title: string }>
+  >([{ start_page: 1, end_page: 1, report_title: "" }]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -152,6 +168,137 @@ export default function FailedDocuments({
   const handleCancelDelete = () => {
     setDeleteModalOpen(false);
     setDocumentToDelete(null);
+  };
+
+  const handleSplitClick = (e: React.MouseEvent, doc: FailedDocument) => {
+    e.stopPropagation();
+    if (!doc.blobPath) {
+      alert("No blob path available - cannot extract pages from document");
+      return;
+    }
+    setDocumentToSplit(doc);
+    setSplitModalOpen(true);
+    setSplitResults(null);
+    // Initialize with one page range
+    setPageRanges([{ start_page: 1, end_page: 1, report_title: "" }]);
+  };
+
+  const handleAddPageRange = () => {
+    setPageRanges([
+      ...pageRanges,
+      { start_page: 1, end_page: 1, report_title: "" },
+    ]);
+  };
+
+  const handleRemovePageRange = (index: number) => {
+    if (pageRanges.length > 1) {
+      setPageRanges(pageRanges.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePageRangeChange = (
+    index: number,
+    field: "start_page" | "end_page" | "report_title",
+    value: string | number
+  ) => {
+    const updated = [...pageRanges];
+    updated[index] = { ...updated[index], [field]: value };
+    setPageRanges(updated);
+  };
+
+  const handleSplitAndProcess = async () => {
+    if (!documentToSplit || !documentToSplit.blobPath || !physicianId) {
+      toast.error("Missing required information for splitting", {
+        duration: 5000,
+      });
+      return;
+    }
+
+    // Validate page ranges
+    const validRanges = pageRanges.filter(
+      (range) =>
+        range.start_page > 0 &&
+        range.end_page >= range.start_page &&
+        range.report_title.trim() !== ""
+    );
+
+    if (validRanges.length === 0) {
+      toast.error("Please add at least one valid page range with a report title", {
+        duration: 5000,
+      });
+      return;
+    }
+
+    setIsSplitting(true);
+    setSplitResults(null);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"}/api/documents/split-and-process-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: mode,
+            physician_id: physicianId,
+            original_filename: documentToSplit.fileName || "split_document",
+            fail_doc_id: documentToSplit.id,
+            blob_path: documentToSplit.blobPath,  // GCS blob path to extract pages from
+            page_ranges: validRanges,  // Staff-provided page ranges
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to split document");
+      }
+
+      const data = await response.json();
+      setSplitResults(data);
+      
+      // Show success message
+      if (data.saved_documents && data.saved_documents > 0) {
+        toast.success(
+          `Successfully split and saved ${data.saved_documents} document(s)!`,
+          {
+            description: `Document IDs: ${data.document_ids?.join(", ") || "N/A"}`,
+            duration: 5000,
+          }
+        );
+        // Optionally refresh the failed documents list
+        if (onDocumentDeleted && documentToSplit.id) {
+          // The failed document may have been deleted if all reports were saved
+          setTimeout(() => {
+            onDocumentDeleted(documentToSplit.id);
+          }, 1000);
+        }
+      } else {
+        toast.warning("Documents processed but not all were saved", {
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error("Error splitting document:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to split and process document",
+        {
+          duration: 5000,
+        }
+      );
+    } finally {
+      setIsSplitting(false);
+    }
+  };
+
+  const handleCloseSplitModal = () => {
+    setSplitModalOpen(false);
+    setDocumentToSplit(null);
+    setSplitResults(null);
   };
 
   return (
@@ -304,6 +451,15 @@ export default function FailedDocuments({
                             )}
                           </button>
                         )}
+                        {doc.documentText && (
+                          <button
+                            onClick={(e) => handleSplitClick(e, doc)}
+                            className="inline-flex items-center justify-center p-2 border border-purple-300 rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500 transition-all duration-150"
+                            title="Split & Process Document"
+                          >
+                            <Scissors className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => handleDeleteClick(e, doc)}
                           className="inline-flex items-center justify-center p-2 border border-red-300 rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-all duration-150"
@@ -395,6 +551,307 @@ export default function FailedDocuments({
                   className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Split & Process Modal */}
+      {splitModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/20 transition-opacity"
+              onClick={handleCloseSplitModal}
+            />
+
+            {/* Modal */}
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="bg-white px-4 pb-4 pt-5 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-purple-100 p-2 rounded-lg">
+                      <Scissors className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold leading-6 text-gray-900">
+                        Split & Process Document
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Split multi-report document into individual reports
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseSplitModal}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {documentToSplit && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                    <p className="text-sm font-medium text-gray-700">
+                      {documentToSplit.fileName}
+                    </p>
+                    {documentToSplit.patientName && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Patient: {documentToSplit.patientName}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Reason: {documentToSplit.reason}
+                    </p>
+                  </div>
+                )}
+
+                {!splitResults && (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        Specify Page Ranges for Each Report:
+                      </p>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Enter the page numbers where each report starts and ends.
+                        For example: QME on pages 1-5, PR2 on pages 6-10.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {pageRanges.map((range, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-3 border border-gray-200 rounded-md"
+                        >
+                          <div className="flex-1 grid grid-cols-12 gap-2">
+                            <div className="col-span-3">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Start Page
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={range.start_page}
+                                onChange={(e) =>
+                                  handlePageRangeChange(
+                                    index,
+                                    "start_page",
+                                    parseInt(e.target.value) || 1
+                                  )
+                                }
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                End Page
+                              </label>
+                              <input
+                                type="number"
+                                min={range.start_page}
+                                value={range.end_page}
+                                onChange={(e) =>
+                                  handlePageRangeChange(
+                                    index,
+                                    "end_page",
+                                    parseInt(e.target.value) || range.start_page
+                                  )
+                                }
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                              />
+                            </div>
+                            <div className="col-span-5">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Report Title (e.g., QME, PR2)
+                              </label>
+                              <input
+                                type="text"
+                                value={range.report_title}
+                                onChange={(e) =>
+                                  handlePageRangeChange(
+                                    index,
+                                    "report_title",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="QME, PR2, PR4, etc."
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                              />
+                            </div>
+                            <div className="col-span-1 flex items-end">
+                              {pageRanges.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePageRange(index)}
+                                  className="p-1 text-red-600 hover:text-red-800"
+                                  title="Remove"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddPageRange}
+                      className="w-full px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100"
+                    >
+                      + Add Another Page Range
+                    </button>
+
+                    <div className="pt-4 border-t">
+                      <button
+                        type="button"
+                        disabled={isSplitting}
+                        onClick={handleSplitAndProcess}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSplitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Extracting Pages & Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Scissors className="w-4 h-4" />
+                            Extract Pages & Process Documents
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {splitResults && (
+                  <div className="mt-4">
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-green-800">
+                            Successfully split into {splitResults.total_reports}{" "}
+                            report(s)
+                          </p>
+                          {splitResults.saved_documents > 0 && (
+                            <p className="text-xs text-green-700 mt-1">
+                              {splitResults.saved_documents} document(s) saved to database
+                              {splitResults.document_ids && splitResults.document_ids.length > 0 && (
+                                <span className="ml-2">
+                                  (IDs: {splitResults.document_ids.join(", ")})
+                                </span>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {splitResults.reports?.map((report: any, index: number) => (
+                        <div
+                          key={index}
+                          className="border border-gray-200 rounded-lg p-4"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-900">
+                                Report {report.report_index}: {report.report_title}
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Type: {report.document_type} (Confidence:{" "}
+                                {(report.document_type_confidence * 100).toFixed(
+                                  0
+                                )}
+                                %)
+                              </p>
+                            </div>
+                            {report.status === "failed" ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Failed
+                              </span>
+                            ) : report.document_id ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Saved (ID: {report.document_id.substring(0, 8)}...)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Processed
+                              </span>
+                            )}
+                          </div>
+
+                          {report.error ? (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                              <p className="text-sm text-red-800">
+                                Error: {report.error}
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="mb-2">
+                                <p className="text-xs font-medium text-gray-700 mb-1">
+                                  Short Summary:
+                                </p>
+                                <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {report.short_summary || "N/A"}
+                                </p>
+                              </div>
+                              <div className="mb-2">
+                                <p className="text-xs font-medium text-gray-700 mb-1">
+                                  Long Summary:
+                                </p>
+                                <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                                  {report.long_summary || "N/A"}
+                                </p>
+                              </div>
+                              <div className="mt-2 space-y-1">
+                                {report.start_page && report.end_page && (
+                                  <p className="text-xs text-gray-400">
+                                    Pages: {report.start_page}-{report.end_page} ({report.page_count || (report.end_page - report.start_page + 1)} pages)
+                                  </p>
+                                )}
+                                <p className="text-xs text-gray-400">
+                                  Text length: {report.text_length} characters
+                                </p>
+                                {report.patient_name && (
+                                  <p className="text-xs text-gray-600">
+                                    Patient: {report.patient_name}
+                                  </p>
+                                )}
+                                {report.claim_number && (
+                                  <p className="text-xs text-gray-600">
+                                    Claim: {report.claim_number}
+                                  </p>
+                                )}
+                                {report.document_id && (
+                                  <p className="text-xs text-blue-600 font-medium">
+                                    Document ID: {report.document_id}
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                <button
+                  type="button"
+                  onClick={handleCloseSplitModal}
+                  className="inline-flex w-full justify-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 sm:w-auto"
+                >
+                  Close
                 </button>
               </div>
             </div>
