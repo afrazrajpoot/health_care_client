@@ -8,6 +8,8 @@ import {
   FileText,
   Hash,
   Eye,
+  Trash2,
+  X,
 } from "lucide-react";
 
 interface FailedDocument {
@@ -28,13 +30,19 @@ interface FailedDocument {
 interface FailedDocumentsProps {
   documents: FailedDocument[];
   onRowClick: (doc: FailedDocument) => void;
+  onDocumentDeleted?: (docId: string) => void;
 }
 
 export default function FailedDocuments({
   documents,
   onRowClick,
+  onDocumentDeleted,
 }: FailedDocumentsProps) {
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] =
+    useState<FailedDocument | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -44,7 +52,10 @@ export default function FailedDocuments({
     });
   };
 
-  const handlePreviewFile = async (e: React.MouseEvent, doc: FailedDocument) => {
+  const handlePreviewFile = async (
+    e: React.MouseEvent,
+    doc: FailedDocument
+  ) => {
     e.stopPropagation();
 
     if (!doc.gcsFileLink) {
@@ -55,13 +66,92 @@ export default function FailedDocuments({
     setLoadingPreview(doc.id);
 
     try {
-      // Open the GCS file link directly in a new tab
-      window.open(doc.gcsFileLink, "_blank");
+      // Modify the GCS URL to force inline display instead of download
+      let previewUrl = doc.gcsFileLink;
+
+      // For GCS signed URLs, add response-content-disposition=inline parameter
+      if (
+        previewUrl.includes("storage.googleapis.com") ||
+        previewUrl.includes("storage.cloud.google.com")
+      ) {
+        const separator = previewUrl.includes("?") ? "&" : "?";
+        previewUrl = `${previewUrl}${separator}response-content-disposition=inline`;
+      }
+
+      // Use Google Docs Viewer for PDF files to ensure they open in browser
+      const fileName = doc.fileName?.toLowerCase() || "";
+      if (
+        fileName.endsWith(".pdf") ||
+        fileName.endsWith(".doc") ||
+        fileName.endsWith(".docx") ||
+        fileName.endsWith(".xls") ||
+        fileName.endsWith(".xlsx")
+      ) {
+        // Use Google Docs Viewer to display the file
+        previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(
+          doc.gcsFileLink
+        )}&embedded=true`;
+      }
+
+      // Open in a new tab/window for preview
+      const newWindow = window.open(
+        previewUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      if (!newWindow) {
+        console.error("Popup was blocked. Please allow popups for this site.");
+      }
     } catch (error) {
       console.error("Error opening file:", error);
     } finally {
       setLoadingPreview(null);
     }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, doc: FailedDocument) => {
+    e.stopPropagation();
+    setDocumentToDelete(doc);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!documentToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `/api/get-failed-document/${documentToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete document");
+      }
+
+      // Notify parent component about the deletion
+      if (onDocumentDeleted) {
+        onDocumentDeleted(documentToDelete.id);
+      }
+
+      setDeleteModalOpen(false);
+      setDocumentToDelete(null);
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      alert(
+        error instanceof Error ? error.message : "Failed to delete document"
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalOpen(false);
+    setDocumentToDelete(null);
   };
 
   return (
@@ -215,6 +305,13 @@ export default function FailedDocuments({
                           </button>
                         )}
                         <button
+                          onClick={(e) => handleDeleteClick(e, doc)}
+                          className="inline-flex items-center justify-center p-2 border border-red-300 rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-all duration-150"
+                          title="Delete Document"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onRowClick(doc);
@@ -232,6 +329,78 @@ export default function FailedDocuments({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/20 transition-opacity"
+              onClick={handleCancelDelete}
+            />
+
+            {/* Modal */}
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <Trash2 className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                    <h3 className="text-lg font-semibold leading-6 text-gray-900">
+                      Delete Document
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Are you sure you want to delete this document? This
+                        action cannot be undone.
+                      </p>
+                      {documentToDelete && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                          <p className="text-sm font-medium text-gray-700">
+                            {documentToDelete.fileName}
+                          </p>
+                          {documentToDelete.patientName && (
+                            <p className="text-sm text-gray-500 mt-1">
+                              Patient: {documentToDelete.patientName}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Deleting...
+                    </div>
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleCancelDelete}
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
