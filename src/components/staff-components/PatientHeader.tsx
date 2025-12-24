@@ -1,8 +1,5 @@
 "use client";
 
-import styles from "./PatientHeader.module.css";
-import sharedStyles from "./shared.module.css";
-
 interface RecentPatient {
   patientName: string;
   dob: string;
@@ -23,29 +20,20 @@ export default function PatientHeader({
   completedTasks = 0,
 }: PatientHeaderProps) {
   return (
-    <section className={`${sharedStyles.card} ${styles.patientHeader}`}>
+    <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] flex justify-between px-3.5 py-3">
       <div>
-        <h2>{patient.patientName}</h2>
-        <div className={sharedStyles.meta}>
+        <h2 className="m-0 text-[15px] font-bold">{patient.patientName}</h2>
+        <div className="text-[11px] text-gray-500">
           DOB: {formatDOB(patient.dob)} · {formatClaimNumber(patient.claimNumber)} · Visit Today
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      <div className="flex items-center gap-3">
         {completedTasks > 0 && (
-          <span
-            className={sharedStyles.chip}
-            style={{
-              background: "#f0fdf4",
-              borderColor: "#bbf7d0",
-              color: "#166534",
-              fontSize: "11px",
-              padding: "4px 8px",
-            }}
-          >
+          <span className="text-[11px] px-2 py-1 rounded-full border border-green-200 bg-green-50 text-green-700 font-semibold whitespace-nowrap">
             ✓ {completedTasks} Completed
           </span>
         )}
-        <span className={sharedStyles.meta}>EMR‑managed chart</span>
+        <span className="text-[11px] text-gray-500">EMR‑managed chart</span>
       </div>
     </section>
   );

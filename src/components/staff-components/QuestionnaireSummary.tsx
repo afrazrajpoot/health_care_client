@@ -1,8 +1,5 @@
 "use client";
 
-import styles from "./QuestionnaireSummary.module.css";
-import sharedStyles from "./shared.module.css";
-
 interface Chip {
   text: string;
   type: "blue" | "amber" | "red" | "green";
@@ -17,25 +14,31 @@ export default function QuestionnaireSummary({
 }: QuestionnaireSummaryProps) {
   if (chips.length === 0) return null;
 
+  const getChipClasses = (type: "blue" | "amber" | "red" | "green") => {
+    switch (type) {
+      case "blue":
+        return "border-blue-200 bg-blue-50 text-blue-900";
+      case "amber":
+        return "border-amber-200 bg-amber-50 text-amber-900";
+      case "red":
+        return "border-red-200 bg-red-50 text-red-900";
+      case "green":
+        return "border-green-200 bg-green-50 text-green-900";
+    }
+  };
+
   return (
     <section
-      className={`${sharedStyles.card} ${styles.questionnaire}`}
+      className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
       style={{ borderLeft: "4px solid #2563eb" }}
     >
-      <h3>Pre‑Visit Questionnaire Summary</h3>
-      <div className={sharedStyles.chips}>
-        {chips.map((chip, idx) => {
-          const chipTypeClass = 
-            chip.type === "blue" ? sharedStyles.chipBlue :
-            chip.type === "amber" ? sharedStyles.chipAmber :
-            chip.type === "red" ? sharedStyles.chipRed :
-            sharedStyles.chipGreen;
-          return (
-            <span key={idx} className={`${sharedStyles.chip} ${chipTypeClass}`}>
-              {chip.text}
-            </span>
-          );
-        })}
+      <h3 className="m-0 px-3.5 py-3 text-[13px] font-bold border-b border-gray-200">Pre‑Visit Questionnaire Summary</h3>
+      <div className="flex flex-wrap gap-2 px-4 pb-4 pt-3">
+        {chips.map((chip, idx) => (
+          <span key={idx} className={`text-[11px] px-2 py-1 rounded-full border font-semibold whitespace-nowrap ${getChipClasses(chip.type)}`}>
+            {chip.text}
+          </span>
+        ))}
       </div>
     </section>
   );

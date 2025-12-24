@@ -1,8 +1,5 @@
 "use client";
 
-import styles from "./TasksTable.module.css";
-import sharedStyles from "./shared.module.css";
-
 interface Task {
   id: string;
   description: string;
@@ -39,8 +36,8 @@ export default function TasksTable({
 }: TasksTableProps) {
   if (tasks.length === 0) {
     return (
-      <section className={sharedStyles.card}>
-        <div className={styles.emptyState}>
+      <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
+        <div className="p-10 text-center text-gray-500">
           <p>No tasks found</p>
         </div>
       </section>
@@ -52,30 +49,42 @@ export default function TasksTable({
       status.toLowerCase().includes("signature") ||
       status.toLowerCase().includes("physician")
     )
-      return sharedStyles.chipRed;
+      return "border-red-200 bg-red-50 text-red-900";
     if (status.toLowerCase().includes("progress"))
-      return sharedStyles.chipAmber;
+      return "border-amber-200 bg-amber-50 text-amber-900";
     if (status.toLowerCase().includes("scheduling"))
-      return sharedStyles.chipBlue;
+      return "border-blue-200 bg-blue-50 text-blue-900";
     if (status.toLowerCase().includes("completed"))
-      return sharedStyles.chipGreen;
-    return sharedStyles.chipBlue;
+      return "border-green-200 bg-green-50 text-green-900";
+    return "border-blue-200 bg-blue-50 text-blue-900";
   };
 
   return (
-    <section className={`${sharedStyles.card} ${styles.tasksSection}`}>
-      <h3>Open Tasks & Required Actions</h3>
-      <div className={styles.scrollContainer}>
-        <div className={styles.tableContainer}>
-          <table className={styles.table}>
+    <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] flex flex-col min-h-0 flex-1 overflow-hidden">
+      <h3 className="m-0 px-3.5 py-3 text-[13px] font-bold border-b border-gray-200">
+        Open Tasks & Required Actions
+      </h3>
+      <div className="min-h-0 max-h-full overflow-y-auto overflow-x-hidden flex-1 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:min-w-5 [&::-webkit-scrollbar-thumb]:min-h-5 [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
+        <div className="overflow-x-auto overflow-y-visible w-full [-webkit-overflow-scrolling:touch] relative [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:min-w-5 [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
+          <table className="w-max min-w-full border-collapse table-auto text-[13px] visible table box-border">
             <thead>
               <tr>
-                <th className={styles.th}>Item</th>
-                <th className={styles.th}>Status</th>
-                <th className={styles.th}>Assignee</th>
-                <th className={styles.th}>Type</th>
-                <th className={styles.th}>Due</th>
-                <th className={styles.th}></th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-[11px] font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[250px] w-[250px] whitespace-normal">
+                  Item
+                </th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-[11px] font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[250px] w-[250px] whitespace-nowrap">
+                  Status
+                </th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-[11px] font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[220px] w-[220px] whitespace-nowrap">
+                  Assignee
+                </th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-[11px] font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[150px] w-[150px] whitespace-nowrap">
+                  Type
+                </th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-[11px] font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
+                  Due
+                </th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-[11px] font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody>
@@ -89,20 +98,20 @@ export default function TasksTable({
 
                 return (
                   <tr key={task.id}>
-                    <td className={styles.td}>{task.description}</td>
-                    <td className={styles.td}>
-                      <div className={sharedStyles.statusChips}>
+                    <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
+                      {task.description}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-nowrap">
+                      <div className="flex gap-1.5 overflow-x-auto pb-1">
                         {statusOptions.map((status) => (
                           <span
                             key={status}
-                            className={`${
-                              sharedStyles.chip
-                            } ${getStatusChipColor(status)} ${
-                              sharedStyles.chipSelectable
-                            } ${
+                            className={`text-[11px] px-2 py-1 rounded-full border font-semibold whitespace-nowrap cursor-pointer transition-opacity ${getStatusChipColor(
+                              status
+                            )} ${
                               currentStatus === status
-                                ? sharedStyles.chipSelectableActive
-                                : ""
+                                ? "opacity-100 shadow-[0_0_0_2px_rgba(37,99,235,0.25)] font-bold"
+                                : "opacity-55"
                             }`}
                             onClick={() => onStatusClick(task.id, status)}
                           >
@@ -111,20 +120,20 @@ export default function TasksTable({
                         ))}
                       </div>
                     </td>
-                    <td className={styles.td}>
-                      <div className={sharedStyles.statusChips}>
+                    <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[220px] w-[220px] whitespace-nowrap">
+                      <div className="flex gap-1.5 overflow-x-auto pb-1">
                         {assigneeOptions.map((assignee) => (
                           <span
                             key={assignee}
-                            className={`${sharedStyles.chip} ${
+                            className={`text-[11px] px-2 py-1 rounded-full border font-semibold whitespace-nowrap cursor-pointer transition-opacity ${
                               assignee.startsWith("Assigned") ||
                               assignee === "Physician"
-                                ? sharedStyles.chipBlue
-                                : ""
-                            } ${sharedStyles.chipSelectable} ${
+                                ? "border-blue-200 bg-blue-50 text-blue-900"
+                                : "border-gray-200 bg-gray-50 text-gray-900"
+                            } ${
                               currentAssignee === assignee
-                                ? sharedStyles.chipSelectableActive
-                                : ""
+                                ? "opacity-100 shadow-[0_0_0_2px_rgba(37,99,235,0.25)] font-bold"
+                                : "opacity-55"
                             }`}
                             onClick={() => onAssigneeClick(task.id, assignee)}
                           >
@@ -133,8 +142,10 @@ export default function TasksTable({
                         ))}
                       </div>
                     </td>
-                    <td className={styles.td}>{task.department}</td>
-                    <td className={styles.td}>
+                    <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
+                      {task.department}
+                    </td>
+                    <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
                       {task.dueDate
                         ? new Date(task.dueDate).toLocaleDateString("en-US", {
                             month: "2-digit",
@@ -142,9 +153,9 @@ export default function TasksTable({
                           })
                         : "—"}
                     </td>
-                    <td className={styles.td}>
+                    <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
                       <span
-                        className={sharedStyles.actionLink}
+                        className="text-blue-600 font-semibold cursor-pointer"
                         onClick={() => onTaskClick(task)}
                       >
                         {task.department?.toLowerCase().includes("clinical") ||

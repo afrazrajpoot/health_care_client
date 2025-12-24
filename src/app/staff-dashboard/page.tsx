@@ -19,8 +19,6 @@ import QuestionnaireSummary from "@/components/staff-components/QuestionnaireSum
 import TasksTable from "@/components/staff-components/TasksTable";
 import QuickNotesSection from "@/components/staff-components/QuickNotesSection";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
-import layoutStyles from "@/components/staff-components/StaffDashboardLayout.module.css";
-import sharedStyles from "@/components/staff-components/shared.module.css";
 
 interface RecentPatient {
   patientName: string;
@@ -857,6 +855,7 @@ export default function StaffDashboardPatient() {
       <StaffDashboardHeader
         onCreateIntakeLink={() => setShowModal(true)}
         onAddTask={() => setShowTaskModal(true)}
+        onUploadDocument={() => snapInputRef.current?.click()}
       />
 
       <input
@@ -869,7 +868,7 @@ export default function StaffDashboardPatient() {
         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
       />
 
-      <main className={layoutStyles.main}>
+      <main className="p-4 max-w-[1280px] mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
         <PatientDrawer
           patients={recentPatients}
           selectedPatient={selectedPatient}
@@ -881,17 +880,12 @@ export default function StaffDashboardPatient() {
           formatClaimNumber={formatClaimNumber}
         />
 
-        <section className={layoutStyles.workspace}>
+        <section className="flex flex-col gap-3.5 h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
           {selectedPatient ? (
             <>
               {loadingPatientData ? (
-                <section
-                  className={sharedStyles.card}
-                  style={{ padding: "20px", textAlign: "center" }}
-                >
-                  <p style={{ color: "var(--muted)" }}>
-                    Loading patient data...
-                  </p>
+                <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
+                  <p className="text-gray-500">Loading patient data...</p>
                 </section>
               ) : (
                 <>
@@ -917,22 +911,8 @@ export default function StaffDashboardPatient() {
                   />
 
                   <div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "16px",
-                      }}
-                    >
-                      <h3
-                        style={{
-                          fontSize: "16px",
-                          fontWeight: 600,
-                          color: "var(--text)",
-                          margin: 0,
-                        }}
-                      >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-base font-semibold text-slate-900 m-0">
                         {showCompletedTasks
                           ? `Completed Tasks (${completedTasks.length})`
                           : `Open Tasks & Required Actions (${openTasks.length})`}
@@ -941,29 +921,11 @@ export default function StaffDashboardPatient() {
                         onClick={() =>
                           setShowCompletedTasks(!showCompletedTasks)
                         }
-                        style={{
-                          padding: "8px 16px",
-                          borderRadius: "8px",
-                          border: "1px solid var(--line)",
-                          background: showCompletedTasks
-                            ? "var(--green)"
-                            : "var(--card)",
-                          color: showCompletedTasks ? "white" : "var(--text)",
-                          cursor: "pointer",
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!showCompletedTasks) {
-                            e.currentTarget.style.background = "var(--bg)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!showCompletedTasks) {
-                            e.currentTarget.style.background = "var(--card)";
-                          }
-                        }}
+                        className={`px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200 ${
+                          showCompletedTasks
+                            ? "bg-green-700 text-white"
+                            : "bg-white text-slate-900 hover:bg-gray-50"
+                        }`}
                       >
                         {showCompletedTasks
                           ? "Show Open Tasks"
@@ -985,11 +947,8 @@ export default function StaffDashboardPatient() {
               )}
             </>
           ) : (
-            <section
-              className="card"
-              style={{ padding: "40px", textAlign: "center" }}
-            >
-              <p style={{ color: "var(--muted)" }}>
+            <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-10 text-center">
+              <p className="text-gray-500">
                 Select a patient to view their details
               </p>
             </section>
