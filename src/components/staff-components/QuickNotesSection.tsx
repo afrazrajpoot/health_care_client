@@ -141,7 +141,7 @@ export default function QuickNotesSection({
 
   return (
     <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Notes</h3>
+      <h3 className="text-base font-bold text-gray-900 mb-4">Quick Notes</h3>
       <div className="space-y-4">
         {tasksWithNotes.map((task) => (
           <div
@@ -152,7 +152,7 @@ export default function QuickNotesSection({
           >
             {/* Task Header with Badges */}
             <div className="flex justify-between items-start mb-3">
-              <h4 className="text-base font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+              <h4 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
                 {task.description}
               </h4>
               <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export default function QuickNotesSection({
             </div>
 
             {/* Task Metadata */}
-            <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-3">
+            <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-3">
               <span className="inline-flex items-center">
                 <svg
                   className="w-4 h-4 mr-1 text-gray-400"

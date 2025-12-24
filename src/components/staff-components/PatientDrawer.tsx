@@ -39,16 +39,16 @@ export default function PatientDrawer({
         overflow: "hidden",
       }}
     >
-      <h3 className="flex justify-between items-center cursor-pointer select-none m-0 px-3.5 py-3 text-[13px] font-bold border-b border-gray-200" onClick={onToggle}>
+      <h3 className="flex justify-between items-center cursor-pointer select-none m-0 px-3.5 py-3 text-base font-bold border-b border-gray-200" onClick={onToggle}>
         {!collapsed && <span>Recent Patients</span>}
         <span>{collapsed ? "▸" : "◂"}</span>
       </h3>
       {!collapsed && (
         <div className="h-[calc(100vh-120px)] overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
           {loading ? (
-            <div className="p-5 text-center text-gray-500">Loading...</div>
+            <p className="p-5 text-center text-gray-500 text-sm m-0">Loading...</p>
           ) : patients.length === 0 ? (
-            <div className="p-5 text-center text-gray-500">No patients found</div>
+            <p className="p-5 text-center text-gray-500 text-sm m-0">No patients found</p>
           ) : (
             patients.map((patient, idx) => (
               <div
@@ -61,13 +61,13 @@ export default function PatientDrawer({
                 }`}
                 onClick={() => onSelectPatient(patient)}
               >
-                <div className="font-bold text-xs">{patient.patientName}</div>
-                <div className="text-[11px] text-gray-500">
+                <div className="font-bold text-sm">{patient.patientName}</div>
+                <p className="text-xs text-gray-500 m-0">
                   DOB: {formatDOB(patient.dob)} ·{" "}
                   {patient.claimNumber !== "Not specified"
                     ? formatClaimNumber(patient.claimNumber)
                     : "No Claim"}
-                </div>
+                </p>
               </div>
             ))
           )}
