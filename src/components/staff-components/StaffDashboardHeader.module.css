@@ -1,0 +1,48 @@
+.header {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 50px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.brand span {
+  background: var(--blue);
+  color: #fff;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 10px;
+}
+
+.headerActions button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.headerActions button.primary {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+

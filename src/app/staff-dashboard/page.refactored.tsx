@@ -17,10 +17,7 @@ import PatientHeader from "@/components/staff-components/PatientHeader";
 import TaskSummary from "@/components/staff-components/TaskSummary";
 import QuestionnaireSummary from "@/components/staff-components/QuestionnaireSummary";
 import TasksTable from "@/components/staff-components/TasksTable";
-import QuickNotesSection from "@/components/staff-components/QuickNotesSection";
-import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 import layoutStyles from "@/components/staff-components/StaffDashboardLayout.module.css";
-import sharedStyles from "@/components/staff-components/shared.module.css";
 
 interface RecentPatient {
   patientName: string;
@@ -68,9 +65,7 @@ export default function StaffDashboardPatient() {
   const [patientTasks, setPatientTasks] = useState<Task[]>([]);
   const [patientQuiz, setPatientQuiz] = useState<PatientQuiz | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingPatientData, setLoadingPatientData] = useState(false);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
@@ -291,82 +286,27 @@ export default function StaffDashboardPatient() {
     fetchRecentPatients();
   }, []);
 
-  // Function to fetch patient tasks - filter by selected patient
+  // Function to fetch patient tasks
   const fetchPatientTasks = useCallback(async (patient: RecentPatient) => {
     try {
-      // Fetch open tasks
-      const openTaskParams = new URLSearchParams({
+      const taskParams = new URLSearchParams({
         mode: "wc",
         page: "1",
         pageSize: "100",
       });
 
-      // Filter by patient name first (most reliable)
-      openTaskParams.append("search", patient.patientName);
-
-      // Also add claim filter if available for better matching
       if (patient.claimNumber && patient.claimNumber !== "Not specified") {
-        openTaskParams.append("claim", patient.claimNumber);
+        taskParams.append("claim", patient.claimNumber);
+      } else {
+        taskParams.append("search", patient.patientName);
       }
 
-      // Fetch completed tasks separately (all completed statuses)
-      const completedStatuses = ["completed", "done", "closed"];
-      const completedTaskParams = completedStatuses.map((status) => {
-        const params = new URLSearchParams({
-          mode: "wc",
-          page: "1",
-          pageSize: "100",
-          status: status,
-        });
-        params.append("search", patient.patientName);
-        if (patient.claimNumber && patient.claimNumber !== "Not specified") {
-          params.append("claim", patient.claimNumber);
-        }
-        return fetch(`/api/tasks?${params}`);
-      });
+      const response = await fetch(`/api/tasks?${taskParams}`);
+      if (!response.ok) throw new Error("Failed to fetch tasks");
 
-      // Fetch both open and all completed tasks in parallel
-      const [openResponse, ...completedResponses] = await Promise.all([
-        fetch(`/api/tasks?${openTaskParams}`),
-        ...completedTaskParams,
-      ]);
-
-      if (!openResponse.ok) throw new Error("Failed to fetch open tasks");
-      const completedResponsesOk = completedResponses.every((r) => r.ok);
-      if (!completedResponsesOk)
-        throw new Error("Failed to fetch completed tasks");
-
-      const openData = await openResponse.json();
-      const completedDataArray = await Promise.all(
-        completedResponses.map((r) => r.json())
-      );
-
-      // Combine all completed tasks from different statuses
-      const allCompletedTasks = completedDataArray.flatMap(
-        (data) => data.tasks || []
-      );
-
-      // Combine both open and completed tasks
-      const allTasks = [...(openData.tasks || []), ...allCompletedTasks];
-
-      if (Array.isArray(allTasks) && allTasks.length > 0) {
-        // Additional client-side filtering by patient name to ensure accuracy
-        const filteredTasks = allTasks.filter((task: Task) => {
-          const taskPatientName = task.patient?.toLowerCase() || "";
-          const selectedPatientName = patient.patientName.toLowerCase();
-          return (
-            taskPatientName.includes(selectedPatientName) ||
-            selectedPatientName.includes(taskPatientName)
-          );
-        });
-
-        // Remove duplicates based on task ID
-        const uniqueTasks = filteredTasks.filter(
-          (task, index, self) =>
-            index === self.findIndex((t) => t.id === task.id)
-        );
-
-        setPatientTasks(uniqueTasks);
+      const data = await response.json();
+      if (data.success && data.tasks) {
+        setPatientTasks(data.tasks);
       } else {
         setPatientTasks([]);
       }
@@ -381,14 +321,8 @@ export default function StaffDashboardPatient() {
     if (!selectedPatient) {
       setPatientTasks([]);
       setPatientQuiz(null);
-      setLoadingPatientData(false);
       return;
     }
-
-    // Clear data immediately for instant UI update
-    setPatientTasks([]);
-    setPatientQuiz(null);
-    setLoadingPatientData(true);
 
     const fetchPatientData = async () => {
       try {
@@ -420,8 +354,6 @@ export default function StaffDashboardPatient() {
         }
       } catch (error) {
         console.error("Error fetching patient data:", error);
-      } finally {
-        setLoadingPatientData(false);
       }
     };
 
@@ -748,44 +680,12 @@ export default function StaffDashboardPatient() {
   // Handle task click (for quick notes)
   const handleTaskClick = (task: Task) => {
     setSelectedTaskForQuickNote(task);
+    setQuickNoteData({
+      status_update: task.quickNotes?.status_update || "",
+      details: task.quickNotes?.details || "",
+      one_line_note: task.quickNotes?.one_line_note || "",
+    });
     setShowQuickNoteModal(true);
-  };
-
-  // Handle saving quick notes
-  const handleSaveQuickNote = async (
-    taskId: string,
-    quickNotes: {
-      status_update: string;
-      details: string;
-      one_line_note: string;
-    }
-  ) => {
-    try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          quickNotes: {
-            ...quickNotes,
-            timestamp: new Date().toISOString(),
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save quick note");
-      }
-
-      // Refresh tasks after saving
-      if (selectedPatient) {
-        await fetchPatientTasks(selectedPatient);
-      }
-    } catch (error) {
-      console.error("Error saving quick note:", error);
-      throw error;
-    }
   };
 
   // Get open tasks
@@ -796,18 +696,6 @@ export default function StaffDashboardPatient() {
       t.status !== "Done" &&
       t.status !== "Closed"
   );
-
-  // Get completed tasks
-  const completedTasks = patientTasks.filter(
-    (t) =>
-      t.status === "Completed" ||
-      t.status === "completed" ||
-      t.status === "Done" ||
-      t.status === "Closed"
-  );
-
-  // Tasks to display based on toggle
-  const displayedTasks = showCompletedTasks ? completedTasks : openTasks;
 
   return (
     <>
@@ -884,105 +772,31 @@ export default function StaffDashboardPatient() {
         <section className={layoutStyles.workspace}>
           {selectedPatient ? (
             <>
-              {loadingPatientData ? (
-                <section
-                  className={sharedStyles.card}
-                  style={{ padding: "20px", textAlign: "center" }}
-                >
-                  <p style={{ color: "var(--muted)" }}>
-                    Loading patient data...
-                  </p>
-                </section>
-              ) : (
-                <>
-                  <PatientHeader
-                    patient={selectedPatient}
-                    formatDOB={formatDOB}
-                    formatClaimNumber={formatClaimNumber}
-                    completedTasks={taskStats.completed}
-                  />
+              <PatientHeader
+                patient={selectedPatient}
+                formatDOB={formatDOB}
+                formatClaimNumber={formatClaimNumber}
+              />
 
-                  <TaskSummary
-                    open={taskStats.open}
-                    urgent={taskStats.urgent}
-                    dueToday={taskStats.dueToday}
-                    completed={taskStats.completed}
-                  />
+              <TaskSummary
+                open={taskStats.open}
+                urgent={taskStats.urgent}
+                dueToday={taskStats.dueToday}
+                completed={taskStats.completed}
+              />
 
-                  <QuestionnaireSummary chips={questionnaireChips} />
+              <QuestionnaireSummary chips={questionnaireChips} />
 
-                  <QuickNotesSection
-                    tasks={patientTasks}
-                    onTaskClick={handleTaskClick}
-                  />
-
-                  <div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "16px",
-                      }}
-                    >
-                      <h3
-                        style={{
-                          fontSize: "16px",
-                          fontWeight: 600,
-                          color: "var(--text)",
-                          margin: 0,
-                        }}
-                      >
-                        {showCompletedTasks
-                          ? `Completed Tasks (${completedTasks.length})`
-                          : `Open Tasks & Required Actions (${openTasks.length})`}
-                      </h3>
-                      <button
-                        onClick={() =>
-                          setShowCompletedTasks(!showCompletedTasks)
-                        }
-                        style={{
-                          padding: "8px 16px",
-                          borderRadius: "8px",
-                          border: "1px solid var(--line)",
-                          background: showCompletedTasks
-                            ? "var(--green)"
-                            : "var(--card)",
-                          color: showCompletedTasks ? "white" : "var(--text)",
-                          cursor: "pointer",
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!showCompletedTasks) {
-                            e.currentTarget.style.background = "var(--bg)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!showCompletedTasks) {
-                            e.currentTarget.style.background = "var(--card)";
-                          }
-                        }}
-                      >
-                        {showCompletedTasks
-                          ? "Show Open Tasks"
-                          : "Show Completed Tasks"}
-                      </button>
-                    </div>
-                    <TasksTable
-                      tasks={displayedTasks}
-                      taskStatuses={taskStatuses}
-                      taskAssignees={taskAssignees}
-                      onStatusClick={handleStatusChipClick}
-                      onAssigneeClick={handleAssigneeChipClick}
-                      onTaskClick={handleTaskClick}
-                      getStatusOptions={getStatusOptions}
-                      getAssigneeOptions={getAssigneeOptions}
-                    />
-                  </div>
-                </>
-              )}
+              <TasksTable
+                tasks={openTasks}
+                taskStatuses={taskStatuses}
+                taskAssignees={taskAssignees}
+                onStatusClick={handleStatusChipClick}
+                onAssigneeClick={handleAssigneeChipClick}
+                onTaskClick={handleTaskClick}
+                getStatusOptions={getStatusOptions}
+                getAssigneeOptions={getAssigneeOptions}
+              />
             </>
           ) : (
             <section
@@ -1024,12 +838,199 @@ export default function StaffDashboardPatient() {
       />
 
       {/* Quick Note Modal */}
-      <QuickNoteModal
-        isOpen={showQuickNoteModal}
-        task={selectedTaskForQuickNote}
-        onClose={() => setShowQuickNoteModal(false)}
-        onSave={handleSaveQuickNote}
-      />
+      {showQuickNoteModal && selectedTaskForQuickNote && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowQuickNoteModal(false)}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: "600px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{ padding: "16px", borderBottom: "1px solid var(--line)" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <h3 style={{ margin: 0 }}>
+                  Quick Note: {selectedTaskForQuickNote.description}
+                </h3>
+                <button
+                  onClick={() => setShowQuickNoteModal(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: "20px",
+                    cursor: "pointer",
+                    padding: "0",
+                    width: "24px",
+                    height: "24px",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: "16px" }}>
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Status Update
+                </label>
+                <input
+                  type="text"
+                  value={quickNoteData.status_update}
+                  onChange={(e) =>
+                    setQuickNoteData({
+                      ...quickNoteData,
+                      status_update: e.target.value,
+                    })
+                  }
+                  placeholder="e.g., Waiting for callback, Scheduled for 12/20"
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid var(--line)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  One Line Note
+                </label>
+                <input
+                  type="text"
+                  value={quickNoteData.one_line_note}
+                  onChange={(e) =>
+                    setQuickNoteData({
+                      ...quickNoteData,
+                      one_line_note: e.target.value,
+                    })
+                  }
+                  placeholder="Brief summary (auto-generated if left empty)"
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid var(--line)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Details
+                </label>
+                <textarea
+                  value={quickNoteData.details}
+                  onChange={(e) =>
+                    setQuickNoteData({
+                      ...quickNoteData,
+                      details: e.target.value,
+                    })
+                  }
+                  placeholder="Detailed notes about this task..."
+                  rows={6}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid var(--line)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <button onClick={() => setShowQuickNoteModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(
+                        `/api/tasks/${selectedTaskForQuickNote.id}`,
+                        {
+                          method: "PATCH",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({
+                            quickNotes: quickNoteData,
+                          }),
+                        }
+                      );
+
+                      if (response.ok) {
+                        if (selectedPatient) {
+                          await fetchPatientTasks(selectedPatient);
+                        }
+                        setShowQuickNoteModal(false);
+                      } else {
+                        console.error("Failed to save quick note");
+                      }
+                    } catch (error) {
+                      console.error("Error saving quick note:", error);
+                    }
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
+

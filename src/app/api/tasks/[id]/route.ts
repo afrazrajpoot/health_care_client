@@ -54,6 +54,11 @@ export async function PATCH(
       data.status = updates.status;
     }
 
+    // Handle assignee update
+    if ('assignee' in updates) {
+      data.assignee = updates.assignee;
+    }
+
     // ✅ Handle UR denial reason update - direct assignment
     if ('ur_denial_reason' in updates) {
       data.ur_denial_reason = updates.ur_denial_reason;
