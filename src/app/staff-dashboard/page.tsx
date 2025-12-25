@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import IntakeModal from "@/components/staff-components/IntakeModal";
 import ManualTaskModal from "@/components/ManualTaskModal";
 import { ProgressTracker } from "@/components/ProgressTracker";
+import { useSocket } from "@/providers/SocketProvider";
 import { useTasks } from "../custom-hooks/staff-hooks/useTasks";
 import { useFileUpload } from "../custom-hooks/staff-hooks/useFileUpload";
 import { AlertCircle, X } from "lucide-react";
@@ -65,6 +66,7 @@ export default function StaffDashboardPatient() {
   );
   const [patientTasks, setPatientTasks] = useState<Task[]>([]);
   const [patientQuiz, setPatientQuiz] = useState<PatientQuiz | null>(null);
+  const [patientIntakeUpdate, setPatientIntakeUpdate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadingPatientData, setLoadingPatientData] = useState(false);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
@@ -79,6 +81,11 @@ export default function StaffDashboardPatient() {
     details: "",
     one_line_note: "",
   });
+  const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] = useState(false);
+  const progressCompleteHandledRef = useRef(false);
+
+  // Get socket data for instant progress detection
+  const { progressData, queueProgressData, isProcessing } = useSocket();
 
   // Task status and assignee management (for selectable chips)
   const [taskStatuses, setTaskStatuses] = useState<{
@@ -267,9 +274,9 @@ export default function StaffDashboardPatient() {
     ).length,
   };
 
-  // Fetch recent patients
+  // Fetch recent patients on mount
   useEffect(() => {
-    const fetchRecentPatients = async () => {
+    const fetchRecentPatientsOnMount = async () => {
       try {
         setLoading(true);
         const response = await fetch("/api/get-recent-patients?mode=wc");
@@ -286,7 +293,7 @@ export default function StaffDashboardPatient() {
       }
     };
 
-    fetchRecentPatients();
+    fetchRecentPatientsOnMount();
   }, []);
 
   // Function to fetch patient tasks - filter by selected patient
@@ -379,6 +386,7 @@ export default function StaffDashboardPatient() {
     if (!selectedPatient) {
       setPatientTasks([]);
       setPatientQuiz(null);
+      setPatientIntakeUpdate(null);
       setLoadingPatientData(false);
       return;
     }
@@ -386,11 +394,15 @@ export default function StaffDashboardPatient() {
     // Clear data immediately for instant UI update
     setPatientTasks([]);
     setPatientQuiz(null);
+    setPatientIntakeUpdate(null);
     setLoadingPatientData(true);
+
+    let isCancelled = false;
 
     const fetchPatientData = async () => {
       try {
         await fetchPatientTasks(selectedPatient);
+        if (isCancelled) return;
 
         // Fetch patient quiz
         const quizParams = new URLSearchParams({
@@ -407,7 +419,13 @@ export default function StaffDashboardPatient() {
           quizParams.append("claimNumber", selectedPatient.claimNumber);
         }
 
-        const quizResponse = await fetch(`/api/patient-intakes?${quizParams}`);
+        const [quizResponse, intakeUpdateResponse] = await Promise.all([
+          fetch(`/api/patient-intakes?${quizParams}`),
+          fetch(`/api/patient-intake-update?${quizParams}`),
+        ]);
+
+        if (isCancelled) return;
+
         if (quizResponse.ok) {
           const quizData = await quizResponse.json();
           if (quizData?.success && quizData?.data && quizData.data.length > 0) {
@@ -416,14 +434,32 @@ export default function StaffDashboardPatient() {
             setPatientQuiz(null);
           }
         }
+
+        if (intakeUpdateResponse.ok) {
+          const intakeUpdateData = await intakeUpdateResponse.json();
+          if (intakeUpdateData?.success && intakeUpdateData?.data) {
+            setPatientIntakeUpdate(intakeUpdateData.data);
+          } else {
+            setPatientIntakeUpdate(null);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching patient data:", error);
+        if (!isCancelled) {
+          console.error("Error fetching patient data:", error);
+        }
       } finally {
-        setLoadingPatientData(false);
+        if (!isCancelled) {
+          setLoadingPatientData(false);
+        }
       }
     };
 
     fetchPatientData();
+
+    // Cleanup function to cancel requests if component unmounts or patient changes
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedPatient, fetchPatientTasks]);
 
   // Format DOB for display
@@ -441,98 +477,146 @@ export default function StaffDashboardPatient() {
     }
   };
 
-  // Generate questionnaire summary chips from patient quiz
+  // Generate questionnaire summary chips from PatientIntakeUpdate (AI-generated points) and patient quiz
   const getQuestionnaireChips = () => {
-    if (!patientQuiz) return [];
-
     const chips: Array<{
       text: string;
       type: "blue" | "amber" | "red" | "green";
     }> = [];
 
-    try {
-      if (patientQuiz.refill) {
-        const refill =
-          typeof patientQuiz.refill === "string"
-            ? JSON.parse(patientQuiz.refill)
-            : patientQuiz.refill;
-        if (
-          refill &&
-          (refill.requested || refill.needed || Object.keys(refill).length > 0)
-        ) {
-          chips.push({ text: "Medication refill requested", type: "blue" });
-        }
+    // Use AI-generated points from PatientIntakeUpdate if available
+    if (patientIntakeUpdate) {
+      // Add ADL effect points
+      if (patientIntakeUpdate.adlEffectPoints && Array.isArray(patientIntakeUpdate.adlEffectPoints)) {
+        patientIntakeUpdate.adlEffectPoints.forEach((point: string) => {
+          if (point && point.trim()) {
+            // Determine chip type based on content
+            const lowerPoint = point.toLowerCase();
+            let type: "blue" | "amber" | "red" | "green" = "blue";
+            if (lowerPoint.includes("worse") || lowerPoint.includes("decreased") || lowerPoint.includes("limited") || lowerPoint.includes("difficulty")) {
+              type = "red";
+            } else if (lowerPoint.includes("improved") || lowerPoint.includes("better") || lowerPoint.includes("increased")) {
+              type = "green";
+            } else if (lowerPoint.includes("unchanged") || lowerPoint.includes("same")) {
+              type = "green";
+            } else {
+              type = "amber";
+            }
+            chips.push({ text: point.trim(), type });
+          }
+        });
       }
 
-      if (patientQuiz.therapies) {
-        const therapies =
-          typeof patientQuiz.therapies === "string"
-            ? JSON.parse(patientQuiz.therapies)
-            : patientQuiz.therapies;
-        const therapyArray = Array.isArray(therapies)
-          ? therapies
-          : typeof therapies === "object"
-          ? Object.values(therapies)
-          : [];
-        if (
-          therapyArray.some(
-            (t: any) =>
-              t?.missed ||
-              t?.status === "missed" ||
-              (typeof t === "string" && t.toLowerCase().includes("missed"))
-          )
-        ) {
-          chips.push({ text: "Missed PT session", type: "amber" });
-        }
+      // Add intake patient points
+      if (patientIntakeUpdate.intakePatientPoints && Array.isArray(patientIntakeUpdate.intakePatientPoints)) {
+        patientIntakeUpdate.intakePatientPoints.forEach((point: string) => {
+          if (point && point.trim()) {
+            // Determine chip type based on content
+            const lowerPoint = point.toLowerCase();
+            let type: "blue" | "amber" | "red" | "green" = "blue";
+            if (lowerPoint.includes("refill") || lowerPoint.includes("medication")) {
+              type = "blue";
+            } else if (lowerPoint.includes("appointment") || lowerPoint.includes("consult")) {
+              type = "blue";
+            } else if (lowerPoint.includes("improved") || lowerPoint.includes("better")) {
+              type = "green";
+            } else if (lowerPoint.includes("worse") || lowerPoint.includes("pain")) {
+              type = "red";
+            } else {
+              type = "amber";
+            }
+            chips.push({ text: point.trim(), type });
+          }
+        });
       }
+    }
 
-      if (patientQuiz.newAppointments) {
-        const newApps =
-          typeof patientQuiz.newAppointments === "string"
-            ? JSON.parse(patientQuiz.newAppointments)
-            : patientQuiz.newAppointments;
-        const appsArray = Array.isArray(newApps)
-          ? newApps
-          : typeof newApps === "object"
-          ? Object.values(newApps)
-          : [];
-        if (appsArray.length > 0) {
-          chips.push({ text: "New MRI completed", type: "blue" });
+    // Fallback to patient quiz parsing if no AI-generated points available
+    if (chips.length === 0 && patientQuiz) {
+      try {
+        if (patientQuiz.refill) {
+          const refill =
+            typeof patientQuiz.refill === "string"
+              ? JSON.parse(patientQuiz.refill)
+              : patientQuiz.refill;
+          if (
+            refill &&
+            (refill.requested || refill.needed || Object.keys(refill).length > 0)
+          ) {
+            chips.push({ text: "Medication refill requested", type: "blue" });
+          }
         }
-      }
 
-      if (patientQuiz.adl) {
-        const adls = Array.isArray(patientQuiz.adl)
-          ? patientQuiz.adl
-          : typeof patientQuiz.adl === "string"
-          ? JSON.parse(patientQuiz.adl)
-          : typeof patientQuiz.adl === "object"
-          ? Object.values(patientQuiz.adl)
-          : [];
+        if (patientQuiz.therapies) {
+          const therapies =
+            typeof patientQuiz.therapies === "string"
+              ? JSON.parse(patientQuiz.therapies)
+              : patientQuiz.therapies;
+          const therapyArray = Array.isArray(therapies)
+            ? therapies
+            : typeof therapies === "object"
+            ? Object.values(therapies)
+            : [];
+          if (
+            therapyArray.some(
+              (t: any) =>
+                t?.missed ||
+                t?.status === "missed" ||
+                (typeof t === "string" && t.toLowerCase().includes("missed"))
+            )
+          ) {
+            chips.push({ text: "Missed PT session", type: "amber" });
+          }
+        }
 
-        if (
-          adls.length === 0 ||
-          (Array.isArray(adls) &&
-            adls.every(
-              (a: any) =>
-                !a ||
-                a === "unchanged" ||
-                (typeof a === "string" && a.toLowerCase().includes("unchanged"))
-            ))
-        ) {
-          chips.push({ text: "ADLs unchanged", type: "green" });
+        if (patientQuiz.newAppointments) {
+          const newApps =
+            typeof patientQuiz.newAppointments === "string"
+              ? JSON.parse(patientQuiz.newAppointments)
+              : patientQuiz.newAppointments;
+          const appsArray = Array.isArray(newApps)
+            ? newApps
+            : typeof newApps === "object"
+            ? Object.values(newApps)
+            : [];
+          if (appsArray.length > 0) {
+            chips.push({ text: "New appointment scheduled", type: "blue" });
+          }
+        }
+
+        if (patientQuiz.adl) {
+          const adls = Array.isArray(patientQuiz.adl)
+            ? patientQuiz.adl
+            : typeof patientQuiz.adl === "string"
+            ? JSON.parse(patientQuiz.adl)
+            : typeof patientQuiz.adl === "object"
+            ? Object.values(patientQuiz.adl)
+            : [];
+
+          if (
+            adls.length === 0 ||
+            (Array.isArray(adls) &&
+              adls.every(
+                (a: any) =>
+                  !a ||
+                  a === "unchanged" ||
+                  (typeof a === "string" && a.toLowerCase().includes("unchanged"))
+              ))
+          ) {
+            chips.push({ text: "ADLs unchanged", type: "green" });
+          } else {
+            chips.push({ text: "ADLs changed", type: "amber" });
+          }
         } else {
-          chips.push({ text: "ADLs changed", type: "amber" });
+          chips.push({ text: "ADLs unchanged", type: "green" });
         }
-      } else {
-        chips.push({ text: "ADLs unchanged", type: "green" });
-      }
 
-      chips.push({ text: "No ER visits", type: "green" });
-    } catch (error) {
-      console.error("Error parsing patient quiz data:", error);
-      chips.push({ text: "ADLs unchanged", type: "green" });
-      chips.push({ text: "No ER visits", type: "green" });
+        chips.push({ text: "No ER visits", type: "green" });
+      } catch (error) {
+        console.error("Error parsing patient quiz data:", error);
+        chips.push({ text: "ADLs unchanged", type: "green" });
+        chips.push({ text: "No ER visits", type: "green" });
+      }
     }
 
     return chips;
@@ -546,40 +630,208 @@ export default function StaffDashboardPatient() {
     return `Claim #${claim}`;
   };
 
-  // Handle progress complete - refresh patient data after upload
-  const handleProgressComplete = useCallback(() => {
-    if (selectedPatient) {
-      fetchPatientTasks(selectedPatient);
+  // Get physician ID helper
+  const getPhysicianId = useCallback(() => {
+    if (!session?.user) return null;
+    return session.user.role === "Physician"
+      ? (session.user.id as string) || null
+      : session.user.physicianId || null;
+  }, [session]);
 
-      const quizParams = new URLSearchParams({
-        patientName: selectedPatient.patientName,
-      });
-      if (selectedPatient.dob) {
-        const dobDate = selectedPatient.dob.split("T")[0];
-        quizParams.append("dob", dobDate);
-      }
-      if (
-        selectedPatient.claimNumber &&
-        selectedPatient.claimNumber !== "Not specified"
-      ) {
-        quizParams.append("claimNumber", selectedPatient.claimNumber);
-      }
-      fetch(`/api/patient-intakes?${quizParams}`)
-        .then((response) => {
-          if (response.ok) {
-            return response.json();
+  // Fetch recent patients function
+  const fetchRecentPatients = useCallback(async () => {
+    try {
+      const response = await fetch("/api/get-recent-patients?mode=wc");
+      if (!response.ok) throw new Error("Failed to fetch patients");
+      const data = await response.json();
+      setRecentPatients(data);
+      // Update selected patient if it still exists in the new list
+      if (data.length > 0) {
+        const currentSelected = selectedPatient;
+        if (currentSelected) {
+          const updatedPatient = data.find(
+            (p: RecentPatient) =>
+              p.patientName === currentSelected.patientName &&
+              p.claimNumber === currentSelected.claimNumber
+          );
+          if (updatedPatient) {
+            setSelectedPatient(updatedPatient);
+          } else if (!selectedPatient) {
+            setSelectedPatient(data[0]);
           }
-        })
-        .then((quizData) => {
+        } else {
+          setSelectedPatient(data[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching recent patients:", error);
+    }
+  }, [selectedPatient]);
+
+  // Handle progress complete - verify document and refresh ALL data instantly
+  const handleProgressComplete = useCallback(async () => {
+    // Show popup instantly first
+    setShowDocumentSuccessPopup(true);
+    // Auto-close popup after 3 seconds
+    setTimeout(() => {
+      setShowDocumentSuccessPopup(false);
+    }, 3000);
+
+    try {
+      // Fetch recent patients instantly (in parallel with other APIs)
+      const recentPatientsPromise = fetchRecentPatients();
+
+      // If we have a selected patient, refresh their data
+      if (selectedPatient) {
+        const physicianId = getPhysicianId();
+        
+        // Prepare all API calls in parallel
+        const apiPromises: Promise<any>[] = [
+          recentPatientsPromise,
+          fetchPatientTasks(selectedPatient),
+        ];
+
+        // Document verification (if physician ID available)
+        if (physicianId) {
+          const documentParams = new URLSearchParams({
+            patient_name: selectedPatient.patientName,
+            physicianId: physicianId,
+          });
+          if (selectedPatient.dob) {
+            const dobDate = selectedPatient.dob.split("T")[0];
+            documentParams.append("dob", dobDate);
+          }
+          if (
+            selectedPatient.claimNumber &&
+            selectedPatient.claimNumber !== "Not specified"
+          ) {
+            documentParams.append("claim_number", selectedPatient.claimNumber);
+          }
+
+          const verifyPromise = fetch(
+            `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/document?${documentParams}`,
+            {
+              headers: {
+                Authorization: `Bearer ${session?.user?.fastapi_token}`,
+              },
+            }
+          )
+            .then(async (documentResponse) => {
+              if (documentResponse.ok) {
+                const documentData = await documentResponse.json();
+                if (documentData?.documents && documentData.documents.length > 0) {
+                  const latestDocument = documentData.documents[0];
+                  const documentId = latestDocument.id || latestDocument.document_id;
+
+                  if (documentId) {
+                    // Verify the document
+                    return fetch(
+                      `/api/verify-document?document_id=${documentId}`,
+                      {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bearer ${session?.user?.fastapi_token}`,
+                        },
+                      }
+                    );
+                  }
+                }
+              }
+              return null;
+            })
+            .catch((error) => {
+              console.error("Error verifying document:", error);
+              return null;
+            });
+
+          apiPromises.push(verifyPromise);
+        }
+
+        // Patient quiz and intake update
+        const quizParams = new URLSearchParams({
+          patientName: selectedPatient.patientName,
+        });
+        if (selectedPatient.dob) {
+          const dobDate = selectedPatient.dob.split("T")[0];
+          quizParams.append("dob", dobDate);
+        }
+        if (
+          selectedPatient.claimNumber &&
+          selectedPatient.claimNumber !== "Not specified"
+        ) {
+          quizParams.append("claimNumber", selectedPatient.claimNumber);
+        }
+
+        const [quizResponse, intakeUpdateResponse] = await Promise.all([
+          fetch(`/api/patient-intakes?${quizParams}`),
+          fetch(`/api/patient-intake-update?${quizParams}`),
+        ]);
+
+        if (quizResponse.ok) {
+          const quizData = await quizResponse.json();
           if (quizData?.success && quizData?.data && quizData.data.length > 0) {
             setPatientQuiz(quizData.data[0]);
           }
-        })
-        .catch((error) => {
-          console.error("Error refreshing patient quiz:", error);
-        });
+        }
+
+        if (intakeUpdateResponse.ok) {
+          const intakeUpdateData = await intakeUpdateResponse.json();
+          if (intakeUpdateData?.success && intakeUpdateData?.data) {
+            setPatientIntakeUpdate(intakeUpdateData.data);
+          }
+        }
+
+        // Execute all API calls in parallel
+        await Promise.all(apiPromises);
+      } else {
+        // Just fetch recent patients if no patient selected
+        await recentPatientsPromise;
+      }
+    } catch (error) {
+      console.error("Error in handleProgressComplete:", error);
     }
-  }, [selectedPatient, fetchPatientTasks]);
+  }, [selectedPatient, fetchPatientTasks, fetchRecentPatients, session?.user?.fastapi_token, getPhysicianId]);
+
+  // Instant detection of 100% progress - call API and show popup immediately
+  useEffect(() => {
+    if (!selectedPatient) {
+      return;
+    }
+
+    // Reset the ref when not processing or when progress is reset (new upload started)
+    if (!isProcessing || (!progressData && !queueProgressData)) {
+      progressCompleteHandledRef.current = false;
+      return;
+    }
+
+    // Check if progress reached 100% and status is completed
+    const progressComplete = 
+      (progressData?.progress === 100 && progressData?.status === "completed") ||
+      (queueProgressData?.status === "completed");
+
+    const allFilesProcessed = progressData
+      ? progressData.processed_count >= progressData.total_files
+      : true;
+
+    if (progressComplete && allFilesProcessed && !progressCompleteHandledRef.current) {
+      console.log("🚀 Progress reached 100% - calling handleProgressComplete instantly");
+      progressCompleteHandledRef.current = true;
+      
+      // Call immediately without delay
+      handleProgressComplete();
+    }
+  }, [
+    progressData?.progress,
+    progressData?.status,
+    progressData?.processed_count,
+    progressData?.total_files,
+    queueProgressData?.status,
+    isProcessing,
+    selectedPatient,
+    handleProgressComplete,
+    progressData,
+    queueProgressData,
+  ]);
 
   // Handle upgrade for payment errors
   const handleUpgrade = useCallback(() => {
@@ -959,7 +1211,48 @@ export default function StaffDashboardPatient() {
       </main>
 
       {/* Modals */}
-      <IntakeModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      <IntakeModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        selectedPatient={selectedPatient}
+      />
+
+      {/* Document Success Popup */}
+      {showDocumentSuccessPopup && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+              Document Successfully Submitted!
+            </h3>
+            <p className="text-gray-600 text-center mb-6">
+              Your document has been processed and verified successfully.
+            </p>
+            <button
+              onClick={() => setShowDocumentSuccessPopup(false)}
+              className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors duration-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       <ManualTaskModal
         open={showTaskModal}

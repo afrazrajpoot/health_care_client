@@ -97,6 +97,10 @@ export async function POST(request: NextRequest) {
       },
       include: {
         adl: true,
+        bodyPartSnapshots: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -212,6 +216,242 @@ Output your 2 lines now:
         documentId: latestDocument.id,
       },
     });
+
+    // Generate PatientIntakeUpdate content using AI
+    try {
+      // Extract tags/pills data
+      const medRefillsRequested = refill?.needed ? "Yes" : "No";
+      const newAppointmentsList = Array.isArray(newAppointments) && newAppointments.length > 0
+        ? newAppointments.map((apt: any) => apt.type || "Unknown").join(", ")
+        : null;
+      
+      // Determine ADL changes
+      let adlChangesText = null;
+      if (adl?.state && adl.state !== "same") {
+        const adlList = Array.isArray(adl.list) ? adl.list : [];
+        if (adlList.length > 0) {
+          const direction = adl.state === "better" ? "↑" : adl.state === "worse" ? "↓" : "";
+          adlChangesText = `${adlList[0]} ${direction}`.trim();
+        }
+      }
+
+      // Prepare intake data for AI analysis - Generate summaries from intake quiz data
+      const intakeAnalysisPrompt = `
+Analyze the following patient intake form submission and generate:
+
+1. KEY PATIENT-REPORTED CHANGES: Write a narrative summary (2-3 sentences) describing what the patient reported since their last visit. Include:
+   - Medication refill status (whether needed or not)
+   - New appointments that occurred
+   - Changes in activities of daily living (ADLs) compared to prior visit
+   - Any therapy effects if mentioned
+   
+   Example: "Since the last visit, the patient reports no need for medication refills. One new appointment occurred (orthopedic consultation). Patient reports a decline in grip-related activities of daily living compared to the prior visit."
+
+2. SYSTEM INTERPRETATION: Write exactly 2 clear, concise sentences. First sentence should flag clinically relevant changes. Second sentence should note correlation with exam findings and need for treatment modification or further evaluation.
+   Example: "Changes flagged as clinically relevant. Consider correlation with exam findings, treatment response, and need for treatment modification or further evaluation."
+
+3. KEY FINDINGS: Generate a narrative summary based on the intake data. Format as a paragraph describing key findings from the patient intake. Include:
+   - Patient's reported condition/concerns
+   - Medication needs
+   - Appointment status
+   - ADL changes
+   - Pain levels if relevant
+   
+   Example: "Patient reports ${bodyAreas || 'body area'} concerns with ${adl?.state === 'worse' ? 'worsening' : adl?.state === 'better' ? 'improving' : 'stable'} ADL status. ${medRefillsRequested === 'Yes' ? 'Medication refill requested.' : 'No medication refills needed.'} ${newAppointmentsList ? `New appointments: ${newAppointmentsList}.` : 'No new appointments reported.'}"
+
+4. ADL EFFECT POINTS: Generate 3-5 bullet points (one per line) describing ADL effects. Each point should be concise (5-10 words max).
+   Example:
+   - Grip strength decreased
+   - Walking distance limited
+   - Dressing difficulty increased
+
+5. INTAKE PATIENT POINTS: Generate 3-5 bullet points (one per line) from patient intake. Each point should be concise (5-10 words max).
+   Example:
+   - Med refill requested
+   - New ortho consult scheduled
+   - Pain level improved after medication
+
+Patient Intake Data:
+- Patient Name: ${patientName}
+- Medication Refill Needed: ${medRefillsRequested}
+- New Appointments: ${newAppointmentsList || "None"}
+- ADL State: ${adl?.state || "same"}
+- ADL Changes: ${JSON.stringify(adl?.list || [])}
+- Pain Level (before -> after): ${refill?.before || "N/A"} -> ${refill?.after || "N/A"}
+- Therapies: ${JSON.stringify(therapies || [])}
+- Body Areas: ${bodyAreas || "N/A"}
+
+Generate in this exact format:
+KEY PATIENT-REPORTED CHANGES:
+[Narrative summary - 2-3 sentences describing patient-reported changes since last visit]
+
+SYSTEM INTERPRETATION:
+[Sentence 1. Sentence 2.]
+
+KEY FINDINGS:
+[Narrative summary based on intake data - describe key findings from patient intake]
+
+ADL EFFECT POINTS:
+- Point 1
+- Point 2
+- Point 3
+
+INTAKE PATIENT POINTS:
+- Point 1
+- Point 2
+- Point 3
+`;
+
+      const intakeCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a medical assistant. For KEY PATIENT-REPORTED CHANGES: write a narrative summary (2-3 sentences) describing patient-reported changes since last visit. For SYSTEM INTERPRETATION: write exactly 2 clear sentences. For KEY FINDINGS: write a narrative summary based on intake data. For points: use bullet format.",
+          },
+          { role: "user", content: intakeAnalysisPrompt },
+        ],
+        temperature: 0.3,
+      });
+
+      let keyPatientReportedChanges = "";
+      let systemInterpretation = "";
+      let keyFindings = "";
+      let adlEffectPoints: string[] = [];
+      let intakePatientPoints: string[] = [];
+
+      try {
+        const content = intakeCompletion.choices[0].message.content?.trim() || "";
+        
+        // Parse KEY PATIENT-REPORTED CHANGES
+        const keyChangesMatch = content.match(/KEY PATIENT-REPORTED CHANGES:\s*([\s\S]+?)(?=SYSTEM INTERPRETATION:|$)/);
+        if (keyChangesMatch) {
+          keyPatientReportedChanges = keyChangesMatch[1].trim();
+        }
+
+        // Parse SYSTEM INTERPRETATION (2 sentences)
+        const systemMatch = content.match(/SYSTEM INTERPRETATION:\s*([\s\S]+?)(?=KEY FINDINGS:|ADL EFFECT POINTS:|$)/);
+        if (systemMatch) {
+          systemInterpretation = systemMatch[1].trim();
+        }
+
+        // Parse KEY FINDINGS
+        const keyFindingsMatch = content.match(/KEY FINDINGS:\s*([\s\S]+?)(?=ADL EFFECT POINTS:|INTAKE PATIENT POINTS:|$)/);
+        if (keyFindingsMatch) {
+          keyFindings = keyFindingsMatch[1].trim();
+        }
+
+        // Parse ADL EFFECT POINTS
+        const adlMatch = content.match(/ADL EFFECT POINTS:\s*([\s\S]+?)(?=INTAKE PATIENT POINTS:|$)/);
+        if (adlMatch) {
+          adlEffectPoints = adlMatch[1]
+            .split('\n')
+            .map(line => line.replace(/^[-•]\s*/, '').trim())
+            .filter(line => line.length > 0);
+        }
+
+        // Parse INTAKE PATIENT POINTS
+        const intakeMatch = content.match(/INTAKE PATIENT POINTS:\s*([\s\S]+?)$/);
+        if (intakeMatch) {
+          intakePatientPoints = intakeMatch[1]
+            .split('\n')
+            .map(line => line.replace(/^[-•]\s*/, '').trim())
+            .filter(line => line.length > 0);
+        }
+
+        // Fallback if parsing fails
+        if (!keyPatientReportedChanges && !systemInterpretation) {
+          const lines = content.split('\n').filter(l => l.trim());
+          if (lines.length >= 2) {
+            keyPatientReportedChanges = lines[0].replace(/^KEY PATIENT-REPORTED CHANGES:\s*/i, '').trim();
+            systemInterpretation = lines[1].replace(/^SYSTEM INTERPRETATION:\s*/i, '').trim();
+          }
+        }
+
+        // Fallback for key findings if not parsed
+        if (!keyFindings) {
+          // Generate basic key findings from intake data
+          const adlStatus = adl?.state === 'worse' ? 'worsening' : adl?.state === 'better' ? 'improving' : 'stable';
+          const medStatus = medRefillsRequested === 'Yes' ? 'Medication refill requested.' : 'No medication refills needed.';
+          const apptStatus = newAppointmentsList ? `New appointments: ${newAppointmentsList}.` : 'No new appointments reported.';
+          keyFindings = `Patient reports ${bodyAreas || 'body area'} concerns with ${adlStatus} ADL status. ${medStatus} ${apptStatus}`;
+        }
+      } catch (parseError) {
+        console.error("Error parsing PatientIntakeUpdate AI response:", parseError);
+        keyPatientReportedChanges = "Since the last visit, patient intake data indicates changes in status.";
+        systemInterpretation = "Changes flagged as clinically relevant. Consider correlation with exam findings and need for treatment modification or further evaluation.";
+        // Generate fallback key findings from intake data
+        const adlStatus = adl?.state === 'worse' ? 'worsening' : adl?.state === 'better' ? 'improving' : 'stable';
+        const medStatus = medRefillsRequested === 'Yes' ? 'Medication refill requested.' : 'No medication refills needed.';
+        const apptStatus = newAppointmentsList ? `New appointments: ${newAppointmentsList}.` : 'No new appointments reported.';
+        keyFindings = `Patient reports ${bodyAreas || 'body area'} concerns with ${adlStatus} ADL status. ${medStatus} ${apptStatus}`;
+      }
+
+      // Check if PatientIntakeUpdate already exists for this patient
+      // Match by patientName and claimNumber (if provided)
+      const whereClause: any = {
+        patientName: {
+          equals: patientName,
+          mode: "insensitive",
+        },
+      };
+
+      // Include claimNumber in search if it's provided and not "Not specified"
+      if (claimNumber && claimNumber !== "Not specified") {
+        whereClause.claimNumber = claimNumber;
+      } else {
+        // If no claim number or "Not specified", match records where claimNumber is null
+        whereClause.claimNumber = null;
+      }
+
+      // Find existing record
+      const existingUpdate = await (prisma as any).patientIntakeUpdate.findFirst({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+      });
+
+      const updateData = {
+        dob: dob || null,
+        doi: doi || null,
+        patientQuizId: submission.id,
+        documentId: latestDocument.id,
+        keyPatientReportedChanges,
+        systemInterpretation,
+        keyFindings,
+        adlEffectPoints,
+        intakePatientPoints,
+        medRefillsRequested,
+        newAppointments: newAppointmentsList,
+        adlChanges: adlChangesText,
+        intakeData: {
+          newAppointments,
+          refill,
+          adl,
+          therapies,
+          bodyAreas,
+          language,
+        },
+      };
+
+      // Update existing record or create new one
+      if (existingUpdate) {
+        await (prisma as any).patientIntakeUpdate.update({
+          where: { id: existingUpdate.id },
+          data: updateData,
+        });
+      } else {
+        await (prisma as any).patientIntakeUpdate.create({
+          data: {
+            patientName,
+            claimNumber: claimNumber || null,
+            ...updateData,
+          },
+        });
+      }
+    } catch (intakeUpdateError) {
+      console.error("Error creating PatientIntakeUpdate:", intakeUpdateError);
+      // Don't fail the entire request if PatientIntakeUpdate creation fails
+    }
 
     return NextResponse.json({ success: true, submission }, { status: 201 });
   } catch (error) {
