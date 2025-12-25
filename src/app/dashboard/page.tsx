@@ -7,11 +7,10 @@ import PhysicianOnboardingTour from "@/components/physician-components/Physician
 import TreatmentHistorySection from "@/components/physician-components/TreatmentHistorySection";
 import { WelcomeModal } from "@/components/physician-components/WelcomeModal";
 import WhatsNewSection from "@/components/physician-components/WhatsNewSection";
-import RecentPatientsSidebar from "@/components/RecentPatientsSidebar";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 // Define TypeScript interfaces for data structures
 interface Patient {
@@ -146,6 +145,11 @@ export default function PhysicianCard() {
   >([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [rpToggle, setRpToggle] = useState(true); // Default to open/visible
+  const [recentPatientsVisible, setRecentPatientsVisible] = useState(false);
+  const [recentPatientsList, setRecentPatientsList] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const [taskQuickNotes, setTaskQuickNotes] = useState<QuickNoteSnapshot[]>([]);
@@ -163,7 +167,7 @@ export default function PhysicianCard() {
     [key: string]: boolean;
   }>({
     whatsNew: false,
-    treatmentHistory: true,
+    treatmentHistory: false, // Always expanded
     adlWorkStatus: true,
     documentSummary: true,
   });
@@ -820,6 +824,23 @@ export default function PhysicianCard() {
       setIsVerified(true);
     }
   }, [documentData?.allVerified]);
+
+  // Fetch recent patients for popup
+  useEffect(() => {
+    const fetchRecentPatientsForPopup = async () => {
+      try {
+        const url = `/api/get-recent-patients?mode=${mode}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Failed to fetch");
+        const data = await response.json();
+        setRecentPatientsList(data);
+      } catch (err) {
+        console.error("Error fetching recent patients for popup:", err);
+      }
+    };
+
+    fetchRecentPatientsForPopup();
+  }, [mode]);
   // Format date from ISO string to MM/DD/YYYY
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "Not specified";
@@ -848,6 +869,148 @@ export default function PhysicianCard() {
     return documentData?.created_at
       ? formatDate(documentData.created_at)
       : "Not specified";
+  };
+
+  // Format date for recent patients popup (MM/DD/YYYY)
+  const formatShortDate = (
+    dateString: string | Date | null | undefined
+  ): string => {
+    if (!dateString) return "";
+    try {
+      const date =
+        dateString instanceof Date ? dateString : new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+    } catch {
+      return "";
+    }
+  };
+
+  // Get document type for recent patients popup
+  const getDocType = (patient: any): string => {
+    if (patient.documentType) {
+      return patient.documentType;
+    }
+    if (patient.documentCount > 0) {
+      return `${patient.documentCount} document(s)`;
+    }
+    return "Unknown";
+  };
+
+  // Helper to format date to YYYY-MM-DD string
+  const formatDateToString = (
+    date: Date | string | null | undefined
+  ): string => {
+    if (!date) return "";
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  };
+
+  // Fetch search results from API
+  const fetchSearchResults = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      const currentPhysicianId = getPhysicianId();
+
+      try {
+        setSearchLoading(true);
+        const response = await fetch(
+          `/api/dashboard/recommendation?patientName=${encodeURIComponent(
+            query
+          )}&claimNumber=${encodeURIComponent(query)}&dob=${encodeURIComponent(
+            query
+          )}&physicianId=${encodeURIComponent(
+            currentPhysicianId || ""
+          )}&mode=${encodeURIComponent(mode)}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch search results");
+        }
+
+        const data: any = await response.json();
+
+        if (data.success && data.data.allMatchingDocuments) {
+          const patients: Patient[] = data.data.allMatchingDocuments.map(
+            (doc: any) => ({
+              id: doc.id,
+              patientName: doc.patientName,
+              dob: formatDateToString(doc.dob),
+              doi: formatDateToString(doc.doi),
+              claimNumber: doc.claimNumber || "Not specified",
+            })
+          );
+          setSearchResults(patients);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (err: unknown) {
+        console.error("Error fetching search results:", err);
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    },
+    [mode]
+  );
+
+  // Debounce function
+  const debounce = <T extends (...args: any[]) => void>(
+    func: T,
+    delay: number
+  ) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      fetchSearchResults(query);
+    }, 300),
+    [fetchSearchResults]
+  );
+
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.trim()) {
+      debouncedSearch(query);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Filter recent patients based on search query
+  const filteredRecentPatients = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return recentPatientsList;
+    }
+    const query = searchQuery.toLowerCase();
+    return recentPatientsList.filter(
+      (patient) =>
+        patient.patientName?.toLowerCase().includes(query) ||
+        patient.claimNumber?.toLowerCase().includes(query) ||
+        patient.dob?.toLowerCase().includes(query)
+    );
+  }, [recentPatientsList, searchQuery]);
+
+  // Handle selecting a search result patient
+  const handleSearchResultSelect = (patient: Patient) => {
+    handlePatientSelect(patient);
+    setSearchQuery("");
+    setSearchResults([]);
+    setRecentPatientsVisible(false);
   };
   // Get current patient info for display
   const getCurrentPatientInfo = (): Patient => {
@@ -1048,24 +1211,10 @@ export default function PhysicianCard() {
         }
         .grid {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 320px;
+          grid-template-columns: minmax(0, 1fr);
           gap: 14px;
           align-items: start;
           max-width: 100%;
-        }
-        @media (max-width: 980px) {
-          .grid {
-            grid-template-columns: minmax(0, 1fr);
-          }
-          .rightcol {
-            display: none; /* Hide on mobile */
-          }
-        }
-        .rightcol {
-          display: block; /* Always visible */
-        }
-        .rp-handle {
-          display: none; /* Hide toggle handle since sidebar is always visible */
         }
         .panel {
           background: var(--card);
@@ -1364,7 +1513,7 @@ export default function PhysicianCard() {
           </div>
         )}
 
-        {/* Main Grid Layout - Always visible */}
+        {/* Main Grid Layout */}
         <div className="grid">
           <div>
             {!selectedPatient && !documentData ? (
@@ -1377,17 +1526,9 @@ export default function PhysicianCard() {
                   textAlign: "center",
                 }}
               >
-                <div
-                  style={{
-                    color: "var(--muted)",
-                    fontSize: "18px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  Select a patient from Recent Patients to view their details
-                </div>
                 <p style={{ color: "var(--muted)" }}>
-                  Use the search in Recent Patients to find and select a patient
+                  Click the Recent Patients button to search and select a
+                  patient
                 </p>
               </div>
             ) : (
@@ -1623,15 +1764,15 @@ export default function PhysicianCard() {
                         mode={mode}
                         copied={copied}
                         onCopySection={handleSectionCopy}
-                        isCollapsed={collapsedSections.treatmentHistory}
-                        onToggle={() => toggleSection("treatmentHistory")}
+                        isCollapsed={false}
+                        onToggle={() => {}}
                       />
                     </div>
                   </div>
                 )}
 
                 {/* ADL Section */}
-                {documentData && (
+                {/* {documentData && (
                   <div className="panel" style={{ marginBottom: "14px" }}>
                     <div className="panel-h">
                       <div>
@@ -1652,10 +1793,10 @@ export default function PhysicianCard() {
                       />
                     </div>
                   </div>
-                )}
+                )} */}
 
                 {/* Document Summary Section */}
-                {documentData && (
+                {/* {documentData && (
                   <div className="panel" style={{ marginBottom: "14px" }}>
                     <div className="panel-h">
                       <div>
@@ -1677,10 +1818,10 @@ export default function PhysicianCard() {
                       />
                     </div>
                   </div>
-                )}
+                )} */}
 
                 {/* Patient Quiz Section */}
-                {documentData && (
+                {/* {documentData && (
                   <div className="panel" style={{ marginBottom: "14px" }}>
                     <div className="panel-h">
                       <div>
@@ -1698,33 +1839,166 @@ export default function PhysicianCard() {
                       />
                     </div>
                   </div>
-                )}
+                )} */}
               </>
             )}
-          </div>
-
-          {/* Right Column - Recent Patients (Always Visible) */}
-          <div className="rightcol">
-            <div className="panel">
-              <div className="panel-h">
-                <div className="title">Recent Patients</div>
-                <div className="meta">Quick jump list</div>
-              </div>
-              <div className="panel-body" style={{ padding: 0 }}>
-                <RecentPatientsSidebar
-                  onPatientSelect={handlePatientSelect}
-                  mode={mode}
-                  physicianId={physicianId}
-                  autoSelectFirst={true}
-                  hasSelectedPatient={!!selectedPatient}
-                />
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Floating New Order Button */}
         <div className="floating-new-order">+ New Order</div>
+
+        {/* Recent Patients Toggle */}
+        <div
+          className={`fixed right-0 top-1/2 -translate-y-1/2 bg-[#3f51b5] text-white p-[10px_12px] rounded-l-[12px] shadow-[0_8px_18px_rgba(0,0,0,0.18)] cursor-pointer z-[9998] font-extrabold text-[13px] flex items-center gap-2 ${
+            recentPatientsVisible ? "checked" : ""
+          }`}
+          onClick={() => setRecentPatientsVisible(!recentPatientsVisible)}
+        >
+          <span className="[writing-mode:vertical-rl] rotate-180 tracking-[0.02em]">
+            Recent Patients
+          </span>
+          <div
+            className={`[writing-mode:horizontal-tb] text-[16px] leading-[1] ${
+              recentPatientsVisible ? "rotate-180" : ""
+            }`}
+          >
+            ◀
+          </div>
+        </div>
+
+        {/* Recent Patients Panel - Fixed Position next to toggle */}
+        {recentPatientsVisible && (
+          <div className="fixed right-[60px] top-1/2 -translate-y-1/2 z-[9997]">
+            <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_2px_6px_rgba(0,0,0,0.06)] overflow-hidden w-[320px]">
+              <div className="flex items-center justify-between p-[12px_14px] border-b border-[#e5e7eb]">
+                <div className="font-extrabold">Recent Patients</div>
+                <div className="text-[12px] text-[#6b7280]">
+                  Quick jump list
+                </div>
+              </div>
+
+              {/* Search Input */}
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Search patients..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "var(--accent)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "var(--border)";
+                  }}
+                />
+              </div>
+
+              <div className="p-0 max-h-[400px] overflow-y-auto">
+                {/* Search Results */}
+                {searchQuery.trim() && (
+                  <>
+                    {searchLoading ? (
+                      <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
+                        Searching...
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      <>
+                        <div
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            color: "var(--muted)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          Search Results
+                        </div>
+                        {searchResults.map((patient, index) => (
+                          <div
+                            key={patient.id || index}
+                            className="p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => handleSearchResultSelect(patient)}
+                          >
+                            {patient.patientName}
+                            {patient.claimNumber &&
+                              patient.claimNumber !== "Not specified" && (
+                                <> • Claim: {patient.claimNumber}</>
+                              )}
+                            {patient.dob && (
+                              <> • DOB: {formatShortDate(patient.dob)}</>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
+                        No patients found
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Recent Patients List - Only show when no search query */}
+                {!searchQuery.trim() && (
+                  <>
+                    {recentPatientsList.length === 0 ? (
+                      <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
+                        No patients found
+                      </div>
+                    ) : (
+                      filteredRecentPatients.map((patient, index) => (
+                        <div
+                          key={index}
+                          className="p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => {
+                            // Format dob to string if it's a Date object
+                            let dobString = "";
+                            if (patient.dob) {
+                              if (patient.dob instanceof Date) {
+                                dobString = patient.dob
+                                  .toISOString()
+                                  .split("T")[0];
+                              } else {
+                                dobString = String(patient.dob);
+                              }
+                            }
+
+                            handlePatientSelect({
+                              patientName: patient.patientName,
+                              dob: dobString,
+                              claimNumber: patient.claimNumber || "",
+                              doi: "", // DOI will be fetched when document data is loaded
+                            });
+                            setRecentPatientsVisible(false);
+                          }}
+                        >
+                          {patient.patientName} — {getDocType(patient)} •{" "}
+                          {formatShortDate(patient.createdAt)}
+                        </div>
+                      ))
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {/* Sidebar Overlay - Closes on click */}
       {isSidebarOpen && (
