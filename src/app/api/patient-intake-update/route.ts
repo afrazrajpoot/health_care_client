@@ -1,9 +1,12 @@
 // app/api/patient-intake-update/route.ts
-import { prisma } from "@/lib/prisma";
+import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
+    // Ensure Prisma is connected before use
+    await ensurePrismaConnection();
+
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get("patientName");
     const dob = searchParams.get("dob");
@@ -67,5 +70,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+  // Note: Do NOT call prisma.$disconnect() here as it causes issues with concurrent requests
 }
 

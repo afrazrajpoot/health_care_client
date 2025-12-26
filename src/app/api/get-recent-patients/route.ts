@@ -1,10 +1,8 @@
 // app/api/documents/recent/route.ts
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/services/authSErvice";
-
-const prisma = new PrismaClient();
 
 /* ---------------------------------------------
  * NORMALIZATION HELPERS
@@ -211,8 +209,12 @@ function isSamePatient(
 
 export async function GET(request: Request) {
   try {
+    // Ensure Prisma is connected before use
+    await ensurePrismaConnection();
+
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
+    const search = searchParams.get("search")?.trim();
 
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
@@ -232,6 +234,24 @@ export async function GET(request: Request) {
     };
 
     if (mode) whereClause.mode = mode;
+
+    // Add search filter if provided
+    if (search) {
+      whereClause.OR = [
+        {
+          patientName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          claimNumber: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
 
     // Fetch documents with their documentSummary relation
     const documents = await prisma.document.findMany({
@@ -415,7 +435,6 @@ export async function GET(request: Request) {
       { error: "Failed to fetch recent documents" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Do NOT call prisma.$disconnect() here as it causes issues with concurrent requests
 }

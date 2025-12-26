@@ -20,6 +20,9 @@ import QuestionnaireSummary from "@/components/staff-components/QuestionnaireSum
 import TasksTable from "@/components/staff-components/TasksTable";
 import QuickNotesSection from "@/components/staff-components/QuickNotesSection";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
+import FailedDocuments from "@/components/staff-components/FailedDocuments";
+import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
+import { useFailedDocuments } from "../custom-hooks/staff-hooks/useFailedDocuments";
 
 interface RecentPatient {
   patientName: string;
@@ -81,7 +84,12 @@ export default function StaffDashboardPatient() {
     details: "",
     one_line_note: "",
   });
-  const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] = useState(false);
+  const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
+    useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [taskPage, setTaskPage] = useState(1);
+  const [taskPageSize] = useState(10);
+  const [taskTotalCount, setTaskTotalCount] = useState(0);
   const progressCompleteHandledRef = useRef(false);
 
   // Get socket data for instant progress detection
@@ -234,6 +242,22 @@ export default function StaffDashboardPatient() {
   const initialMode = "wc" as const;
   const { handleCreateManualTask, fetchTasks } = useTasks(initialMode);
 
+  // Failed documents hook
+  const {
+    failedDocuments,
+    isUpdateModalOpen,
+    selectedDoc,
+    updateFormData,
+    updateLoading,
+    fetchFailedDocuments,
+    removeFailedDocument,
+    handleRowClick,
+    handleUpdateInputChange,
+    handleUpdateSubmit,
+    setIsUpdateModalOpen,
+    setUpdateFormData,
+  } = useFailedDocuments();
+
   // File upload functionality
   const router = useRouter();
   const {
@@ -274,112 +298,119 @@ export default function StaffDashboardPatient() {
     ).length,
   };
 
-  // Fetch recent patients on mount
-  useEffect(() => {
-    const fetchRecentPatientsOnMount = async () => {
+  // Fetch recent patients function
+  const fetchRecentPatients = useCallback(
+    async (searchQuery: string = "") => {
       try {
         setLoading(true);
-        const response = await fetch("/api/get-recent-patients?mode=wc");
+        const params = new URLSearchParams({ mode: "wc" });
+        if (searchQuery.trim()) {
+          params.append("search", searchQuery.trim());
+        }
+        const response = await fetch(`/api/get-recent-patients?${params}`);
         if (!response.ok) throw new Error("Failed to fetch patients");
         const data = await response.json();
         setRecentPatients(data);
-        if (data.length > 0 && !selectedPatient) {
-          setSelectedPatient(data[0]);
-        }
+        // Update selected patient if it still exists in the new list
+        // Use functional update to avoid dependency on selectedPatient
+        setSelectedPatient((currentSelected) => {
+          if (data.length > 0) {
+            if (currentSelected) {
+              const updatedPatient = data.find(
+                (p: RecentPatient) =>
+                  p.patientName === currentSelected.patientName &&
+                  p.claimNumber === currentSelected.claimNumber
+              );
+              if (updatedPatient) {
+                return updatedPatient;
+              }
+            }
+            // Only set first patient if no current selection
+            if (!currentSelected) {
+              return data[0];
+            }
+          }
+          return currentSelected;
+        });
       } catch (error) {
         console.error("Error fetching recent patients:", error);
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [] // Remove selectedPatient from dependencies to prevent infinite loop
+  );
 
-    fetchRecentPatientsOnMount();
-  }, []);
+  // Fetch recent patients on mount and when search changes
+  useEffect(() => {
+    fetchRecentPatients(patientSearchQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientSearchQuery]); // Only depend on patientSearchQuery, not fetchRecentPatients
 
-  // Function to fetch patient tasks - filter by selected patient
-  const fetchPatientTasks = useCallback(async (patient: RecentPatient) => {
-    try {
-      // Fetch open tasks
-      const openTaskParams = new URLSearchParams({
-        mode: "wc",
-        page: "1",
-        pageSize: "100",
-      });
+  // Fetch failed documents on mount only
+  useEffect(() => {
+    fetchFailedDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
-      // Filter by patient name first (most reliable)
-      openTaskParams.append("search", patient.patientName);
+  // Function to fetch patient tasks - filter by selected patient with pagination
+  const fetchPatientTasks = useCallback(
+    async (patient: RecentPatient, page: number = 1, pageSize: number = 10) => {
+      try {
+        // Fetch tasks based on current view (open or completed)
+        const statusFilter = showCompletedTasks ? "completed" : undefined;
 
-      // Also add claim filter if available for better matching
-      if (patient.claimNumber && patient.claimNumber !== "Not specified") {
-        openTaskParams.append("claim", patient.claimNumber);
-      }
-
-      // Fetch completed tasks separately (all completed statuses)
-      const completedStatuses = ["completed", "done", "closed"];
-      const completedTaskParams = completedStatuses.map((status) => {
-        const params = new URLSearchParams({
+        const taskParams = new URLSearchParams({
           mode: "wc",
-          page: "1",
-          pageSize: "100",
-          status: status,
+          page: page.toString(),
+          pageSize: pageSize.toString(),
         });
-        params.append("search", patient.patientName);
+
+        // Filter by patient name first (most reliable)
+        taskParams.append("search", patient.patientName);
+
+        // Also add claim filter if available for better matching
         if (patient.claimNumber && patient.claimNumber !== "Not specified") {
-          params.append("claim", patient.claimNumber);
+          taskParams.append("claim", patient.claimNumber);
         }
-        return fetch(`/api/tasks?${params}`);
-      });
 
-      // Fetch both open and all completed tasks in parallel
-      const [openResponse, ...completedResponses] = await Promise.all([
-        fetch(`/api/tasks?${openTaskParams}`),
-        ...completedTaskParams,
-      ]);
+        // Add status filter if showing completed tasks
+        if (statusFilter) {
+          taskParams.append("status", statusFilter);
+        }
 
-      if (!openResponse.ok) throw new Error("Failed to fetch open tasks");
-      const completedResponsesOk = completedResponses.every((r) => r.ok);
-      if (!completedResponsesOk)
-        throw new Error("Failed to fetch completed tasks");
+        const response = await fetch(`/api/tasks?${taskParams}`);
+        if (!response.ok) throw new Error("Failed to fetch tasks");
 
-      const openData = await openResponse.json();
-      const completedDataArray = await Promise.all(
-        completedResponses.map((r) => r.json())
-      );
+        const data = await response.json();
+        const tasks = data.tasks || [];
+        const totalCount = data.totalCount || 0;
 
-      // Combine all completed tasks from different statuses
-      const allCompletedTasks = completedDataArray.flatMap(
-        (data) => data.tasks || []
-      );
+        if (Array.isArray(tasks) && tasks.length > 0) {
+          // Additional client-side filtering by patient name to ensure accuracy
+          const filteredTasks = tasks.filter((task: Task) => {
+            const taskPatientName = task.patient?.toLowerCase() || "";
+            const selectedPatientName = patient.patientName.toLowerCase();
+            return (
+              taskPatientName.includes(selectedPatientName) ||
+              selectedPatientName.includes(taskPatientName)
+            );
+          });
 
-      // Combine both open and completed tasks
-      const allTasks = [...(openData.tasks || []), ...allCompletedTasks];
-
-      if (Array.isArray(allTasks) && allTasks.length > 0) {
-        // Additional client-side filtering by patient name to ensure accuracy
-        const filteredTasks = allTasks.filter((task: Task) => {
-          const taskPatientName = task.patient?.toLowerCase() || "";
-          const selectedPatientName = patient.patientName.toLowerCase();
-          return (
-            taskPatientName.includes(selectedPatientName) ||
-            selectedPatientName.includes(taskPatientName)
-          );
-        });
-
-        // Remove duplicates based on task ID
-        const uniqueTasks = filteredTasks.filter(
-          (task, index, self) =>
-            index === self.findIndex((t) => t.id === task.id)
-        );
-
-        setPatientTasks(uniqueTasks);
-      } else {
+          setPatientTasks(filteredTasks);
+          setTaskTotalCount(totalCount);
+        } else {
+          setPatientTasks([]);
+          setTaskTotalCount(0);
+        }
+      } catch (error) {
+        console.error("Error fetching patient tasks:", error);
         setPatientTasks([]);
+        setTaskTotalCount(0);
       }
-    } catch (error) {
-      console.error("Error fetching patient tasks:", error);
-      setPatientTasks([]);
-    }
-  }, []);
+    },
+    [showCompletedTasks]
+  );
 
   // Fetch patient tasks and quiz when patient is selected
   useEffect(() => {
@@ -401,7 +432,9 @@ export default function StaffDashboardPatient() {
 
     const fetchPatientData = async () => {
       try {
-        await fetchPatientTasks(selectedPatient);
+        // Reset to page 1 when patient or view changes
+        setTaskPage(1);
+        await fetchPatientTasks(selectedPatient, 1, taskPageSize);
         if (isCancelled) return;
 
         // Fetch patient quiz
@@ -419,29 +452,58 @@ export default function StaffDashboardPatient() {
           quizParams.append("claimNumber", selectedPatient.claimNumber);
         }
 
-        const [quizResponse, intakeUpdateResponse] = await Promise.all([
+        // Use Promise.allSettled to handle errors gracefully and prevent one failure from blocking the other
+        const [quizResult, intakeUpdateResult] = await Promise.allSettled([
           fetch(`/api/patient-intakes?${quizParams}`),
           fetch(`/api/patient-intake-update?${quizParams}`),
         ]);
 
         if (isCancelled) return;
 
-        if (quizResponse.ok) {
-          const quizData = await quizResponse.json();
-          if (quizData?.success && quizData?.data && quizData.data.length > 0) {
-            setPatientQuiz(quizData.data[0]);
-          } else {
+        // Handle quiz response
+        if (quizResult.status === "fulfilled" && quizResult.value.ok) {
+          try {
+            const quizData = await quizResult.value.json();
+            if (
+              quizData?.success &&
+              quizData?.data &&
+              quizData.data.length > 0
+            ) {
+              setPatientQuiz(quizData.data[0]);
+            } else {
+              setPatientQuiz(null);
+            }
+          } catch (error) {
+            console.error("Error parsing quiz response:", error);
             setPatientQuiz(null);
           }
+        } else if (quizResult.status === "rejected") {
+          console.error("Error fetching quiz:", quizResult.reason);
+          setPatientQuiz(null);
         }
 
-        if (intakeUpdateResponse.ok) {
-          const intakeUpdateData = await intakeUpdateResponse.json();
-          if (intakeUpdateData?.success && intakeUpdateData?.data) {
-            setPatientIntakeUpdate(intakeUpdateData.data);
-          } else {
+        // Handle intake update response
+        if (
+          intakeUpdateResult.status === "fulfilled" &&
+          intakeUpdateResult.value.ok
+        ) {
+          try {
+            const intakeUpdateData = await intakeUpdateResult.value.json();
+            if (intakeUpdateData?.success && intakeUpdateData?.data) {
+              setPatientIntakeUpdate(intakeUpdateData.data);
+            } else {
+              setPatientIntakeUpdate(null);
+            }
+          } catch (error) {
+            console.error("Error parsing intake update response:", error);
             setPatientIntakeUpdate(null);
           }
+        } else if (intakeUpdateResult.status === "rejected") {
+          console.error(
+            "Error fetching intake update:",
+            intakeUpdateResult.reason
+          );
+          setPatientIntakeUpdate(null);
         }
       } catch (error) {
         if (!isCancelled) {
@@ -460,7 +522,20 @@ export default function StaffDashboardPatient() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedPatient, fetchPatientTasks]);
+  }, [selectedPatient, fetchPatientTasks, taskPageSize]);
+
+  // Refetch tasks when page or view (completed/open) changes
+  useEffect(() => {
+    if (selectedPatient) {
+      fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
+    }
+  }, [
+    taskPage,
+    showCompletedTasks,
+    fetchPatientTasks,
+    selectedPatient,
+    taskPageSize,
+  ]);
 
   // Format DOB for display
   const formatDOB = (dob: string) => {
@@ -487,17 +562,32 @@ export default function StaffDashboardPatient() {
     // Use AI-generated points from PatientIntakeUpdate if available
     if (patientIntakeUpdate) {
       // Add ADL effect points
-      if (patientIntakeUpdate.adlEffectPoints && Array.isArray(patientIntakeUpdate.adlEffectPoints)) {
+      if (
+        patientIntakeUpdate.adlEffectPoints &&
+        Array.isArray(patientIntakeUpdate.adlEffectPoints)
+      ) {
         patientIntakeUpdate.adlEffectPoints.forEach((point: string) => {
           if (point && point.trim()) {
             // Determine chip type based on content
             const lowerPoint = point.toLowerCase();
             let type: "blue" | "amber" | "red" | "green" = "blue";
-            if (lowerPoint.includes("worse") || lowerPoint.includes("decreased") || lowerPoint.includes("limited") || lowerPoint.includes("difficulty")) {
+            if (
+              lowerPoint.includes("worse") ||
+              lowerPoint.includes("decreased") ||
+              lowerPoint.includes("limited") ||
+              lowerPoint.includes("difficulty")
+            ) {
               type = "red";
-            } else if (lowerPoint.includes("improved") || lowerPoint.includes("better") || lowerPoint.includes("increased")) {
+            } else if (
+              lowerPoint.includes("improved") ||
+              lowerPoint.includes("better") ||
+              lowerPoint.includes("increased")
+            ) {
               type = "green";
-            } else if (lowerPoint.includes("unchanged") || lowerPoint.includes("same")) {
+            } else if (
+              lowerPoint.includes("unchanged") ||
+              lowerPoint.includes("same")
+            ) {
               type = "green";
             } else {
               type = "amber";
@@ -508,19 +598,34 @@ export default function StaffDashboardPatient() {
       }
 
       // Add intake patient points
-      if (patientIntakeUpdate.intakePatientPoints && Array.isArray(patientIntakeUpdate.intakePatientPoints)) {
+      if (
+        patientIntakeUpdate.intakePatientPoints &&
+        Array.isArray(patientIntakeUpdate.intakePatientPoints)
+      ) {
         patientIntakeUpdate.intakePatientPoints.forEach((point: string) => {
           if (point && point.trim()) {
             // Determine chip type based on content
             const lowerPoint = point.toLowerCase();
             let type: "blue" | "amber" | "red" | "green" = "blue";
-            if (lowerPoint.includes("refill") || lowerPoint.includes("medication")) {
+            if (
+              lowerPoint.includes("refill") ||
+              lowerPoint.includes("medication")
+            ) {
               type = "blue";
-            } else if (lowerPoint.includes("appointment") || lowerPoint.includes("consult")) {
+            } else if (
+              lowerPoint.includes("appointment") ||
+              lowerPoint.includes("consult")
+            ) {
               type = "blue";
-            } else if (lowerPoint.includes("improved") || lowerPoint.includes("better")) {
+            } else if (
+              lowerPoint.includes("improved") ||
+              lowerPoint.includes("better")
+            ) {
               type = "green";
-            } else if (lowerPoint.includes("worse") || lowerPoint.includes("pain")) {
+            } else if (
+              lowerPoint.includes("worse") ||
+              lowerPoint.includes("pain")
+            ) {
               type = "red";
             } else {
               type = "amber";
@@ -541,7 +646,9 @@ export default function StaffDashboardPatient() {
               : patientQuiz.refill;
           if (
             refill &&
-            (refill.requested || refill.needed || Object.keys(refill).length > 0)
+            (refill.requested ||
+              refill.needed ||
+              Object.keys(refill).length > 0)
           ) {
             chips.push({ text: "Medication refill requested", type: "blue" });
           }
@@ -600,7 +707,8 @@ export default function StaffDashboardPatient() {
                 (a: any) =>
                   !a ||
                   a === "unchanged" ||
-                  (typeof a === "string" && a.toLowerCase().includes("unchanged"))
+                  (typeof a === "string" &&
+                    a.toLowerCase().includes("unchanged"))
               ))
           ) {
             chips.push({ text: "ADLs unchanged", type: "green" });
@@ -638,36 +746,6 @@ export default function StaffDashboardPatient() {
       : session.user.physicianId || null;
   }, [session]);
 
-  // Fetch recent patients function
-  const fetchRecentPatients = useCallback(async () => {
-    try {
-      const response = await fetch("/api/get-recent-patients?mode=wc");
-      if (!response.ok) throw new Error("Failed to fetch patients");
-      const data = await response.json();
-      setRecentPatients(data);
-      // Update selected patient if it still exists in the new list
-      if (data.length > 0) {
-        const currentSelected = selectedPatient;
-        if (currentSelected) {
-          const updatedPatient = data.find(
-            (p: RecentPatient) =>
-              p.patientName === currentSelected.patientName &&
-              p.claimNumber === currentSelected.claimNumber
-          );
-          if (updatedPatient) {
-            setSelectedPatient(updatedPatient);
-          } else if (!selectedPatient) {
-            setSelectedPatient(data[0]);
-          }
-        } else {
-          setSelectedPatient(data[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching recent patients:", error);
-    }
-  }, [selectedPatient]);
-
   // Handle progress complete - only show popup, don't call APIs
   const handleProgressComplete = useCallback(() => {
     // Show popup instantly when progress reaches 100%
@@ -694,18 +772,23 @@ export default function StaffDashboardPatient() {
     }
 
     // Check if progress reached 100% and status is completed
-    const progressComplete = 
-      (progressData?.progress === 100 && progressData?.status === "completed") ||
-      (queueProgressData?.status === "completed");
+    const progressComplete =
+      (progressData?.progress === 100 &&
+        progressData?.status === "completed") ||
+      queueProgressData?.status === "completed";
 
     const allFilesProcessed = progressData
       ? progressData.processed_count >= progressData.total_files
       : true;
 
-    if (progressComplete && allFilesProcessed && !progressCompleteHandledRef.current) {
+    if (
+      progressComplete &&
+      allFilesProcessed &&
+      !progressCompleteHandledRef.current
+    ) {
       console.log("🚀 Progress reached 100% - showing popup instantly");
       progressCompleteHandledRef.current = true;
-      
+
       // Show popup immediately (APIs will be called when user clicks OK)
       handleProgressComplete();
     }
@@ -927,7 +1010,7 @@ export default function StaffDashboardPatient() {
 
       // Refresh tasks after saving
       if (selectedPatient) {
-        await fetchPatientTasks(selectedPatient);
+        await fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
       }
     } catch (error) {
       console.error("Error saving quick note:", error);
@@ -935,26 +1018,13 @@ export default function StaffDashboardPatient() {
     }
   };
 
-  // Get open tasks
-  const openTasks = patientTasks.filter(
-    (t) =>
-      t.status !== "Completed" &&
-      t.status !== "completed" &&
-      t.status !== "Done" &&
-      t.status !== "Closed"
-  );
+  // Tasks to display (already filtered by API based on showCompletedTasks)
+  const displayedTasks = patientTasks;
 
-  // Get completed tasks
-  const completedTasks = patientTasks.filter(
-    (t) =>
-      t.status === "Completed" ||
-      t.status === "completed" ||
-      t.status === "Done" ||
-      t.status === "Closed"
-  );
-
-  // Tasks to display based on toggle
-  const displayedTasks = showCompletedTasks ? completedTasks : openTasks;
+  // Calculate pagination info
+  const totalPages = Math.ceil(taskTotalCount / taskPageSize);
+  const hasNextPage = taskPage < totalPages;
+  const hasPrevPage = taskPage > 1;
 
   return (
     <>
@@ -1027,6 +1097,7 @@ export default function StaffDashboardPatient() {
           onSelectPatient={setSelectedPatient}
           formatDOB={formatDOB}
           formatClaimNumber={formatClaimNumber}
+          onSearchChange={setPatientSearchQuery}
         />
 
         <section className="flex flex-col gap-3.5 h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
@@ -1065,8 +1136,8 @@ export default function StaffDashboardPatient() {
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-base font-bold text-slate-900 m-0">
                         {showCompletedTasks
-                          ? `Completed Tasks (${completedTasks.length})`
-                          : `Open Tasks & Required Actions (${openTasks.length})`}
+                          ? `Completed Tasks (${taskTotalCount})`
+                          : `Open Tasks & Required Actions (${taskTotalCount})`}
                       </h3>
                       <button
                         onClick={() =>
@@ -1093,24 +1164,106 @@ export default function StaffDashboardPatient() {
                       getStatusOptions={getStatusOptions}
                       getAssigneeOptions={getAssigneeOptions}
                     />
+
+                    {/* Pagination Controls */}
+                    {taskTotalCount > taskPageSize && (
+                      <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">
+                          Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
+                          {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
+                          {taskTotalCount} tasks
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              setTaskPage((prev) => Math.max(1, prev - 1))
+                            }
+                            disabled={!hasPrevPage}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
+                              hasPrevPage
+                                ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                            }`}
+                          >
+                            Previous
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            Page {taskPage} of {totalPages}
+                          </span>
+                          <button
+                            onClick={() =>
+                              setTaskPage((prev) =>
+                                Math.min(totalPages, prev + 1)
+                              )
+                            }
+                            disabled={!hasNextPage}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
+                              hasNextPage
+                                ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                            }`}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Failed Documents Section - Always show if data exists */}
+                  {failedDocuments.length > 0 && (
+                    <div className="mt-6">
+                      {/* <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-base font-bold text-slate-900 m-0">
+                          Failed Documents ({failedDocuments.length})
+                        </h3>
+                      </div> */}
+                      <FailedDocuments
+                        documents={failedDocuments}
+                        onRowClick={handleRowClick}
+                        onDocumentDeleted={removeFailedDocument}
+                        mode={initialMode}
+                        physicianId={getPhysicianId() || undefined}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </>
           ) : (
-            <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-10 text-center">
-              <p className="text-sm text-gray-500 m-0">
-                Select a patient to view their details
-              </p>
-            </section>
+            <>
+              <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-10 text-center">
+                <p className="text-sm text-gray-500 m-0">
+                  Select a patient to view their details
+                </p>
+              </section>
+
+              {/* Failed Documents Section - Show even when no patient selected */}
+              {failedDocuments.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-base font-bold text-slate-900 m-0">
+                      Failed Documents ({failedDocuments.length})
+                    </h3>
+                  </div>
+                  <FailedDocuments
+                    documents={failedDocuments}
+                    onRowClick={handleRowClick}
+                    onDocumentDeleted={removeFailedDocument}
+                    mode={initialMode}
+                    physicianId={getPhysicianId() || undefined}
+                  />
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
 
       {/* Modals */}
-      <IntakeModal 
-        isOpen={showModal} 
-        onClose={() => setShowModal(false)} 
+      <IntakeModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
         selectedPatient={selectedPatient}
       />
 
@@ -1184,6 +1337,17 @@ export default function StaffDashboardPatient() {
         task={selectedTaskForQuickNote}
         onClose={() => setShowQuickNoteModal(false)}
         onSave={handleSaveQuickNote}
+      />
+
+      {/* Update Document Modal */}
+      <UpdateDocumentModal
+        open={isUpdateModalOpen}
+        onOpenChange={setIsUpdateModalOpen}
+        selectedDoc={selectedDoc}
+        formData={updateFormData}
+        onInputChange={handleUpdateInputChange}
+        onSubmit={handleUpdateSubmit}
+        isLoading={updateLoading}
       />
     </>
   );
