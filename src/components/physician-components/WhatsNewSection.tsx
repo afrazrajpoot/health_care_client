@@ -22,6 +22,13 @@ import {
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -49,6 +56,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     null
   );
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+  const [briefSummaryModalOpen, setBriefSummaryModalOpen] = useState(false);
+  const [selectedBriefSummary, setSelectedBriefSummary] = useState<string>("");
+  const [selectedLongSummary, setSelectedLongSummary] = useState<string>("");
+  const [selectedDocumentInfo, setSelectedDocumentInfo] = useState<{
+    patientName?: string;
+    reportDate?: string;
+    documentType?: string;
+  } | null>(null);
+  const [isBriefSummaryExpanded, setIsBriefSummaryExpanded] = useState(false);
+  const [isLongSummaryExpanded, setIsLongSummaryExpanded] = useState(false);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
 
@@ -448,6 +465,28 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
+  const handleBriefSummaryClick = (e: React.MouseEvent, group: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (group.briefSummary || group.longSummary) {
+      setSelectedBriefSummary(group.briefSummary || "");
+      setSelectedLongSummary(group.longSummary || "");
+      setSelectedDocumentInfo({
+        patientName: group.patientName || documentData?.patient_name,
+        reportDate: group.reportDate,
+        documentType: group.documentType,
+      });
+      setBriefSummaryModalOpen(true);
+      setIsBriefSummaryExpanded(false);
+      setIsLongSummaryExpanded(false);
+    } else {
+      toast.error("Summary not available for this document", {
+        duration: 3000,
+        position: "top-right",
+      });
+    }
+  };
+
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
   const isLoadingForGroup = (group: any) => {
     const docId = group.doc?.document_id;
@@ -614,6 +653,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           {expandedLongSummary === group.docId
                             ? "Show brief"
                             : "Read more"}
+                        </button>
+                      )}
+
+                      {(group.briefSummary || group.longSummary) && (
+                        <button
+                          onClick={(e) => handleBriefSummaryClick(e, group)}
+                          className="action-btn brief-summary-btn"
+                          title="View Document Summary"
+                        >
+                          Brief Summary
                         </button>
                       )}
 
@@ -1448,7 +1497,152 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-size: 12px;
           font-style: italic;
         }
+        .brief-summary-btn {
+          background: #f0f9ff;
+          color: #0369a1;
+          border: 1px solid #bae6fd;
+        }
+        .brief-summary-btn:hover {
+          background: #e0f2fe;
+          color: #075985;
+        }
       `}</style>
+
+      {/* Brief Summary Modal */}
+      <Dialog
+        open={briefSummaryModalOpen}
+        onOpenChange={setBriefSummaryModalOpen}
+      >
+        <DialogContent className="max-w-xl w-[90vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-gray-900">
+              Brief Summary
+            </DialogTitle>
+            {selectedDocumentInfo && (
+              <DialogDescription className="text-sm text-gray-600 space-y-1">
+                {selectedDocumentInfo.patientName && (
+                  <div>
+                    <span className="font-medium">Patient:</span>{" "}
+                    {selectedDocumentInfo.patientName}
+                  </div>
+                )}
+                {selectedDocumentInfo.documentType && (
+                  <div>
+                    <span className="font-medium">Document Type:</span>{" "}
+                    {selectedDocumentInfo.documentType}
+                  </div>
+                )}
+                {selectedDocumentInfo.reportDate && (
+                  <div>
+                    <span className="font-medium">Report Date:</span>{" "}
+                    {formatDisplayDate(selectedDocumentInfo.reportDate)}
+                  </div>
+                )}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="mt-4">
+            {/* Brief Summary Section */}
+            {selectedBriefSummary && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Brief Summary
+                </h3>
+                <div className="text-gray-700 leading-relaxed">
+                  {isBriefSummaryExpanded ? (
+                    <div className="space-y-3">
+                      {renderFormattedSummary(selectedBriefSummary)}
+                      {/* Show long summary when brief summary is expanded */}
+                      {selectedLongSummary && (
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                            Long Summary
+                          </h3>
+                          <div className="space-y-3">
+                            {isLongSummaryExpanded ? (
+                              <div>
+                                {renderFormattedSummary(
+                                  formatLongSummaryWithColors(
+                                    selectedLongSummary
+                                  )
+                                )}
+                                {selectedLongSummary.length > 500 && (
+                                  <button
+                                    onClick={() =>
+                                      setIsLongSummaryExpanded(false)
+                                    }
+                                    className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-4 transition-colors"
+                                  >
+                                    Show less
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                {renderFormattedSummary(
+                                  formatLongSummaryWithColors(
+                                    selectedLongSummary.length > 500
+                                      ? selectedLongSummary.substring(0, 500) +
+                                          "..."
+                                      : selectedLongSummary
+                                  )
+                                )}
+                                {selectedLongSummary.length > 500 && (
+                                  <button
+                                    onClick={() =>
+                                      setIsLongSummaryExpanded(true)
+                                    }
+                                    className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 transition-colors"
+                                  >
+                                    Read more
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {selectedBriefSummary.length > 500 && (
+                        <button
+                          onClick={() => {
+                            setIsBriefSummaryExpanded(false);
+                            setIsLongSummaryExpanded(false);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-4 transition-colors"
+                        >
+                          Show less
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {renderFormattedSummary(
+                        selectedBriefSummary.length > 500
+                          ? selectedBriefSummary.substring(0, 500) + "..."
+                          : selectedBriefSummary
+                      )}
+                      {selectedBriefSummary.length > 500 && (
+                        <button
+                          onClick={() => setIsBriefSummaryExpanded(true)}
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 transition-colors"
+                        >
+                          Read more
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!selectedBriefSummary && (
+              <div className="text-gray-500 italic">
+                No brief summary available
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
