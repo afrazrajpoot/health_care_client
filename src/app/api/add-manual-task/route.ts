@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { description, department, patient, dueDate, status, actions, documentId, mode } = body;
+    const { description, department, patient, dueDate, status, actions, documentId, mode, type } = body;
 
     // ✅ Validate required fields
     if (!description || !department || !patient) {
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : null,
       documentId: documentId && documentId.trim() !== "" ? documentId : null, // Only set if not empty
       physicianId: physicianId,
+      type: type || 'internal', // Default to internal for manually created tasks
     };
 
     // ✅ Create task in DB

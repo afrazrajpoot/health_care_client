@@ -44,6 +44,7 @@ interface Task {
   quickNotes?: any;
   assignee?: string;
   actions?: string[];
+  type?: string; // "internal" or "external"
 }
 
 interface PatientQuiz {
@@ -90,6 +91,9 @@ export default function StaffDashboardPatient() {
   const [taskPage, setTaskPage] = useState(1);
   const [taskPageSize] = useState(10);
   const [taskTotalCount, setTaskTotalCount] = useState(0);
+  const [taskTypeFilter, setTaskTypeFilter] = useState<
+    "all" | "internal" | "external"
+  >("all");
   const progressCompleteHandledRef = useRef(false);
 
   // Get socket data for instant progress detection
@@ -379,6 +383,11 @@ export default function StaffDashboardPatient() {
           taskParams.append("status", statusFilter);
         }
 
+        // Add type filter (internal/external)
+        if (taskTypeFilter && taskTypeFilter !== "all") {
+          taskParams.append("type", taskTypeFilter);
+        }
+
         const response = await fetch(`/api/tasks?${taskParams}`);
         if (!response.ok) throw new Error("Failed to fetch tasks");
 
@@ -409,7 +418,7 @@ export default function StaffDashboardPatient() {
         setTaskTotalCount(0);
       }
     },
-    [showCompletedTasks]
+    [showCompletedTasks, taskTypeFilter]
   );
 
   // Fetch patient tasks and quiz when patient is selected
@@ -523,6 +532,15 @@ export default function StaffDashboardPatient() {
       isCancelled = true;
     };
   }, [selectedPatient, fetchPatientTasks, taskPageSize]);
+
+  // Refetch tasks when page, view (completed/open), or type filter changes
+  useEffect(() => {
+    if (selectedPatient) {
+      // Reset to page 1 when filter changes
+      setTaskPage(1);
+      fetchPatientTasks(selectedPatient, 1, taskPageSize);
+    }
+  }, [taskTypeFilter, fetchPatientTasks, selectedPatient, taskPageSize]);
 
   // Refetch tasks when page or view (completed/open) changes
   useEffect(() => {
@@ -1139,20 +1157,55 @@ export default function StaffDashboardPatient() {
                           ? `Completed Tasks (${taskTotalCount})`
                           : `Open Tasks & Required Actions (${taskTotalCount})`}
                       </h3>
-                      <button
-                        onClick={() =>
-                          setShowCompletedTasks(!showCompletedTasks)
-                        }
-                        className={`px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200 ${
-                          showCompletedTasks
-                            ? "bg-green-700 text-white"
-                            : "bg-white text-slate-900 hover:bg-gray-50"
-                        }`}
-                      >
-                        {showCompletedTasks
-                          ? "Show Open Tasks"
-                          : "Show Completed Tasks"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {/* Task Type Filter Buttons */}
+                        <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-1 bg-white">
+                          <button
+                            onClick={() => setTaskTypeFilter("all")}
+                            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-all duration-200 ${
+                              taskTypeFilter === "all"
+                                ? "bg-indigo-600 text-white"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={() => setTaskTypeFilter("internal")}
+                            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-all duration-200 ${
+                              taskTypeFilter === "internal"
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            Internal
+                          </button>
+                          <button
+                            onClick={() => setTaskTypeFilter("external")}
+                            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-all duration-200 ${
+                              taskTypeFilter === "external"
+                                ? "bg-purple-600 text-white"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            External
+                          </button>
+                        </div>
+                        <button
+                          onClick={() =>
+                            setShowCompletedTasks(!showCompletedTasks)
+                          }
+                          className={`px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200 ${
+                            showCompletedTasks
+                              ? "bg-green-700 text-white"
+                              : "bg-white text-slate-900 hover:bg-gray-50"
+                          }`}
+                        >
+                          {showCompletedTasks
+                            ? "Show Open Tasks"
+                            : "Show Completed Tasks"}
+                        </button>
+                      </div>
                     </div>
                     <TasksTable
                       tasks={displayedTasks}

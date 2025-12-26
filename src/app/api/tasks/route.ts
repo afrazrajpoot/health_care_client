@@ -47,6 +47,7 @@ export async function GET(request: Request) {
     const priority = searchParams.get('priority') || '';
     const dueDateFilter = searchParams.get('dueDate') || '';
     const taskType = searchParams.get('taskType') || '';
+    const taskTypeFilter = searchParams.get('type') || ''; // Filter by internal/external
     const assignedTo = searchParams.get('assignedTo') || '';
     const sortBy = searchParams.get('sortBy') || 'dueDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -129,6 +130,11 @@ export async function GET(request: Request) {
     }
 
     // Ignore taskType as it doesn't exist in schema
+
+    // Type filter (internal/external)
+    if (taskTypeFilter && (taskTypeFilter === 'internal' || taskTypeFilter === 'external')) {
+      andConditions.push({ type: taskTypeFilter });
+    }
 
     // Assigned to filter using actions array
     if (assignedTo === 'me') {
