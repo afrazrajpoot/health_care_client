@@ -1552,66 +1552,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   {isBriefSummaryExpanded ? (
                     <div className="space-y-3">
                       {renderFormattedSummary(selectedBriefSummary)}
-                      {/* Show long summary when brief summary is expanded */}
+                      {/* Show long summary when brief summary is expanded - always fully expanded */}
                       {selectedLongSummary && (
                         <div className="mt-6 pt-6 border-t border-gray-200">
                           <h3 className="text-lg font-semibold text-gray-900 mb-3">
                             Long Summary
                           </h3>
                           <div className="space-y-3">
-                            {isLongSummaryExpanded ? (
-                              <div>
-                                {renderFormattedSummary(
-                                  formatLongSummaryWithColors(
-                                    selectedLongSummary
-                                  )
-                                )}
-                                {selectedLongSummary.length > 500 && (
-                                  <button
-                                    onClick={() =>
-                                      setIsLongSummaryExpanded(false)
-                                    }
-                                    className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-4 transition-colors"
-                                  >
-                                    Show less
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                {renderFormattedSummary(
-                                  formatLongSummaryWithColors(
-                                    selectedLongSummary.length > 500
-                                      ? selectedLongSummary.substring(0, 500) +
-                                          "..."
-                                      : selectedLongSummary
-                                  )
-                                )}
-                                {selectedLongSummary.length > 500 && (
-                                  <button
-                                    onClick={() =>
-                                      setIsLongSummaryExpanded(true)
-                                    }
-                                    className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 transition-colors"
-                                  >
-                                    Read more
-                                  </button>
-                                )}
-                              </div>
+                            {renderFormattedSummary(
+                              formatLongSummaryWithColors(selectedLongSummary)
                             )}
                           </div>
                         </div>
-                      )}
-                      {selectedBriefSummary.length > 500 && (
-                        <button
-                          onClick={() => {
-                            setIsBriefSummaryExpanded(false);
-                            setIsLongSummaryExpanded(false);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-4 transition-colors"
-                        >
-                          Show less
-                        </button>
                       )}
                     </div>
                   ) : (
@@ -1621,7 +1573,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           ? selectedBriefSummary.substring(0, 500) + "..."
                           : selectedBriefSummary
                       )}
-                      {selectedBriefSummary.length > 500 && (
+                      {(selectedBriefSummary.length > 500 ||
+                        selectedLongSummary) && (
                         <button
                           onClick={() => setIsBriefSummaryExpanded(true)}
                           className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 transition-colors"
