@@ -668,131 +668,20 @@ export default function StaffDashboardPatient() {
     }
   }, [selectedPatient]);
 
-  // Handle progress complete - verify document and refresh ALL data instantly
-  const handleProgressComplete = useCallback(async () => {
-    // Show popup instantly first
+  // Handle progress complete - only show popup, don't call APIs
+  const handleProgressComplete = useCallback(() => {
+    // Show popup instantly when progress reaches 100%
     setShowDocumentSuccessPopup(true);
-    // Auto-close popup after 3 seconds
-    setTimeout(() => {
-      setShowDocumentSuccessPopup(false);
-    }, 3000);
+  }, []);
 
-    try {
-      // Fetch recent patients instantly (in parallel with other APIs)
-      const recentPatientsPromise = fetchRecentPatients();
+  // Handle popup OK button click - just reload the page
+  const handlePopupOkClick = useCallback(() => {
+    // Close popup and reload the page
+    setShowDocumentSuccessPopup(false);
+    window.location.reload();
+  }, []);
 
-      // If we have a selected patient, refresh their data
-      if (selectedPatient) {
-        const physicianId = getPhysicianId();
-        
-        // Prepare all API calls in parallel
-        const apiPromises: Promise<any>[] = [
-          recentPatientsPromise,
-          fetchPatientTasks(selectedPatient),
-        ];
-
-        // Document verification (if physician ID available)
-        if (physicianId) {
-          const documentParams = new URLSearchParams({
-            patient_name: selectedPatient.patientName,
-            physicianId: physicianId,
-          });
-          if (selectedPatient.dob) {
-            const dobDate = selectedPatient.dob.split("T")[0];
-            documentParams.append("dob", dobDate);
-          }
-          if (
-            selectedPatient.claimNumber &&
-            selectedPatient.claimNumber !== "Not specified"
-          ) {
-            documentParams.append("claim_number", selectedPatient.claimNumber);
-          }
-
-          const verifyPromise = fetch(
-            `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/document?${documentParams}`,
-            {
-              headers: {
-                Authorization: `Bearer ${session?.user?.fastapi_token}`,
-              },
-            }
-          )
-            .then(async (documentResponse) => {
-              if (documentResponse.ok) {
-                const documentData = await documentResponse.json();
-                if (documentData?.documents && documentData.documents.length > 0) {
-                  const latestDocument = documentData.documents[0];
-                  const documentId = latestDocument.id || latestDocument.document_id;
-
-                  if (documentId) {
-                    // Verify the document
-                    return fetch(
-                      `/api/verify-document?document_id=${documentId}`,
-                      {
-                        method: "POST",
-                        headers: {
-                          Authorization: `Bearer ${session?.user?.fastapi_token}`,
-                        },
-                      }
-                    );
-                  }
-                }
-              }
-              return null;
-            })
-            .catch((error) => {
-              console.error("Error verifying document:", error);
-              return null;
-            });
-
-          apiPromises.push(verifyPromise);
-        }
-
-        // Patient quiz and intake update
-        const quizParams = new URLSearchParams({
-          patientName: selectedPatient.patientName,
-        });
-        if (selectedPatient.dob) {
-          const dobDate = selectedPatient.dob.split("T")[0];
-          quizParams.append("dob", dobDate);
-        }
-        if (
-          selectedPatient.claimNumber &&
-          selectedPatient.claimNumber !== "Not specified"
-        ) {
-          quizParams.append("claimNumber", selectedPatient.claimNumber);
-        }
-
-        const [quizResponse, intakeUpdateResponse] = await Promise.all([
-          fetch(`/api/patient-intakes?${quizParams}`),
-          fetch(`/api/patient-intake-update?${quizParams}`),
-        ]);
-
-        if (quizResponse.ok) {
-          const quizData = await quizResponse.json();
-          if (quizData?.success && quizData?.data && quizData.data.length > 0) {
-            setPatientQuiz(quizData.data[0]);
-          }
-        }
-
-        if (intakeUpdateResponse.ok) {
-          const intakeUpdateData = await intakeUpdateResponse.json();
-          if (intakeUpdateData?.success && intakeUpdateData?.data) {
-            setPatientIntakeUpdate(intakeUpdateData.data);
-          }
-        }
-
-        // Execute all API calls in parallel
-        await Promise.all(apiPromises);
-      } else {
-        // Just fetch recent patients if no patient selected
-        await recentPatientsPromise;
-      }
-    } catch (error) {
-      console.error("Error in handleProgressComplete:", error);
-    }
-  }, [selectedPatient, fetchPatientTasks, fetchRecentPatients, session?.user?.fastapi_token, getPhysicianId]);
-
-  // Instant detection of 100% progress - call API and show popup immediately
+  // Instant detection of 100% progress - show popup immediately (page reloads on OK click)
   useEffect(() => {
     if (!selectedPatient) {
       return;
@@ -814,10 +703,10 @@ export default function StaffDashboardPatient() {
       : true;
 
     if (progressComplete && allFilesProcessed && !progressCompleteHandledRef.current) {
-      console.log("🚀 Progress reached 100% - calling handleProgressComplete instantly");
+      console.log("🚀 Progress reached 100% - showing popup instantly");
       progressCompleteHandledRef.current = true;
       
-      // Call immediately without delay
+      // Show popup immediately (APIs will be called when user clicks OK)
       handleProgressComplete();
     }
   }, [
@@ -969,6 +858,14 @@ export default function StaffDashboardPatient() {
             selectedPatient.claimNumber !== "Not specified"
           ) {
             formData.claim = selectedPatient.claimNumber;
+          }
+          // Set documentId if not already set and patient has documentIds
+          if (
+            !formData.documentId &&
+            selectedPatient.documentIds &&
+            selectedPatient.documentIds.length > 0
+          ) {
+            formData.documentId = selectedPatient.documentIds[0]; // Use the first document ID
           }
         }
 
@@ -1245,10 +1142,10 @@ export default function StaffDashboardPatient() {
               Your document has been processed and verified successfully.
             </p>
             <button
-              onClick={() => setShowDocumentSuccessPopup(false)}
+              onClick={handlePopupOkClick}
               className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors duration-200"
             >
-              Close
+              OK
             </button>
           </div>
         </div>
@@ -1265,7 +1162,11 @@ export default function StaffDashboardPatient() {
             : ""
         }
         defaultPatient={selectedPatient?.patientName || ""}
-        defaultDocumentId=""
+        defaultDocumentId={
+          selectedPatient?.documentIds && selectedPatient.documentIds.length > 0
+            ? selectedPatient.documentIds[0] // Use the first document ID (most recent)
+            : ""
+        }
         onSubmit={handleManualTaskSubmit}
       />
 

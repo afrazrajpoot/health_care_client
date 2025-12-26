@@ -601,13 +601,17 @@ export default function PhysicianCard() {
       urlParams.set("mode", docMode);
       router.replace(`?${urlParams.toString()}`, { scroll: false });
 
-      // Fetch task quick notes for this patient
+      // Fetch task quick notes for this patient - with strict patient matching
       try {
         const taskParams = new URLSearchParams({
           mode: docMode,
         });
-        // Use claim number if available, otherwise use patient name for search
-        if (latestDoc.claim_number) {
+
+        // Use claim number if available (most reliable), otherwise use patient name
+        if (
+          latestDoc.claim_number &&
+          latestDoc.claim_number !== "Not specified"
+        ) {
           taskParams.set("claim", latestDoc.claim_number);
         } else if (latestDoc.patient_name || patientInfo.patientName) {
           taskParams.set(
@@ -623,22 +627,89 @@ export default function PhysicianCard() {
         });
         if (taskResponse.ok) {
           const taskData = await taskResponse.json();
-          // Extract quick notes from tasks
-          const allTaskQuickNotes: QuickNoteSnapshot[] = [];
-          if (taskData.tasks && Array.isArray(taskData.tasks)) {
-            taskData.tasks.forEach((task: any) => {
-              // Only include tasks with quick notes
-              if (task.quickNotes) {
-                allTaskQuickNotes.push({
-                  details: task.quickNotes.details || "",
-                  timestamp: task.quickNotes.timestamp || task.updatedAt || "",
-                  one_line_note: task.quickNotes.one_line_note || "",
-                  status_update: task.quickNotes.status_update || "",
-                });
+
+          // Get patient identifiers for strict matching
+          const patientName = (
+            latestDoc.patient_name ||
+            patientInfo.patientName ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          const claimNumber =
+            latestDoc.claim_number && latestDoc.claim_number !== "Not specified"
+              ? latestDoc.claim_number.toUpperCase().trim()
+              : null;
+
+          // Get all patient document IDs from documentData
+          const patientDocumentIds = new Set<string>();
+          if (data.documents && Array.isArray(data.documents)) {
+            data.documents.forEach((doc: any) => {
+              if (doc.id) {
+                patientDocumentIds.add(doc.id);
               }
             });
           }
-          setTaskQuickNotes(allTaskQuickNotes);
+
+          // Extract quick notes from tasks - filter by patient and document ID matching
+          const allTaskQuickNotes: QuickNoteSnapshot[] = [];
+          if (taskData.tasks && Array.isArray(taskData.tasks)) {
+            taskData.tasks.forEach((task: any) => {
+              // Strict patient matching: check task.patient matches current patient
+              const taskPatient = (task.patient || "").toLowerCase().trim();
+              const taskClaim = task.document?.claimNumber
+                ? task.document.claimNumber.toUpperCase().trim()
+                : null;
+              const taskDocumentId =
+                task.documentId || task.document?.id || null;
+
+              // Match by document ID first (most reliable if task has documentId)
+              let patientMatches = false;
+              if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
+                patientMatches = true;
+              } else if (claimNumber && taskClaim) {
+                // Match by claim number if available
+                patientMatches = taskClaim === claimNumber;
+              } else if (patientName && taskPatient) {
+                // Match by patient name (exact or contains)
+                patientMatches =
+                  taskPatient === patientName ||
+                  taskPatient.includes(patientName) ||
+                  patientName.includes(taskPatient);
+              }
+
+              // Only include tasks with quick notes that match this patient and have meaningful content
+              if (patientMatches && task.quickNotes) {
+                const hasContent =
+                  (task.quickNotes.status_update &&
+                    task.quickNotes.status_update.trim()) ||
+                  (task.quickNotes.one_line_note &&
+                    task.quickNotes.one_line_note.trim()) ||
+                  (task.quickNotes.details && task.quickNotes.details.trim());
+
+                if (hasContent) {
+                  allTaskQuickNotes.push({
+                    details: task.quickNotes.details || "",
+                    timestamp:
+                      task.quickNotes.timestamp || task.updatedAt || "",
+                    one_line_note: task.quickNotes.one_line_note || "",
+                    status_update: task.quickNotes.status_update || "",
+                  });
+                }
+              }
+            });
+          }
+
+          // Sort by timestamp (most recent first) and limit to 5 most recent
+          const sortedNotes = allTaskQuickNotes
+            .sort((a, b) => {
+              const timeA = new Date(a.timestamp || 0).getTime();
+              const timeB = new Date(b.timestamp || 0).getTime();
+              return timeB - timeA; // Most recent first
+            })
+            .slice(0, 5); // Limit to 5 most recent
+
+          setTaskQuickNotes(sortedNotes);
         }
       } catch (err) {
         console.error("Error fetching task quick notes:", err);
@@ -1544,90 +1615,38 @@ export default function PhysicianCard() {
                       </div>
                     </div>
                     <div className="panel-body">
-                      {(documentData.quick_notes_snapshots &&
-                        documentData.quick_notes_snapshots.length > 0) ||
-                      (taskQuickNotes && taskQuickNotes.length > 0) ? (
-                        <div className="status-wrap">
-                          {/* Document Quick Notes */}
-                          {documentData.quick_notes_snapshots &&
-                            documentData.quick_notes_snapshots.map(
-                              (note, index) => {
-                                // Determine status color based on status_update or content
-                                const getStatusColor = () => {
-                                  const status = (
-                                    note.status_update || ""
-                                  ).toLowerCase();
-                                  if (
-                                    status.includes("urgent") ||
-                                    status.includes("critical") ||
-                                    status.includes("time-sensitive")
-                                  ) {
-                                    return "red";
-                                  }
-                                  if (
-                                    status.includes("pending") ||
-                                    status.includes("waiting") ||
-                                    status.includes("scheduling")
-                                  ) {
-                                    return "amber";
-                                  }
-                                  if (
-                                    status.includes("completed") ||
-                                    status.includes("done") ||
-                                    status.includes("approved")
-                                  ) {
-                                    return "green";
-                                  }
-                                  if (
-                                    status.includes("authorization") ||
-                                    status.includes("decision")
-                                  ) {
-                                    return "blue";
-                                  }
-                                  return "gray";
-                                };
+                      {(() => {
+                        // Filter document quick notes - only show ones with meaningful content
+                        // Note: documentData is already patient-specific (fetched by patient_name, dob, claim_number)
+                        // So quick_notes_snapshots are already for this patient
+                        const filteredDocNotes =
+                          documentData.quick_notes_snapshots?.filter((note) => {
+                            const hasContent =
+                              (note.status_update &&
+                                note.status_update.trim()) ||
+                              (note.one_line_note &&
+                                note.one_line_note.trim()) ||
+                              (note.details && note.details.trim());
+                            return hasContent;
+                          }) || [];
 
-                                const statusColor = getStatusColor();
-                                // Build display text: prefer status_update, then one_line_note, then details
-                                let displayText = "";
-                                if (note.status_update) {
-                                  displayText = note.status_update;
-                                  // Append one_line_note if available and different
-                                  if (
-                                    note.one_line_note &&
-                                    note.one_line_note !== note.status_update
-                                  ) {
-                                    displayText += ` — ${note.one_line_note}`;
-                                  }
-                                } else if (note.one_line_note) {
-                                  displayText = note.one_line_note;
-                                } else if (note.details) {
-                                  // Truncate details if too long
-                                  displayText =
-                                    note.details.length > 50
-                                      ? note.details.substring(0, 50) + "..."
-                                      : note.details;
-                                } else {
-                                  displayText = "Quick Note";
-                                }
+                        // Limit document notes to 3 most recent
+                        const limitedDocNotes = filteredDocNotes
+                          .sort((a, b) => {
+                            const timeA = new Date(a.timestamp || 0).getTime();
+                            const timeB = new Date(b.timestamp || 0).getTime();
+                            return timeB - timeA; // Most recent first
+                          })
+                          .slice(0, 3);
 
-                                return (
-                                  <div
-                                    key={`doc-note-${index}`}
-                                    className="s-chip small"
-                                    title={note.details || displayText}
-                                  >
-                                    <span
-                                      className={`s-dot ${statusColor}`}
-                                    ></span>
-                                    {displayText}
-                                  </div>
-                                );
-                              }
-                            )}
-                          {/* Task Quick Notes */}
-                          {taskQuickNotes &&
-                            taskQuickNotes.map((note, index) => {
+                        const hasNotes =
+                          limitedDocNotes.length > 0 ||
+                          (taskQuickNotes && taskQuickNotes.length > 0);
+
+                        return hasNotes ? (
+                          <div className="status-wrap">
+                            {/* Document Quick Notes */}
+                            {limitedDocNotes.map((note, index) => {
                               // Determine status color based on status_update or content
                               const getStatusColor = () => {
                                 const status = (
@@ -1689,7 +1708,7 @@ export default function PhysicianCard() {
 
                               return (
                                 <div
-                                  key={`task-note-${index}`}
+                                  key={`doc-note-${index}`}
                                   className="s-chip small"
                                   title={note.details || displayText}
                                 >
@@ -1700,19 +1719,95 @@ export default function PhysicianCard() {
                                 </div>
                               );
                             })}
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            fontSize: "12px",
-                            color: "var(--muted)",
-                            padding: "8px",
-                            textAlign: "center",
-                          }}
-                        >
-                          No quick notes available
-                        </div>
-                      )}
+                            {/* Task Quick Notes */}
+                            {taskQuickNotes &&
+                              taskQuickNotes.map((note, index) => {
+                                // Determine status color based on status_update or content
+                                const getStatusColor = () => {
+                                  const status = (
+                                    note.status_update || ""
+                                  ).toLowerCase();
+                                  if (
+                                    status.includes("urgent") ||
+                                    status.includes("critical") ||
+                                    status.includes("time-sensitive")
+                                  ) {
+                                    return "red";
+                                  }
+                                  if (
+                                    status.includes("pending") ||
+                                    status.includes("waiting") ||
+                                    status.includes("scheduling")
+                                  ) {
+                                    return "amber";
+                                  }
+                                  if (
+                                    status.includes("completed") ||
+                                    status.includes("done") ||
+                                    status.includes("approved")
+                                  ) {
+                                    return "green";
+                                  }
+                                  if (
+                                    status.includes("authorization") ||
+                                    status.includes("decision")
+                                  ) {
+                                    return "blue";
+                                  }
+                                  return "gray";
+                                };
+
+                                const statusColor = getStatusColor();
+                                // Build display text: prefer status_update, then one_line_note, then details
+                                let displayText = "";
+                                if (note.status_update) {
+                                  displayText = note.status_update;
+                                  // Append one_line_note if available and different
+                                  if (
+                                    note.one_line_note &&
+                                    note.one_line_note !== note.status_update
+                                  ) {
+                                    displayText += ` — ${note.one_line_note}`;
+                                  }
+                                } else if (note.one_line_note) {
+                                  displayText = note.one_line_note;
+                                } else if (note.details) {
+                                  // Truncate details if too long
+                                  displayText =
+                                    note.details.length > 50
+                                      ? note.details.substring(0, 50) + "..."
+                                      : note.details;
+                                } else {
+                                  displayText = "Quick Note";
+                                }
+
+                                return (
+                                  <div
+                                    key={`task-note-${index}`}
+                                    className="s-chip small"
+                                    title={note.details || displayText}
+                                  >
+                                    <span
+                                      className={`s-dot ${statusColor}`}
+                                    ></span>
+                                    {displayText}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "var(--muted)",
+                              textAlign: "center",
+                              padding: "20px",
+                            }}
+                          >
+                            No staff status updates available
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

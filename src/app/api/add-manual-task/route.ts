@@ -24,6 +24,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Get physician ID (for staff, use physicianId; for physician, use id)
+    let physicianId: string | null = null;
+    if (session.user.role === "Physician") {
+      physicianId = session.user.id as string;
+    } else if (session.user.role === "Staff") {
+      physicianId = (session.user.physicianId as string) || null;
+    }
+
     // ✅ Build task data
     const taskData = {
       description,
@@ -32,8 +40,8 @@ export async function POST(request: NextRequest) {
       status:  'Pending',
       actions: actions || ['Claim', 'Complete'],
       dueDate: dueDate ? new Date(dueDate) : null,
-      documentId: documentId || null,
-      physicianId: session.user.id, // 👈 Save logged-in physician ID
+      documentId: documentId && documentId.trim() !== "" ? documentId : null, // Only set if not empty
+      physicianId: physicianId,
     };
 
     // ✅ Create task in DB
