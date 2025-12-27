@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/services/authSErvice";
 import { prisma } from "@/lib/prisma";
-
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -51,6 +50,9 @@ export async function GET(request: Request) {
     const assignedTo = searchParams.get('assignedTo') || '';
     const sortBy = searchParams.get('sortBy') || 'dueDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
+    
+    // NEW: Get documentId parameter
+    const documentId = searchParams.get('documentId');
 
     const now = new Date();
 
@@ -58,22 +60,15 @@ export async function GET(request: Request) {
     const andConditions: any[] = [];
 
     // Base conditions - ALWAYS filter by physicianId
-    // For Physician: match task.physicianId = user.id
-    // For Staff: match task.physicianId = user.physicianId
     andConditions.push({ physicianId });
     
     console.log('🔍 Filtering tasks by physicianId:', physicianId, 'for user role:', user.role);
 
-    // Document filters - REMOVED: Claim filter is now optional
-    // Only filter by physicianId - claim is ignored to show all tasks for the physician
-    // If you need claim filtering, it should be done on the frontend or as a separate optional filter
-    if (claim) {
-      console.log('ℹ️ Claim parameter provided but not used as filter:', claim);
-      console.log('   Showing all tasks for physicianId (claim filtering disabled)');
-      // Claim filter removed - only matching by physicianId
+    // NEW: Filter by documentId if provided
+    if (documentId) {
+      console.log('📄 Filtering tasks by documentId:', documentId);
+      andConditions.push({ documentId: documentId });
     }
-    // Note: mode filter removed from document - tasks can exist without documents
-    // If you need to filter by mode, you'd need to add it to the task model or handle differently
 
     // Department filter - remove "Department" from the search term
     if (dept) {
@@ -128,8 +123,6 @@ export async function GET(request: Request) {
         } 
       });
     }
-
-    // Ignore taskType as it doesn't exist in schema
 
     // Type filter (internal/external)
     if (taskTypeFilter && (taskTypeFilter === 'internal' || taskTypeFilter === 'external')) {
@@ -221,21 +214,6 @@ export async function GET(request: Request) {
       dueDateCondition = priorityCond;
     }
 
-    // Note: Removed default date filter - now only filtering by physicianId + explicit user filters
-    // This ensures all tasks matching physicianId are shown unless user explicitly filters them
-    const hasExplicitStatusFilter = effectiveStatus && ["Done", "Completed", "Closed"].includes(effectiveStatus);
-    const hasExplicitFilter = search || claim || dept || dueDateFilter || priority || assignedTo;
-    
-    console.log('Filter status:', { 
-      hasExplicitFilter, 
-      hasExplicitStatusFilter, 
-      search, 
-      claim, 
-      dept,
-      status: effectiveStatus,
-      'Note': 'Only filtering by physicianId + explicit user filters'
-    });
-
     // Add dueDate condition to andConditions (if specific filters were provided)
     if (dueDateCondition) {
       andConditions.push(dueDateCondition);
@@ -250,9 +228,8 @@ export async function GET(request: Request) {
     // Debug logging
     console.log('📋 Task query filters:', {
       physicianId,
+      documentId,
       userRole: user.role,
-      claim,
-      mode,
       search,
       dept,
       status: effectiveStatus,
@@ -271,8 +248,6 @@ export async function GET(request: Request) {
     // Pagination
     const skip = (page - 1) * pageSize;
 
-
-
     // Fetch tasks and total count
     const [tasks, totalCount] = await Promise.all([
       prisma.task.findMany({
@@ -289,7 +264,6 @@ export async function GET(request: Request) {
               ur_denial_reason: true,
               blobPath: true,
               patientName: true,
-              // Removed patientName as it's on task.patient
             },
           },
         },
@@ -327,95 +301,12 @@ export async function GET(request: Request) {
 
     // Log results for debugging
     console.log('✅ Fetched tasks count:', tasksWithURAndPriority.length, 'Total:', totalCount);
-    if (tasksWithURAndPriority.length === 0 && totalCount === 0) {
-      console.log('⚠️ No tasks found with current filters. Checking if tasks exist for this physician...');
-      // Quick check to see if any tasks exist for this physician at all
-      const totalTasksForPhysician = await prisma.task.count({
-        where: { physicianId }
-      });
-      console.log(`📊 Total tasks in DB for physicianId ${physicianId}:`, totalTasksForPhysician);
-      
-      // Also check tasks with null physicianId
-      const tasksWithNullPhysicianId = await prisma.task.count({
-        where: { physicianId: null }
-      });
-      console.log(`📊 Tasks with null physicianId:`, tasksWithNullPhysicianId);
-      
-      // Check all tasks count
-      const allTasksCount = await prisma.task.count();
-      console.log(`📊 Total tasks in database:`, allTasksCount);
-      
-      // Get the actual task that should match
-      const matchingTask = await prisma.task.findFirst({
-        where: { physicianId },
-        include: {
-          document: {
-            select: {
-              id: true,
-              claimNumber: true,
-              patientName: true
-            }
-          }
-        }
-      });
-      
-      if (matchingTask) {
-        console.log('🔍 Found matching task by physicianId:', {
-          id: matchingTask.id,
-          physicianId: matchingTask.physicianId,
-          patient: matchingTask.patient,
-          claimNumber: matchingTask.claimNumber,
-          documentId: matchingTask.documentId,
-          document: matchingTask.document ? {
-            id: matchingTask.document.id,
-            claimNumber: matchingTask.document.claimNumber,
-            patientName: matchingTask.document.patientName
-          } : null,
-          status: matchingTask.status,
-          description: matchingTask.description
-        });
-        
-        // Test the claim filter separately
-        if (claim) {
-          const taskClaimMatches = matchingTask.claimNumber === claim;
-          const docClaimMatches = matchingTask.document?.claimNumber === claim;
-          const claimMatches = taskClaimMatches || docClaimMatches;
-          
-          console.log(`🔍 Claim filter test for "${claim}":`, {
-            taskClaimNumber: matchingTask.claimNumber || '(null)',
-            documentClaimNumber: matchingTask.document?.claimNumber || '(null or no document)',
-            taskClaimMatches,
-            docClaimMatches,
-            overallMatches: claimMatches,
-            '⚠️': claimMatches ? '✅ Task SHOULD match' : '❌ Task will be EXCLUDED by claim filter'
-          });
-          
-          // If task doesn't match claim, suggest why
-          if (!claimMatches) {
-            console.log('💡 Suggestion: Task might not have claimNumber set. Consider:');
-            console.log('   1. Setting task.claimNumber =', claim);
-            console.log('   2. Or linking task to a document with claimNumber =', claim);
-            console.log('   3. Or removing claim filter to show all tasks for this physician');
-          }
-        }
-      }
-      
-      // Sample a few tasks to see their physicianId values
-      const sampleTasks = await prisma.task.findMany({
-        take: 5,
-        where: { physicianId },
-        select: {
-          id: true,
-          physicianId: true,
-          patient: true,
-          description: true,
-          status: true,
-          claimNumber: true,
-          documentId: true
-        }
-      });
-      console.log('📋 Sample tasks from DB:', JSON.stringify(sampleTasks, null, 2));
-    }
+    console.log('🔍 Query filters applied:', {
+      documentId,
+      physicianId,
+      patientSearch: search,
+      status: effectiveStatus,
+    });
 
     return NextResponse.json({ tasks: tasksWithURAndPriority, totalCount });
   } catch (error) {

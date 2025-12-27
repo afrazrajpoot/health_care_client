@@ -1,80 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `Account` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `AuditLog` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `CheckoutSession` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Document` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `DocumentSummary` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `FailDocs` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Session` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `SummarySnapshot` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Task` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `User` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `VerificationToken` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `WorkflowStats` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropForeignKey
-ALTER TABLE "public"."Account" DROP CONSTRAINT "Account_userId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Document" DROP CONSTRAINT "Document_userId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."DocumentSummary" DROP CONSTRAINT "DocumentSummary_documentId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Session" DROP CONSTRAINT "Session_userId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."SummarySnapshot" DROP CONSTRAINT "SummarySnapshot_documentId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Task" DROP CONSTRAINT "Task_documentId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."adls" DROP CONSTRAINT "adls_documentId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."body_part_snapshots" DROP CONSTRAINT "body_part_snapshots_documentId_fkey";
-
--- DropTable
-DROP TABLE "public"."Account";
-
--- DropTable
-DROP TABLE "public"."AuditLog";
-
--- DropTable
-DROP TABLE "public"."CheckoutSession";
-
--- DropTable
-DROP TABLE "public"."Document";
-
--- DropTable
-DROP TABLE "public"."DocumentSummary";
-
--- DropTable
-DROP TABLE "public"."FailDocs";
-
--- DropTable
-DROP TABLE "public"."Session";
-
--- DropTable
-DROP TABLE "public"."SummarySnapshot";
-
--- DropTable
-DROP TABLE "public"."Task";
-
--- DropTable
-DROP TABLE "public"."User";
-
--- DropTable
-DROP TABLE "public"."VerificationToken";
-
--- DropTable
-DROP TABLE "public"."WorkflowStats";
-
 -- CreateTable
 CREATE TABLE "public"."users" (
     "id" TEXT NOT NULL,
@@ -156,6 +79,44 @@ CREATE TABLE "public"."documents" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."body_part_snapshots" (
+    "id" TEXT NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "mode" TEXT NOT NULL DEFAULT 'wc',
+    "bodyPart" TEXT,
+    "condition" TEXT,
+    "conditionSeverity" TEXT,
+    "symptoms" TEXT,
+    "medications" TEXT,
+    "chronicCondition" BOOLEAN NOT NULL DEFAULT false,
+    "comorbidities" TEXT,
+    "lifestyleRecommendations" TEXT,
+    "injuryType" TEXT,
+    "workRelatedness" TEXT,
+    "permanentImpairment" TEXT,
+    "mmiStatus" TEXT,
+    "returnToWorkPlan" TEXT,
+    "dx" TEXT NOT NULL,
+    "keyConcern" TEXT NOT NULL,
+    "nextStep" TEXT,
+    "urDecision" TEXT,
+    "recommended" TEXT,
+    "aiOutcome" TEXT,
+    "consultingDoctor" TEXT,
+    "keyFindings" TEXT,
+    "treatmentApproach" TEXT,
+    "clinicalSummary" TEXT,
+    "referralDoctor" TEXT,
+    "adlsAffected" TEXT,
+    "painLevel" TEXT,
+    "functionalLimitations" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "body_part_snapshots_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."summary_snapshots" (
     "id" TEXT NOT NULL,
     "dx" TEXT,
@@ -191,6 +152,26 @@ CREATE TABLE "public"."document_summaries" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."adls" (
+    "id" TEXT NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "mode" TEXT NOT NULL DEFAULT 'wc',
+    "adlsAffected" TEXT NOT NULL,
+    "workRestrictions" TEXT NOT NULL,
+    "dailyLivingImpact" TEXT,
+    "functionalLimitations" TEXT,
+    "symptomImpact" TEXT,
+    "qualityOfLife" TEXT,
+    "workImpact" TEXT,
+    "physicalDemands" TEXT,
+    "workCapacity" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "adls_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."audit_logs" (
     "id" TEXT NOT NULL,
     "userId" TEXT,
@@ -203,6 +184,25 @@ CREATE TABLE "public"."audit_logs" (
     "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."patient_quizzes" (
+    "id" TEXT NOT NULL,
+    "patientName" TEXT NOT NULL,
+    "dob" TEXT,
+    "doi" TEXT,
+    "lang" TEXT NOT NULL,
+    "bodyAreas" TEXT,
+    "newAppointments" JSONB,
+    "refill" JSONB,
+    "adl" JSONB NOT NULL,
+    "therapies" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "claimNumber" TEXT,
+
+    CONSTRAINT "patient_quizzes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -219,10 +219,31 @@ CREATE TABLE "public"."fail_docs" (
     "fileName" TEXT,
     "gcsFileLink" TEXT,
     "dob" TEXT,
+    "summary" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "fail_docs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."intake_links" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "patientName" TEXT NOT NULL,
+    "dateOfBirth" TIMESTAMP(3) NOT NULL,
+    "visitType" TEXT NOT NULL DEFAULT 'Follow-up',
+    "language" TEXT NOT NULL DEFAULT 'en',
+    "mode" TEXT NOT NULL DEFAULT 'tele',
+    "bodyParts" TEXT,
+    "expiresInDays" INTEGER NOT NULL DEFAULT 7,
+    "requireAuth" BOOLEAN NOT NULL DEFAULT true,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "claimNumber" TEXT,
+
+    CONSTRAINT "intake_links_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -237,6 +258,8 @@ CREATE TABLE "public"."tasks" (
     "actions" TEXT[] DEFAULT ARRAY['Claim', 'Complete']::TEXT[],
     "sourceDocument" TEXT,
     "claimNumber" TEXT,
+    "assignee" TEXT DEFAULT 'Unclaimed',
+    "type" TEXT DEFAULT 'internal',
     "quickNotes" JSONB DEFAULT '{"status_update": "", "details": "", "one_line_note": ""}',
     "followUpTaskId" TEXT,
     "documentId" TEXT,
@@ -264,6 +287,22 @@ CREATE TABLE "public"."workflow_stats" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."subscriptions" (
+    "id" TEXT NOT NULL,
+    "physicianId" TEXT NOT NULL,
+    "plan" TEXT NOT NULL,
+    "amountTotal" INTEGER NOT NULL,
+    "status" TEXT NOT NULL,
+    "stripeCustomerId" TEXT,
+    "stripeSubscriptionId" TEXT,
+    "documentParse" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "subscriptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."checkout_sessions" (
     "id" TEXT NOT NULL,
     "stripeSessionId" TEXT NOT NULL,
@@ -276,6 +315,30 @@ CREATE TABLE "public"."checkout_sessions" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "checkout_sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."patient_intake_updates" (
+    "id" TEXT NOT NULL,
+    "patientName" TEXT NOT NULL,
+    "dob" TEXT,
+    "claimNumber" TEXT,
+    "doi" TEXT,
+    "patientQuizId" TEXT,
+    "documentId" TEXT,
+    "keyPatientReportedChanges" TEXT,
+    "systemInterpretation" TEXT,
+    "keyFindings" TEXT,
+    "adlEffectPoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "intakePatientPoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "medRefillsRequested" TEXT,
+    "newAppointments" TEXT,
+    "adlChanges" TEXT,
+    "intakeData" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "patient_intake_updates_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -297,10 +360,31 @@ CREATE UNIQUE INDEX "verification_tokens_identifier_token_key" ON "public"."veri
 CREATE UNIQUE INDEX "documents_fileHash_userId_key" ON "public"."documents"("fileHash", "userId");
 
 -- CreateIndex
+CREATE INDEX "body_part_snapshots_mode_idx" ON "public"."body_part_snapshots"("mode");
+
+-- CreateIndex
+CREATE INDEX "body_part_snapshots_documentId_idx" ON "public"."body_part_snapshots"("documentId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "summary_snapshots_documentId_key" ON "public"."summary_snapshots"("documentId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "document_summaries_documentId_key" ON "public"."document_summaries"("documentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "adls_documentId_key" ON "public"."adls"("documentId");
+
+-- CreateIndex
+CREATE INDEX "adls_mode_idx" ON "public"."adls"("mode");
+
+-- CreateIndex
+CREATE INDEX "adls_documentId_idx" ON "public"."adls"("documentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "intake_links_token_key" ON "public"."intake_links"("token");
+
+-- CreateIndex
+CREATE INDEX "tasks_type_idx" ON "public"."tasks"("type");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "checkout_sessions_stripeSessionId_key" ON "public"."checkout_sessions"("stripeSessionId");
@@ -310,6 +394,15 @@ CREATE INDEX "checkout_sessions_stripeSessionId_idx" ON "public"."checkout_sessi
 
 -- CreateIndex
 CREATE INDEX "checkout_sessions_physicianId_idx" ON "public"."checkout_sessions"("physicianId");
+
+-- CreateIndex
+CREATE INDEX "patient_intake_updates_patientName_dob_claimNumber_idx" ON "public"."patient_intake_updates"("patientName", "dob", "claimNumber");
+
+-- CreateIndex
+CREATE INDEX "patient_intake_updates_documentId_idx" ON "public"."patient_intake_updates"("documentId");
+
+-- CreateIndex
+CREATE INDEX "patient_intake_updates_createdAt_idx" ON "public"."patient_intake_updates"("createdAt");
 
 -- AddForeignKey
 ALTER TABLE "public"."accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -334,3 +427,6 @@ ALTER TABLE "public"."adls" ADD CONSTRAINT "adls_documentId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "public"."tasks" ADD CONSTRAINT "tasks_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "public"."documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."patient_intake_updates" ADD CONSTRAINT "patient_intake_updates_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "public"."documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;

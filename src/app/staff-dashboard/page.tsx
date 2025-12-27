@@ -378,6 +378,16 @@ export default function StaffDashboardPatient() {
           taskParams.append("claim", patient.claimNumber);
         }
 
+        // Add document IDs to the query parameters if available
+        if (patient.documentIds && patient.documentIds.length > 0) {
+          // Add each document ID as a separate parameter
+          patient.documentIds.forEach((docId, index) => {
+            taskParams.append(`documentId`, docId);
+          });
+          // Or add them as a comma-separated list (choose one approach based on your API)
+          // taskParams.append("documentIds", patient.documentIds.join(","));
+        }
+
         // Add status filter if showing completed tasks
         if (statusFilter) {
           taskParams.append("status", statusFilter);
@@ -420,7 +430,6 @@ export default function StaffDashboardPatient() {
     },
     [showCompletedTasks, taskTypeFilter]
   );
-
   // Fetch patient tasks and quiz when patient is selected
   useEffect(() => {
     if (!selectedPatient) {
