@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { description, department, patient, dueDate, status, actions, documentId, mode } = body;
+    const { description, department, patient, dueDate, status, actions, documentId, mode, type } = body;
 
     // ✅ Validate required fields
     if (!description || !department || !patient) {
@@ -22,6 +22,14 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields: description, department, patient' },
         { status: 400 }
       );
+    }
+
+    // ✅ Get physician ID (for staff, use physicianId; for physician, use id)
+    let physicianId: string | null = null;
+    if (session.user.role === "Physician") {
+      physicianId = session.user.id as string;
+    } else if (session.user.role === "Staff") {
+      physicianId = (session.user.physicianId as string) || null;
     }
 
     // ✅ Build task data
@@ -32,8 +40,9 @@ export async function POST(request: NextRequest) {
       status:  'Pending',
       actions: actions || ['Claim', 'Complete'],
       dueDate: dueDate ? new Date(dueDate) : null,
-      documentId: documentId || null,
-      physicianId: session.user.id, // 👈 Save logged-in physician ID
+      documentId: documentId && documentId.trim() !== "" ? documentId : null, // Only set if not empty
+      physicianId: physicianId,
+      type: type || 'internal', // Default to internal for manually created tasks
     };
 
     // ✅ Create task in DB

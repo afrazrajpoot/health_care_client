@@ -52,8 +52,9 @@ export default function FailedDocuments({
     useState<FailedDocument | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [splitModalOpen, setSplitModalOpen] = useState(false);
-  const [documentToSplit, setDocumentToSplit] =
-    useState<FailedDocument | null>(null);
+  const [documentToSplit, setDocumentToSplit] = useState<FailedDocument | null>(
+    null
+  );
   const [isSplitting, setIsSplitting] = useState(false);
   const [splitResults, setSplitResults] = useState<any>(null);
   const [pageRanges, setPageRanges] = useState<
@@ -223,9 +224,12 @@ export default function FailedDocuments({
     );
 
     if (validRanges.length === 0) {
-      toast.error("Please add at least one valid page range with a report title", {
-        duration: 5000,
-      });
+      toast.error(
+        "Please add at least one valid page range with a report title",
+        {
+          duration: 5000,
+        }
+      );
       return;
     }
 
@@ -234,7 +238,9 @@ export default function FailedDocuments({
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"}/api/documents/split-and-process-document`,
+        `${
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
+        }/api/documents/split-and-process-document`,
         {
           method: "POST",
           headers: {
@@ -245,8 +251,8 @@ export default function FailedDocuments({
             physician_id: physicianId,
             original_filename: documentToSplit.fileName || "split_document",
             fail_doc_id: documentToSplit.id,
-            blob_path: documentToSplit.blobPath,  // GCS blob path to extract pages from
-            page_ranges: validRanges,  // Staff-provided page ranges
+            blob_path: documentToSplit.blobPath, // GCS blob path to extract pages from
+            page_ranges: validRanges, // Staff-provided page ranges
           }),
         }
       );
@@ -258,13 +264,14 @@ export default function FailedDocuments({
 
       const data = await response.json();
       setSplitResults(data);
-      
       // Show success message
       if (data.saved_documents && data.saved_documents > 0) {
         toast.success(
           `Successfully split and saved ${data.saved_documents} document(s)!`,
           {
-            description: `Document IDs: ${data.document_ids?.join(", ") || "N/A"}`,
+            description: `Document IDs: ${
+              data.document_ids?.join(", ") || "N/A"
+            }`,
             duration: 5000,
           }
         );
@@ -304,14 +311,14 @@ export default function FailedDocuments({
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 px-6 py-4 border-b border-red-100">
+      <div className="  px-6 py-4 border-b border-red-100">
         <div className="flex items-center gap-3">
           <div className="bg-red-100 p-2 rounded-lg">
             <AlertCircle className="w-6 h-6 text-red-600" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-800">
-              Unprocessed Documents & Action Needed
+              Documents & Action Required
             </h2>
             <p className="text-sm text-gray-600 mt-0.5">
               {documents.length}{" "}
@@ -451,7 +458,7 @@ export default function FailedDocuments({
                             )}
                           </button>
                         )}
-                        {doc.documentText && (
+                        {/* {doc.documentText && (
                           <button
                             onClick={(e) => handleSplitClick(e, doc)}
                             className="inline-flex items-center justify-center p-2 border border-purple-300 rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500 transition-all duration-150"
@@ -459,7 +466,7 @@ export default function FailedDocuments({
                           >
                             <Scissors className="w-4 h-4" />
                           </button>
-                        )}
+                        )} */}
                         <button
                           onClick={(e) => handleDeleteClick(e, doc)}
                           className="inline-flex items-center justify-center p-2 border border-red-300 rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-all duration-150"
@@ -616,8 +623,8 @@ export default function FailedDocuments({
                         Specify Page Ranges for Each Report:
                       </p>
                       <p className="text-xs text-gray-500 mb-4">
-                        Enter the page numbers where each report starts and ends.
-                        For example: QME on pages 1-5, PR2 on pages 6-10.
+                        Enter the page numbers where each report starts and
+                        ends. For example: QME on pages 1-5, PR2 on pages 6-10.
                       </p>
                     </div>
 
@@ -742,12 +749,15 @@ export default function FailedDocuments({
                           </p>
                           {splitResults.saved_documents > 0 && (
                             <p className="text-xs text-green-700 mt-1">
-                              {splitResults.saved_documents} document(s) saved to database
-                              {splitResults.document_ids && splitResults.document_ids.length > 0 && (
-                                <span className="ml-2">
-                                  (IDs: {splitResults.document_ids.join(", ")})
-                                </span>
-                              )}
+                              {splitResults.saved_documents} document(s) saved
+                              to database
+                              {splitResults.document_ids &&
+                                splitResults.document_ids.length > 0 && (
+                                  <span className="ml-2">
+                                    (IDs: {splitResults.document_ids.join(", ")}
+                                    )
+                                  </span>
+                                )}
                             </p>
                           )}
                         </div>
@@ -755,92 +765,102 @@ export default function FailedDocuments({
                     </div>
 
                     <div className="space-y-4">
-                      {splitResults.reports?.map((report: any, index: number) => (
-                        <div
-                          key={index}
-                          className="border border-gray-200 rounded-lg p-4"
-                        >
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-900">
-                                Report {report.report_index}: {report.report_title}
-                              </h4>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Type: {report.document_type} (Confidence:{" "}
-                                {(report.document_type_confidence * 100).toFixed(
-                                  0
-                                )}
-                                %)
-                              </p>
+                      {splitResults.reports?.map(
+                        (report: any, index: number) => (
+                          <div
+                            key={index}
+                            className="border border-gray-200 rounded-lg p-4"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900">
+                                  Report {report.report_index}:{" "}
+                                  {report.report_title}
+                                </h4>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Type: {report.document_type} (Confidence:{" "}
+                                  {(
+                                    report.document_type_confidence * 100
+                                  ).toFixed(0)}
+                                  %)
+                                </p>
+                              </div>
+                              {report.status === "failed" ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  Failed
+                                </span>
+                              ) : report.document_id ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Saved (ID:{" "}
+                                  {report.document_id.substring(0, 8)}...)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  Processed
+                                </span>
+                              )}
                             </div>
-                            {report.status === "failed" ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                Failed
-                              </span>
-                            ) : report.document_id ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Saved (ID: {report.document_id.substring(0, 8)}...)
-                              </span>
+
+                            {report.error ? (
+                              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p className="text-sm text-red-800">
+                                  Error: {report.error}
+                                </p>
+                              </div>
                             ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                Processed
-                              </span>
+                              <>
+                                <div className="mb-2">
+                                  <p className="text-xs font-medium text-gray-700 mb-1">
+                                    Short Summary:
+                                  </p>
+                                  <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                    {report.short_summary || "N/A"}
+                                  </p>
+                                </div>
+                                <div className="mb-2">
+                                  <p className="text-xs font-medium text-gray-700 mb-1">
+                                    Long Summary:
+                                  </p>
+                                  <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                                    {report.long_summary || "N/A"}
+                                  </p>
+                                </div>
+                                <div className="mt-2 space-y-1">
+                                  {report.start_page && report.end_page && (
+                                    <p className="text-xs text-gray-400">
+                                      Pages: {report.start_page}-
+                                      {report.end_page} (
+                                      {report.page_count ||
+                                        report.end_page -
+                                          report.start_page +
+                                          1}{" "}
+                                      pages)
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-gray-400">
+                                    Text length: {report.text_length} characters
+                                  </p>
+                                  {report.patient_name && (
+                                    <p className="text-xs text-gray-600">
+                                      Patient: {report.patient_name}
+                                    </p>
+                                  )}
+                                  {report.claim_number && (
+                                    <p className="text-xs text-gray-600">
+                                      Claim: {report.claim_number}
+                                    </p>
+                                  )}
+                                  {report.document_id && (
+                                    <p className="text-xs text-blue-600 font-medium">
+                                      Document ID: {report.document_id}
+                                    </p>
+                                  )}
+                                </div>
+                              </>
                             )}
                           </div>
-
-                          {report.error ? (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                              <p className="text-sm text-red-800">
-                                Error: {report.error}
-                              </p>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="mb-2">
-                                <p className="text-xs font-medium text-gray-700 mb-1">
-                                  Short Summary:
-                                </p>
-                                <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                                  {report.short_summary || "N/A"}
-                                </p>
-                              </div>
-                              <div className="mb-2">
-                                <p className="text-xs font-medium text-gray-700 mb-1">
-                                  Long Summary:
-                                </p>
-                                <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
-                                  {report.long_summary || "N/A"}
-                                </p>
-                              </div>
-                              <div className="mt-2 space-y-1">
-                                {report.start_page && report.end_page && (
-                                  <p className="text-xs text-gray-400">
-                                    Pages: {report.start_page}-{report.end_page} ({report.page_count || (report.end_page - report.start_page + 1)} pages)
-                                  </p>
-                                )}
-                                <p className="text-xs text-gray-400">
-                                  Text length: {report.text_length} characters
-                                </p>
-                                {report.patient_name && (
-                                  <p className="text-xs text-gray-600">
-                                    Patient: {report.patient_name}
-                                  </p>
-                                )}
-                                {report.claim_number && (
-                                  <p className="text-xs text-gray-600">
-                                    Claim: {report.claim_number}
-                                  </p>
-                                )}
-                                {report.document_id && (
-                                  <p className="text-xs text-blue-600 font-medium">
-                                    Document ID: {report.document_id}
-                                  </p>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                 )}

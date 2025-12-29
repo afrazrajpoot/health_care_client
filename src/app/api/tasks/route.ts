@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/services/authSErvice";
 import { prisma } from "@/lib/prisma";
-
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,9 +16,9 @@ export async function GET(request: Request) {
 
     // 🧠 Determine physicianId based on role
     if (user.role === "Physician") {
-      physicianId = user.id;
+      physicianId = user.id || null;
     } else if (user.role === "Staff") {
-      physicianId = user.physicianId;
+      physicianId = user.physicianId || null;
     } else {
       return NextResponse.json(
         { error: "Access denied: Invalid role" },
@@ -47,28 +46,28 @@ export async function GET(request: Request) {
     const priority = searchParams.get('priority') || '';
     const dueDateFilter = searchParams.get('dueDate') || '';
     const taskType = searchParams.get('taskType') || '';
+    const taskTypeFilter = searchParams.get('type') || ''; // Filter by internal/external
     const assignedTo = searchParams.get('assignedTo') || '';
     const sortBy = searchParams.get('sortBy') || 'dueDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
+    
+    // NEW: Get documentId parameter
+    const documentId = searchParams.get('documentId');
 
     const now = new Date();
 
     // Build conditions for top-level AND
     const andConditions: any[] = [];
 
-    // Base conditions
+    // Base conditions - ALWAYS filter by physicianId
     andConditions.push({ physicianId });
+    
+    console.log('🔍 Filtering tasks by physicianId:', physicianId, 'for user role:', user.role);
 
-    // Document filters
-    const documentWhere: any = {};
-    if (claim) {
-      documentWhere.claimNumber = claim;
-    }
-    if (mode) {
-      documentWhere.mode = mode;
-    }
-    if (Object.keys(documentWhere).length > 0) {
-      andConditions.push({ document: documentWhere });
+    // NEW: Filter by documentId if provided
+    if (documentId) {
+      console.log('📄 Filtering tasks by documentId:', documentId);
+      andConditions.push({ documentId: documentId });
     }
 
     // Department filter - remove "Department" from the search term
@@ -125,7 +124,10 @@ export async function GET(request: Request) {
       });
     }
 
-    // Ignore taskType as it doesn't exist in schema
+    // Type filter (internal/external)
+    if (taskTypeFilter && (taskTypeFilter === 'internal' || taskTypeFilter === 'external')) {
+      andConditions.push({ type: taskTypeFilter });
+    }
 
     // Assigned to filter using actions array
     if (assignedTo === 'me') {
@@ -212,51 +214,6 @@ export async function GET(request: Request) {
       dueDateCondition = priorityCond;
     }
 
-    // 🆕 DEFAULT FILTER: Show urgent and due tasks by default
-    // Only apply default filter if no specific dueDateFilter or priority is provided
-    // AND no status filter is applied (except when filtering for completed/closed)
-    const hasExplicitStatusFilter = effectiveStatus && ["Done", "Completed", "Closed"].includes(effectiveStatus);
-    
-    if (!dueDateFilter && !priority && !hasExplicitStatusFilter && !overdueOnly) {
-      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      
-      // Show tasks that are either:
-      // 1. Overdue (dueDate < now AND status not in completed states)
-      // 2. Due today or tomorrow (high priority)
-      // 3. Due within the next 7 days (medium priority)
-      andConditions.push({
-        OR: [
-          // Overdue tasks
-          {
-            AND: [
-              { dueDate: { lt: now } },
-              { 
-                status: { 
-                  notIn: ["Done", "Completed", "Closed"] 
-                } 
-              }
-            ]
-          },
-          // High priority: due today or tomorrow (or null due date)
-          {
-            OR: [
-              { dueDate: null },
-              { dueDate: { lt: tomorrow } }
-            ]
-          },
-          // Medium priority: due within next 7 days
-          {
-            dueDate: {
-              gte: tomorrow,
-              lt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-            }
-          }
-        ]
-      });
-      
-      console.log('Applied default filter: showing urgent and due tasks (excluding completed/closed)');
-    }
-
     // Add dueDate condition to andConditions (if specific filters were provided)
     if (dueDateCondition) {
       andConditions.push(dueDateCondition);
@@ -268,6 +225,18 @@ export async function GET(request: Request) {
       whereClause.AND = andConditions;
     }
 
+    // Debug logging
+    console.log('📋 Task query filters:', {
+      physicianId,
+      documentId,
+      userRole: user.role,
+      search,
+      dept,
+      status: effectiveStatus,
+      totalConditions: andConditions.length,
+      whereClause: JSON.stringify(whereClause, null, 2)
+    });
+
     // Sorting - validate fields from schema
     const validSortFields = ['dueDate', 'createdAt', 'description', 'department', 'updatedAt'];
     let effectiveSortBy = validSortFields.includes(sortBy) ? sortBy : 'dueDate';
@@ -278,8 +247,6 @@ export async function GET(request: Request) {
 
     // Pagination
     const skip = (page - 1) * pageSize;
-
-
 
     // Fetch tasks and total count
     const [tasks, totalCount] = await Promise.all([
@@ -297,7 +264,6 @@ export async function GET(request: Request) {
               ur_denial_reason: true,
               blobPath: true,
               patientName: true,
-              // Removed patientName as it's on task.patient
             },
           },
         },
@@ -334,7 +300,13 @@ export async function GET(request: Request) {
     });
 
     // Log results for debugging
-    console.log('Fetched tasks count:', tasksWithURAndPriority.length, 'Total:', totalCount);
+    console.log('✅ Fetched tasks count:', tasksWithURAndPriority.length, 'Total:', totalCount);
+    console.log('🔍 Query filters applied:', {
+      documentId,
+      physicianId,
+      patientSearch: search,
+      status: effectiveStatus,
+    });
 
     return NextResponse.json({ tasks: tasksWithURAndPriority, totalCount });
   } catch (error) {

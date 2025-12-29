@@ -65,9 +65,16 @@ export const useFailedDocuments = () => {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
       if (name === "dob") {
+        // Handle both Date objects and string values
+        let dobValue: Date | null = null;
+        if (value instanceof Date) {
+          dobValue = value;
+        } else if (typeof value === "string" && value) {
+          dobValue = new Date(value);
+        }
         setUpdateFormData({
           ...updateFormData,
-          dob: value ? new Date(value) : null,
+          dob: dobValue,
         });
       } else {
         setUpdateFormData({ ...updateFormData, [name]: value });

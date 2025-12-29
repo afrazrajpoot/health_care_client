@@ -10,6 +10,18 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : [],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+// Store in global to prevent multiple instances (both dev and production)
+globalForPrisma.prisma = prisma;
+
+// Helper function to ensure connection before queries
+export async function ensurePrismaConnection() {
+  try {
+    await prisma.$connect();
+  } catch (error: any) {
+    // Ignore "already connected" errors - this is expected
+    if (!error?.message?.includes("already connected") && !error?.message?.includes("Already connected")) {
+      // Only log unexpected connection errors
+      console.warn("Prisma connection warning:", error?.message || error);
+    }
+  }
 }

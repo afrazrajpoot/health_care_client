@@ -133,15 +133,43 @@ interface RecommendationsResponse {
 interface IntakeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedPatient?: {
+    patientName: string;
+    dob: string;
+    claimNumber: string;
+  } | null;
 }
 
-export default function IntakeModal({ isOpen, onClose }: IntakeModalProps) {
+export default function IntakeModal({
+  isOpen,
+  onClose,
+  selectedPatient,
+}: IntakeModalProps) {
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     modalFields.forEach((field) => (initial[field.id] = field.value));
     return initial;
   });
+
+  // Pre-fill form when selectedPatient changes
+  useEffect(() => {
+    if (selectedPatient && isOpen) {
+      const dobDate = selectedPatient.dob
+        ? new Date(selectedPatient.dob).toISOString().split("T")[0]
+        : "";
+      setFormData((prev) => ({
+        ...prev,
+        lkPatient: selectedPatient.patientName || prev.lkPatient,
+        lkDob: dobDate || prev.lkDob,
+        lkClaimNumber:
+          selectedPatient.claimNumber &&
+          selectedPatient.claimNumber !== "Not specified"
+            ? selectedPatient.claimNumber
+            : prev.lkClaimNumber,
+      }));
+    }
+  }, [selectedPatient, isOpen]);
   const [outputLink, setOutputLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
@@ -726,11 +754,37 @@ Thank you.`);
           }}
         >
           <button
-            className="btn bg-teal-500 text-white hover:bg-teal-600 active:bg-teal-700"
+            className="px-4 py-2 bg-teal-500 text-white font-semibold rounded-lg hover:bg-teal-600 active:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm hover:shadow-md"
             onClick={generateLink}
             disabled={isGenerating || !formData.lkPatient || !formData.lkDob}
           >
-            {isGenerating ? "Generating..." : "Generate Link"}
+            {isGenerating ? (
+              <span className="flex items-center gap-2">
+                <svg
+                  className="animate-spin h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Generating...
+              </span>
+            ) : (
+              "Generate Link"
+            )}
           </button>
           <input
             id="lkOutput"

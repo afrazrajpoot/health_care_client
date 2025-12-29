@@ -1,10 +1,8 @@
 // app/api/documents/recent/route.ts
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/services/authSErvice";
-
-const prisma = new PrismaClient();
 
 /* ---------------------------------------------
  * NORMALIZATION HELPERS
@@ -157,20 +155,23 @@ function isSamePatient(
   dob2: string,
   claim2: string
 ): boolean {
-  // 🎯 Rule 1: Different claims → NOT same (only if BOTH have valid claims)
-  if (claim1 && claim2 && claim1 !== claim2) return false;
+  // 🎯 PRIMARY RULE: Match by claim number (if both have valid claims)
+  // If both have claim numbers, they must match to be the same patient
+  if (claim1 && claim2) {
+    // Same claim number → ALWAYS same patient (merge them)
+    if (claim1 === claim2) return true;
+    // Different claim numbers → NOT same patient
+    return false;
+  }
 
-  // 🎯 Rule 2: Same claim → ALWAYS same patient
-  if (claim1 && claim2 && claim1 === claim2) return true;
-
-  // 🎯 Rule 3: At least one has NO claim number (or "Not specified")
-  // In this case, match by name + DOB
+  // 🎯 FALLBACK: If one or both don't have claim numbers, use name + DOB matching
+  // This handles cases where claim number is missing
   if (!claim1 || !claim2) {
     // Extract name parts for advanced matching
     const parts1 = getNameParts(name1);
     const parts2 = getNameParts(name2);
 
-    // ➕ Rule 6: Last name + DOB match (ignore first name)
+    // Last name + DOB match (ignore first name)
     if (
       parts1.last &&
       parts2.last &&
@@ -187,15 +188,15 @@ function isSamePatient(
 
     if (!namesMatch) return false;
 
-    // 3A: Both have DOB and match (or within tolerance)
+    // Both have DOB and match (or within tolerance)
     if (dob1 && dob2) {
-      return dob1 === dob2 || dobsWithinTolerance(dob1, dob2); // ➕ Rule 5
+      return dob1 === dob2 || dobsWithinTolerance(dob1, dob2);
     }
 
-    // 3B: Both missing DOB
+    // Both missing DOB
     if (!dob1 && !dob2) return true;
 
-    // 3C: One has DOB, the other doesn't → still same
+    // One has DOB, the other doesn't → still same
     if ((dob1 && !dob2) || (dob2 && !dob1)) return true;
   }
 
@@ -208,8 +209,12 @@ function isSamePatient(
 
 export async function GET(request: Request) {
   try {
+    // Ensure Prisma is connected before use
+    await ensurePrismaConnection();
+
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
+    const search = searchParams.get("search")?.trim();
 
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
@@ -229,6 +234,24 @@ export async function GET(request: Request) {
     };
 
     if (mode) whereClause.mode = mode;
+
+    // Add search filter if provided
+    if (search) {
+      whereClause.OR = [
+        {
+          patientName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          claimNumber: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
 
     // Fetch documents with their documentSummary relation
     const documents = await prisma.document.findMany({
@@ -305,24 +328,38 @@ export async function GET(request: Request) {
           group.documents.push(doc);
 
           // Update group fields with best available data
-          // Prefer non-null, non-empty, valid values
+          // When merging by claim number, prefer the most complete information
 
-          // Update patientName if current is empty/invalid
-          if (!group.patientName && doc.patientName) {
-            group.patientName = doc.patientName;
+          // Update patientName: prefer longer/more complete name
+          if (doc.patientName) {
+            const currentName = (group.patientName || "").trim();
+            const newName = doc.patientName.trim();
+            // Use the longer name (more likely to be complete) or the new one if current is empty
+            if (!currentName || newName.length > currentName.length) {
+              group.patientName = doc.patientName;
+            }
           }
 
-          // Update DOB if current is empty/invalid
+          // Update DOB: prefer non-null DOB
           if (!group.dob && doc.dob) {
             group.dob = doc.dob;
+          } else if (group.dob && doc.dob) {
+            // If both have DOB, keep the one from the most recent document
+            if (doc.createdAt > group.createdAt) {
+              group.dob = doc.dob;
+            }
           }
 
-          // Update claimNumber: prefer valid claim over "Not specified"
+          // Update claimNumber: always keep the valid claim (since that's what matched)
           const groupClaimNormalized = normalizeClaimNumber(group.claimNumber);
           const docClaimNormalized = normalizeClaimNumber(doc.claimNumber);
 
           // If group has no valid claim but doc does, use doc's claim
           if (!groupClaimNormalized && docClaimNormalized) {
+            group.claimNumber = doc.claimNumber;
+          }
+          // If both have valid claims (they should match), keep the one from most recent doc
+          else if (groupClaimNormalized && docClaimNormalized && doc.createdAt > group.createdAt) {
             group.claimNumber = doc.claimNumber;
           }
           // Or if group has invalid placeholder but doc has valid claim
@@ -398,7 +435,6 @@ export async function GET(request: Request) {
       { error: "Failed to fetch recent documents" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Do NOT call prisma.$disconnect() here as it causes issues with concurrent requests
 }

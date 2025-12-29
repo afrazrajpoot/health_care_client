@@ -22,6 +22,13 @@ import {
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -49,6 +56,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     null
   );
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+  const [briefSummaryModalOpen, setBriefSummaryModalOpen] = useState(false);
+  const [selectedBriefSummary, setSelectedBriefSummary] = useState<string>("");
+  const [selectedLongSummary, setSelectedLongSummary] = useState<string>("");
+  const [selectedDocumentInfo, setSelectedDocumentInfo] = useState<{
+    patientName?: string;
+    reportDate?: string;
+    documentType?: string;
+  } | null>(null);
+  const [isBriefSummaryExpanded, setIsBriefSummaryExpanded] = useState(false);
+  const [isLongSummaryExpanded, setIsLongSummaryExpanded] = useState(false);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
 
@@ -448,6 +465,28 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
+  const handleBriefSummaryClick = (e: React.MouseEvent, group: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (group.briefSummary || group.longSummary) {
+      setSelectedBriefSummary(group.briefSummary || "");
+      setSelectedLongSummary(group.longSummary || "");
+      setSelectedDocumentInfo({
+        patientName: group.patientName || documentData?.patient_name,
+        reportDate: group.reportDate,
+        documentType: group.documentType,
+      });
+      setBriefSummaryModalOpen(true);
+      setIsBriefSummaryExpanded(false);
+      setIsLongSummaryExpanded(false);
+    } else {
+      toast.error("Summary not available for this document", {
+        duration: 3000,
+        position: "top-right",
+      });
+    }
+  };
+
   const isGroupViewed = (groupId: string) => viewedWhatsNew.has(groupId);
   const isLoadingForGroup = (group: any) => {
     const docId = group.doc?.document_id;
@@ -617,6 +656,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         </button>
                       )}
 
+                      {(group.briefSummary || group.longSummary) && (
+                        <button
+                          onClick={(e) => handleBriefSummaryClick(e, group)}
+                          className="action-btn brief-summary-btn"
+                          title="View Document Summary"
+                        >
+                          Brief Summary
+                        </button>
+                      )}
+
                       <button
                         className={`action-btn copy-btn ${
                           isGroupCopied ? "copied" : ""
@@ -675,152 +724,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           </div>
 
           {/* Patient Intake Submissions Section */}
-          {intakeSubmissions.length > 0 && (
-            <div className="intake-submissions-section">
-              <div
-                className="intake-header"
-                onClick={() => setIntakesExpanded(!intakesExpanded)}
-              >
-                <div className="intake-title">
-                  <svg
-                    className="icon-sm"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M9 11l3 3L22 4"></path>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                  </svg>
-                  <span>
-                    Patient Intake Submissions ({intakeSubmissions.length})
-                  </span>
-                </div>
-                <button className="collapse-btn">
-                  {intakesExpanded ? (
-                    <ChevronDownIcon className="icon-xs" />
-                  ) : (
-                    <ChevronRightIcon className="icon-xs" />
-                  )}
-                </button>
-              </div>
-
-              {intakesExpanded && (
-                <div className="intake-list">
-                  {loadingIntakes ? (
-                    <div className="loading-intakes">
-                      Loading intake submissions...
-                    </div>
-                  ) : (
-                    intakeSubmissions.map((intake, index) => (
-                      <div key={intake.id || index} className="intake-item">
-                        <div className="intake-item-header">
-                          <span className="intake-date">
-                            {new Date(intake.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </span>
-                          <span className="intake-lang">
-                            {intake.lang === "es" ? "Español" : "English"}
-                          </span>
-                        </div>
-
-                        <div className="intake-details">
-                          {intake.bodyAreas && (
-                            <div className="intake-row">
-                              <span className="intake-label">Body Areas:</span>
-                              <span className="intake-value">
-                                {intake.bodyAreas}
-                              </span>
-                            </div>
-                          )}
-
-                          {intake.newAppointments &&
-                            intake.newAppointments.length > 0 && (
-                              <div className="intake-row">
-                                <span className="intake-label">
-                                  New Appointments:
-                                </span>
-                                <span className="intake-value">
-                                  {intake.newAppointments.map(
-                                    (appt: any, i: number) => (
-                                      <span key={i} className="appt-badge">
-                                        {appt.type} ({appt.date || "No date"})
-                                      </span>
-                                    )
-                                  )}
-                                </span>
-                              </div>
-                            )}
-
-                          {intake.refill && intake.refill.needed && (
-                            <div className="intake-row">
-                              <span className="intake-label">
-                                Medication Refill:
-                              </span>
-                              <span className="intake-value">
-                                Pain: {intake.refill.before}/10 →{" "}
-                                {intake.refill.after}/10
-                              </span>
-                            </div>
-                          )}
-
-                          {intake.adl && (
-                            <div className="intake-row">
-                              <span className="intake-label">ADL Status:</span>
-                              <span
-                                className={`intake-value adl-status-${intake.adl.state}`}
-                              >
-                                {intake.adl.state === "same"
-                                  ? "No Change"
-                                  : intake.adl.state === "better"
-                                  ? "Improved"
-                                  : intake.adl.state === "worse"
-                                  ? "Worsened"
-                                  : intake.adl.state}
-                                {intake.adl.list &&
-                                  intake.adl.list.length > 0 && (
-                                    <span className="adl-list">
-                                      {" "}
-                                      - {intake.adl.list.join(", ")}
-                                    </span>
-                                  )}
-                              </span>
-                            </div>
-                          )}
-
-                          {intake.therapies && intake.therapies.length > 0 && (
-                            <div className="intake-row">
-                              <span className="intake-label">Therapies:</span>
-                              <span className="intake-value">
-                                {intake.therapies.map((t: any, i: number) => (
-                                  <span
-                                    key={i}
-                                    className={`therapy-badge effect-${t.effect
-                                      ?.toLowerCase()
-                                      .replace(/\s+/g, "-")}`}
-                                  >
-                                    {t.therapy}: {t.effect}
-                                  </span>
-                                ))}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -1448,7 +1351,105 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           font-size: 12px;
           font-style: italic;
         }
+        .brief-summary-btn {
+          background: #f0f9ff;
+          color: #0369a1;
+          border: 1px solid #bae6fd;
+        }
+        .brief-summary-btn:hover {
+          background: #e0f2fe;
+          color: #075985;
+        }
       `}</style>
+
+      {/* Brief Summary Modal */}
+      <Dialog
+        open={briefSummaryModalOpen}
+        onOpenChange={setBriefSummaryModalOpen}
+      >
+        <DialogContent className="max-w-xl w-[90vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-gray-900">
+              Brief Summary
+            </DialogTitle>
+            {selectedDocumentInfo && (
+              <DialogDescription className="text-sm text-gray-600 space-y-1">
+                {selectedDocumentInfo.patientName && (
+                  <div>
+                    <span className="font-medium">Patient:</span>{" "}
+                    {selectedDocumentInfo.patientName}
+                  </div>
+                )}
+                {selectedDocumentInfo.documentType && (
+                  <div>
+                    <span className="font-medium">Document Type:</span>{" "}
+                    {selectedDocumentInfo.documentType}
+                  </div>
+                )}
+                {selectedDocumentInfo.reportDate && (
+                  <div>
+                    <span className="font-medium">Report Date:</span>{" "}
+                    {formatDisplayDate(selectedDocumentInfo.reportDate)}
+                  </div>
+                )}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="mt-4">
+            {/* Brief Summary Section */}
+            {selectedBriefSummary && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Brief Summary
+                </h3>
+                <div className="text-gray-700 leading-relaxed">
+                  {isBriefSummaryExpanded ? (
+                    <div className="space-y-3">
+                      {renderFormattedSummary(selectedBriefSummary)}
+                      {/* Show long summary when brief summary is expanded - always fully expanded */}
+                      {selectedLongSummary && (
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                            Long Summary
+                          </h3>
+                          <div className="space-y-3">
+                            {renderFormattedSummary(
+                              formatLongSummaryWithColors(selectedLongSummary)
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {renderFormattedSummary(
+                        selectedBriefSummary.length > 500
+                          ? selectedBriefSummary.substring(0, 500) + "..."
+                          : selectedBriefSummary
+                      )}
+                      {(selectedBriefSummary.length > 500 ||
+                        selectedLongSummary) && (
+                        <button
+                          onClick={() => setIsBriefSummaryExpanded(true)}
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 transition-colors"
+                        >
+                          Read more
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!selectedBriefSummary && (
+              <div className="text-gray-500 italic">
+                No brief summary available
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

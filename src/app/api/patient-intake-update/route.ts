@@ -1,4 +1,4 @@
-// app/api/patient-intakes/route.ts
+// app/api/patient-intake-update/route.ts
 import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     // Ensure Prisma is connected before use
     await ensurePrismaConnection();
+
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get("patientName");
     const dob = searchParams.get("dob");
@@ -35,21 +36,40 @@ export async function GET(request: NextRequest) {
       whereClause.claimNumber = claimNumber;
     }
 
-    const submissions = await prisma.patientQuiz.findMany({
+    // Get the most recent PatientIntakeUpdate for this patient
+    const intakeUpdate = await prisma.patientIntakeUpdate.findFirst({
       where: whereClause,
       orderBy: { createdAt: "desc" },
+      include: {
+        document: {
+          select: {
+            id: true,
+            patientName: true,
+            createdAt: true,
+          },
+        },
+      },
     });
+
+    if (!intakeUpdate) {
+      return NextResponse.json({
+        success: true,
+        data: null,
+        message: "No intake updates found for this patient",
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      data: submissions,
-      total: submissions.length,
+      data: intakeUpdate,
     });
   } catch (error) {
-    console.error("Error fetching patient intakes:", error);
+    console.error("Error fetching patient intake update:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
   }
+  // Note: Do NOT call prisma.$disconnect() here as it causes issues with concurrent requests
 }
+
