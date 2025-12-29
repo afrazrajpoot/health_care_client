@@ -49,3 +49,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+add this file : sunlit-market-482117-q1-4713f1fee4b1.json
+# Google service account credentials
+sunlit-market-482117-q1-4713f1fee4b1.json

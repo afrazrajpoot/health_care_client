@@ -580,12 +580,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     <div className="main">
                       <div className="row1">
                         <div className="left">
-                          <div className="t">
+                          <div className="flex items-center gap-2">
                             {group.documentType || "Document"}
-                          </div>
-                          <div className="sub">
-                            {group.consultingDoctor || "Unknown"} •{" "}
-                            {formattedDate}
+                            <div className="sub">
+                              {/* {group.consultingDoctor || "Unknown"} */}•{" "}
+                              {formattedDate}
+                            </div>
                           </div>
                         </div>
                         <div className="cta">
@@ -601,7 +601,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="scanline">
+                      {/* <div className="scanline">
                         {pills.map((pill, idx) => (
                           <span
                             key={idx}
@@ -610,7 +610,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             {pill}
                           </span>
                         ))}
-                      </div>
+                      </div> */}
                     </div>
                   </summary>
                   <div className="detail">
@@ -1367,82 +1367,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         open={briefSummaryModalOpen}
         onOpenChange={setBriefSummaryModalOpen}
       >
-        <DialogContent className="max-w-xl w-[90vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[40vw] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-900">
+            <DialogTitle className="text-lg font-semibold text-gray-900">
               Brief Summary
             </DialogTitle>
-            {selectedDocumentInfo && (
-              <DialogDescription className="text-sm text-gray-600 space-y-1">
-                {selectedDocumentInfo.patientName && (
-                  <div>
-                    <span className="font-medium">Patient:</span>{" "}
-                    {selectedDocumentInfo.patientName}
-                  </div>
-                )}
-                {selectedDocumentInfo.documentType && (
-                  <div>
-                    <span className="font-medium">Document Type:</span>{" "}
-                    {selectedDocumentInfo.documentType}
-                  </div>
-                )}
-                {selectedDocumentInfo.reportDate && (
-                  <div>
-                    <span className="font-medium">Report Date:</span>{" "}
-                    {formatDisplayDate(selectedDocumentInfo.reportDate)}
-                  </div>
-                )}
-              </DialogDescription>
-            )}
           </DialogHeader>
-          <div className="mt-4">
-            {/* Brief Summary Section */}
-            {selectedBriefSummary && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  Brief Summary
-                </h3>
-                <div className="text-gray-700 leading-relaxed">
-                  {isBriefSummaryExpanded ? (
-                    <div className="space-y-3">
-                      {renderFormattedSummary(selectedBriefSummary)}
-                      {/* Show long summary when brief summary is expanded - always fully expanded */}
-                      {selectedLongSummary && (
-                        <div className="mt-6 pt-6 border-t border-gray-200">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                            Long Summary
-                          </h3>
-                          <div className="space-y-3">
-                            {renderFormattedSummary(
-                              formatLongSummaryWithColors(selectedLongSummary)
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {renderFormattedSummary(
-                        selectedBriefSummary.length > 500
-                          ? selectedBriefSummary.substring(0, 500) + "..."
-                          : selectedBriefSummary
-                      )}
-                      {(selectedBriefSummary.length > 500 ||
-                        selectedLongSummary) && (
-                        <button
-                          onClick={() => setIsBriefSummaryExpanded(true)}
-                          className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 transition-colors"
-                        >
-                          Read more
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+          <div className="text-gray-700 leading-relaxed">
+            {selectedBriefSummary ? (
+              <div className="space-y-3">
+                {renderFormattedSummary(selectedBriefSummary)}
               </div>
-            )}
-
-            {!selectedBriefSummary && (
+            ) : (
               <div className="text-gray-500 italic">
                 No brief summary available
               </div>

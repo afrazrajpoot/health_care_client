@@ -221,7 +221,7 @@ export default function ManualTaskModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] w-[30vw]">
         <DialogHeader>
           <DialogTitle>Add Manual Task</DialogTitle>
           <DialogDescription>

@@ -1,5 +1,6 @@
 "use client";
 import { Sidebar } from "@/components/navigation/sidebar";
+import ManualTaskModal from "@/components/ManualTaskModal";
 import ADLSection from "@/components/physician-components/ADLSection";
 import DocumentSummarySection from "@/components/physician-components/DocumentSummarySection";
 import PatientQuizSection from "@/components/physician-components/PatientQuizSection";
@@ -154,6 +155,7 @@ export default function PhysicianCard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const [taskQuickNotes, setTaskQuickNotes] = useState<QuickNoteSnapshot[]>([]);
+  const [showManualTaskModal, setShowManualTaskModal] = useState(false);
   // Onboarding states
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -1432,13 +1434,13 @@ export default function PhysicianCard() {
               </button>
             </Link>
           )}
-          {session.user.role === "Physician" && (
+          {/* {session.user.role === "Physician" && (
             <Link href={rebutalHre} ref={staffButtonRef}>
               <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
                 Generate Rebuttal
               </button>
             </Link>
-          )}
+          )} */}
           <select
             id="mode"
             className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
@@ -1871,83 +1873,18 @@ export default function PhysicianCard() {
                     </div>
                   </div>
                 )}
-
-                {/* ADL Section */}
-                {/* {documentData && (
-                  <div className="panel" style={{ marginBottom: "14px" }}>
-                    <div className="panel-h">
-                      <div>
-                        <div className="title">ADL / Work Status</div>
-                        <div className="meta">
-                          Activities of daily living and work restrictions
-                        </div>
-                      </div>
-                    </div>
-                    <div className="panel-body">
-                      <ADLSection
-                        documentData={documentData}
-                        mode={mode}
-                        copied={copied}
-                        onCopySection={handleSectionCopy}
-                        isCollapsed={collapsedSections.adlWorkStatus}
-                        onToggle={() => toggleSection("adlWorkStatus")}
-                      />
-                    </div>
-                  </div>
-                )} */}
-
-                {/* Document Summary Section */}
-                {/* {documentData && (
-                  <div className="panel" style={{ marginBottom: "14px" }}>
-                    <div className="panel-h">
-                      <div>
-                        <div className="title">Document Summary</div>
-                        <div className="meta">
-                          Parsed documents and summaries
-                        </div>
-                      </div>
-                    </div>
-                    <div className="panel-body">
-                      <DocumentSummarySection
-                        documentData={documentData}
-                        openModal={openModal}
-                        handleShowPrevious={handleShowPrevious}
-                        copied={copied}
-                        onCopySection={handleSectionCopy}
-                        isCollapsed={collapsedSections.documentSummary}
-                        onToggle={() => toggleSection("documentSummary")}
-                      />
-                    </div>
-                  </div>
-                )} */}
-
-                {/* Patient Quiz Section */}
-                {/* {documentData && (
-                  <div className="panel" style={{ marginBottom: "14px" }}>
-                    <div className="panel-h">
-                      <div>
-                        <div className="title">Patient Quiz</div>
-                        <div className="meta">
-                          Patient intake and questionnaire data
-                        </div>
-                      </div>
-                    </div>
-                    <div className="panel-body">
-                      <PatientQuizSection
-                        documentData={documentData}
-                        copied={copied}
-                        onCopySection={handleSectionCopy}
-                      />
-                    </div>
-                  </div>
-                )} */}
               </>
             )}
           </div>
         </div>
 
         {/* Floating New Order Button */}
-        <div className="floating-new-order">+ New Order</div>
+        <div
+          className="floating-new-order"
+          onClick={() => setShowManualTaskModal(true)}
+        >
+          + New Order
+        </div>
 
         {/* Recent Patients Toggle */}
         <div
@@ -2182,6 +2119,51 @@ export default function PhysicianCard() {
           </div>
         </div>
       )}
+
+      {/* Manual Task Modal */}
+      <aside>
+        <ManualTaskModal
+          open={showManualTaskModal}
+          onOpenChange={setShowManualTaskModal}
+          departments={[
+            "Medical/Clinical",
+            "Scheduling & Coordination",
+            "Administrative / Compliance",
+            "Authorizations & Denials",
+          ]}
+          defaultClaim={
+            currentPatient.claimNumber !== "Not specified"
+              ? currentPatient.claimNumber
+              : undefined
+          }
+          defaultPatient={
+            selectedPatient ? currentPatient.patientName : undefined
+          }
+          defaultDocumentId={documentId || undefined}
+          onSubmit={async (data) => {
+            try {
+              const response = await fetch("/api/add-manual-task", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  ...data,
+                  physicianId: getPhysicianId(),
+                }),
+              });
+              if (!response.ok) {
+                throw new Error("Failed to create task");
+              }
+              addToast("Task created successfully", "success");
+            } catch (error) {
+              console.error("Error creating task:", error);
+              addToast("Failed to create task", "error");
+              throw error;
+            }
+          }}
+        />
+      </aside>
     </>
   );
 }

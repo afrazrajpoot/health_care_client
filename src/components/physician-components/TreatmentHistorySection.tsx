@@ -380,7 +380,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       acc[bodyPartKey].push(snapshot);
       return acc;
     }, {} as Record<string, BodyPartSnapshot[]>);
-    let content = "TREATMENT HISTORY BY BODY PART\n";
+    let content = "Treatment History by Body Area\n";
     content += "=".repeat(50) + "\n\n";
     Object.entries(groupedBodyParts).forEach(([bodyPart, snapshots]) => {
       const sortedSnapshots = sortSnapshotsByDate(snapshots);
@@ -571,97 +571,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     }
   };
 
-  // Handle summarize button click
-  const handleSummarize = async () => {
-    setShowSummaryModal(true);
-    setIsGeneratingSummary(true);
-    setSummaryText("");
-
-    try {
-      // Prepare context from all body parts
-      const context = Object.entries(groupedBodyParts)
-        .map(([bodyPart, snapshots]) => {
-          const sortedSnapshots = sortSnapshotsByDate(snapshots);
-          const latest = sortedSnapshots[0];
-
-          let bodyPartContext = `${bodyPart}: `;
-          const details = [];
-
-          if (latest.dx && latest.dx !== "Not specified")
-            details.push(`Dx: ${latest.dx}`);
-          if (mode === "gm" && latest.condition)
-            details.push(`Condition: ${latest.condition}`);
-          if (mode === "gm" && latest.symptoms)
-            details.push(`Symptoms: ${latest.symptoms}`);
-          if (latest.recommended && latest.recommended !== "Not specified")
-            details.push(`Treatment: ${latest.recommended}`);
-          if (
-            latest.consultingDoctor &&
-            latest.consultingDoctor !== "Not specified"
-          )
-            details.push(`Doctor: ${latest.consultingDoctor}`);
-
-          bodyPartContext += details.join("; ");
-          return bodyPartContext;
-        })
-        .join("\n");
-
-      const response = await fetch("/api/openai-summary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          context,
-          maxWords: 300,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate summary");
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error("No response body");
-      }
-
-      let accumulatedText = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices[0]?.delta?.content || "";
-              accumulatedText += content;
-              setSummaryText(accumulatedText);
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
-      }
-
-      setIsGeneratingSummary(false);
-    } catch (error) {
-      console.error("Error generating summary:", error);
-      toast.error("Failed to generate summary");
-      setSummaryText("Failed to generate summary. Please try again.");
-      setIsGeneratingSummary(false);
-    }
-  };
-
   return (
     <>
       <div className="section">
@@ -669,16 +578,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         <div className="section-header">
           <div className="section-title">
             <MedicalIcon />
-            <h3 className="text-black">Treatment History by Body Part</h3>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSummarize();
-              }}
-              className="bg-blue-500 text-[0.8vw] hover:bg-blue-700 text-white px-2 py-1 rounded-md"
-            >
-              Summarize
-            </button>
+            <h3 className="text-black">Treatment History by Body Area</h3>
           </div>
           <div className="header-actions">
             <button
