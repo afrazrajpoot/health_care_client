@@ -1,6 +1,6 @@
 // components/physician-components/TreatmentHistorySection.tsx
 import { useTreatmentHistory } from "@/app/custom-hooks/staff-hooks/physician-hooks/useTreatmentHistory";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -9,6 +9,34 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+
+// Define TypeScript interfaces for treatment history events
+interface TreatmentEvent {
+  date: string;
+  event: string;
+  details: string;
+}
+
+interface TreatmentHistory {
+  musculoskeletal_system: TreatmentEvent[];
+  cardiovascular_system: TreatmentEvent[];
+  pulmonary_respiratory: TreatmentEvent[];
+  neurological: TreatmentEvent[];
+  gastrointestinal: TreatmentEvent[];
+  metabolic_endocrine: TreatmentEvent[];
+  other_systems: TreatmentEvent[];
+  general_treatments: TreatmentEvent[];
+}
+
+interface TreatmentHistorySummary {
+  total_events: number;
+  categories_with_events: number;
+  most_active_category: string | null;
+  most_active_category_count: number;
+  latest_event_date: string | null;
+  oldest_event_date: string | null;
+}
+
 // Define TypeScript interfaces for body part snapshots - Extended for GM fields
 interface BodyPartSnapshot {
   id: string;
@@ -23,7 +51,7 @@ interface BodyPartSnapshot {
   document_id?: string;
   document_created_at?: string;
   document_report_date?: string;
-  referralDoctor?: string; // Fixed potential misspelling
+  referralDoctor?: string;
   condition?: string;
   conditionSeverity?: string;
   symptoms?: string;
@@ -37,6 +65,7 @@ interface BodyPartSnapshot {
   adlsAffected?: string;
   functionalLimitations?: string;
 }
+
 interface DocumentData {
   patient_name?: string;
   dob?: string;
@@ -106,7 +135,12 @@ interface DocumentData {
   allVerified?: boolean;
   gcs_file_link?: string;
   blob_path?: string;
+  // 🆕 Treatment history fields
+  treatment_history?: TreatmentHistory;
+  treatment_history_summary?: TreatmentHistorySummary;
 }
+
+// Icon components
 const CopyIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -121,6 +155,7 @@ const CopyIcon = () => (
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
   </svg>
 );
+
 const CheckIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -134,6 +169,7 @@ const CheckIcon = () => (
     <polyline points="20 6 9 17 4 12"></polyline>
   </svg>
 );
+
 const MedicalIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -147,32 +183,7 @@ const MedicalIcon = () => (
     <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
   </svg>
 );
-const ChevronDownIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-4 h-4 transition-transform"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="6 9 12 15 18 9"></polyline>
-  </svg>
-);
-const ChevronRightIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="w-4 h-4 transition-transform"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="9 18 15 12 9 6"></polyline>
-  </svg>
-);
+
 const TimelineIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -188,6 +199,7 @@ const TimelineIcon = () => (
     <path d="M12 22.08V12"></path>
   </svg>
 );
+
 interface TreatmentHistorySectionProps {
   documentData: DocumentData | null;
   mode: "wc" | "gm";
@@ -196,6 +208,7 @@ interface TreatmentHistorySectionProps {
   isCollapsed: boolean;
   onToggle: () => void;
 }
+
 const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
   documentData,
   mode,
@@ -205,20 +218,15 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
   onToggle,
 }) => {
   console.log("Document data:", documentData);
-  console.log("Current mode:", mode);
-  // ✅ Get body part snapshots directly from documentData
-  const bodyPartSnapshots = documentData?.body_part_snapshots || [];
-  console.log("Body part snapshots:", bodyPartSnapshots);
-  // State for expanded/collapsed body parts (systems)
-  const [expandedBodyParts, setExpandedBodyParts] = React.useState<{
+  console.log("Treatment history data:", documentData?.treatment_history);
+  
+  // State for expanded/collapsed treatment history categories
+  const [expandedCategories, setExpandedCategories] = useState<{
     [key: string]: boolean;
   }>({});
-  // State for expanded entries within each body part
-  const [expandedEntries, setExpandedEntries] = React.useState<{
-    [key: string]: boolean;
-  }>({});
-  // State for expanded archive sections
-  const [expandedArchives, setExpandedArchives] = React.useState<{
+
+  // State for expanded event details
+  const [expandedEvents, setExpandedEvents] = useState<{
     [key: string]: boolean;
   }>({});
 
@@ -226,6 +234,18 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryText, setSummaryText] = useState("");
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  // Initialize expanded categories on mount
+  useEffect(() => {
+    if (documentData?.treatment_history) {
+      const initialExpanded: { [key: string]: boolean } = {};
+      Object.keys(documentData.treatment_history).forEach(category => {
+        initialExpanded[category] = true; // Default to expanded
+      });
+      setExpandedCategories(initialExpanded);
+    }
+  }, [documentData]);
+
   // Function to copy text to clipboard
   const copyToClipboard = async (text: string) => {
     try {
@@ -238,7 +258,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       return true;
     } catch (err) {
       console.error("Failed to copy: ", err);
-      // Fallback for older browsers
       try {
         const textArea = document.createElement("textarea");
         textArea.value = text;
@@ -254,258 +273,86 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       }
     }
   };
-  // Get content for a specific body part
-  const getBodyPartContent = (bodyPartId: string): string => {
-    const bodyPartSnapshots = documentData?.body_part_snapshots || [];
-    const snapshotsForBodyPart = bodyPartSnapshots.filter(
-      (snapshot) =>
-        snapshot.bodyPart === bodyPartId ||
-        (mode === "gm" && !snapshot.bodyPart)
-    );
-    if (snapshotsForBodyPart.length === 0) return "";
-    const sortedSnapshots = sortSnapshotsByDate(snapshotsForBodyPart);
-    const latestSnapshot = sortedSnapshots[0];
-    // Mode-aware label: For GM, use dx as disease name if bodyPart is null
-    const displayLabel =
-      mode === "gm" && !bodyPartId
-        ? latestSnapshot.dx || latestSnapshot.condition || "General Health"
-        : bodyPartId;
-    let content = `TREATMENT HISTORY - ${displayLabel}\n`;
+
+  // Get treatment history content for copying
+  const getTreatmentHistoryContent = (): string => {
+    const history = documentData?.treatment_history;
+    if (!history) return "No treatment history available";
+
+    let content = "TREATMENT HISTORY TIMELINE\n";
     content += "=".repeat(40) + "\n\n";
-    // Latest snapshot
-    content += `LATEST (${formatDate(latestSnapshot.document_report_date)}):\n`;
-    if (
-      latestSnapshot.dx &&
-      latestSnapshot.dx !== "Not specified" &&
-      latestSnapshot.dx !== ""
-    ) {
-      content += `Diagnosis: ${latestSnapshot.dx}\n`;
-    }
-    // For "gm", add condition/symptoms if available (from your JSON data)
-    if (mode === "gm" && latestSnapshot.condition) {
-      content += `Condition: ${latestSnapshot.condition} (${latestSnapshot.conditionSeverity})\n`;
-    }
-    if (mode === "gm" && latestSnapshot.symptoms) {
-      content += `Symptoms: ${latestSnapshot.symptoms}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.medications) {
-      content += `Medications: ${latestSnapshot.medications}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.comorbidities) {
-      content += `Comorbidities: ${latestSnapshot.comorbidities}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.keyFindings) {
-      content += `Key Findings: ${latestSnapshot.keyFindings}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.treatmentApproach) {
-      content += `Treatment Approach: ${latestSnapshot.treatmentApproach}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.clinicalSummary) {
-      content += `Clinical Summary: ${latestSnapshot.clinicalSummary}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.adlsAffected) {
-      content += `ADLs Affected: ${latestSnapshot.adlsAffected}\n`;
-    }
-    if (mode === "gm" && latestSnapshot.functionalLimitations) {
-      content += `Functional Limitations: ${latestSnapshot.functionalLimitations}\n`;
-    }
-    if (
-      latestSnapshot.recommended &&
-      latestSnapshot.recommended !== "Not specified" &&
-      latestSnapshot.recommended !== ""
-    ) {
-      content += `Treatment Plan: ${latestSnapshot.recommended}\n`;
-    }
-    if (
-      latestSnapshot.consultingDoctor &&
-      latestSnapshot.consultingDoctor !== "Not specified" &&
-      latestSnapshot.consultingDoctor !== ""
-    ) {
-      content += `Consulting Doctor: ${latestSnapshot.consultingDoctor}\n`;
-    }
-    if (
-      latestSnapshot.referralDoctor &&
-      latestSnapshot.referralDoctor !== "Not specified" &&
-      latestSnapshot.referralDoctor !== ""
-    ) {
-      content += `Referral Doctor: ${latestSnapshot.referralDoctor}\n`;
-    }
-    if (
-      latestSnapshot.urDecision &&
-      latestSnapshot.urDecision !== "Not specified" &&
-      latestSnapshot.urDecision !== ""
-    ) {
-      content += `UR Decision: ${latestSnapshot.urDecision}\n`;
-    }
-    // Timeline if multiple snapshots
-    if (sortedSnapshots.length > 1) {
-      content += `\nTIMELINE (${sortedSnapshots.length} entries):\n`;
-      content += "-".repeat(30) + "\n";
-      sortedSnapshots.forEach((snapshot, index) => {
-        content += `\n${formatDate(snapshot.document_report_date)}:\n`;
-        if (
-          snapshot.recommended &&
-          snapshot.recommended !== "Not specified" &&
-          snapshot.recommended !== ""
-        ) {
-          content += ` Treatment Plan: ${snapshot.recommended}\n`;
-        }
-        if (
-          snapshot.consultingDoctor &&
-          snapshot.consultingDoctor !== "Not specified" &&
-          snapshot.consultingDoctor !== ""
-        ) {
-          content += ` Consulting Doctor: ${snapshot.consultingDoctor}\n`;
-        }
-      });
-    }
-    return content;
-  };
-  // Get content for all body parts
-  const getAllBodyPartsContent = (): string => {
-    const bodyPartSnapshots = documentData?.body_part_snapshots || [];
-    if (bodyPartSnapshots.length === 0) {
-      return "TREATMENT HISTORY\nNo body part treatment history available";
-    }
-    const groupedBodyParts = bodyPartSnapshots.reduce((acc, snapshot) => {
-      // Mode-aware key: For "gm" with null bodyPart, group under dx (disease name)
-      const bodyPartKey =
-        snapshot.bodyPart ||
-        (mode === "gm"
-          ? snapshot.dx || snapshot.condition || "General Health"
-          : "Unknown Body Part");
-      if (!acc[bodyPartKey]) {
-        acc[bodyPartKey] = [];
+
+    Object.entries(history).forEach(([category, events]) => {
+      if (events.length > 0) {
+        content += `${category.replace(/_/g, ' ').toUpperCase()}:\n`;
+        content += "-".repeat(30) + "\n";
+        
+        events.forEach((event:any, index:any) => {
+          content += `${index + 1}. ${event.date}: ${event.event}\n`;
+          content += `   Details: ${event.details}\n\n`;
+        });
+        content += "\n";
       }
-      acc[bodyPartKey].push(snapshot);
-      return acc;
-    }, {} as Record<string, BodyPartSnapshot[]>);
-    let content = "Treatment History by Body Area\n";
-    content += "=".repeat(50) + "\n\n";
-    Object.entries(groupedBodyParts).forEach(([bodyPart, snapshots]) => {
-      const sortedSnapshots = sortSnapshotsByDate(snapshots);
-      const latestSnapshot = sortedSnapshots[0];
-      content += `${bodyPart.toUpperCase()}\n`;
-      content += "-".repeat(30) + "\n";
-      // Latest snapshot
-      content += `Latest (${formatDate(
-        latestSnapshot.document_report_date
-      )}):\n`;
-      if (
-        latestSnapshot.dx &&
-        latestSnapshot.dx !== "Not specified" &&
-        latestSnapshot.dx !== ""
-      ) {
-        content += ` Diagnosis: ${latestSnapshot.dx}\n`;
-      }
-      // For "gm", add condition/symptoms
-      if (mode === "gm" && latestSnapshot.condition) {
-        content += ` Condition: ${latestSnapshot.condition}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.symptoms) {
-        content += ` Symptoms: ${latestSnapshot.symptoms}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.medications) {
-        content += ` Medications: ${latestSnapshot.medications}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.comorbidities) {
-        content += ` Comorbidities: ${latestSnapshot.comorbidities}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.keyFindings) {
-        content += ` Key Findings: ${latestSnapshot.keyFindings}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.treatmentApproach) {
-        content += ` Treatment Approach: ${latestSnapshot.treatmentApproach}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.clinicalSummary) {
-        content += ` Clinical Summary: ${latestSnapshot.clinicalSummary}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.adlsAffected) {
-        content += ` ADLs Affected: ${latestSnapshot.adlsAffected}\n`;
-      }
-      if (mode === "gm" && latestSnapshot.functionalLimitations) {
-        content += ` Functional Limitations: ${latestSnapshot.functionalLimitations}\n`;
-      }
-      if (
-        latestSnapshot.recommended &&
-        latestSnapshot.recommended !== "Not specified" &&
-        latestSnapshot.recommended !== ""
-      ) {
-        content += ` Treatment Plan: ${latestSnapshot.recommended}\n`;
-      }
-      if (
-        latestSnapshot.consultingDoctor &&
-        latestSnapshot.consultingDoctor !== "Not specified" &&
-        latestSnapshot.consultingDoctor !== ""
-      ) {
-        content += ` Consulting Doctor: ${latestSnapshot.consultingDoctor}\n`;
-      }
-      // Summary of timeline entries
-      if (sortedSnapshots.length > 1) {
-        content += ` Timeline Entries: ${sortedSnapshots.length}\n`;
-      }
-      content += "\n";
     });
-    content += `Total Body Parts: ${Object.keys(groupedBodyParts).length}\n`;
-    content += `Total Snapshots: ${bodyPartSnapshots.length}\n`;
+
     return content;
   };
-  const handleCopyClick = async (e: React.MouseEvent, bodyPartId?: string) => {
+
+  // Get content for a specific category
+  const getCategoryContent = (category: string): string => {
+    const history = documentData?.treatment_history;
+    const events = history?.[category as keyof TreatmentHistory] || [];
+    
+    if (events.length === 0) return `No events for ${category.replace(/_/g, ' ')}`;
+
+    let content = `${category.replace(/_/g, ' ').toUpperCase()}\n`;
+    content += "=".repeat(40) + "\n\n";
+
+    events.forEach((event, index) => {
+      content += `${index + 1}. ${event.date}: ${event.event}\n`;
+      content += `   Details: ${event.details}\n\n`;
+    });
+
+    return content;
+  };
+
+  const handleCopyClick = async (e: React.MouseEvent, category?: string) => {
     e.stopPropagation();
-    const sectionId = bodyPartId
-      ? `section-bodypart-${bodyPartId}`
+    const sectionId = category 
+      ? `section-treatment-${category}`
       : "section-treatment";
-    // For "gm", adjust ID if grouping under dx/condition
-    const adjustedId =
-      mode === "gm" && !bodyPartId
-        ? `section-${(
-            bodyPartSnapshots[0]?.dx ||
-            bodyPartSnapshots[0]?.condition ||
-            "general-health"
-          )
-            .toLowerCase()
-            .replace(/\s+/g, "-")}`
-        : sectionId;
-    // Get the content to copy based on what's being copied
-    const contentToCopy = bodyPartId
-      ? getBodyPartContent(bodyPartId)
-      : getAllBodyPartsContent();
-    // Copy to clipboard
+    
+    const contentToCopy = category 
+      ? getCategoryContent(category)
+      : getTreatmentHistoryContent();
+    
     const success = await copyToClipboard(contentToCopy);
     if (success) {
-      // Notify parent component with adjusted ID
-      onCopySection(adjustedId);
+      onCopySection(sectionId);
     }
   };
-  const toggleBodyPart = (bodyPartId: string, e?: React.MouseEvent) => {
+
+  const toggleCategory = (category: string, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
-    setExpandedBodyParts((prev) => ({
+    setExpandedCategories(prev => ({
       ...prev,
-      [bodyPartId]: !prev[bodyPartId],
-    }));
-  };
-  const toggleEntry = (entryId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-    setExpandedEntries((prev) => ({
-      ...prev,
-      [entryId]: !prev[entryId],
-    }));
-  };
-  const toggleArchive = (archiveId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-    setExpandedArchives((prev) => ({
-      ...prev,
-      [archiveId]: !prev[archiveId],
+      [category]: !prev[category]
     }));
   };
 
-  // Get color classes for body parts (cycling through colors)
+  const toggleEvent = (eventId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setExpandedEvents(prev => ({
+      ...prev,
+      [eventId]: !prev[eventId]
+    }));
+  };
+
+  // Get color classes for categories (cycling through colors)
   const getColorClasses = (index: number): string => {
     const colors = [
       "bg-orange-50 hover:bg-orange-100",
@@ -514,6 +361,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       "bg-purple-50 hover:bg-purple-100",
       "bg-teal-50 hover:bg-teal-100",
       "bg-yellow-50 hover:bg-yellow-100",
+      "bg-red-50 hover:bg-red-100",
+      "bg-indigo-50 hover:bg-indigo-100",
     ];
     return colors[index % colors.length];
   };
@@ -530,35 +379,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       return dateString;
     }
   };
-  // Helper to parse and sort snapshots by report_date (descending for latest first)
-  const sortSnapshotsByDate = (
-    snapshots: BodyPartSnapshot[]
-  ): BodyPartSnapshot[] => {
-    return [...snapshots].sort((a, b) => {
-      const dateA = a.document_report_date
-        ? new Date(a.document_report_date).getTime()
-        : 0;
-      const dateB = b.document_report_date
-        ? new Date(b.document_report_date).getTime()
-        : 0;
-      return dateB - dateA; // Descending
-    });
-  };
-
-  // Group body part snapshots by body part name for better organization
-  const groupedBodyParts = bodyPartSnapshots.reduce((acc, snapshot) => {
-    // Mode-aware key: For "gm", use dx as disease name if bodyPart is null
-    const bodyPart =
-      snapshot.bodyPart ||
-      (mode === "gm"
-        ? snapshot.dx || snapshot.condition || "General Health"
-        : "Unknown Body Part");
-    if (!acc[bodyPart]) {
-      acc[bodyPart] = [];
-    }
-    acc[bodyPart].push(snapshot);
-    return acc;
-  }, {} as Record<string, BodyPartSnapshot[]>);
 
   // Format date for display
   const formatDate = (dateString: string | undefined): string => {
@@ -571,259 +391,291 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     }
   };
 
+  // Handle summarize button click
+  const handleSummarize = async () => {
+    setShowSummaryModal(true);
+    setIsGeneratingSummary(true);
+    setSummaryText("");
+
+    try {
+      // Use treatment history summary if available
+      const summary = documentData?.treatment_history_summary;
+      if (summary) {
+        let generatedSummary = `Treatment History Summary\n\n`;
+        generatedSummary += `Total Events: ${summary.total_events}\n`;
+        generatedSummary += `Categories with Events: ${summary.categories_with_events}\n`;
+        
+        if (summary.most_active_category) {
+          generatedSummary += `Most Active Category: ${summary.most_active_category.replace(/_/g, ' ')} (${summary.most_active_category_count} events)\n`;
+        }
+        
+        if (summary.latest_event_date) {
+          generatedSummary += `Latest Event: ${formatDate(summary.latest_event_date)}\n`;
+        }
+        
+        if (summary.oldest_event_date) {
+          generatedSummary += `Oldest Event: ${formatDate(summary.oldest_event_date)}\n`;
+        }
+
+        generatedSummary += `\nSummary by Category:\n`;
+
+        const history = documentData?.treatment_history;
+        if (history) {
+          Object.entries(history).forEach(([category, events]) => {
+            if (events.length > 0) {
+              generatedSummary += `\n${category.replace(/_/g, ' ').toUpperCase()}:\n`;
+              generatedSummary += `  Total events: ${events.length}\n`;
+              
+              // Add the most recent event from each category
+              const mostRecent = events[0]; // Events are already sorted by date
+              generatedSummary += `  Most recent: ${mostRecent.date} - ${mostRecent.event}\n`;
+            }
+          });
+        }
+
+        setSummaryText(generatedSummary);
+        setIsGeneratingSummary(false);
+      } else {
+        // Fallback to generating summary from treatment history
+        const history = documentData?.treatment_history;
+        if (history) {
+          let generatedSummary = `Treatment History Overview\n\n`;
+          
+          let totalEvents = 0;
+          Object.entries(history).forEach(([category, events]) => {
+            if (events.length > 0) {
+              totalEvents += events.length;
+              generatedSummary += `${category.replace(/_/g, ' ')}: ${events.length} events\n`;
+            }
+          });
+          
+          generatedSummary += `\nTotal Events: ${totalEvents}\n`;
+          setSummaryText(generatedSummary);
+        } else {
+          setSummaryText("No treatment history data available for summarization.");
+        }
+        setIsGeneratingSummary(false);
+      }
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      toast.error("Failed to generate summary");
+      setSummaryText("Failed to generate summary. Please try again.");
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  // Get human-readable category names
+  const getCategoryName = (category: string): string => {
+    const categoryNames: { [key: string]: string } = {
+      musculoskeletal_system: "Musculoskeletal System",
+      cardiovascular_system: "Cardiovascular System",
+      pulmonary_respiratory: "Pulmonary & Respiratory",
+      neurological: "Neurological",
+      gastrointestinal: "Gastrointestinal",
+      metabolic_endocrine: "Metabolic & Endocrine",
+      other_systems: "Other Systems",
+      general_treatments: "General Treatments",
+    };
+    return categoryNames[category] || category.replace(/_/g, ' ');
+  };
+
+  // Get icon for category
+  const getCategoryIcon = (category: string): string => {
+    const icons: { [key: string]: string } = {
+      musculoskeletal_system: "🦴",
+      cardiovascular_system: "❤️",
+      pulmonary_respiratory: "🫁",
+      neurological: "🧠",
+      gastrointestinal: "🍽️",
+      metabolic_endocrine: "⚖️",
+      other_systems: "🩺",
+      general_treatments: "💊",
+    };
+    return icons[category] || "📋";
+  };
+
+  const history = documentData?.treatment_history;
+  const summary = documentData?.treatment_history_summary;
+
   return (
     <>
       <div className="section">
-        {/* Section Header - Static, no collapse functionality */}
+        {/* Section Header */}
         <div className="section-header">
           <div className="section-title">
             <MedicalIcon />
-            <h3 className="text-black">Treatment History by Body Area</h3>
+            <h3 className="text-black">Treatment History Timeline</h3>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSummarize();
+              }}
+              className="bg-blue-500 text-[0.8vw] hover:bg-blue-700 text-white px-2 py-1 rounded-md ml-2"
+            >
+              Summarize
+            </button>
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${
-                copied["section-treatment"] ? "copied" : ""
-              }`}
+              className={`copy-btn ${copied["section-treatment"] ? "copied" : ""}`}
               onClick={(e) => handleCopyClick(e)}
-              title="Copy All Body Parts"
+              title="Copy All Treatment History"
             >
               {copied["section-treatment"] ? <CheckIcon /> : <CopyIcon />}
             </button>
           </div>
         </div>
-        {/* Section Content - Always visible */}
+
+        {/* Section Content */}
         <div className="section-content" onClick={(e) => e.stopPropagation()}>
           {/* Summary Stats */}
+          {summary && (
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-700">{summary.total_events}</div>
+                  <div className="text-sm text-blue-600">Total Events</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-700">{summary.categories_with_events}</div>
+                  <div className="text-sm text-blue-600">Categories</div>
+                </div>
+                {summary.most_active_category && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-700">{summary.most_active_category_count}</div>
+                    <div className="text-sm text-blue-600">
+                      {getCategoryName(summary.most_active_category)}
+                    </div>
+                  </div>
+                )}
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-700">
+                    {summary.latest_event_date ? formatDateShort(summary.latest_event_date) : "—"}
+                  </div>
+                  <div className="text-sm text-blue-600">Latest Event</div>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Body Part Snapshots - Styled like treatmentHistory page */}
+          {/* Treatment History Categories */}
           <div className="space-y-4">
-            {Object.entries(groupedBodyParts).map(
-              ([bodyPart, snapshots], index) => {
-                const sortedSnapshots = sortSnapshotsByDate(snapshots);
-                const recentSnapshots = sortedSnapshots.slice(0, 3); // Show last 3 as recent
-                const archivedSnapshots = sortedSnapshots.slice(3); // Rest as archived
-
-                // Build entry title
-                const buildEntryTitle = (
-                  snapshot: BodyPartSnapshot
-                ): string => {
-                  if (
-                    snapshot.recommended &&
-                    snapshot.recommended !== "Not specified"
-                  ) {
-                    return snapshot.recommended;
-                  }
-                  if (snapshot.dx && snapshot.dx !== "Not specified") {
-                    return snapshot.dx;
-                  }
-                  if (mode === "gm" && snapshot.condition) {
-                    return snapshot.condition;
-                  }
-                  return "Treatment Entry";
-                };
-
-                // Build entry detail
-                const buildEntryDetail = (
-                  snapshot: BodyPartSnapshot
-                ): string => {
-                  const details: string[] = [];
-                  if (
-                    snapshot.dx &&
-                    snapshot.dx !== "Not specified" &&
-                    snapshot.dx !== ""
-                  ) {
-                    details.push(`Diagnosis: ${snapshot.dx}`);
-                  }
-                  if (
-                    mode === "gm" &&
-                    snapshot.condition &&
-                    snapshot.condition !== "Not specified"
-                  ) {
-                    details.push(`Condition: ${snapshot.condition}`);
-                  }
-                  if (
-                    mode === "gm" &&
-                    snapshot.symptoms &&
-                    snapshot.symptoms !== "Not specified"
-                  ) {
-                    details.push(`Symptoms: ${snapshot.symptoms}`);
-                  }
-                  if (
-                    mode === "gm" &&
-                    snapshot.medications &&
-                    snapshot.medications !== "Not specified"
-                  ) {
-                    details.push(`Medications: ${snapshot.medications}`);
-                  }
-                  if (
-                    snapshot.consultingDoctor &&
-                    snapshot.consultingDoctor !== "Not specified"
-                  ) {
-                    details.push(`Provider: ${snapshot.consultingDoctor}`);
-                  }
-                  if (
-                    snapshot.keyConcern &&
-                    snapshot.keyConcern !== "Not specified"
-                  ) {
-                    details.push(`Key Concern: ${snapshot.keyConcern}`);
-                  }
-                  if (
-                    snapshot.nextStep &&
-                    snapshot.nextStep !== "Not specified"
-                  ) {
-                    details.push(`Next Steps: ${snapshot.nextStep}`);
-                  }
-                  if (
-                    snapshot.clinicalSummary &&
-                    snapshot.clinicalSummary !== "Not specified"
-                  ) {
-                    details.push(`Summary: ${snapshot.clinicalSummary}`);
-                  }
-                  return details.join(". ");
-                };
+            {history ? (
+              Object.entries(history).map(([category, events], index) => {
+                if (events.length === 0) return null;
+                
+                const categoryName = getCategoryName(category);
+                const categoryIcon = getCategoryIcon(category);
+                const isExpanded = expandedCategories[category] !== false; // Default to true
 
                 return (
                   <div
-                    key={bodyPart}
+                    key={category}
                     className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
                   >
-                    {/* Body Part Header - Clickable for expanding/collapsing */}
+                    {/* Category Header */}
                     <div
-                      className={`p-4 cursor-pointer transition-colors ${getColorClasses(
-                        index
-                      )} flex justify-between items-center`}
-                      onClick={(e) => toggleBodyPart(bodyPart, e)}
+                      className={`p-4 cursor-pointer transition-colors ${getColorClasses(index)} flex justify-between items-center`}
+                      onClick={(e) => toggleCategory(category, e)}
                     >
-                      <span className="font-semibold text-gray-800">
-                        {bodyPart}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{categoryIcon}</span>
+                        <div>
+                          <span className="font-semibold text-gray-800">
+                            {categoryName}
+                          </span>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {events.length} {events.length === 1 ? 'event' : 'events'}
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <button
-                          className={`copy-btn small ${
-                            copied[`section-bodypart-${bodyPart}`]
-                              ? "copied"
-                              : ""
-                          }`}
+                          className={`copy-btn small ${copied[`section-treatment-${category}`] ? "copied" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCopyClick(e, bodyPart);
+                            handleCopyClick(e, category);
                           }}
-                          title={`Copy ${bodyPart} Details`}
+                          title={`Copy ${categoryName} History`}
                         >
-                          {copied[`section-bodypart-${bodyPart}`] ? (
+                          {copied[`section-treatment-${category}`] ? (
                             <CheckIcon />
                           ) : (
                             <CopyIcon />
                           )}
                         </button>
-                        <span className="text-gray-500 font-bold">
-                          {expandedBodyParts[bodyPart] ? "▾" : "▸"}
+                        <span className="text-gray-500 font-bold text-sm">
+                          {isExpanded ? "▾" : "▸"}
                         </span>
                       </div>
                     </div>
 
-                    {/* Body Part Details */}
-                    {expandedBodyParts[bodyPart] && (
+                    {/* Category Events */}
+                    {isExpanded && (
                       <div className="p-4 pt-2 border-t border-gray-100">
                         <div className="space-y-3">
-                          {/* Recent Entries */}
-                          {recentSnapshots.map((snapshot) => {
-                            const entryId = `${bodyPart}-${snapshot.id}`;
+                          {events.map((event:any, eventIndex:any) => {
+                            const eventId = `${category}-${eventIndex}`;
+                            const isExpandedEvent = expandedEvents[eventId];
+                            
                             return (
                               <div
-                                key={snapshot.id}
+                                key={eventId}
                                 className="bg-gray-50 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
-                                onClick={(e) => toggleEntry(entryId, e)}
+                                onClick={(e) => toggleEvent(eventId, e)}
                               >
-                                <div className="flex justify-between items-center">
-                                  <div className="font-medium text-sm text-gray-900">
-                                    <span className="text-gray-600 mr-2">
-                                      {formatDateShort(
-                                        snapshot.document_report_date
-                                      )}
-                                    </span>
-                                    {buildEntryTitle(snapshot)}
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                                        {event.date}
+                                      </span>
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {event.event}
+                                      </span>
+                                    </div>
+                                    {isExpandedEvent && (
+                                      <div className="mt-2 text-sm text-gray-700 leading-relaxed">
+                                        {event.details}
+                                      </div>
+                                    )}
                                   </div>
-                                  <span className="text-gray-400 font-bold text-sm">
-                                    {expandedEntries[entryId] ? "▾" : "▸"}
+                                  <span className="text-gray-400 font-bold text-sm ml-2 flex-shrink-0">
+                                    {isExpandedEvent ? "▾" : "▸"}
                                   </span>
                                 </div>
-                                {expandedEntries[entryId] && (
-                                  <div className="mt-2 text-sm text-gray-700 leading-relaxed">
-                                    {buildEntryDetail(snapshot)}
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
-
-                          {/* Archive Section */}
-                          {archivedSnapshots.length > 0 && (
-                            <>
-                              <div
-                                className="bg-gray-100 rounded-lg p-3 cursor-pointer hover:bg-gray-200 transition-colors flex justify-between items-center"
-                                onClick={(e) => toggleArchive(bodyPart, e)}
-                              >
-                                <div className="flex items-center text-gray-700">
-                                  <span className="mr-2">📁</span>
-                                  <span className="text-sm font-medium">
-                                    Archive — Older Treatment History
-                                  </span>
-                                </div>
-                                <span className="text-gray-500 font-bold text-sm">
-                                  {expandedArchives[bodyPart] ? "▾" : "▸"}
-                                </span>
-                              </div>
-
-                              {expandedArchives[bodyPart] && (
-                                <div className="space-y-3 ml-4 border-l-2 border-gray-300 pl-4">
-                                  {archivedSnapshots.map((snapshot) => {
-                                    const entryId = `${bodyPart}-archive-${snapshot.id}`;
-                                    return (
-                                      <div
-                                        key={snapshot.id}
-                                        className="bg-gray-50 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
-                                        onClick={(e) => toggleEntry(entryId, e)}
-                                      >
-                                        <div className="flex justify-between items-center">
-                                          <div className="font-medium text-sm text-gray-900">
-                                            <span className="text-gray-600 mr-2">
-                                              {formatDateShort(
-                                                snapshot.document_report_date
-                                              )}
-                                            </span>
-                                            {buildEntryTitle(snapshot)}
-                                          </div>
-                                          <span className="text-gray-400 font-bold text-sm">
-                                            {expandedEntries[entryId]
-                                              ? "▾"
-                                              : "▸"}
-                                          </span>
-                                        </div>
-                                        {expandedEntries[entryId] && (
-                                          <div className="mt-2 text-sm text-gray-700 leading-relaxed">
-                                            {buildEntryDetail(snapshot)}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </>
-                          )}
                         </div>
                       </div>
                     )}
                   </div>
                 );
-              }
+              })
+            ) : (
+              <div className="p-6 text-center text-gray-500">
+                <div className="mb-2">
+                  <TimelineIcon />
+                </div>
+                <p className="font-medium">No treatment history available</p>
+                <p className="text-sm mt-1">
+                  Treatment history will appear here once generated from patient documents
+                </p>
+              </div>
             )}
           </div>
-          {bodyPartSnapshots.length === 0 && (
-            <div className="p-4 text-center text-gray-500">
-              <p>No treatment history available</p>
+
+          {/* Empty State */}
+          {history && Object.values(history).every(events => events.length === 0) && (
+            <div className="p-6 text-center text-gray-500">
+              <div className="mb-2">
+                <TimelineIcon />
+              </div>
+              <p className="font-medium">No treatment events found</p>
+              <p className="text-sm mt-1">
+                Treatment events will appear here as they are extracted from documents
+              </p>
             </div>
           )}
         </div>
@@ -850,9 +702,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
             {summaryText && (
               <div className="prose prose-sm max-w-none">
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                  <pre className="text-gray-800 leading-relaxed whitespace-pre-wrap font-mono text-sm">
                     {summaryText}
-                  </p>
+                  </pre>
                 </div>
                 {isGeneratingSummary && (
                   <div className="mt-2 flex items-center text-sm text-gray-500">
@@ -884,7 +736,8 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         </DialogContent>
       </Dialog>
 
-      <style jsx>{`
+
+         <style jsx>{`
         .section {
           border-bottom: 1px solid #e5e7eb;
           background: white;
@@ -1149,4 +1002,10 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     </>
   );
 };
+
 export default TreatmentHistorySection;
+
+
+
+
+

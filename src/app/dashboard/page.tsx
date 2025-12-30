@@ -552,6 +552,7 @@ export default function PhysicianCard() {
         document_summaries,
         previous_summaries,
         patient_quiz: data.patient_quiz,
+        treatment_history: latestDoc.treatment_history,
         body_part_snapshots: allBodyPartSnapshots, // Set all aggregated body part snapshots
         quick_notes_snapshots: processedQuickNotes,
         gcs_file_link: latestDoc?.gcs_file_link,
