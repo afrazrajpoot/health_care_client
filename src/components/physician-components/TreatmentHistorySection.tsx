@@ -18,14 +18,14 @@ interface TreatmentEvent {
 }
 
 interface TreatmentHistory {
-  musculoskeletal_system: TreatmentEvent[];
-  cardiovascular_system: TreatmentEvent[];
-  pulmonary_respiratory: TreatmentEvent[];
-  neurological: TreatmentEvent[];
-  gastrointestinal: TreatmentEvent[];
-  metabolic_endocrine: TreatmentEvent[];
-  other_systems: TreatmentEvent[];
-  general_treatments: TreatmentEvent[];
+  musculoskeletal_system: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  cardiovascular_system: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  pulmonary_respiratory: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  neurological: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  gastrointestinal: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  metabolic_endocrine: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  other_systems: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  general_treatments: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
 }
 
 interface TreatmentHistorySummary {
@@ -282,15 +282,27 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     let content = "TREATMENT HISTORY TIMELINE\n";
     content += "=".repeat(40) + "\n\n";
 
-    Object.entries(history).forEach(([category, events]) => {
-      if (events.length > 0) {
+    Object.entries(history).forEach(([category, data]) => {
+      const { current, archive } = data as { current: TreatmentEvent[], archive: TreatmentEvent[] };
+      if (current.length > 0 || archive.length > 0) {
         content += `${category.replace(/_/g, ' ').toUpperCase()}:\n`;
         content += "-".repeat(30) + "\n";
         
-        events.forEach((event:any, index:any) => {
-          content += `${index + 1}. ${event.date}: ${event.event}\n`;
-          content += `   Details: ${event.details}\n\n`;
-        });
+        if (current.length > 0) {
+          content += "CURRENT:\n";
+          current.forEach((event, index) => {
+            content += `  ${index + 1}. ${event.date}: ${event.event}\n`;
+            content += `     Details: ${event.details}\n`;
+          });
+        }
+        
+        if (archive.length > 0) {
+          content += "\nARCHIVE:\n";
+          archive.forEach((event, index) => {
+            content += `  ${index + 1}. ${event.date}: ${event.event}\n`;
+            content += `     Details: ${event.details}\n`;
+          });
+        }
         content += "\n";
       }
     });
@@ -300,18 +312,30 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
 
   // Get content for a specific category
   const getCategoryContent = (category: string): string => {
-    const history = documentData?.treatment_history;
-    const events = history?.[category as keyof TreatmentHistory] || [];
+    const data = history?.[category as keyof TreatmentHistory];
+    const current = data?.current || [];
+    const archive = data?.archive || [];
     
-    if (events.length === 0) return `No events for ${category.replace(/_/g, ' ')}`;
+    if (current.length === 0 && archive.length === 0) return `No events for ${category.replace(/_/g, ' ')}`;
 
     let content = `${category.replace(/_/g, ' ').toUpperCase()}\n`;
     content += "=".repeat(40) + "\n\n";
 
-    events.forEach((event, index) => {
-      content += `${index + 1}. ${event.date}: ${event.event}\n`;
-      content += `   Details: ${event.details}\n\n`;
-    });
+    if (current.length > 0) {
+      content += "CURRENT:\n";
+      current.forEach((event, index) => {
+        content += `${index + 1}. ${event.date}: ${event.event}\n`;
+        content += `   Details: ${event.details}\n\n`;
+      });
+    }
+
+    if (archive.length > 0) {
+      content += "ARCHIVE:\n";
+      archive.forEach((event, index) => {
+        content += `${index + 1}. ${event.date}: ${event.event}\n`;
+        content += `   Details: ${event.details}\n\n`;
+      });
+    }
 
     return content;
   };
@@ -421,14 +445,17 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
 
         const history = documentData?.treatment_history;
         if (history) {
-          Object.entries(history).forEach(([category, events]) => {
-            if (events.length > 0) {
+          Object.entries(history).forEach(([category, data]) => {
+            const { current, archive } = data as { current: TreatmentEvent[], archive: TreatmentEvent[] };
+            if (current.length > 0 || archive.length > 0) {
               generatedSummary += `\n${category.replace(/_/g, ' ').toUpperCase()}:\n`;
-              generatedSummary += `  Total events: ${events.length}\n`;
+              generatedSummary += `  Current events: ${current.length}\n`;
+              generatedSummary += `  Archived events: ${archive.length}\n`;
               
-              // Add the most recent event from each category
-              const mostRecent = events[0]; // Events are already sorted by date
-              generatedSummary += `  Most recent: ${mostRecent.date} - ${mostRecent.event}\n`;
+              if (current.length > 0) {
+                const mostRecent = current[0];
+                generatedSummary += `  Most recent: ${mostRecent.date} - ${mostRecent.event}\n`;
+              }
             }
           });
         }
@@ -442,10 +469,12 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           let generatedSummary = `Treatment History Overview\n\n`;
           
           let totalEvents = 0;
-          Object.entries(history).forEach(([category, events]) => {
-            if (events.length > 0) {
-              totalEvents += events.length;
-              generatedSummary += `${category.replace(/_/g, ' ')}: ${events.length} events\n`;
+          Object.entries(history).forEach(([category, data]) => {
+            const { current, archive } = data as { current: any[], archive: any[] };
+            const count = current.length + archive.length;
+            if (count > 0) {
+              totalEvents += count;
+              generatedSummary += `${category.replace(/_/g, ' ')}: ${count} events (${current.length} current, ${archive.length} archived)\n`;
             }
           });
           
@@ -561,12 +590,13 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           {/* Treatment History Categories */}
           <div className="space-y-4">
             {history ? (
-              Object.entries(history).map(([category, events], index) => {
-                if (events.length === 0) return null;
+              Object.entries(history).map(([category, data], index) => {
+                const { current, archive } = data as { current: TreatmentEvent[], archive: TreatmentEvent[] };
+                if (current.length === 0 && archive.length === 0) return null;
                 
                 const categoryName = getCategoryName(category);
                 const categoryIcon = getCategoryIcon(category);
-                const isExpanded = expandedCategories[category] !== false; // Default to true
+                const isExpanded = expandedCategories[category] !== false;
 
                 return (
                   <div
@@ -585,7 +615,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                             {categoryName}
                           </span>
                           <div className="text-xs text-gray-500 mt-0.5">
-                            {events.length} {events.length === 1 ? 'event' : 'events'}
+                            {current.length} current, {archive.length} archived
                           </div>
                         </div>
                       </div>
@@ -613,40 +643,94 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                     {/* Category Events */}
                     {isExpanded && (
                       <div className="p-4 pt-2 border-t border-gray-100">
-                        <div className="space-y-3">
-                          {events.map((event:any, eventIndex:any) => {
-                            const eventId = `${category}-${eventIndex}`;
-                            const isExpandedEvent = expandedEvents[eventId];
-                            
-                            return (
-                              <div
-                                key={eventId}
-                                className="bg-gray-50 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
-                                onClick={(e) => toggleEvent(eventId, e)}
-                              >
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                                        {event.date}
-                                      </span>
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {event.event}
-                                      </span>
-                                    </div>
-                                    {isExpandedEvent && (
-                                      <div className="mt-2 text-sm text-gray-700 leading-relaxed">
-                                        {event.details}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <span className="text-gray-400 font-bold text-sm ml-2 flex-shrink-0">
-                                    {isExpandedEvent ? "▾" : "▸"}
-                                  </span>
-                                </div>
+                        <div className="space-y-4">
+                          {/* Current Events */}
+                          {current.length > 0 && (
+                            <div>
+                              <div className="text-[0.7vw] font-bold text-blue-600 uppercase tracking-wider mb-2 px-1">
+                                Current Findings
                               </div>
-                            );
-                          })}
+                              <div className="space-y-2">
+                                {current.map((event, eventIndex) => {
+                                  const eventId = `${category}-current-${eventIndex}`;
+                                  const isExpandedEvent = expandedEvents[eventId];
+                                  
+                                  return (
+                                    <div
+                                      key={eventId}
+                                      className="bg-blue-50/50 rounded-lg border border-blue-100 p-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                                      onClick={(e) => toggleEvent(eventId, e)}
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                                              {event.date}
+                                            </span>
+                                            <span className="text-sm font-medium text-gray-900">
+                                              {event.event}
+                                            </span>
+                                          </div>
+                                          {isExpandedEvent && (
+                                            <div className="mt-2 text-sm text-gray-700 leading-relaxed">
+                                              {event.details}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <span className="text-gray-400 font-bold text-sm ml-2 flex-shrink-0">
+                                          {isExpandedEvent ? "▾" : "▸"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Archived Events */}
+                          {archive.length > 0 && (
+                            <div>
+                              <div className="text-[0.7vw] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
+                                Archived History
+                              </div>
+                              <div className="space-y-2">
+                                {archive.map((event, eventIndex) => {
+                                  const eventId = `${category}-archive-${eventIndex}`;
+                                  const isExpandedEvent = expandedEvents[eventId];
+                                  
+                                  return (
+                                    <div
+                                      key={eventId}
+                                      className="bg-gray-50 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
+                                      onClick={(e) => toggleEvent(eventId, e)}
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-medium bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
+                                              {event.date}
+                                            </span>
+                                            <span className="text-sm font-medium text-gray-600">
+                                              {event.event}
+                                            </span>
+                                          </div>
+                                          {isExpandedEvent && (
+                                            <div className="mt-2 text-sm text-gray-600 leading-relaxed">
+                                              {event.details}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <span className="text-gray-400 font-bold text-sm ml-2 flex-shrink-0">
+                                          {isExpandedEvent ? "▾" : "▸"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -667,7 +751,10 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           </div>
 
           {/* Empty State */}
-          {history && Object.values(history).every(events => events.length === 0) && (
+          {history && Object.values(history).every(data => {
+            const { current, archive } = data as { current: any[], archive: any[] };
+            return current.length === 0 && archive.length === 0;
+          }) && (
             <div className="p-6 text-center text-gray-500">
               <div className="mb-2">
                 <TimelineIcon />

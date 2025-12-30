@@ -1,8 +1,6 @@
 // app/api/failed-documents/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
 import { getServerSession } from "next-auth/next";
-// import { authOptions } from '@/services/authService';
 import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { authOptions } from "@/services/authSErvice";
 
@@ -12,6 +10,7 @@ export async function GET(request: NextRequest) {
     await ensurePrismaConnection();
 
     const session = await getServerSession(authOptions);
+    console.log("Full session:", session);
 
     if (!session || !session.user) {
       return NextResponse.json(
@@ -20,11 +19,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const physicianId = session?.user?.physicianId || session?.user?.id; // Assuming session.user.physicianId is available
+    // Debug: Log all user properties
+    console.log("User object:", session.user);
+    console.log("User role:", session.user?.role);
+    console.log("User ID:", session.user?.id);
+    console.log("Physician ID:", session.user?.physicianId);
 
-    if (!physicianId) {
+    // Determine which ID to use based on your business logic
+    let queryId;
+
+    if (session.user?.role === 'Physician' && session.user?.physicianId) {
+      // If user is a physician AND has a physicianId, use the USER ID
+      queryId = session.user.id;
+      console.log("Using USER ID (Physician with physicianId):", queryId);
+    } else if (session.user?.role === 'Physician') {
+      // If user is a physician but doesn't have physicianId, use user ID
+      queryId = session.user.id;
+      console.log("Using USER ID (Physician without physicianId):", queryId);
+    } else if (session.user?.physicianId) {
+      // If user is not a physician but has physicianId, use physicianId
+      queryId = session.user.physicianId;
+      console.log("Using PHYSICIAN ID (Non-physician):", queryId);
+    } else {
+      // Fallback to user ID
+      queryId = session.user.id;
+      console.log("Using USER ID (Fallback):", queryId);
+    }
+
+    if (!queryId) {
       return NextResponse.json(
-        { error: "Physician ID not found in session" },
+        { error: "No valid ID found for query" },
         { status: 400 }
       );
     }
@@ -33,7 +57,7 @@ export async function GET(request: NextRequest) {
     const [failedDocs, totalCount] = await Promise.all([
       prisma.failDocs.findMany({
         where: {
-          physicianId: physicianId,
+          physicianId: queryId,
         },
         orderBy: {
           createdAt: "desc",
@@ -42,14 +66,22 @@ export async function GET(request: NextRequest) {
       }),
       prisma.failDocs.count({
         where: {
-          physicianId: physicianId,
+          physicianId: queryId,
         },
       }),
     ]);
 
+    console.log("Query ID used:", queryId);
+    console.log("Failed docs found:", failedDocs.length);
+
     if (!failedDocs || failedDocs.length === 0) {
       return NextResponse.json(
-        { message: "No failed documents found", data: [], totalDocuments: 0 },
+        {
+          message: "No failed documents found",
+          data: [],
+          totalDocuments: 0,
+          queryIdUsed: queryId
+        },
         { status: 200 }
       );
     }
@@ -57,6 +89,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       totalDocuments: totalCount,
       documents: failedDocs,
+      queryIdUsed: queryId
     });
   } catch (error) {
     console.error("Error fetching failed documents:", error);
@@ -65,5 +98,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-  // Note: Do NOT call prisma.$disconnect() here as it causes issues with concurrent requests
 }
