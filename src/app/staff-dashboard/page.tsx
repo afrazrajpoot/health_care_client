@@ -20,7 +20,6 @@ import QuestionnaireSummary from "@/components/staff-components/QuestionnaireSum
 import TasksTable from "@/components/staff-components/TasksTable";
 import QuickNotesSection from "@/components/staff-components/QuickNotesSection";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
-import FailedDocuments from "@/components/staff-components/FailedDocuments";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
 import { useFailedDocuments } from "../custom-hooks/staff-hooks/useFailedDocuments";
 
@@ -1225,6 +1224,11 @@ export default function StaffDashboardPatient() {
                       onTaskClick={handleTaskClick}
                       getStatusOptions={getStatusOptions}
                       getAssigneeOptions={getAssigneeOptions}
+                      failedDocuments={failedDocuments}
+                      onFailedDocumentDeleted={removeFailedDocument}
+                      onFailedDocumentRowClick={handleRowClick}
+                      mode={initialMode}
+                      physicianId={getPhysicianId() || undefined}
                     />
 
                     {/* Pagination Controls */}
@@ -1271,24 +1275,6 @@ export default function StaffDashboardPatient() {
                       </div>
                     )}
                   </div>
-
-                  {/* Failed Documents Section - Always show if data exists */}
-                  {failedDocuments.length > 0 && (
-                    <div className="mt-6">
-                      {/* <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-base font-bold text-slate-900 m-0">
-                          Failed Documents ({failedDocuments.length})
-                        </h3>
-                      </div> */}
-                      <FailedDocuments
-                        documents={failedDocuments}
-                        onRowClick={handleRowClick}
-                        onDocumentDeleted={removeFailedDocument}
-                        mode={initialMode}
-                        physicianId={getPhysicianId() || undefined}
-                      />
-                    </div>
-                  )}
                 </>
               )}
             </>
@@ -1299,24 +1285,6 @@ export default function StaffDashboardPatient() {
                   Select a patient to view their details
                 </p>
               </section>
-
-              {/* Failed Documents Section - Show even when no patient selected */}
-              {failedDocuments.length > 0 && (
-                <div className="mt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-base font-bold text-slate-900 m-0">
-                      Failed Documents ({failedDocuments.length})
-                    </h3>
-                  </div>
-                  <FailedDocuments
-                    documents={failedDocuments}
-                    onRowClick={handleRowClick}
-                    onDocumentDeleted={removeFailedDocument}
-                    mode={initialMode}
-                    physicianId={getPhysicianId() || undefined}
-                  />
-                </div>
-              )}
             </>
           )}
         </section>

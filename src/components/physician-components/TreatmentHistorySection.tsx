@@ -18,9 +18,18 @@ interface TreatmentEvent {
 }
 
 interface TreatmentHistory {
-  musculoskeletal_system: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
-  cardiovascular_system: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
-  pulmonary_respiratory: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
+  musculoskeletal_system: {
+    current: TreatmentEvent[];
+    archive: TreatmentEvent[];
+  };
+  cardiovascular_system: {
+    current: TreatmentEvent[];
+    archive: TreatmentEvent[];
+  };
+  pulmonary_respiratory: {
+    current: TreatmentEvent[];
+    archive: TreatmentEvent[];
+  };
   neurological: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
   gastrointestinal: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
   metabolic_endocrine: { current: TreatmentEvent[]; archive: TreatmentEvent[] };
@@ -219,7 +228,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
 }) => {
   console.log("Document data:", documentData);
   console.log("Treatment history data:", documentData?.treatment_history);
-  
+
   // State for expanded/collapsed treatment history categories
   const [expandedCategories, setExpandedCategories] = useState<{
     [key: string]: boolean;
@@ -239,7 +248,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
   useEffect(() => {
     if (documentData?.treatment_history) {
       const initialExpanded: { [key: string]: boolean } = {};
-      Object.keys(documentData.treatment_history).forEach(category => {
+      Object.keys(documentData.treatment_history).forEach((category) => {
         initialExpanded[category] = true; // Default to expanded
       });
       setExpandedCategories(initialExpanded);
@@ -283,11 +292,14 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     content += "=".repeat(40) + "\n\n";
 
     Object.entries(history).forEach(([category, data]) => {
-      const { current, archive } = data as { current: TreatmentEvent[], archive: TreatmentEvent[] };
+      const { current, archive } = data as {
+        current: TreatmentEvent[];
+        archive: TreatmentEvent[];
+      };
       if (current.length > 0 || archive.length > 0) {
-        content += `${category.replace(/_/g, ' ').toUpperCase()}:\n`;
+        content += `${category.replace(/_/g, " ").toUpperCase()}:\n`;
         content += "-".repeat(30) + "\n";
-        
+
         if (current.length > 0) {
           content += "CURRENT:\n";
           current.forEach((event, index) => {
@@ -295,7 +307,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
             content += `     Details: ${event.details}\n`;
           });
         }
-        
+
         if (archive.length > 0) {
           content += "\nARCHIVE:\n";
           archive.forEach((event, index) => {
@@ -315,10 +327,11 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     const data = history?.[category as keyof TreatmentHistory];
     const current = data?.current || [];
     const archive = data?.archive || [];
-    
-    if (current.length === 0 && archive.length === 0) return `No events for ${category.replace(/_/g, ' ')}`;
 
-    let content = `${category.replace(/_/g, ' ').toUpperCase()}\n`;
+    if (current.length === 0 && archive.length === 0)
+      return `No events for ${category.replace(/_/g, " ")}`;
+
+    let content = `${category.replace(/_/g, " ").toUpperCase()}\n`;
     content += "=".repeat(40) + "\n\n";
 
     if (current.length > 0) {
@@ -342,14 +355,14 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
 
   const handleCopyClick = async (e: React.MouseEvent, category?: string) => {
     e.stopPropagation();
-    const sectionId = category 
+    const sectionId = category
       ? `section-treatment-${category}`
       : "section-treatment";
-    
-    const contentToCopy = category 
+
+    const contentToCopy = category
       ? getCategoryContent(category)
       : getTreatmentHistoryContent();
-    
+
     const success = await copyToClipboard(contentToCopy);
     if (success) {
       onCopySection(sectionId);
@@ -360,9 +373,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     if (e) {
       e.stopPropagation();
     }
-    setExpandedCategories(prev => ({
+    setExpandedCategories((prev) => ({
       ...prev,
-      [category]: !prev[category]
+      [category]: !prev[category],
     }));
   };
 
@@ -370,9 +383,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     if (e) {
       e.stopPropagation();
     }
-    setExpandedEvents(prev => ({
+    setExpandedEvents((prev) => ({
       ...prev,
-      [eventId]: !prev[eventId]
+      [eventId]: !prev[eventId],
     }));
   };
 
@@ -415,84 +428,6 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
     }
   };
 
-  // Handle summarize button click
-  const handleSummarize = async () => {
-    setShowSummaryModal(true);
-    setIsGeneratingSummary(true);
-    setSummaryText("");
-
-    try {
-      // Use treatment history summary if available
-      const summary = documentData?.treatment_history_summary;
-      if (summary) {
-        let generatedSummary = `Treatment History Summary\n\n`;
-        generatedSummary += `Total Events: ${summary.total_events}\n`;
-        generatedSummary += `Categories with Events: ${summary.categories_with_events}\n`;
-        
-        if (summary.most_active_category) {
-          generatedSummary += `Most Active Category: ${summary.most_active_category.replace(/_/g, ' ')} (${summary.most_active_category_count} events)\n`;
-        }
-        
-        if (summary.latest_event_date) {
-          generatedSummary += `Latest Event: ${formatDate(summary.latest_event_date)}\n`;
-        }
-        
-        if (summary.oldest_event_date) {
-          generatedSummary += `Oldest Event: ${formatDate(summary.oldest_event_date)}\n`;
-        }
-
-        generatedSummary += `\nSummary by Category:\n`;
-
-        const history = documentData?.treatment_history;
-        if (history) {
-          Object.entries(history).forEach(([category, data]) => {
-            const { current, archive } = data as { current: TreatmentEvent[], archive: TreatmentEvent[] };
-            if (current.length > 0 || archive.length > 0) {
-              generatedSummary += `\n${category.replace(/_/g, ' ').toUpperCase()}:\n`;
-              generatedSummary += `  Current events: ${current.length}\n`;
-              generatedSummary += `  Archived events: ${archive.length}\n`;
-              
-              if (current.length > 0) {
-                const mostRecent = current[0];
-                generatedSummary += `  Most recent: ${mostRecent.date} - ${mostRecent.event}\n`;
-              }
-            }
-          });
-        }
-
-        setSummaryText(generatedSummary);
-        setIsGeneratingSummary(false);
-      } else {
-        // Fallback to generating summary from treatment history
-        const history = documentData?.treatment_history;
-        if (history) {
-          let generatedSummary = `Treatment History Overview\n\n`;
-          
-          let totalEvents = 0;
-          Object.entries(history).forEach(([category, data]) => {
-            const { current, archive } = data as { current: any[], archive: any[] };
-            const count = current.length + archive.length;
-            if (count > 0) {
-              totalEvents += count;
-              generatedSummary += `${category.replace(/_/g, ' ')}: ${count} events (${current.length} current, ${archive.length} archived)\n`;
-            }
-          });
-          
-          generatedSummary += `\nTotal Events: ${totalEvents}\n`;
-          setSummaryText(generatedSummary);
-        } else {
-          setSummaryText("No treatment history data available for summarization.");
-        }
-        setIsGeneratingSummary(false);
-      }
-    } catch (error) {
-      console.error("Error generating summary:", error);
-      toast.error("Failed to generate summary");
-      setSummaryText("Failed to generate summary. Please try again.");
-      setIsGeneratingSummary(false);
-    }
-  };
-
   // Get human-readable category names
   const getCategoryName = (category: string): string => {
     const categoryNames: { [key: string]: string } = {
@@ -505,7 +440,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
       other_systems: "Other Systems",
       general_treatments: "General Treatments",
     };
-    return categoryNames[category] || category.replace(/_/g, ' ');
+    return categoryNames[category] || category.replace(/_/g, " ");
   };
 
   // Get icon for category
@@ -534,19 +469,12 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           <div className="section-title">
             <MedicalIcon />
             <h3 className="text-black">Treatment History Timeline</h3>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSummarize();
-              }}
-              className="bg-blue-500 text-[0.8vw] hover:bg-blue-700 text-white px-2 py-1 rounded-md ml-2"
-            >
-              Summarize
-            </button>
           </div>
           <div className="header-actions">
             <button
-              className={`copy-btn ${copied["section-treatment"] ? "copied" : ""}`}
+              className={`copy-btn ${
+                copied["section-treatment"] ? "copied" : ""
+              }`}
               onClick={(e) => handleCopyClick(e)}
               title="Copy All Treatment History"
             >
@@ -562,16 +490,22 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-700">{summary.total_events}</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    {summary.total_events}
+                  </div>
                   <div className="text-sm text-blue-600">Total Events</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-700">{summary.categories_with_events}</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    {summary.categories_with_events}
+                  </div>
                   <div className="text-sm text-blue-600">Categories</div>
                 </div>
                 {summary.most_active_category && (
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-700">{summary.most_active_category_count}</div>
+                    <div className="text-2xl font-bold text-blue-700">
+                      {summary.most_active_category_count}
+                    </div>
                     <div className="text-sm text-blue-600">
                       {getCategoryName(summary.most_active_category)}
                     </div>
@@ -579,7 +513,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                 )}
                 <div className="text-center">
                   <div className="text-lg font-bold text-blue-700">
-                    {summary.latest_event_date ? formatDateShort(summary.latest_event_date) : "—"}
+                    {summary.latest_event_date
+                      ? formatDateShort(summary.latest_event_date)
+                      : "—"}
                   </div>
                   <div className="text-sm text-blue-600">Latest Event</div>
                 </div>
@@ -591,9 +527,12 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
           <div className="space-y-4">
             {history ? (
               Object.entries(history).map(([category, data], index) => {
-                const { current, archive } = data as { current: TreatmentEvent[], archive: TreatmentEvent[] };
+                const { current, archive } = data as {
+                  current: TreatmentEvent[];
+                  archive: TreatmentEvent[];
+                };
                 if (current.length === 0 && archive.length === 0) return null;
-                
+
                 const categoryName = getCategoryName(category);
                 const categoryIcon = getCategoryIcon(category);
                 const isExpanded = expandedCategories[category] !== false;
@@ -605,7 +544,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                   >
                     {/* Category Header */}
                     <div
-                      className={`p-4 cursor-pointer transition-colors ${getColorClasses(index)} flex justify-between items-center`}
+                      className={`p-4 cursor-pointer transition-colors ${getColorClasses(
+                        index
+                      )} flex justify-between items-center`}
                       onClick={(e) => toggleCategory(category, e)}
                     >
                       <div className="flex items-center gap-3">
@@ -621,7 +562,11 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          className={`copy-btn small ${copied[`section-treatment-${category}`] ? "copied" : ""}`}
+                          className={`copy-btn small ${
+                            copied[`section-treatment-${category}`]
+                              ? "copied"
+                              : ""
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCopyClick(e, category);
@@ -653,8 +598,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               <div className="space-y-2">
                                 {current.map((event, eventIndex) => {
                                   const eventId = `${category}-current-${eventIndex}`;
-                                  const isExpandedEvent = expandedEvents[eventId];
-                                  
+                                  const isExpandedEvent =
+                                    expandedEvents[eventId];
+
                                   return (
                                     <div
                                       key={eventId}
@@ -697,8 +643,9 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                               <div className="space-y-2">
                                 {archive.map((event, eventIndex) => {
                                   const eventId = `${category}-archive-${eventIndex}`;
-                                  const isExpandedEvent = expandedEvents[eventId];
-                                  
+                                  const isExpandedEvent =
+                                    expandedEvents[eventId];
+
                                   return (
                                     <div
                                       key={eventId}
@@ -744,27 +691,33 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
                 </div>
                 <p className="font-medium">No treatment history available</p>
                 <p className="text-sm mt-1">
-                  Treatment history will appear here once generated from patient documents
+                  Treatment history will appear here once generated from patient
+                  documents
                 </p>
               </div>
             )}
           </div>
 
           {/* Empty State */}
-          {history && Object.values(history).every(data => {
-            const { current, archive } = data as { current: any[], archive: any[] };
-            return current.length === 0 && archive.length === 0;
-          }) && (
-            <div className="p-6 text-center text-gray-500">
-              <div className="mb-2">
-                <TimelineIcon />
+          {history &&
+            Object.values(history).every((data) => {
+              const { current, archive } = data as {
+                current: any[];
+                archive: any[];
+              };
+              return current.length === 0 && archive.length === 0;
+            }) && (
+              <div className="p-6 text-center text-gray-500">
+                <div className="mb-2">
+                  <TimelineIcon />
+                </div>
+                <p className="font-medium">No treatment events found</p>
+                <p className="text-sm mt-1">
+                  Treatment events will appear here as they are extracted from
+                  documents
+                </p>
               </div>
-              <p className="font-medium">No treatment events found</p>
-              <p className="text-sm mt-1">
-                Treatment events will appear here as they are extracted from documents
-              </p>
-            </div>
-          )}
+            )}
         </div>
       </div>
 
@@ -823,8 +776,7 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
         </DialogContent>
       </Dialog>
 
-
-         <style jsx>{`
+      <style jsx>{`
         .section {
           border-bottom: 1px solid #e5e7eb;
           background: white;
@@ -1091,8 +1043,3 @@ const TreatmentHistorySection: React.FC<TreatmentHistorySectionProps> = ({
 };
 
 export default TreatmentHistorySection;
-
-
-
-
-
