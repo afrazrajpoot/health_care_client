@@ -77,6 +77,7 @@ export default function TasksTable({
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] =
     useState<FailedDocument | null>(null);
+    console.log(selectedDocument,'selected document')
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [documentToSplit, setDocumentToSplit] = useState<FailedDocument | null>(
     null
@@ -649,7 +650,7 @@ export default function TasksTable({
                         Summary / Document Text
                       </p>
                       <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                        {selectedDocument.summary ||
+                        {selectedDocument.documentText ||
                           selectedDocument.documentText}
                       </p>
                     </div>
