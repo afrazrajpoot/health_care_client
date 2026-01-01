@@ -110,7 +110,7 @@ export default function RecentDocumentsPage() {
 
     setDownloadingId(doc.id);
     try {
-      const filePath = doc.blobPath || doc.gcsFileLink;
+      const filePath: any = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
         `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           filePath
@@ -146,7 +146,7 @@ export default function RecentDocumentsPage() {
 
     setDownloadingId(doc.id);
     try {
-      const filePath = doc.blobPath || doc.gcsFileLink;
+      const filePath: any = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
         `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           filePath
@@ -200,11 +200,7 @@ export default function RecentDocumentsPage() {
       }
 
       try {
-        const filePath = doc.blobPath || doc.gcsFileLink;
-
-        console.log(
-          `Downloading ${i + 1}/${documents.length}: ${doc.patientName}`
-        );
+        const filePath: any = doc.blobPath || doc.gcsFileLink;
 
         const response = await fetch(
           `http://localhost:8000/api/documents/preview/${encodeURIComponent(
@@ -228,7 +224,7 @@ export default function RecentDocumentsPage() {
         const fileName =
           doc.originalName || doc.fileName || `document-${doc.claimNumber}`;
         const fileExtension = fileName.includes(".") ? "" : ".pdf";
-        const uniqueFileName = `${i + 1}_${fileName}${fileExtension}`;
+        const uniqueFileName = `${fileName}${fileExtension}`;
 
         const a = document.createElement("a");
         a.style.display = "none";
@@ -398,11 +394,6 @@ export default function RecentDocumentsPage() {
                           {doc.patientName}
                         </h2>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <Hash size={13} />
-                        <span className="font-medium">Claim:</span>
-                        <span>{doc.claimNumber}</span>
-                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -461,30 +452,6 @@ export default function RecentDocumentsPage() {
                     )}
                   </div>
 
-                  {/* Summary */}
-                  {doc.briefSummary && (
-                    <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                      <p className="text-xs font-medium text-blue-900 mb-1">
-                        Clinical Summary
-                      </p>
-                      <p className="text-xs text-blue-800 leading-relaxed">
-                        {doc.briefSummary}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Document Summary Keywords */}
-                  {doc.documentSummary?.summary && (
-                    <div className="mb-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                      <p className="text-xs font-medium text-slate-900 mb-1">
-                        Key Points
-                      </p>
-                      <p className="text-xs text-slate-700 leading-relaxed">
-                        {doc.documentSummary.summary}
-                      </p>
-                    </div>
-                  )}
-
                   {/* Footer */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-200">
                     <div className="flex flex-col gap-0.5 text-xs text-gray-500">
@@ -492,12 +459,6 @@ export default function RecentDocumentsPage() {
                         <Calendar size={12} />
                         <span>Created: {formatDate(doc.createdAt)}</span>
                       </div>
-                      {doc.updatedAt && doc.updatedAt !== doc.createdAt && (
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={12} />
-                          <span>Updated: {formatDate(doc.updatedAt)}</span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex gap-2">

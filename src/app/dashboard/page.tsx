@@ -417,7 +417,6 @@ export default function PhysicianCard() {
   };
   // Fetch document data from API - Mode is now passed from initial search context
 
-  
   const fetchDocumentData = async (patientInfo: Patient) => {
     const physicianId = getPhysicianId();
     if (!physicianId) {
@@ -437,35 +436,34 @@ export default function PhysicianCard() {
         mode: mode,
       });
       console.log("Fetching document data with params:", params.toString());
-      
-      const response = await fetch(
-        `/api/documents/get-document?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
-        }
-      );
-      
+
+      const response = await fetch(`/api/documents/get-document?${params}`, {
+        headers: {
+          Authorization: `Bearer ${session?.user?.fastapi_token}`,
+        },
+      });
+
       if (!response.ok) {
         throw new Error(`Failed to fetch document: ${response.status}`);
       }
-      
+
       // Get the raw response
       const rawResponse = await response.json();
-      
+
       // Debug logging
       console.log("🔍 Raw response keys:", Object.keys(rawResponse));
       console.log("🔍 Response has encrypted field:", rawResponse.encrypted);
       console.log("🔍 Route marker:", rawResponse.route_marker);
-      
+
       // Check if Next.js API route was called
-      if (rawResponse.route_marker === 'nextjs-api-route-hit') {
+      if (rawResponse.route_marker === "nextjs-api-route-hit") {
         console.log("✅ Next.js API route was successfully called!");
       } else {
-        console.log("❌ Next.js API route was NOT called - falling back to direct Python API");
+        console.log(
+          "❌ Next.js API route was NOT called - falling back to direct Python API"
+        );
       }
-      
+
       // Use the decryption utility to handle the response
       let data: any;
       try {
@@ -473,20 +471,26 @@ export default function PhysicianCard() {
         console.log("✅ Document data processed (encrypted or unencrypted)");
       } catch (decryptError) {
         console.error("❌ Failed to process encrypted response:", decryptError);
-        
+
         // Fallback: If it's not encrypted, use as-is
         if (rawResponse.documents) {
           console.log("🔄 Falling back to unencrypted data");
           data = rawResponse;
         } else {
-          throw new Error(`Failed to process response: ${decryptError instanceof Error ? decryptError.message : 'Unknown error'}`);
+          throw new Error(
+            `Failed to process response: ${
+              decryptError instanceof Error
+                ? decryptError.message
+                : "Unknown error"
+            }`
+          );
         }
       }
-      
+
       // Debug: Check what we received
       console.log("🔍 Processed data keys:", Object.keys(data));
       console.log("🔍 Has documents:", !!data.documents);
-      
+
       if (!data.documents || data.documents.length === 0) {
         setDocumentData(null);
         setError(
@@ -494,13 +498,13 @@ export default function PhysicianCard() {
         );
         return;
       }
-      
+
       const latestDoc = data.documents[0];
-      
+
       // Rest of your existing processing code remains the same...
       let processedWhatsNew: WhatsNew = {};
       let processedQuickNotes: QuickNoteSnapshot[] = [];
-      
+
       if (
         latestDoc.whats_new &&
         Array.isArray(latestDoc.whats_new) &&
@@ -514,17 +518,17 @@ export default function PhysicianCard() {
           ur_decision: wnItem.ur_decision?.content || "",
           recommendations: wnItem.recommendations?.content || "",
         };
-        
+
         if (wnItem.quick_note && Array.isArray(wnItem.quick_note)) {
           processedQuickNotes = wnItem.quick_note.map((note: any) => ({
             details: note.content || "",
             timestamp: note.document_created_at || "",
             one_line_note: note.description || "",
-            status_update: "", 
+            status_update: "",
           }));
         }
       }
-      
+
       // Set summaries in whats_new
       if (latestDoc.brief_summary) {
         processedWhatsNew.brief_summary = latestDoc.brief_summary;
@@ -538,7 +542,7 @@ export default function PhysicianCard() {
       if (latestDoc.document_summary?.date) {
         processedWhatsNew.summary_date = latestDoc.document_summary.date;
       }
-      
+
       // Group summaries and briefs across all documents by type
       const grouped: {
         [key: string]: {
@@ -547,7 +551,7 @@ export default function PhysicianCard() {
           brief_summary: string;
         }[];
       } = {};
-      
+
       data.documents.forEach((doc: any) => {
         const docSum = doc.document_summary;
         const brief = doc.brief_summary || "";
@@ -563,16 +567,16 @@ export default function PhysicianCard() {
           });
         }
       });
-      
+
       const { document_summaries, previous_summaries } =
         processAggregatedSummaries(grouped);
-      
+
       // Aggregate all body part snapshots from all documents
       const sortedDocs = [...data.documents].sort(
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      
+
       const allBodyPartSnapshots = sortedDocs.flatMap((doc: any) =>
         (doc.body_part_snapshots || []).map(
           (snap: any): SummarySnapshotItem => ({
@@ -591,7 +595,7 @@ export default function PhysicianCard() {
           })
         )
       );
-      
+
       const processedData: DocumentData = {
         ...data,
         dob: latestDoc.dob,
@@ -627,7 +631,7 @@ export default function PhysicianCard() {
           },
         }),
       };
-      
+
       // Handle adl processing
       if (processedData.adl) {
         const adlData = processedData.adl;
@@ -641,179 +645,191 @@ export default function PhysicianCard() {
         adlData.work_restrictions_history = adlData.work_restrictions;
         adlData.has_changes = false;
       }
-      
+
       setDocumentData(processedData);
-      
+
       // Update URL with patient details and mode
       const docMode = latestDoc.mode || "wc";
       if (docMode !== mode) {
         setMode(docMode as "wc" | "gm");
       }
-      
+
       const urlParams = new URLSearchParams(searchParams.toString());
       urlParams.set("patient_name", latestDoc.patient_name || "");
       urlParams.set("dob", latestDoc.dob || "");
       urlParams.set("claim_number", latestDoc.claim_number || "");
       urlParams.set("mode", docMode);
       router.replace(`?${urlParams.toString()}`, { scroll: false });
-      
-    // Fetch task quick notes
-try {
-  const taskParams = new URLSearchParams({
-    mode: docMode,
-  });
-  
-  if (
-    latestDoc.claim_number &&
-    latestDoc.claim_number !== "Not specified"
-  ) {
-    taskParams.set("claim", latestDoc.claim_number);
-  } else if (latestDoc.patient_name || patientInfo.patientName) {
-    taskParams.set(
-      "search",
-      latestDoc.patient_name || patientInfo.patientName || ""
-    );
-  }
-  
-  const taskResponse = await fetch(`/api/tasks?${taskParams}`, {
-    headers: {
-      Authorization: `Bearer ${session?.user?.fastapi_token}`,
-    },
-  });
-  
-  if (taskResponse.ok) {
-    const taskResult = await taskResponse.json();
-    
-    // Debug: Check what we received
-    console.log("🔍 Task API response structure:", {
-      encrypted: taskResult.encrypted,
-      hasDataField: !!taskResult.data,
-      routeMarker: taskResult.route_marker,
-      isError: taskResult.isError,
-      timestamp: taskResult.timestamp
-    });
-    
-    // Handle encrypted response
-    let taskData;
-    try {
-      taskData = handleEncryptedResponse(taskResult);
-      console.log("✅ Task data decrypted successfully");
-    } catch (decryptError) {
-      console.error("❌ Failed to decrypt task data:", decryptError);
-      
-      // Fallback for backward compatibility
-      if (taskResult.tasks && Array.isArray(taskResult.tasks)) {
-        console.log("🔄 Using unencrypted tasks data directly");
-        taskData = taskResult;
-      } else if (Array.isArray(taskResult)) {
-        console.log("🔄 Using direct array response");
-        taskData = { tasks: taskResult, totalCount: taskResult.length };
-      } else if (taskResult.data && Array.isArray(taskResult.data.tasks)) {
-        console.log("🔄 Using unencrypted data field");
-        taskData = taskResult.data;
-      } else {
-        console.error("❌ Could not parse task response");
-        setTaskQuickNotes([]);
-        return;
-      }
-    }
-    
-    // Now continue with your existing logic using taskData
-    const patientName = (
-      latestDoc.patient_name ||
-      patientInfo.patientName ||
-      ""
-    )
-      .toLowerCase()
-      .trim();
-    const claimNumber =
-      latestDoc.claim_number && latestDoc.claim_number !== "Not specified"
-        ? latestDoc.claim_number.toUpperCase().trim()
-        : null;
-    
-    const patientDocumentIds = new Set<string>();
-    if (data.documents && Array.isArray(data.documents)) {
-      data.documents.forEach((doc: any) => {
-        if (doc.id) {
-          patientDocumentIds.add(doc.id);
+
+      // Fetch task quick notes
+      try {
+        const taskParams = new URLSearchParams({
+          mode: docMode,
+        });
+
+        if (
+          latestDoc.claim_number &&
+          latestDoc.claim_number !== "Not specified"
+        ) {
+          taskParams.set("claim", latestDoc.claim_number);
+        } else if (latestDoc.patient_name || patientInfo.patientName) {
+          taskParams.set(
+            "search",
+            latestDoc.patient_name || patientInfo.patientName || ""
+          );
         }
-      });
-    }
-    
-    const allTaskQuickNotes: QuickNoteSnapshot[] = [];
-    
-    // Check if we have tasks in the response
-    if (taskData.tasks && Array.isArray(taskData.tasks)) {
-      console.log(`📝 Processing ${taskData.tasks.length} tasks for quick notes`);
-      
-      taskData.tasks.forEach((task: any, index: number) => {
-        const taskPatient = (task.patient || "").toLowerCase().trim();
-        const taskClaim = task.document?.claimNumber
-          ? task.document.claimNumber.toUpperCase().trim()
-          : null;
-        const taskDocumentId = task.documentId || task.document?.id || null;
-        
-        let patientMatches = false;
-        if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
-          patientMatches = true;
-          console.log(`✅ Task ${index} matches by document ID: ${taskDocumentId}`);
-        } else if (claimNumber && taskClaim) {
-          patientMatches = taskClaim === claimNumber;
-          if (patientMatches) {
-            console.log(`✅ Task ${index} matches by claim number: ${claimNumber}`);
+
+        const taskResponse = await fetch(`/api/tasks?${taskParams}`, {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        });
+
+        if (taskResponse.ok) {
+          const taskResult = await taskResponse.json();
+
+          // Debug: Check what we received
+          console.log("🔍 Task API response structure:", {
+            encrypted: taskResult.encrypted,
+            hasDataField: !!taskResult.data,
+            routeMarker: taskResult.route_marker,
+            isError: taskResult.isError,
+            timestamp: taskResult.timestamp,
+          });
+
+          // Handle encrypted response
+          let taskData;
+          try {
+            taskData = handleEncryptedResponse(taskResult);
+            console.log("✅ Task data decrypted successfully");
+          } catch (decryptError) {
+            console.error("❌ Failed to decrypt task data:", decryptError);
+
+            // Fallback for backward compatibility
+            if (taskResult.tasks && Array.isArray(taskResult.tasks)) {
+              console.log("🔄 Using unencrypted tasks data directly");
+              taskData = taskResult;
+            } else if (Array.isArray(taskResult)) {
+              console.log("🔄 Using direct array response");
+              taskData = { tasks: taskResult, totalCount: taskResult.length };
+            } else if (
+              taskResult.data &&
+              Array.isArray(taskResult.data.tasks)
+            ) {
+              console.log("🔄 Using unencrypted data field");
+              taskData = taskResult.data;
+            } else {
+              console.error("❌ Could not parse task response");
+              setTaskQuickNotes([]);
+              return;
+            }
           }
-        } else if (patientName && taskPatient) {
-          patientMatches =
-            taskPatient === patientName ||
-            taskPatient.includes(patientName) ||
-            patientName.includes(taskPatient);
-          if (patientMatches) {
-            console.log(`✅ Task ${index} matches by patient name: ${patientName}`);
-          }
-        }
-        
-        if (patientMatches && task.quickNotes) {
-          const hasContent =
-            (task.quickNotes.status_update &&
-              task.quickNotes.status_update.trim()) ||
-            (task.quickNotes.one_line_note &&
-              task.quickNotes.one_line_note.trim()) ||
-            (task.quickNotes.details && task.quickNotes.details.trim());
-          
-          if (hasContent) {
-            console.log(`📋 Task ${index} has quick notes content`);
-            allTaskQuickNotes.push({
-              details: task.quickNotes.details || "",
-              timestamp: task.quickNotes.timestamp || task.updatedAt || "",
-              one_line_note: task.quickNotes.one_line_note || "",
-              status_update: task.quickNotes.status_update || "",
+
+          // Now continue with your existing logic using taskData
+          const patientName = (
+            latestDoc.patient_name ||
+            patientInfo.patientName ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          const claimNumber =
+            latestDoc.claim_number && latestDoc.claim_number !== "Not specified"
+              ? latestDoc.claim_number.toUpperCase().trim()
+              : null;
+
+          const patientDocumentIds = new Set<string>();
+          if (data.documents && Array.isArray(data.documents)) {
+            data.documents.forEach((doc: any) => {
+              if (doc.id) {
+                patientDocumentIds.add(doc.id);
+              }
             });
           }
+
+          const allTaskQuickNotes: QuickNoteSnapshot[] = [];
+
+          // Check if we have tasks in the response
+          if (taskData.tasks && Array.isArray(taskData.tasks)) {
+            console.log(
+              `📝 Processing ${taskData.tasks.length} tasks for quick notes`
+            );
+
+            taskData.tasks.forEach((task: any, index: number) => {
+              const taskPatient = (task.patient || "").toLowerCase().trim();
+              const taskClaim = task.document?.claimNumber
+                ? task.document.claimNumber.toUpperCase().trim()
+                : null;
+              const taskDocumentId =
+                task.documentId || task.document?.id || null;
+
+              let patientMatches = false;
+              if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
+                patientMatches = true;
+                console.log(
+                  `✅ Task ${index} matches by document ID: ${taskDocumentId}`
+                );
+              } else if (claimNumber && taskClaim) {
+                patientMatches = taskClaim === claimNumber;
+                if (patientMatches) {
+                  console.log(
+                    `✅ Task ${index} matches by claim number: ${claimNumber}`
+                  );
+                }
+              } else if (patientName && taskPatient) {
+                patientMatches =
+                  taskPatient === patientName ||
+                  taskPatient.includes(patientName) ||
+                  patientName.includes(taskPatient);
+                if (patientMatches) {
+                  console.log(
+                    `✅ Task ${index} matches by patient name: ${patientName}`
+                  );
+                }
+              }
+
+              if (patientMatches && task.quickNotes) {
+                const hasContent =
+                  (task.quickNotes.status_update &&
+                    task.quickNotes.status_update.trim()) ||
+                  (task.quickNotes.one_line_note &&
+                    task.quickNotes.one_line_note.trim()) ||
+                  (task.quickNotes.details && task.quickNotes.details.trim());
+
+                if (hasContent) {
+                  console.log(`📋 Task ${index} has quick notes content`);
+                  allTaskQuickNotes.push({
+                    details: task.quickNotes.details || "",
+                    timestamp:
+                      task.quickNotes.timestamp || task.updatedAt || "",
+                    one_line_note: task.quickNotes.one_line_note || "",
+                    status_update: task.quickNotes.status_update || "",
+                  });
+                }
+              }
+            });
+          } else {
+            console.warn("⚠️ No tasks array found in task data");
+          }
+
+          const sortedNotes = allTaskQuickNotes
+            .sort((a, b) => {
+              const timeA = new Date(a.timestamp || 0).getTime();
+              const timeB = new Date(b.timestamp || 0).getTime();
+              return timeB - timeA;
+            })
+            .slice(0, 5);
+
+          console.log(`✅ Found ${sortedNotes.length} quick notes for patient`);
+          setTaskQuickNotes(sortedNotes);
+        } else {
+          console.error(`❌ Task API returned error: ${taskResponse.status}`);
+          setTaskQuickNotes([]);
         }
-      });
-    } else {
-      console.warn("⚠️ No tasks array found in task data");
-    }
-    
-    const sortedNotes = allTaskQuickNotes
-      .sort((a, b) => {
-        const timeA = new Date(a.timestamp || 0).getTime();
-        const timeB = new Date(b.timestamp || 0).getTime();
-        return timeB - timeA;
-      })
-      .slice(0, 5);
-    
-    console.log(`✅ Found ${sortedNotes.length} quick notes for patient`);
-    setTaskQuickNotes(sortedNotes);
-  } else {
-    console.error(`❌ Task API returned error: ${taskResponse.status}`);
-    setTaskQuickNotes([]);
-  }
-} catch (err) {
-  console.error("Error fetching task quick notes:", err);
-  setTaskQuickNotes([]);
-}
-      
+      } catch (err) {
+        console.error("Error fetching task quick notes:", err);
+        setTaskQuickNotes([]);
+      }
     } catch (err: unknown) {
       console.error("Error fetching document data:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -998,37 +1014,38 @@ try {
 
   // Fetch recent patients for popup
 
-
   useEffect(() => {
     const fetchRecentPatientsForPopup = async () => {
       try {
         const url = `/api/get-recent-patients?mode=${mode}`;
         const response = await fetch(url);
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch recent patients: ${response.status}`);
+          throw new Error(
+            `Failed to fetch recent patients: ${response.status}`
+          );
         }
-        
+
         const result = await response.json();
-        
+
         // Debug: Check what we received
         console.log("🔍 Recent patients raw response:", {
           encrypted: result.encrypted,
           hasData: !!result.data,
           routeMarker: result.route_marker,
-          timestamp: result.timestamp
+          timestamp: result.timestamp,
         });
-        
+
         // Use the decryption utility
         let data;
         try {
           data = handleEncryptedResponse(result);
           console.log("✅ Recent patients data decrypted successfully", {
-            patientCount: data?.length || 0
+            patientCount: data?.length || 0,
           });
         } catch (decryptError) {
           console.error("❌ Failed to decrypt recent patients:", decryptError);
-          
+
           // Fallback for backward compatibility or debugging
           if (result.data && Array.isArray(result.data)) {
             console.log("🔄 Using unencrypted data directly");
@@ -1040,15 +1057,14 @@ try {
             throw decryptError;
           }
         }
-        
+
         setRecentPatientsList(data || []);
-        
       } catch (err) {
         console.error("Error fetching recent patients for popup:", err);
         setRecentPatientsList([]); // Set empty array on error
       }
     };
-  
+
     fetchRecentPatientsForPopup();
   }, [mode]);
   // Format date from ISO string to MM/DD/YYYY
@@ -1203,11 +1219,14 @@ try {
 
   // Filter recent patients based on search query
   const filteredRecentPatients = React.useMemo(() => {
+    const patientsList = Array.isArray(recentPatientsList)
+      ? recentPatientsList
+      : [];
     if (!searchQuery.trim()) {
-      return recentPatientsList;
+      return patientsList;
     }
     const query = searchQuery.toLowerCase();
-    return recentPatientsList.filter(
+    return patientsList.filter(
       (patient) =>
         patient.patientName?.toLowerCase().includes(query) ||
         patient.claimNumber?.toLowerCase().includes(query) ||
@@ -1542,6 +1561,20 @@ try {
           font-weight: 700;
           z-index: 9999;
         }
+        @keyframes shimmer {
+          0% {
+            width: 20%;
+            margin-left: 0;
+          }
+          50% {
+            width: 60%;
+            margin-left: 20%;
+          }
+          100% {
+            width: 20%;
+            margin-left: 80%;
+          }
+        }
       `}</style>
 
       {/* Fixed Header - Outside Layout */}
@@ -1653,20 +1686,108 @@ try {
           )}
         </div>
 
-        {/* Loading State */}
+        {/* Loading State - Professional Full-page Loader */}
         {loading && (
-          <div
-            style={{
-              marginBottom: "14px",
-              padding: "16px",
-              background: "#dbeafe",
-              border: "1px solid #93c5fd",
-              borderRadius: "14px",
-              textAlign: "center",
-            }}
-          >
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
-            <p style={{ color: "#1e40af" }}>Loading patient data...</p>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-6">
+              {/* Animated Logo/Icon */}
+              <div className="relative">
+                {/* Outer pulsing ring */}
+                <div
+                  className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 opacity-20 animate-ping"
+                  style={{ width: "80px", height: "80px" }}
+                ></div>
+
+                {/* Rotating gradient ring */}
+                <div className="relative w-20 h-20">
+                  <svg className="w-20 h-20 animate-spin" viewBox="0 0 80 80">
+                    <defs>
+                      <linearGradient
+                        id="loaderGradient"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#3b82f6" />
+                        <stop offset="50%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#8b5cf6" />
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="35"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="6"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="35"
+                      fill="none"
+                      stroke="url(#loaderGradient)"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray="165"
+                      strokeDashoffset="80"
+                    />
+                  </svg>
+
+                  {/* Center icon */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg
+                      className="w-8 h-8 text-blue-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Loading text with animated dots */}
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                  Loading Patient Data
+                </h3>
+                <div className="flex items-center justify-center gap-1 text-sm text-gray-500">
+                  <span>Please wait</span>
+                  <span className="flex gap-0.5">
+                    <span
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    ></span>
+                    <span
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    ></span>
+                    <span
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    ></span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Subtle progress bar */}
+              <div className="w-48 h-1 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full"
+                  style={{
+                    animation: "shimmer 1.5s ease-in-out infinite",
+                  }}
+                ></div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1754,9 +1875,6 @@ try {
                     </div>
                     <div className="panel-body">
                       {(() => {
-                        // Filter document quick notes - only show ones with meaningful content
-                        // Note: documentData is already patient-specific (fetched by patient_name, dob, claim_number)
-                        // So quick_notes_snapshots are already for this patient
                         const filteredDocNotes =
                           documentData.quick_notes_snapshots?.filter((note) => {
                             const hasContent =
@@ -1787,33 +1905,43 @@ try {
                             {limitedDocNotes.map((note, index) => {
                               // Determine status color based on status_update or content
                               const getStatusColor = () => {
-                                const status = (
+                                const fullContent = `${
                                   note.status_update || ""
-                                ).toLowerCase();
+                                } ${note.one_line_note || ""} ${
+                                  note.details || ""
+                                }`.toLowerCase();
                                 if (
-                                  status.includes("urgent") ||
-                                  status.includes("critical") ||
-                                  status.includes("time-sensitive")
+                                  fullContent.includes("urgent") ||
+                                  fullContent.includes("critical") ||
+                                  fullContent.includes("time-sensitive") ||
+                                  fullContent.includes("emergency")
                                 ) {
                                   return "red";
                                 }
                                 if (
-                                  status.includes("pending") ||
-                                  status.includes("waiting") ||
-                                  status.includes("scheduling")
+                                  fullContent.includes("schedule") ||
+                                  fullContent.includes("pending") ||
+                                  fullContent.includes("waiting") ||
+                                  fullContent.includes("follow-up") ||
+                                  fullContent.includes("follow up")
                                 ) {
                                   return "amber";
                                 }
                                 if (
-                                  status.includes("completed") ||
-                                  status.includes("done") ||
-                                  status.includes("approved")
+                                  fullContent.includes("completed") ||
+                                  fullContent.includes("done") ||
+                                  fullContent.includes("approved") ||
+                                  fullContent.includes("resolved")
                                 ) {
                                   return "green";
                                 }
                                 if (
-                                  status.includes("authorization") ||
-                                  status.includes("decision")
+                                  fullContent.includes("review") ||
+                                  fullContent.includes("clarify") ||
+                                  fullContent.includes("authorization") ||
+                                  fullContent.includes("decision") ||
+                                  fullContent.includes("mri") ||
+                                  fullContent.includes("findings")
                                 ) {
                                   return "blue";
                                 }
@@ -1862,33 +1990,43 @@ try {
                               taskQuickNotes.map((note, index) => {
                                 // Determine status color based on status_update or content
                                 const getStatusColor = () => {
-                                  const status = (
+                                  const fullContent = `${
                                     note.status_update || ""
-                                  ).toLowerCase();
+                                  } ${note.one_line_note || ""} ${
+                                    note.details || ""
+                                  }`.toLowerCase();
                                   if (
-                                    status.includes("urgent") ||
-                                    status.includes("critical") ||
-                                    status.includes("time-sensitive")
+                                    fullContent.includes("urgent") ||
+                                    fullContent.includes("critical") ||
+                                    fullContent.includes("time-sensitive") ||
+                                    fullContent.includes("emergency")
                                   ) {
                                     return "red";
                                   }
                                   if (
-                                    status.includes("pending") ||
-                                    status.includes("waiting") ||
-                                    status.includes("scheduling")
+                                    fullContent.includes("schedule") ||
+                                    fullContent.includes("pending") ||
+                                    fullContent.includes("waiting") ||
+                                    fullContent.includes("follow-up") ||
+                                    fullContent.includes("follow up")
                                   ) {
                                     return "amber";
                                   }
                                   if (
-                                    status.includes("completed") ||
-                                    status.includes("done") ||
-                                    status.includes("approved")
+                                    fullContent.includes("completed") ||
+                                    fullContent.includes("done") ||
+                                    fullContent.includes("approved") ||
+                                    fullContent.includes("resolved")
                                   ) {
                                     return "green";
                                   }
                                   if (
-                                    status.includes("authorization") ||
-                                    status.includes("decision")
+                                    fullContent.includes("review") ||
+                                    fullContent.includes("clarify") ||
+                                    fullContent.includes("authorization") ||
+                                    fullContent.includes("decision") ||
+                                    fullContent.includes("mri") ||
+                                    fullContent.includes("findings")
                                   ) {
                                     return "blue";
                                   }

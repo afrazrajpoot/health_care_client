@@ -78,7 +78,6 @@ export default function TasksTable({
   const [selectedDocument, setSelectedDocument] =
     useState<FailedDocument | null>(null);
     console.log(selectedDocument,'selected document')
-  const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [documentToSplit, setDocumentToSplit] = useState<FailedDocument | null>(
     null
   );
@@ -188,20 +187,7 @@ export default function TasksTable({
     setSummaryModalOpen(true);
   };
 
-  const handleSplitClick = (e: React.MouseEvent, doc: FailedDocument) => {
-    e.stopPropagation();
-    if (!doc.blobPath) {
-      toast.error(
-        "No blob path available - cannot extract pages from document"
-      );
-      return;
-    }
-    setDocumentToSplit(doc);
-    setSplitModalOpen(true);
-    setSplitResults(null);
-    setPageRanges([{ start_page: 1, end_page: 1, report_title: "" }]);
-  };
-
+  
   const handleAddPageRange = () => {
     setPageRanges([
       ...pageRanges,
@@ -548,16 +534,7 @@ export default function TasksTable({
                               )}
                             </button>
                           )}
-                          {/* Split Document */}
-                          {doc.blobPath && (
-                            <button
-                              onClick={(e) => handleSplitClick(e, doc)}
-                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                              title="Split Document"
-                            >
-                              <Scissors className="w-4 h-4" />
-                            </button>
-                          )}
+                         
                           {/* Delete */}
                           <button
                             onClick={(e) => handleDeleteClick(e, doc)}
@@ -740,190 +717,6 @@ export default function TasksTable({
                   className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
                 >
                   Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Split & Process Modal */}
-      {splitModalOpen && documentToSplit && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div
-              className="fixed inset-0 bg-black/20 transition-opacity"
-              onClick={() => setSplitModalOpen(false)}
-            />
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-white px-4 pb-4 pt-5 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-purple-100 p-2 rounded-lg">
-                      <Scissors className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold leading-6 text-gray-900">
-                        Split & Process Document
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Split multi-report document into individual reports
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSplitModalOpen(false)}
-                    className="text-gray-400 hover:text-gray-500"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                  <p className="text-sm font-medium text-gray-700">
-                    {documentToSplit.fileName}
-                  </p>
-                  {documentToSplit.patientName && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      Patient: {documentToSplit.patientName}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    Reason: {documentToSplit.reason}
-                  </p>
-                </div>
-
-                {!splitResults && (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">
-                        Specify Page Ranges for Each Report:
-                      </p>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Enter the page numbers where each report starts and
-                        ends.
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      {pageRanges.map((range, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-md"
-                        >
-                          <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Report Title
-                            </label>
-                            <input
-                              type="text"
-                              value={range.report_title}
-                              onChange={(e) =>
-                                handlePageRangeChange(
-                                  index,
-                                  "report_title",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="e.g., QME Report"
-                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                          <div className="w-20">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Start
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={range.start_page}
-                              onChange={(e) =>
-                                handlePageRangeChange(
-                                  index,
-                                  "start_page",
-                                  parseInt(e.target.value) || 1
-                                )
-                              }
-                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                          <div className="w-20">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              End
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={range.end_page}
-                              onChange={(e) =>
-                                handlePageRangeChange(
-                                  index,
-                                  "end_page",
-                                  parseInt(e.target.value) || 1
-                                )
-                              }
-                              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-                          {pageRanges.length > 1 && (
-                            <button
-                              onClick={() => handleRemovePageRange(index)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleAddPageRange}
-                      className="w-full px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100"
-                    >
-                      + Add Another Page Range
-                    </button>
-
-                    <div className="pt-4 border-t">
-                      <button
-                        type="button"
-                        disabled={isSplitting}
-                        onClick={handleSplitAndProcess}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 disabled:opacity-50"
-                      >
-                        {isSplitting ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Scissors className="w-4 h-4" />
-                            Split & Process
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {splitResults && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-sm font-medium text-green-700">
-                      Successfully processed!{" "}
-                      {splitResults.saved_documents || 0} document(s) saved.
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                <button
-                  type="button"
-                  onClick={() => setSplitModalOpen(false)}
-                  className="inline-flex w-full justify-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 sm:w-auto"
-                >
-                  Close
                 </button>
               </div>
             </div>

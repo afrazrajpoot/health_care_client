@@ -1,7 +1,7 @@
 // components/ProgressTracker.tsx
 import { useSocket } from "@/providers/SocketProvider";
 import React, { useEffect, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, X, Minimize2, Maximize2 } from "lucide-react";
 import DocLatchAnimation from "./DocLatchAnimation";
 
 interface ProgressTrackerProps {
@@ -27,6 +27,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [displayProgress, setDisplayProgress] = useState(0);
   const [displayQueueProgress, setDisplayQueueProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [pollCount, setPollCount] = useState(0);
   const [lastPollTime, setLastPollTime] = useState(Date.now());
   const [viewMode, setViewMode] = useState<"task" | "queue">("task");
@@ -34,29 +35,37 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     null
   );
 
-  // Check localStorage on mount for persisted visibility
+  // Check localStorage on mount for persisted visibility and minimized state
   useEffect(() => {
     // Only show if there's actual active processing, not just because localStorage says so
     const hasActiveProgress =
       isProcessing && (progressData || queueProgressData);
+
+    // Check if it was minimized before
+    const wasMinimized =
+      localStorage.getItem("progressTrackerMinimized") === "true";
 
     console.log("🔍 Mount check:", {
       hasActiveProgress,
       isProcessing,
       progressData,
       queueProgressData,
+      wasMinimized,
     });
 
     // ONLY show if there's ACTIVE processing with data
     if (hasActiveProgress) {
       console.log("👁️ Setting visible on mount - active processing detected");
       setIsVisible(true);
+      setIsMinimized(wasMinimized);
       localStorage.setItem("progressTrackerOpen", "true");
     } else {
       // Clear stale localStorage on mount if no active processing
       console.log("🧹 Clearing stale localStorage - no active processing");
       localStorage.removeItem("progressTrackerOpen");
+      localStorage.removeItem("progressTrackerMinimized");
       setIsVisible(false);
+      setIsMinimized(false);
     }
 
     // Auto-detect view mode: prefer queue if available
@@ -270,7 +279,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const handleClose = () => {
     console.log("✕ Closing progress tracker");
     setIsVisible(false);
+    setIsMinimized(false);
     localStorage.removeItem("progressTrackerOpen");
+    localStorage.removeItem("progressTrackerMinimized");
 
     // Clear any pending auto-close timer
     if (autoCloseTimer) {
@@ -280,6 +291,18 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
     // Clear progress data immediately to prevent re-showing
     clearProgress();
+  };
+
+  const handleMinimize = () => {
+    console.log("➖ Minimizing progress tracker");
+    setIsMinimized(true);
+    localStorage.setItem("progressTrackerMinimized", "true");
+  };
+
+  const handleMaximize = () => {
+    console.log("➕ Maximizing progress tracker");
+    setIsMinimized(false);
+    localStorage.removeItem("progressTrackerMinimized");
   };
 
   const toggleViewMode = () => {
@@ -298,6 +321,133 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     ? displayQueueProgress
     : displayProgress;
 
+  // Get progress counts for display
+  const processedCount =
+    viewMode === "queue"
+      ? queueProgressData?.completed_tasks || 0
+      : progressData?.processed_count || 0;
+  const totalCount =
+    viewMode === "queue"
+      ? queueProgressData?.total_tasks || 0
+      : progressData?.total_files || 0;
+
+  // Minimized floating view - shows in top-right corner
+  if (isMinimized) {
+    return (
+      <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-top-2 duration-300">
+        <div
+          className="bg-white rounded-xl shadow-lg border border-gray-200 p-3 min-w-[220px] cursor-pointer hover:shadow-xl transition-shadow"
+          onClick={handleMaximize}
+        >
+          <div className="flex items-center justify-between gap-3">
+            {/* Progress indicator */}
+            <div className="flex items-center gap-2 flex-1">
+              {/* Animated spinner/progress circle */}
+              <div className="relative w-10 h-10 flex-shrink-0">
+                <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="#e5e7eb"
+                    strokeWidth="3"
+                  />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="url(#progressGradient)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${currentProgress * 0.975} 100`}
+                    className="transition-all duration-500"
+                  />
+                  <defs>
+                    <linearGradient
+                      id="progressGradient"
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
+                    >
+                      <stop offset="0%" stopColor="#22d3ee" />
+                      <stop offset="100%" stopColor="#14b8a6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">
+                  {Math.round(currentProgress)}%
+                </span>
+              </div>
+
+              {/* Text info */}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-gray-800 truncate">
+                  {isProcessing ? "Processing..." : "Complete"}
+                </div>
+                <div className="text-[10px] text-gray-500">
+                  {processedCount}/{totalCount} files
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMaximize();
+                }}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                title="Expand"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClose();
+                }}
+                className="p-1.5 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Mini progress bar */}
+          <div className="mt-2 w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full transition-all duration-500"
+              style={{ width: `${currentProgress}%` }}
+            />
+          </div>
+
+          {/* Pulsing indicator when processing */}
+          {isProcessing && (
+            <div className="flex items-center justify-center gap-1 mt-2">
+              <div
+                className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce"
+                style={{ animationDelay: "0s" }}
+              />
+              <div
+                className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce"
+                style={{ animationDelay: "0.15s" }}
+              />
+              <div
+                className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce"
+                style={{ animationDelay: "0.3s" }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Show loading state if processing but no progress data yet
   if (!progressData && !queueProgressData && isProcessing) {
     return (
@@ -305,6 +455,15 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative overflow-hidden">
           {/* Background Gradient Effect */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-400/20 to-teal-500/20 rounded-full blur-3xl -z-0" />
+
+          {/* Minimize Button */}
+          <button
+            onClick={handleMinimize}
+            className="absolute top-4 right-4 z-20 text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
+            title="Minimize"
+          >
+            <Minimize2 className="w-5 h-5" />
+          </button>
 
           {/* Header */}
           <div className="relative z-10 mb-6">
@@ -351,13 +510,23 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         {/* Background Gradient Effect */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-400/20 to-teal-500/20 rounded-full blur-3xl -z-0" />
 
-        {/* Close Button */}
-        <button
-          onClick={handleClose}
-          className="absolute top-4 right-4 z-20 text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Action Buttons - Minimize & Close */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-1">
+          <button
+            onClick={handleMinimize}
+            className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
+            title="Minimize"
+          >
+            <Minimize2 className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleClose}
+            className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* Header */}
         <div className="relative z-10 mb-6">

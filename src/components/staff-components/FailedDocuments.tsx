@@ -277,7 +277,6 @@ export default function FailedDocuments({
         );
         // Optionally refresh the failed documents list
         if (onDocumentDeleted && documentToSplit.id) {
-          // The failed document may have been deleted if all reports were saved
           setTimeout(() => {
             onDocumentDeleted(documentToSplit.id);
           }, 1000);

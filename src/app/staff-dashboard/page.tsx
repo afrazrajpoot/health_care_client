@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import IntakeModal from "@/components/staff-components/IntakeModal";
 import ManualTaskModal from "@/components/ManualTaskModal";
-import { ProgressTracker } from "@/components/ProgressTracker";
 import { useSocket } from "@/providers/SocketProvider";
 import { useTasks } from "../custom-hooks/staff-hooks/useTasks";
 import { useFileUpload } from "../custom-hooks/staff-hooks/useFileUpload";
@@ -111,14 +110,14 @@ export default function StaffDashboardPatient() {
   useEffect(() => {
     const updatedStatuses: { [taskId: string]: string } = {};
     const updatedAssignees: { [taskId: string]: string } = {};
-    
+
     patientTasks.forEach((task) => {
       if (task.id) {
         updatedStatuses[task.id] = task.status || "Pending";
         updatedAssignees[task.id] = task.assignee || "Unclaimed";
       }
     });
-    
+
     setTaskStatuses(updatedStatuses);
     setTaskAssignees(updatedAssignees);
   }, [patientTasks]);
@@ -296,47 +295,44 @@ export default function StaffDashboardPatient() {
   };
 
   // Fetch recent patients function
-  const fetchRecentPatients = useCallback(
-    async (searchQuery: string = "") => {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams({ mode: "wc" });
-        if (searchQuery.trim()) {
-          params.append("search", searchQuery.trim());
-        }
-        const response = await fetch(`/api/get-recent-patients?${params}`);
-        if (!response.ok) throw new Error("Failed to fetch patients");
-        const data1 = await response.json();
-        const data: any = handleEncryptedResponse(data1);
-        setRecentPatients(data);
-        // Update selected patient if it still exists in the new list
-        setSelectedPatient((currentSelected) => {
-          if (data.length > 0) {
-            if (currentSelected) {
-              const updatedPatient = data.find(
-                (p: RecentPatient) =>
-                  p.patientName === currentSelected.patientName &&
-                  p.claimNumber === currentSelected.claimNumber
-              );
-              if (updatedPatient) {
-                return updatedPatient;
-              }
-            }
-            // Only set first patient if no current selection
-            if (!currentSelected) {
-              return data[0];
+  const fetchRecentPatients = useCallback(async (searchQuery: string = "") => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({ mode: "wc" });
+      if (searchQuery.trim()) {
+        params.append("search", searchQuery.trim());
+      }
+      const response = await fetch(`/api/get-recent-patients?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch patients");
+      const data1 = await response.json();
+      const data: any = handleEncryptedResponse(data1);
+      setRecentPatients(data);
+      // Update selected patient if it still exists in the new list
+      setSelectedPatient((currentSelected) => {
+        if (data.length > 0) {
+          if (currentSelected) {
+            const updatedPatient = data.find(
+              (p: RecentPatient) =>
+                p.patientName === currentSelected.patientName &&
+                p.claimNumber === currentSelected.claimNumber
+            );
+            if (updatedPatient) {
+              return updatedPatient;
             }
           }
-          return currentSelected;
-        });
-      } catch (error) {
-        console.error("Error fetching recent patients:", error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+          // Only set first patient if no current selection
+          if (!currentSelected) {
+            return data[0];
+          }
+        }
+        return currentSelected;
+      });
+    } catch (error) {
+      console.error("Error fetching recent patients:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Fetch recent patients on mount and when search changes
   useEffect(() => {
@@ -390,7 +386,7 @@ export default function StaffDashboardPatient() {
         if (!response.ok) throw new Error("Failed to fetch tasks");
 
         const data1 = await response.json();
-const data: any = handleEncryptedResponse(data1);
+        const data: any = handleEncryptedResponse(data1);
         const tasks = data.tasks || [];
         const totalCount = data.totalCount || 0;
 
@@ -1046,8 +1042,6 @@ const data: any = handleEncryptedResponse(data1);
 
   return (
     <>
-      <ProgressTracker onComplete={handleProgressComplete} />
-
       <style jsx global>{`
         :root {
           --bg: #f7f9fc;
@@ -1124,185 +1118,170 @@ const data: any = handleEncryptedResponse(data1);
             <>
               {loadingPatientData ? (
                 <section className="flex flex-col gap-3.5 h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
-  {/* Patient-specific sections - only show when patient is selected */}
-  {selectedPatient ? (
-    <>
-      {loadingPatientData ? (
-        <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
-          <p className="text-sm text-gray-500 m-0">
-            Loading patient data...
-          </p>
-        </section>
-      ) : (
-        <>
-          <PatientHeader
-            patient={selectedPatient}
-            formatDOB={formatDOB}
-            formatClaimNumber={formatClaimNumber}
-            completedTasks={taskStats.completed}
-          />
+                  {/* Patient-specific sections - only show when patient is selected */}
+                  {selectedPatient ? (
+                    <>
+                      {loadingPatientData ? (
+                        <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
+                          <p className="text-sm text-gray-500 m-0">
+                            Loading patient data...
+                          </p>
+                        </section>
+                      ) : (
+                        <>
+                          <PatientHeader
+                            patient={selectedPatient}
+                            formatDOB={formatDOB}
+                            formatClaimNumber={formatClaimNumber}
+                            completedTasks={taskStats.completed}
+                          />
 
-          <TaskSummary
-            open={taskStats.open}
-            urgent={taskStats.urgent}
-            dueToday={taskStats.dueToday}
-            completed={taskStats.completed}
-          />
+                          <TaskSummary
+                            open={taskStats.open}
+                            urgent={taskStats.urgent}
+                            dueToday={taskStats.dueToday}
+                            completed={taskStats.completed}
+                          />
 
-          <QuestionnaireSummary chips={questionnaireChips} />
+                          <QuestionnaireSummary chips={questionnaireChips} />
 
-          <QuickNotesSection
+                          {/* <QuickNotesSection
             tasks={patientTasks}
             onTaskClick={handleTaskClick}
-          />
-        </>
-      )}
-    </>
-  ) : (
-    // No patient selected message
-    <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
-      <p className="text-sm text-gray-500 m-0">
-        Select a patient to view their details
-      </p>
-      {failedDocuments && failedDocuments.length > 0 && (
-        <p className="text-sm text-red-600 mt-2">
-          Found {failedDocuments.length} failed document{failedDocuments.length > 1 ? 's' : ''} requiring attention
-        </p>
-      )}
-    </section>
-  )}
+          /> */}
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    // No patient selected message
+                    <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
+                      <p className="text-sm text-gray-500 m-0">
+                        Select a patient to view their details
+                      </p>
+                      {/* {failedDocuments && failedDocuments.length > 0 && (
+                        <p className="text-sm text-red-600 mt-2">
+                          Found {failedDocuments.length} failed document
+                          {failedDocuments.length > 1 ? "s" : ""} requiring
+                          attention
+                        </p>
+                      )} */}
+                    </section>
+                  )}
 
-  {/* TasksTable - ALWAYS SHOW (independent of patient selection) */}
-  <div>
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="text-base font-bold text-slate-900 m-0">
-        {selectedPatient && displayedTasks.length > 0 ? (
-          showCompletedTasks
-            ? `Completed Tasks (${taskTotalCount})`
-            : `Open Tasks & Required Actions (${taskTotalCount})`
-        ) : (
-          <span className="text-red-700">
-            Failed Documents Requiring Action
-          </span>
-        )}
-        {failedDocuments && failedDocuments.length > 0 && (
-          <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
-            {failedDocuments.length} failed document{failedDocuments.length > 1 ? 's' : ''}
-          </span>
-        )}
-      </h3>
-      
-      {/* Show task filters only when patient is selected AND has tasks */}
-      {selectedPatient && displayedTasks.length > 0 && (
-        <div className="flex items-center gap-2">
-          {/* Task Type Filter Buttons */}
-          {/* <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-1 bg-white">
-            <button
-              onClick={() => setTaskTypeFilter("all")}
-              className={`px-3 py-1.5 rounded text-[13px] font-medium transition-all duration-200 ${
-                taskTypeFilter === "all"
-                  ? "bg-indigo-600 text-white"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setTaskTypeFilter("internal")}
-              className={`px-3 py-1.5 rounded text-[13px] font-medium transition-all duration-200 ${
-                taskTypeFilter === "internal"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Internal
-            </button>
-            <button
-              onClick={() => setTaskTypeFilter("external")}
-              className={`px-3 py-1.5 rounded text-[13px] font-medium transition-all duration-200 ${
-                taskTypeFilter === "external"
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              External
-            </button>
-          </div> */}
-          
-          {/* Show Completed Tasks button */}
-          <button
-            onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-            className={`px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200 ${
-              showCompletedTasks
-                ? "bg-green-700 text-white"
-                : "bg-white text-slate-900 hover:bg-gray-50"
-            }`}
-          >
-            {showCompletedTasks
-              ? "Show Open Tasks"
-              : "Show Completed Tasks"}
-          </button>
-        </div>
-      )}
-    </div>
-    
-    <TasksTable
-      // Only pass patient tasks if patient is selected AND has tasks
-      tasks={selectedPatient && displayedTasks.length > 0 ? displayedTasks : []}
-      taskStatuses={taskStatuses}
-      taskAssignees={taskAssignees}
-      onStatusClick={handleStatusChipClick}
-      onAssigneeClick={handleAssigneeChipClick}
-      onTaskClick={handleTaskClick}
-      getStatusOptions={getStatusOptions}
-      getAssigneeOptions={getAssigneeOptions}
-      // ALWAYS pass failed documents (they show in ALL cases)
-      failedDocuments={Array.isArray(failedDocuments) ? failedDocuments : []}
-      onFailedDocumentDeleted={removeFailedDocument}
-      onFailedDocumentRowClick={handleRowClick}
-      mode={initialMode}
-      physicianId={getPhysicianId() || undefined}
-    />
+                  {/* TasksTable - ALWAYS SHOW (independent of patient selection) */}
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-base font-bold text-slate-900 m-0">
+                        {selectedPatient && displayedTasks.length > 0 ? (
+                          showCompletedTasks ? (
+                            `Completed Tasks (${taskTotalCount})`
+                          ) : (
+                            `Open Tasks & Required Actions (${taskTotalCount})`
+                          )
+                        ) : (
+                          <span className="text-red-700"></span>
+                        )}
+                        {/* {failedDocuments && failedDocuments.length > 0 && (
+                          <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                            {failedDocuments.length} failed document
+                            {failedDocuments.length > 1 ? "s" : ""}
+                          </span>
+                        )} */}
+                      </h3>
 
-    {/* Pagination Controls - only show when patient is selected, has tasks, and has pagination */}
-    {selectedPatient && displayedTasks.length > 0 && taskTotalCount > taskPageSize && (
-      <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
-        <div className="text-sm text-gray-600">
-          Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
-          {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
-          {taskTotalCount} tasks
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setTaskPage((prev) => Math.max(1, prev - 1))}
-            disabled={!hasPrevPage}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-              hasPrevPage
-                ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-            }`}
-          >
-            Previous
-          </button>
-          <span className="text-sm text-gray-600">
-            Page {taskPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setTaskPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={!hasNextPage}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-              hasNextPage
-                ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-            }`}
-          >
-            Next
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-</section>
+                      {/* Show task filters only when patient is selected AND has tasks */}
+                      {selectedPatient && displayedTasks.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          {/* Show Completed Tasks button */}
+                          <button
+                            onClick={() =>
+                              setShowCompletedTasks(!showCompletedTasks)
+                            }
+                            className={`px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200 ${
+                              showCompletedTasks
+                                ? "bg-green-700 text-white"
+                                : "bg-white text-slate-900 hover:bg-gray-50"
+                            }`}
+                          >
+                            {showCompletedTasks
+                              ? "Show Open Tasks"
+                              : "Show Completed Tasks"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <TasksTable
+                      // Only pass patient tasks if patient is selected AND has tasks
+                      tasks={
+                        selectedPatient && displayedTasks.length > 0
+                          ? displayedTasks
+                          : []
+                      }
+                      taskStatuses={taskStatuses}
+                      taskAssignees={taskAssignees}
+                      onStatusClick={handleStatusChipClick}
+                      onAssigneeClick={handleAssigneeChipClick}
+                      onTaskClick={handleTaskClick}
+                      getStatusOptions={getStatusOptions}
+                      getAssigneeOptions={getAssigneeOptions}
+                      // ALWAYS pass failed documents (they show in ALL cases)
+                      failedDocuments={
+                        Array.isArray(failedDocuments) ? failedDocuments : []
+                      }
+                      onFailedDocumentDeleted={removeFailedDocument}
+                      onFailedDocumentRowClick={handleRowClick}
+                      mode={initialMode}
+                      physicianId={getPhysicianId() || undefined}
+                    />
+
+                    {/* Pagination Controls - only show when patient is selected, has tasks, and has pagination */}
+                    {selectedPatient &&
+                      displayedTasks.length > 0 &&
+                      taskTotalCount > taskPageSize && (
+                        <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
+                          <div className="text-sm text-gray-600">
+                            Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
+                            {Math.min(taskPage * taskPageSize, taskTotalCount)}{" "}
+                            of {taskTotalCount} tasks
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                setTaskPage((prev) => Math.max(1, prev - 1))
+                              }
+                              disabled={!hasPrevPage}
+                              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
+                                hasPrevPage
+                                  ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                  : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                              }`}
+                            >
+                              Previous
+                            </button>
+                            <span className="text-sm text-gray-600">
+                              Page {taskPage} of {totalPages}
+                            </span>
+                            <button
+                              onClick={() =>
+                                setTaskPage((prev) =>
+                                  Math.min(totalPages, prev + 1)
+                                )
+                              }
+                              disabled={!hasNextPage}
+                              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
+                                hasNextPage
+                                  ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                  : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                              }`}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </section>
               ) : (
                 <>
                   <PatientHeader
@@ -1321,10 +1300,10 @@ const data: any = handleEncryptedResponse(data1);
 
                   <QuestionnaireSummary chips={questionnaireChips} />
 
-                  <QuickNotesSection
+                  {/* <QuickNotesSection
                     tasks={patientTasks}
                     onTaskClick={handleTaskClick}
-                  />
+                  /> */}
 
                   <div>
                     <div className="flex justify-between items-center mb-4">
@@ -1332,11 +1311,6 @@ const data: any = handleEncryptedResponse(data1);
                         {showCompletedTasks
                           ? `Completed Tasks (${taskTotalCount})`
                           : `Open Tasks & Required Actions (${taskTotalCount})`}
-                        {failedDocuments && failedDocuments.length > 0 && (
-                          <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
-                            + {failedDocuments.length} failed document{failedDocuments.length > 1 ? 's' : ''}
-                          </span>
-                        )}
                       </h3>
                       <div className="flex items-center gap-2">
                         {/* Task Type Filter Buttons */}
@@ -1388,7 +1362,7 @@ const data: any = handleEncryptedResponse(data1);
                         </button>
                       </div>
                     </div>
-                    
+
                     <TasksTable
                       tasks={displayedTasks}
                       taskStatuses={taskStatuses}
@@ -1399,7 +1373,9 @@ const data: any = handleEncryptedResponse(data1);
                       getStatusOptions={getStatusOptions}
                       getAssigneeOptions={getAssigneeOptions}
                       // ALWAYS pass failed documents (they show regardless of patient)
-                      failedDocuments={Array.isArray(failedDocuments) ? failedDocuments : []}
+                      failedDocuments={
+                        Array.isArray(failedDocuments) ? failedDocuments : []
+                      }
                       onFailedDocumentDeleted={removeFailedDocument}
                       onFailedDocumentRowClick={handleRowClick}
                       mode={initialMode}
@@ -1460,26 +1436,10 @@ const data: any = handleEncryptedResponse(data1);
                 <p className="text-sm text-gray-500 m-0">
                   Select a patient to view their details
                 </p>
-                {failedDocuments && failedDocuments.length > 0 && (
-                  <p className="text-sm text-red-600 mt-2">
-                    Found {failedDocuments.length} failed document{failedDocuments.length > 1 ? 's' : ''} requiring attention
-                  </p>
-                )}
               </section>
-              
+
               {/* TasksTable with ONLY failed documents (no patient tasks) */}
               <div>
-                <div className="flex justify-between items-center mb-4 mt-4">
-                  <h3 className="text-base font-bold text-slate-900 m-0">
-                    Failed Documents Requiring Action
-                    {failedDocuments && failedDocuments.length > 0 && (
-                      <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
-                        {failedDocuments.length} failed document{failedDocuments.length > 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </h3>
-                </div>
-                
                 <TasksTable
                   tasks={[]} // Empty array - no patient tasks
                   taskStatuses={{}}
@@ -1490,7 +1450,9 @@ const data: any = handleEncryptedResponse(data1);
                   getStatusOptions={getStatusOptions}
                   getAssigneeOptions={getAssigneeOptions}
                   // ALWAYS pass failed documents (they show even without patient)
-                  failedDocuments={Array.isArray(failedDocuments) ? failedDocuments : []}
+                  failedDocuments={
+                    Array.isArray(failedDocuments) ? failedDocuments : []
+                  }
                   onFailedDocumentDeleted={removeFailedDocument}
                   onFailedDocumentRowClick={handleRowClick}
                   mode={initialMode}

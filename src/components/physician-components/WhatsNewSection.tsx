@@ -497,6 +497,27 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return docId ? loadingPreviews.has(docId) : false;
   };
 
+  // Extract meaningful document title from short summary (text before first pipe)
+  const extractDocumentTitle = (
+    shortSummary: string,
+    fallbackType: string
+  ): string => {
+    if (!shortSummary) return fallbackType || "Document";
+
+    // Split by pipe and get the first part
+    const firstPart = shortSummary.split("|")[0]?.trim();
+
+    // If we got a meaningful title, use it; otherwise fall back to document type
+    if (firstPart && firstPart.length > 0 && firstPart.length < 100) {
+      // Remove any HTML tags that might be present
+      return (
+        firstPart.replace(/<[^>]*>/g, "").trim() || fallbackType || "Document"
+      );
+    }
+
+    return fallbackType || "Document";
+  };
+
   const handleCopyAllReports = (e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -560,19 +581,28 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   open={openCards.has(group.docId)}
                   onToggle={(e) => {
                     const isOpen = (e.currentTarget as HTMLDetailsElement).open;
-                    setOpenCards((prev) => {
-                      const newSet = new Set(prev);
-                      if (isOpen) {
-                        newSet.add(group.docId);
-                      } else {
-                        newSet.delete(group.docId);
-                        // If closing, also collapse long summary if it was expanded
-                        if (expandedLongSummary === group.docId) {
-                          setExpandedLongSummary(null);
-                        }
+                    if (isOpen) {
+                      // Accordion behavior: close all others, open only this one
+                      setOpenCards(new Set([group.docId]));
+                      // Also collapse any expanded long summary from other cards
+                      if (
+                        expandedLongSummary &&
+                        expandedLongSummary !== group.docId
+                      ) {
+                        setExpandedLongSummary(null);
                       }
-                      return newSet;
-                    });
+                    } else {
+                      // Closing this card
+                      setOpenCards((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.delete(group.docId);
+                        return newSet;
+                      });
+                      // If closing, also collapse long summary if it was expanded
+                      if (expandedLongSummary === group.docId) {
+                        setExpandedLongSummary(null);
+                      }
+                    }
                   }}
                 >
                   <summary>
@@ -581,7 +611,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       <div className="row1">
                         <div className="left">
                           <div className="flex items-center gap-2">
-                            {group.documentType || "Document"}
+                            {extractDocumentTitle(
+                              group.shortSummary,
+                              group.documentType
+                            )}
                             <div className="sub">
                               {/* {group.consultingDoctor || "Unknown"} */}•{" "}
                               {formattedDate}

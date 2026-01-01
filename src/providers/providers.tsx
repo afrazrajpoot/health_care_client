@@ -13,6 +13,7 @@ import { ReduxProvider } from "./redux-provider";
 // import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 
 import { SocketProvider } from "./SocketProvider";
+import { ProgressTracker } from "@/components/ProgressTracker";
 
 export function Providers({ children }: { children: ReactNode }) {
   // const [queryClient] = useState(() => new QueryClient());
@@ -28,7 +29,8 @@ export function Providers({ children }: { children: ReactNode }) {
             enableSystem={false}
           >
             <TooltipProvider>
-             {children}
+              {children}
+              <ProgressTracker />
               <Sonner />
             </TooltipProvider>
           </ThemeProvider>
