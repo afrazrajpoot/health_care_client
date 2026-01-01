@@ -1015,6 +1015,10 @@ export default function PhysicianCard() {
   // Fetch recent patients for popup
 
   useEffect(() => {
+    // Only fetch recent patients when session is ready
+    if (status === "loading" || !session) {
+      return;
+    }
     const fetchRecentPatientsForPopup = async () => {
       try {
         const url = `/api/get-recent-patients?mode=${mode}`;
@@ -1059,6 +1063,29 @@ export default function PhysicianCard() {
         }
 
         setRecentPatientsList(data || []);
+
+        // Automatically select the latest patient (first in the list) if available and session is ready
+        if (data && Array.isArray(data) && data.length > 0 && session?.user) {
+          const latestPatient = data[0];
+          console.log("🔄 Auto-selecting latest patient:", latestPatient.patientName);
+
+          // Format the patient data for selection
+          let dobString = "";
+          if (latestPatient.dob) {
+            if (latestPatient.dob instanceof Date) {
+              dobString = latestPatient.dob.toISOString().split("T")[0];
+            } else {
+              dobString = String(latestPatient.dob);
+            }
+          }
+
+          handlePatientSelect({
+            patientName: latestPatient.patientName,
+            dob: dobString,
+            claimNumber: latestPatient.claimNumber || "",
+            doi: "", // DOI will be fetched when document data is loaded
+          });
+        }
       } catch (err) {
         console.error("Error fetching recent patients for popup:", err);
         setRecentPatientsList([]); // Set empty array on error
@@ -1066,7 +1093,7 @@ export default function PhysicianCard() {
     };
 
     fetchRecentPatientsForPopup();
-  }, [mode]);
+  }, [mode, status, session]);
   // Format date from ISO string to MM/DD/YYYY
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return "Not specified";
