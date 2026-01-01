@@ -14,6 +14,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
+// @ts-ignore
+import CryptoJS from "crypto-js";
+import { handleEncryptedResponse } from "@/lib/decrypt";
 // Define TypeScript interfaces for data structures
 interface Patient {
   id?: string | number;
@@ -413,6 +416,8 @@ export default function PhysicianCard() {
     return { document_summaries, previous_summaries: previousByType };
   };
   // Fetch document data from API - Mode is now passed from initial search context
+
+  
   const fetchDocumentData = async (patientInfo: Patient) => {
     const physicianId = getPhysicianId();
     if (!physicianId) {
@@ -429,22 +434,59 @@ export default function PhysicianCard() {
         doi: patientInfo.doi,
         claim_number: patientInfo.claimNumber,
         physicianId: physicianId,
-        mode: mode, // Mode-specific data fetched from API based on current search mode
+        mode: mode,
       });
       console.log("Fetching document data with params:", params.toString());
+      
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/document?${params}`,
+        `/api/documents/get-document?${params}`,
         {
           headers: {
             Authorization: `Bearer ${session?.user?.fastapi_token}`,
           },
         }
       );
+      
       if (!response.ok) {
         throw new Error(`Failed to fetch document: ${response.status}`);
       }
-      const data: any = await response.json();
-      console.log("Document data received:", data);
+      
+      // Get the raw response
+      const rawResponse = await response.json();
+      
+      // Debug logging
+      console.log("🔍 Raw response keys:", Object.keys(rawResponse));
+      console.log("🔍 Response has encrypted field:", rawResponse.encrypted);
+      console.log("🔍 Route marker:", rawResponse.route_marker);
+      
+      // Check if Next.js API route was called
+      if (rawResponse.route_marker === 'nextjs-api-route-hit') {
+        console.log("✅ Next.js API route was successfully called!");
+      } else {
+        console.log("❌ Next.js API route was NOT called - falling back to direct Python API");
+      }
+      
+      // Use the decryption utility to handle the response
+      let data: any;
+      try {
+        data = handleEncryptedResponse(rawResponse);
+        console.log("✅ Document data processed (encrypted or unencrypted)");
+      } catch (decryptError) {
+        console.error("❌ Failed to process encrypted response:", decryptError);
+        
+        // Fallback: If it's not encrypted, use as-is
+        if (rawResponse.documents) {
+          console.log("🔄 Falling back to unencrypted data");
+          data = rawResponse;
+        } else {
+          throw new Error(`Failed to process response: ${decryptError instanceof Error ? decryptError.message : 'Unknown error'}`);
+        }
+      }
+      
+      // Debug: Check what we received
+      console.log("🔍 Processed data keys:", Object.keys(data));
+      console.log("🔍 Has documents:", !!data.documents);
+      
       if (!data.documents || data.documents.length === 0) {
         setDocumentData(null);
         setError(
@@ -452,10 +494,13 @@ export default function PhysicianCard() {
         );
         return;
       }
-      const latestDoc = data.documents[0]; // Latest document for top-level fields like adl, whats_new, etc.
-      // Process whats_new to flat object, and set summaries in whats_new
+      
+      const latestDoc = data.documents[0];
+      
+      // Rest of your existing processing code remains the same...
       let processedWhatsNew: WhatsNew = {};
       let processedQuickNotes: QuickNoteSnapshot[] = [];
+      
       if (
         latestDoc.whats_new &&
         Array.isArray(latestDoc.whats_new) &&
@@ -469,15 +514,17 @@ export default function PhysicianCard() {
           ur_decision: wnItem.ur_decision?.content || "",
           recommendations: wnItem.recommendations?.content || "",
         };
+        
         if (wnItem.quick_note && Array.isArray(wnItem.quick_note)) {
           processedQuickNotes = wnItem.quick_note.map((note: any) => ({
             details: note.content || "",
             timestamp: note.document_created_at || "",
             one_line_note: note.description || "",
-            status_update: "", // Can be derived if needed
+            status_update: "", 
           }));
         }
       }
+      
       // Set summaries in whats_new
       if (latestDoc.brief_summary) {
         processedWhatsNew.brief_summary = latestDoc.brief_summary;
@@ -491,6 +538,7 @@ export default function PhysicianCard() {
       if (latestDoc.document_summary?.date) {
         processedWhatsNew.summary_date = latestDoc.document_summary.date;
       }
+      
       // Group summaries and briefs across all documents by type
       const grouped: {
         [key: string]: {
@@ -499,6 +547,7 @@ export default function PhysicianCard() {
           brief_summary: string;
         }[];
       } = {};
+      
       data.documents.forEach((doc: any) => {
         const docSum = doc.document_summary;
         const brief = doc.brief_summary || "";
@@ -514,13 +563,16 @@ export default function PhysicianCard() {
           });
         }
       });
+      
       const { document_summaries, previous_summaries } =
         processAggregatedSummaries(grouped);
-      // Aggregate all body part snapshots from all documents, sorted by document_report_date descending
+      
+      // Aggregate all body part snapshots from all documents
       const sortedDocs = [...data.documents].sort(
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
+      
       const allBodyPartSnapshots = sortedDocs.flatMap((doc: any) =>
         (doc.body_part_snapshots || []).map(
           (snap: any): SummarySnapshotItem => ({
@@ -539,21 +591,22 @@ export default function PhysicianCard() {
           })
         )
       );
+      
       const processedData: DocumentData = {
-        ...data, // Top-level fields like patient_name, total_documents, etc.
+        ...data,
         dob: latestDoc.dob,
         doi: latestDoc.doi,
         claim_number: latestDoc.claim_number,
         created_at: latestDoc.created_at,
-        documents: data.documents, // Keep full array for components like WhatsNewSection
-        adl: latestDoc.adl, // ADL from latest doc
-        whats_new: processedWhatsNew, // Processed flat object with summaries included
-        brief_summary: latestDoc.brief_summary, // For backward compatibility
+        documents: data.documents,
+        adl: latestDoc.adl,
+        whats_new: processedWhatsNew,
+        brief_summary: latestDoc.brief_summary,
         document_summaries,
         previous_summaries,
         patient_quiz: data.patient_quiz,
         treatment_history: latestDoc.treatment_history,
-        body_part_snapshots: allBodyPartSnapshots, // Set all aggregated body part snapshots
+        body_part_snapshots: allBodyPartSnapshots,
         quick_notes_snapshots: processedQuickNotes,
         gcs_file_link: latestDoc?.gcs_file_link,
         blob_path: latestDoc?.blob_path,
@@ -562,22 +615,20 @@ export default function PhysicianCard() {
           allBodyPartSnapshots[0]?.consultingDoctor ||
           latestDoc?.body_part_snapshots?.[0]?.consultingDoctor ||
           "Not specified",
-        // Compute allVerified based on status of latest doc (or aggregate if needed)
         allVerified:
           !!latestDoc.status && latestDoc.status.toLowerCase() === "verified",
-        // Handle summary_snapshots as aggregated body part snapshots
         summary_snapshots: allBodyPartSnapshots,
-        // Set merge_metadata if total_documents >1
         ...(data.total_documents > 1 && {
           merge_metadata: {
             total_documents_merged: data.total_documents,
             is_merged: true,
             latest_document_date: latestDoc.created_at || "",
-            previous_document_date: "", // Not available in aggregated; could derive from other docs if needed
+            previous_document_date: "",
           },
         }),
       };
-      // Handle adl processing (convert arrays to strings if needed)
+      
+      // Handle adl processing
       if (processedData.adl) {
         const adlData = processedData.adl;
         adlData.adls_affected = Array.isArray(adlData.adls_affected)
@@ -590,134 +641,179 @@ export default function PhysicianCard() {
         adlData.work_restrictions_history = adlData.work_restrictions;
         adlData.has_changes = false;
       }
+      
       setDocumentData(processedData);
-
-      // Update URL with patient details and mode from document
+      
+      // Update URL with patient details and mode
       const docMode = latestDoc.mode || "wc";
       if (docMode !== mode) {
         setMode(docMode as "wc" | "gm");
       }
+      
       const urlParams = new URLSearchParams(searchParams.toString());
       urlParams.set("patient_name", latestDoc.patient_name || "");
       urlParams.set("dob", latestDoc.dob || "");
       urlParams.set("claim_number", latestDoc.claim_number || "");
       urlParams.set("mode", docMode);
       router.replace(`?${urlParams.toString()}`, { scroll: false });
-
-      // Fetch task quick notes for this patient - with strict patient matching
-      try {
-        const taskParams = new URLSearchParams({
-          mode: docMode,
-        });
-
-        // Use claim number if available (most reliable), otherwise use patient name
-        if (
-          latestDoc.claim_number &&
-          latestDoc.claim_number !== "Not specified"
-        ) {
-          taskParams.set("claim", latestDoc.claim_number);
-        } else if (latestDoc.patient_name || patientInfo.patientName) {
-          taskParams.set(
-            "search",
-            latestDoc.patient_name || patientInfo.patientName || ""
-          );
-        }
-
-        const taskResponse = await fetch(`/api/tasks?${taskParams}`, {
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
-        });
-        if (taskResponse.ok) {
-          const taskData = await taskResponse.json();
-
-          // Get patient identifiers for strict matching
-          const patientName = (
-            latestDoc.patient_name ||
-            patientInfo.patientName ||
-            ""
-          )
-            .toLowerCase()
-            .trim();
-          const claimNumber =
-            latestDoc.claim_number && latestDoc.claim_number !== "Not specified"
-              ? latestDoc.claim_number.toUpperCase().trim()
-              : null;
-
-          // Get all patient document IDs from documentData
-          const patientDocumentIds = new Set<string>();
-          if (data.documents && Array.isArray(data.documents)) {
-            data.documents.forEach((doc: any) => {
-              if (doc.id) {
-                patientDocumentIds.add(doc.id);
-              }
-            });
-          }
-
-          // Extract quick notes from tasks - filter by patient and document ID matching
-          const allTaskQuickNotes: QuickNoteSnapshot[] = [];
-          if (taskData.tasks && Array.isArray(taskData.tasks)) {
-            taskData.tasks.forEach((task: any) => {
-              // Strict patient matching: check task.patient matches current patient
-              const taskPatient = (task.patient || "").toLowerCase().trim();
-              const taskClaim = task.document?.claimNumber
-                ? task.document.claimNumber.toUpperCase().trim()
-                : null;
-              const taskDocumentId =
-                task.documentId || task.document?.id || null;
-
-              // Match by document ID first (most reliable if task has documentId)
-              let patientMatches = false;
-              if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
-                patientMatches = true;
-              } else if (claimNumber && taskClaim) {
-                // Match by claim number if available
-                patientMatches = taskClaim === claimNumber;
-              } else if (patientName && taskPatient) {
-                // Match by patient name (exact or contains)
-                patientMatches =
-                  taskPatient === patientName ||
-                  taskPatient.includes(patientName) ||
-                  patientName.includes(taskPatient);
-              }
-
-              // Only include tasks with quick notes that match this patient and have meaningful content
-              if (patientMatches && task.quickNotes) {
-                const hasContent =
-                  (task.quickNotes.status_update &&
-                    task.quickNotes.status_update.trim()) ||
-                  (task.quickNotes.one_line_note &&
-                    task.quickNotes.one_line_note.trim()) ||
-                  (task.quickNotes.details && task.quickNotes.details.trim());
-
-                if (hasContent) {
-                  allTaskQuickNotes.push({
-                    details: task.quickNotes.details || "",
-                    timestamp:
-                      task.quickNotes.timestamp || task.updatedAt || "",
-                    one_line_note: task.quickNotes.one_line_note || "",
-                    status_update: task.quickNotes.status_update || "",
-                  });
-                }
-              }
-            });
-          }
-
-          // Sort by timestamp (most recent first) and limit to 5 most recent
-          const sortedNotes = allTaskQuickNotes
-            .sort((a, b) => {
-              const timeA = new Date(a.timestamp || 0).getTime();
-              const timeB = new Date(b.timestamp || 0).getTime();
-              return timeB - timeA; // Most recent first
-            })
-            .slice(0, 5); // Limit to 5 most recent
-
-          setTaskQuickNotes(sortedNotes);
-        }
-      } catch (err) {
-        console.error("Error fetching task quick notes:", err);
+      
+    // Fetch task quick notes
+try {
+  const taskParams = new URLSearchParams({
+    mode: docMode,
+  });
+  
+  if (
+    latestDoc.claim_number &&
+    latestDoc.claim_number !== "Not specified"
+  ) {
+    taskParams.set("claim", latestDoc.claim_number);
+  } else if (latestDoc.patient_name || patientInfo.patientName) {
+    taskParams.set(
+      "search",
+      latestDoc.patient_name || patientInfo.patientName || ""
+    );
+  }
+  
+  const taskResponse = await fetch(`/api/tasks?${taskParams}`, {
+    headers: {
+      Authorization: `Bearer ${session?.user?.fastapi_token}`,
+    },
+  });
+  
+  if (taskResponse.ok) {
+    const taskResult = await taskResponse.json();
+    
+    // Debug: Check what we received
+    console.log("🔍 Task API response structure:", {
+      encrypted: taskResult.encrypted,
+      hasDataField: !!taskResult.data,
+      routeMarker: taskResult.route_marker,
+      isError: taskResult.isError,
+      timestamp: taskResult.timestamp
+    });
+    
+    // Handle encrypted response
+    let taskData;
+    try {
+      taskData = handleEncryptedResponse(taskResult);
+      console.log("✅ Task data decrypted successfully");
+    } catch (decryptError) {
+      console.error("❌ Failed to decrypt task data:", decryptError);
+      
+      // Fallback for backward compatibility
+      if (taskResult.tasks && Array.isArray(taskResult.tasks)) {
+        console.log("🔄 Using unencrypted tasks data directly");
+        taskData = taskResult;
+      } else if (Array.isArray(taskResult)) {
+        console.log("🔄 Using direct array response");
+        taskData = { tasks: taskResult, totalCount: taskResult.length };
+      } else if (taskResult.data && Array.isArray(taskResult.data.tasks)) {
+        console.log("🔄 Using unencrypted data field");
+        taskData = taskResult.data;
+      } else {
+        console.error("❌ Could not parse task response");
         setTaskQuickNotes([]);
+        return;
       }
+    }
+    
+    // Now continue with your existing logic using taskData
+    const patientName = (
+      latestDoc.patient_name ||
+      patientInfo.patientName ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+    const claimNumber =
+      latestDoc.claim_number && latestDoc.claim_number !== "Not specified"
+        ? latestDoc.claim_number.toUpperCase().trim()
+        : null;
+    
+    const patientDocumentIds = new Set<string>();
+    if (data.documents && Array.isArray(data.documents)) {
+      data.documents.forEach((doc: any) => {
+        if (doc.id) {
+          patientDocumentIds.add(doc.id);
+        }
+      });
+    }
+    
+    const allTaskQuickNotes: QuickNoteSnapshot[] = [];
+    
+    // Check if we have tasks in the response
+    if (taskData.tasks && Array.isArray(taskData.tasks)) {
+      console.log(`📝 Processing ${taskData.tasks.length} tasks for quick notes`);
+      
+      taskData.tasks.forEach((task: any, index: number) => {
+        const taskPatient = (task.patient || "").toLowerCase().trim();
+        const taskClaim = task.document?.claimNumber
+          ? task.document.claimNumber.toUpperCase().trim()
+          : null;
+        const taskDocumentId = task.documentId || task.document?.id || null;
+        
+        let patientMatches = false;
+        if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
+          patientMatches = true;
+          console.log(`✅ Task ${index} matches by document ID: ${taskDocumentId}`);
+        } else if (claimNumber && taskClaim) {
+          patientMatches = taskClaim === claimNumber;
+          if (patientMatches) {
+            console.log(`✅ Task ${index} matches by claim number: ${claimNumber}`);
+          }
+        } else if (patientName && taskPatient) {
+          patientMatches =
+            taskPatient === patientName ||
+            taskPatient.includes(patientName) ||
+            patientName.includes(taskPatient);
+          if (patientMatches) {
+            console.log(`✅ Task ${index} matches by patient name: ${patientName}`);
+          }
+        }
+        
+        if (patientMatches && task.quickNotes) {
+          const hasContent =
+            (task.quickNotes.status_update &&
+              task.quickNotes.status_update.trim()) ||
+            (task.quickNotes.one_line_note &&
+              task.quickNotes.one_line_note.trim()) ||
+            (task.quickNotes.details && task.quickNotes.details.trim());
+          
+          if (hasContent) {
+            console.log(`📋 Task ${index} has quick notes content`);
+            allTaskQuickNotes.push({
+              details: task.quickNotes.details || "",
+              timestamp: task.quickNotes.timestamp || task.updatedAt || "",
+              one_line_note: task.quickNotes.one_line_note || "",
+              status_update: task.quickNotes.status_update || "",
+            });
+          }
+        }
+      });
+    } else {
+      console.warn("⚠️ No tasks array found in task data");
+    }
+    
+    const sortedNotes = allTaskQuickNotes
+      .sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+        return timeB - timeA;
+      })
+      .slice(0, 5);
+    
+    console.log(`✅ Found ${sortedNotes.length} quick notes for patient`);
+    setTaskQuickNotes(sortedNotes);
+  } else {
+    console.error(`❌ Task API returned error: ${taskResponse.status}`);
+    setTaskQuickNotes([]);
+  }
+} catch (err) {
+  console.error("Error fetching task quick notes:", err);
+  setTaskQuickNotes([]);
+}
+      
     } catch (err: unknown) {
       console.error("Error fetching document data:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -901,19 +997,58 @@ export default function PhysicianCard() {
   }, [documentData?.allVerified]);
 
   // Fetch recent patients for popup
+
+
   useEffect(() => {
     const fetchRecentPatientsForPopup = async () => {
       try {
         const url = `/api/get-recent-patients?mode=${mode}`;
         const response = await fetch(url);
-        if (!response.ok) throw new Error("Failed to fetch");
-        const data = await response.json();
-        setRecentPatientsList(data);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch recent patients: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // Debug: Check what we received
+        console.log("🔍 Recent patients raw response:", {
+          encrypted: result.encrypted,
+          hasData: !!result.data,
+          routeMarker: result.route_marker,
+          timestamp: result.timestamp
+        });
+        
+        // Use the decryption utility
+        let data;
+        try {
+          data = handleEncryptedResponse(result);
+          console.log("✅ Recent patients data decrypted successfully", {
+            patientCount: data?.length || 0
+          });
+        } catch (decryptError) {
+          console.error("❌ Failed to decrypt recent patients:", decryptError);
+          
+          // Fallback for backward compatibility or debugging
+          if (result.data && Array.isArray(result.data)) {
+            console.log("🔄 Using unencrypted data directly");
+            data = result.data;
+          } else if (Array.isArray(result)) {
+            console.log("🔄 Using direct array response");
+            data = result;
+          } else {
+            throw decryptError;
+          }
+        }
+        
+        setRecentPatientsList(data || []);
+        
       } catch (err) {
         console.error("Error fetching recent patients for popup:", err);
+        setRecentPatientsList([]); // Set empty array on error
       }
     };
-
+  
     fetchRecentPatientsForPopup();
   }, [mode]);
   // Format date from ISO string to MM/DD/YYYY

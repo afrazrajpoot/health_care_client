@@ -22,6 +22,7 @@ import QuickNotesSection from "@/components/staff-components/QuickNotesSection";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
 import { useFailedDocuments } from "../custom-hooks/staff-hooks/useFailedDocuments";
+import { handleEncryptedResponse } from "@/lib/decrypt";
 
 interface RecentPatient {
   patientName: string;
@@ -305,7 +306,8 @@ export default function StaffDashboardPatient() {
         }
         const response = await fetch(`/api/get-recent-patients?${params}`);
         if (!response.ok) throw new Error("Failed to fetch patients");
-        const data = await response.json();
+        const data1 = await response.json();
+        const data: any = handleEncryptedResponse(data1);
         setRecentPatients(data);
         // Update selected patient if it still exists in the new list
         setSelectedPatient((currentSelected) => {
@@ -387,7 +389,8 @@ export default function StaffDashboardPatient() {
         const response = await fetch(`/api/tasks?${taskParams}`);
         if (!response.ok) throw new Error("Failed to fetch tasks");
 
-        const data = await response.json();
+        const data1 = await response.json();
+const data: any = handleEncryptedResponse(data1);
         const tasks = data.tasks || [];
         const totalCount = data.totalCount || 0;
 
@@ -468,7 +471,8 @@ export default function StaffDashboardPatient() {
         // Handle quiz response
         if (quizResult.status === "fulfilled" && quizResult.value.ok) {
           try {
-            const quizData = await quizResult.value.json();
+            const quizData1 = await quizResult.value.json();
+            const quizData: any = handleEncryptedResponse(quizData1);
             if (
               quizData?.success &&
               quizData?.data &&

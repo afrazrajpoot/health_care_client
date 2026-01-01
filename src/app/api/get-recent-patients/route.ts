@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/services/authSErvice";
+import CryptoJS from "crypto-js";
 
 /* ---------------------------------------------
  * NORMALIZATION HELPERS
@@ -262,10 +263,10 @@ export async function GET(request: Request) {
         claimNumber: true,
         createdAt: true,
         reportDate: true,
-        mode: true, // Also include mode if needed
-        documentSummary: { // ✅ Include the related DocumentSummary
+        mode: true,
+        documentSummary: {
           select: {
-            type: true, // This is the document type you want
+            type: true,
             date: true,
             summary: true,
           },
@@ -328,46 +329,35 @@ export async function GET(request: Request) {
           group.documents.push(doc);
 
           // Update group fields with best available data
-          // When merging by claim number, prefer the most complete information
-
-          // Update patientName: prefer longer/more complete name
           if (doc.patientName) {
             const currentName = (group.patientName || "").trim();
             const newName = doc.patientName.trim();
-            // Use the longer name (more likely to be complete) or the new one if current is empty
             if (!currentName || newName.length > currentName.length) {
               group.patientName = doc.patientName;
             }
           }
 
-          // Update DOB: prefer non-null DOB
           if (!group.dob && doc.dob) {
             group.dob = doc.dob;
           } else if (group.dob && doc.dob) {
-            // If both have DOB, keep the one from the most recent document
             if (doc.createdAt > group.createdAt) {
               group.dob = doc.dob;
             }
           }
 
-          // Update claimNumber: always keep the valid claim (since that's what matched)
           const groupClaimNormalized = normalizeClaimNumber(group.claimNumber);
           const docClaimNormalized = normalizeClaimNumber(doc.claimNumber);
 
-          // If group has no valid claim but doc does, use doc's claim
           if (!groupClaimNormalized && docClaimNormalized) {
             group.claimNumber = doc.claimNumber;
           }
-          // If both have valid claims (they should match), keep the one from most recent doc
           else if (groupClaimNormalized && docClaimNormalized && doc.createdAt > group.createdAt) {
             group.claimNumber = doc.claimNumber;
           }
-          // Or if group has invalid placeholder but doc has valid claim
           else if (!group.claimNumber && doc.claimNumber) {
             group.claimNumber = doc.claimNumber;
           }
 
-          // Keep the most recent createdAt
           if (doc.createdAt > group.createdAt) {
             group.createdAt = doc.createdAt;
           }
@@ -410,9 +400,7 @@ export async function GET(request: Request) {
         reportDate: mostRecentDoc.reportDate,
         documentCount: group.documents.length,
         documentIds: group.documents.map((d) => d.id),
-        // Include document type from the most recent document's summary
         documentType: mostRecentDoc.documentSummary?.type || null,
-        // Include all document details if multiple matches
         ...(group.documents.length > 1 && {
           matchingDocuments: group.documents.map((d) => ({
             id: d.id,
@@ -422,19 +410,101 @@ export async function GET(request: Request) {
             createdAt: d.createdAt,
             reportDate: d.reportDate,
             mode: d.mode,
-            documentType: d.documentSummary?.type || null, // Include type for each matching document
+            documentType: d.documentSummary?.type || null,
           })),
         }),
       };
     });
 
-    return NextResponse.json(recent);
+    /* ---------------------------------------------
+     * ENCRYPT THE RESPONSE
+     * --------------------------------------------- */
+    
+    // Get encryption secret from environment variables
+    const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
+    
+    if (!ENCRYPTION_SECRET) {
+      console.error('❌ Encryption secret not configured');
+      return NextResponse.json(
+        { 
+          encrypted: false,
+          error: 'Server configuration error',
+          data: recent,
+          warning: 'Response not encrypted due to server configuration'
+        },
+        { status: 200 }
+      );
+    }
+
+    try {
+      // Encrypt the response data
+      const dataString = JSON.stringify(recent);
+      const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
+      
+      console.log('🔐 Recent documents response encrypted successfully', {
+        patientsCount: recent.length,
+        encryptedDataLength: encryptedData.length
+      });
+
+      // Return encrypted response
+      return NextResponse.json({
+        encrypted: true,
+        data: encryptedData,
+        timestamp: new Date().toISOString(),
+        route_marker: 'recent-documents-api-encrypted',
+        metadata: {
+          patientCount: recent.length,
+          encryption: 'AES'
+        }
+      });
+
+    } catch (encryptionError) {
+      console.error('❌ Failed to encrypt recent documents response:', encryptionError);
+      
+      // Fallback: Return unencrypted response with warning
+      return NextResponse.json({
+        encrypted: false,
+        warning: 'Encryption failed, returning unencrypted data',
+        data: recent,
+        timestamp: new Date().toISOString(),
+        error: encryptionError instanceof Error ? encryptionError.message : 'Unknown encryption error'
+      });
+    }
+
   } catch (error) {
     console.error("Error fetching recent documents:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch recent documents" },
-      { status: 500 }
-    );
+    
+    // Even for errors, we can encrypt the error response
+    const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
+    
+    if (ENCRYPTION_SECRET) {
+      try {
+        const errorData = { 
+          error: "Failed to fetch recent documents",
+          details: error instanceof Error ? error.message : 'Unknown error'
+        };
+        const dataString = JSON.stringify(errorData);
+        const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
+        
+        return NextResponse.json({
+          encrypted: true,
+          data: encryptedData,
+          timestamp: new Date().toISOString(),
+          isError: true
+        }, { status: 500 });
+      } catch {
+        // If encryption fails, return plain error
+        return NextResponse.json(
+          { error: "Failed to fetch recent documents" },
+          { status: 500 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "Failed to fetch recent documents" },
+        { status: 500 }
+      );
+    }
   }
   // Note: Do NOT call prisma.$disconnect() here as it causes issues with concurrent requests
 }

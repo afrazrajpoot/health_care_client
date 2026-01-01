@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/services/authSErvice";
 import { prisma } from "@/lib/prisma";
+import CryptoJS from "crypto-js";
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -308,12 +310,122 @@ export async function GET(request: Request) {
       status: effectiveStatus,
     });
 
-    return NextResponse.json({ tasks: tasksWithURAndPriority, totalCount });
+    /* ---------------------------------------------
+     * ENCRYPT THE RESPONSE
+     * --------------------------------------------- */
+    
+    // Get encryption secret from environment variables
+    const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
+    
+    if (!ENCRYPTION_SECRET) {
+      console.error('❌ Encryption secret not configured in tasks API');
+      return NextResponse.json({
+        encrypted: false,
+        warning: 'Response not encrypted due to server configuration',
+        tasks: tasksWithURAndPriority,
+        totalCount,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    try {
+      // Prepare data for encryption
+      const responseData = {
+        tasks: tasksWithURAndPriority,
+        totalCount,
+        pagination: {
+          page,
+          pageSize,
+          totalPages: Math.ceil(totalCount / pageSize)
+        },
+        filters: {
+          applied: {
+            documentId,
+            mode,
+            search,
+            dept,
+            status: effectiveStatus,
+            priority,
+            taskTypeFilter,
+            assignedTo
+          }
+        }
+      };
+
+      // Encrypt the response data
+      const dataString = JSON.stringify(responseData);
+      const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
+      
+      console.log('🔐 Tasks response encrypted successfully', {
+        taskCount: tasksWithURAndPriority.length,
+        encryptedDataLength: encryptedData.length,
+        page,
+        pageSize
+      });
+
+      // Return encrypted response
+      return NextResponse.json({
+        encrypted: true,
+        data: encryptedData,
+        timestamp: new Date().toISOString(),
+        route_marker: 'tasks-api-encrypted',
+        metadata: {
+          taskCount: tasksWithURAndPriority.length,
+          totalCount,
+          page,
+          pageSize,
+          encryption: 'AES'
+        }
+      });
+
+    } catch (encryptionError) {
+      console.error('❌ Failed to encrypt tasks response:', encryptionError);
+      
+      // Fallback: Return unencrypted response with warning
+      return NextResponse.json({
+        encrypted: false,
+        warning: 'Encryption failed, returning unencrypted data',
+        tasks: tasksWithURAndPriority,
+        totalCount,
+        timestamp: new Date().toISOString(),
+        error: encryptionError instanceof Error ? encryptionError.message : 'Unknown encryption error'
+      });
+    }
+
   } catch (error) {
     console.error("Error fetching tasks:", error);
-    return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : 'Unknown' },
-      { status: 500 }
-    );
+    
+    // Get encryption secret for error response
+    const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
+    
+    if (ENCRYPTION_SECRET) {
+      try {
+        const errorData = { 
+          error: "Failed to fetch tasks",
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        };
+        const dataString = JSON.stringify(errorData);
+        const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
+        
+        return NextResponse.json({
+          encrypted: true,
+          data: encryptedData,
+          timestamp: new Date().toISOString(),
+          isError: true
+        }, { status: 500 });
+      } catch {
+        // If encryption fails, return plain error
+        return NextResponse.json(
+          { error: "Failed to fetch tasks" },
+          { status: 500 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "Failed to fetch tasks" },
+        { status: 500 }
+      );
+    }
   }
 }
