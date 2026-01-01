@@ -71,6 +71,14 @@ export default function StaffDashboardPatient() {
   const [patientQuiz, setPatientQuiz] = useState<PatientQuiz | null>(null);
   const [patientIntakeUpdate, setPatientIntakeUpdate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showFilePopup, setShowFilePopup] = useState(false);
+  interface FileDetails {
+    name: string;
+    size: number;
+    type: string;
+  }
+
+  const [fileDetailsPopup, setFileDetailsPopup] = useState<FileDetails[]>([]);
   const [loadingPatientData, setLoadingPatientData] = useState(false);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
@@ -257,7 +265,6 @@ export default function StaffDashboardPatient() {
   // File upload functionality
   const router = useRouter();
   const {
-    selectedFiles,
     uploading,
     snapInputRef,
     formatSize,
@@ -779,6 +786,11 @@ export default function StaffDashboardPatient() {
       return;
     }
 
+    // Don't show success popup if there's a payment error (ignored files)
+    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
+      return;
+    }
+
     // Reset the ref when not processing or when progress is reset (new upload started)
     if (!isProcessing || (!progressData && !queueProgressData)) {
       progressCompleteHandledRef.current = false;
@@ -817,7 +829,18 @@ export default function StaffDashboardPatient() {
     handleProgressComplete,
     progressData,
     queueProgressData,
+    paymentError,
+    ignoredFiles,
   ]);
+
+  // Clear success popup when there's a payment error (ignored files)
+  useEffect(() => {
+    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
+      // Dismiss the success/progress popup when there's an error
+      setShowDocumentSuccessPopup(false);
+      progressCompleteHandledRef.current = false;
+    }
+  }, [paymentError, ignoredFiles]);
 
   // Handle upgrade for payment errors
   const handleUpgrade = useCallback(() => {
@@ -1095,9 +1118,68 @@ export default function StaffDashboardPatient() {
         multiple
         max={10}
         style={{ display: "none" }}
-        onChange={handleSnap}
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            const fileDetails = Array.from(e.target.files).map((file) => ({
+              name: file.name,
+              size: file.size,
+              type: file.type,
+            }));
+            setFileDetailsPopup(fileDetails as FileDetails[]);
+            setShowFilePopup(true);
+          }
+        }}
         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
       />
+
+      {/* File Details Popup */}
+      {showFilePopup && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-lg font-bold mb-4">File Details</h2>
+            <ul className="space-y-2">
+              {fileDetailsPopup.map((file, index) => (
+                <li key={index} className="text-sm">
+                  <strong>Name:</strong> {file.name} <br />
+                  <strong>Size:</strong> {(file.size / 1024).toFixed(2)} KB{" "}
+                  <br />
+                  <strong>Type:</strong> {file.type}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowFilePopup(false);
+                  setFileDetailsPopup([]);
+                  if (snapInputRef.current) {
+                    snapInputRef.current.value = "";
+                  }
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowFilePopup(false);
+                  // Trigger the extract document API by calling handleSnap with the current input
+                  if (snapInputRef.current && snapInputRef.current.files) {
+                    const event = {
+                      target: snapInputRef.current,
+                    } as React.ChangeEvent<HTMLInputElement>;
+                    handleSnap(event);
+                  }
+                }}
+                disabled={uploading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? "Uploading..." : "OK"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="p-4 max-w-[1280px] mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
         <PatientDrawer

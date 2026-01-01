@@ -77,7 +77,7 @@ export default function TasksTable({
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] =
     useState<FailedDocument | null>(null);
-    console.log(selectedDocument,'selected document')
+  console.log(selectedDocument, "selected document");
   const [documentToSplit, setDocumentToSplit] = useState<FailedDocument | null>(
     null
   );
@@ -187,7 +187,6 @@ export default function TasksTable({
     setSummaryModalOpen(true);
   };
 
-  
   const handleAddPageRange = () => {
     setPageRanges([
       ...pageRanges,
@@ -534,7 +533,7 @@ export default function TasksTable({
                               )}
                             </button>
                           )}
-                         
+
                           {/* Delete */}
                           <button
                             onClick={(e) => handleDeleteClick(e, doc)}
