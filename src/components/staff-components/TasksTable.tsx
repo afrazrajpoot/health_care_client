@@ -225,7 +225,7 @@ export default function TasksTable({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",
