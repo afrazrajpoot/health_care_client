@@ -1,22 +1,23 @@
 "use client";
 import { Sidebar } from "@/components/navigation/sidebar";
 import ManualTaskModal from "@/components/ManualTaskModal";
-import ADLSection from "@/components/physician-components/ADLSection";
-import DocumentSummarySection from "@/components/physician-components/DocumentSummarySection";
-import PatientQuizSection from "@/components/physician-components/PatientQuizSection";
 import PhysicianOnboardingTour from "@/components/physician-components/PhysicianOnboardingTour";
 import TreatmentHistorySection from "@/components/physician-components/TreatmentHistorySection";
 import { WelcomeModal } from "@/components/physician-components/WelcomeModal";
 import WhatsNewSection from "@/components/physician-components/WhatsNewSection";
 import PatientIntakeUpdate from "@/components/physician-components/PatientIntakeUpdate";
+import { PatientHeader } from "@/components/physician-components/PatientHeader";
+import { LoadingOverlay } from "@/components/physician-components/LoadingOverlay";
+import { RecentPatientsPanel } from "@/components/physician-components/RecentPatientsPanel";
+import { StaffStatusSection } from "@/components/physician-components/StaffStatusSection";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSocket } from "@/providers/SocketProvider";
-// @ts-ignore
-import CryptoJS from "crypto-js";
 import { handleEncryptedResponse } from "@/lib/decrypt";
+import { usePatientData } from "@/hooks/usePatientData";
+
 // Define TypeScript interfaces for data structures
 interface Patient {
   id?: string | number;
@@ -26,66 +27,7 @@ interface Patient {
   doi: string;
   claimNumber: string;
 }
-interface PatientQuiz {
-  id: string;
-  patientName: string;
-  dob: string;
-  doi: string;
-  lang: string;
-  newAppt: string;
-  appts: Array<{
-    date: string;
-    type: string;
-    other: string;
-  }>;
-  pain: number;
-  workDiff: string;
-  trend: string;
-  workAbility: string;
-  barrier: string;
-  adl: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-interface SummarySnapshotItem {
-  id: string;
-  dx: string;
-  keyConcern: string;
-  nextStep: string;
-  documentId: string;
-  bodyPart?: string;
-  urDecision?: string;
-  recommended?: string;
-  aiOutcome?: string;
-  consultingDoctor?: string;
-  document_created_at?: string;
-  document_report_date?: string;
-}
-interface SummarySnapshot {
-  diagnosis: string;
-  diagnosis_history: string;
-  key_concern: string;
-  key_concern_history: string;
-  next_step: string;
-  next_step_history: string;
-  has_changes: boolean;
-}
-interface WhatsNew {
-  [key: string]: string;
-}
-interface QuickNoteSnapshot {
-  details: string;
-  timestamp: string;
-  one_line_note: string;
-  status_update: string;
-}
-interface ADL {
-  adls_affected: string;
-  adls_affected_history: string;
-  work_restrictions: string;
-  work_restrictions_history: string;
-  has_changes: boolean;
-}
+
 interface DocumentSummary {
   type: string;
   date: string;
@@ -93,103 +35,48 @@ interface DocumentSummary {
   brief_summary?: string;
   document_id?: string;
 }
-interface DocumentData {
-  patient_name?: string;
-  dob?: string;
-  doi?: string;
-  claim_number?: string;
-  created_at?: string;
-  status?: string;
-  brief_summary?: { [key: string]: string[] };
-  summary_snapshot?: SummarySnapshot;
-  summary_snapshots?: SummarySnapshotItem[];
-  whats_new?: WhatsNew;
-  quick_notes_snapshots?: QuickNoteSnapshot[];
-  adl?: ADL;
-  document_summary?: { [key: string]: { date: string; summary: string }[] };
-  document_summaries?: DocumentSummary[];
-  patient_quiz?: PatientQuiz | null;
-  merge_metadata?: {
-    total_documents_merged: number;
-    is_merged: boolean;
-    latest_document_date: string;
-    previous_document_date: string;
-  };
-  previous_summaries?: { [key: string]: DocumentSummary };
-  allVerified?: boolean;
-  gcs_file_link?: string;
-  blob_path?: string;
-  documents?: any[];
-  body_part_snapshots?: any[];
-}
-export default function PhysicianCard() {
-  // All hooks must be called at the top, before any conditional returns
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { startTwoPhaseTracking, setActiveTask } = useSocket();
 
-  const [mode, setMode] = useState<"wc" | "gm">("wc");
-  const [isVerified, setIsVerified] = useState<boolean>(false);
-  const [verifyTime, setVerifyTime] = useState<string>("—");
-  const [documentData, setDocumentData] = useState<DocumentData | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [selectedBriefSummary, setSelectedBriefSummary] = useState<string>("");
-  const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
-  const [showPreviousSummary, setShowPreviousSummary] =
-    useState<boolean>(false);
-  const [previousSummary, setPreviousSummary] =
-    useState<DocumentSummary | null>(null);
-  const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
-  const [files, setFiles] = useState<File[]>([]);
+// Custom hook for toasts
+const useToasts = () => {
   const [toasts, setToasts] = useState<
     { id: number; message: string; type: "success" | "error" }[]
   >([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [rpToggle, setRpToggle] = useState(true); // Default to open/visible
-  const [recentPatientsVisible, setRecentPatientsVisible] = useState(false);
-  const [recentPatientsList, setRecentPatientsList] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<Patient[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
-  const [taskQuickNotes, setTaskQuickNotes] = useState<QuickNoteSnapshot[]>([]);
-  const [showManualTaskModal, setShowManualTaskModal] = useState(false);
-  // Onboarding states
+
+  const addToast = useCallback((message: string, type: "success" | "error") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
+
+  return { toasts, addToast };
+};
+
+// Custom hook for onboarding
+const useOnboarding = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [stepPositions, setStepPositions] = useState<any[]>([]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  // Refs for onboarding target elements
+
   const staffButtonRef = useRef<HTMLAnchorElement>(null);
   const modeSelectorRef = useRef<HTMLSelectElement>(null);
-  const patientCardRef = useRef<HTMLDivElement>(null);
-  // Collapsible section states
-  const [collapsedSections, setCollapsedSections] = useState<{
-    [key: string]: boolean;
-  }>({
-    whatsNew: false,
-    treatmentHistory: false, // Always expanded
-    adlWorkStatus: true,
-    documentSummary: true,
-  });
-  // Onboarding steps configuration
-  const onboardingSteps = [
-    {
-      title: "Staff Dashboard",
-      content:
-        "Switch to the Staff Dashboard to manage tasks, upload documents, and track workflow.",
-      target: staffButtonRef,
-    },
-  ];
-  // Calculate positions for onboarding steps
+
+  const onboardingSteps = useMemo(
+    () => [
+      {
+        title: "Staff Dashboard",
+        content:
+          "Switch to the Staff Dashboard to manage tasks, upload documents, and track workflow.",
+        target: staffButtonRef,
+      },
+    ],
+    []
+  );
+
   const calculateStepPositions = useCallback(() => {
     const positions = [];
-    // Position for Staff Dashboard button
     if (staffButtonRef.current) {
       const rect = staffButtonRef.current.getBoundingClientRect();
       positions.push({
@@ -208,18 +95,17 @@ export default function PhysicianCard() {
     }
     return positions;
   }, []);
-  // Start onboarding tour
-  const startOnboarding = () => {
+
+  const startOnboarding = useCallback(() => {
     const positions = calculateStepPositions();
     setStepPositions(positions);
     setShowOnboarding(true);
     setCurrentStep(0);
-  };
-  // Next step in onboarding
-  const nextStep = () => {
+  }, [calculateStepPositions]);
+
+  const nextStep = useCallback(() => {
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(currentStep + 1);
-      // Recalculate positions after a brief delay
       setTimeout(() => {
         const newPositions = calculateStepPositions();
         setStepPositions(newPositions);
@@ -228,30 +114,23 @@ export default function PhysicianCard() {
       setShowOnboarding(false);
       localStorage.setItem("physicianOnboardingCompleted", "true");
     }
-  };
-  // Previous step in onboarding
-  const previousStep = () => {
+  }, [currentStep, onboardingSteps.length, calculateStepPositions]);
+
+  const previousStep = useCallback(() => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
-      // Recalculate positions after a brief delay
       setTimeout(() => {
         const newPositions = calculateStepPositions();
         setStepPositions(newPositions);
       }, 50);
     }
-  };
-  // Close onboarding
-  const closeOnboarding = () => {
+  }, [currentStep, calculateStepPositions]);
+
+  const closeOnboarding = useCallback(() => {
     setShowOnboarding(false);
     localStorage.setItem("physicianOnboardingCompleted", "true");
-  };
-  // Recalculate positions when step changes
-  useEffect(() => {
-    if (showOnboarding) {
-      const positions = calculateStepPositions();
-      setStepPositions(positions);
-    }
-  }, [showOnboarding, currentStep, calculateStepPositions]);
+  }, []);
+
   // Check if onboarding should be shown on component mount
   useEffect(() => {
     const onboardingCompleted = localStorage.getItem(
@@ -262,13 +141,13 @@ export default function PhysicianCard() {
       setShowWelcomeModal(true);
       localStorage.setItem("physicianWelcomeShown", "true");
     } else if (!onboardingCompleted) {
-      // Show onboarding after a short delay if welcome was already shown
       const timer = setTimeout(() => {
         startOnboarding();
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [calculateStepPositions]);
+  }, [startOnboarding]);
+
   // Listen for start onboarding event
   useEffect(() => {
     const handleStartOnboarding = () => {
@@ -278,38 +157,49 @@ export default function PhysicianCard() {
     return () => {
       window.removeEventListener("start-onboarding", handleStartOnboarding);
     };
-  }, []);
-  // Toggle section collapse state
-  const toggleSection = (sectionKey: string) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [sectionKey]: !prev[sectionKey],
-    }));
+  }, [startOnboarding]);
+
+  // Recalculate positions when step changes
+  useEffect(() => {
+    if (showOnboarding) {
+      const positions = calculateStepPositions();
+      setStepPositions(positions);
+    }
+  }, [showOnboarding, currentStep, calculateStepPositions]);
+
+  return {
+    showOnboarding,
+    currentStep,
+    stepPositions,
+    showWelcomeModal,
+    onboardingSteps,
+    staffButtonRef,
+    modeSelectorRef,
+    nextStep,
+    previousStep,
+    closeOnboarding,
+    startOnboarding,
   };
-  console.log("Session data:", session);
-  // Toast management
-  const addToast = useCallback((message: string, type: "success" | "error") => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
-  }, []);
-  // Handle file selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+};
+
+// Custom hook for file upload
+const useFileUpload = (addToast: (msg: string, type: "success" | "error") => void, session: any, startTwoPhaseTracking: any) => {
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(Array.from(e.target.files));
     }
-  };
-  // Handle upload and queue
-  const handleUpload = async () => {
+  }, []);
+
+  const handleUpload = useCallback(async () => {
     if (files.length === 0) return;
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("documents", file);
     });
     try {
-      setLoading(true);
       const response = await fetch("/api/extract-documents", {
         method: "POST",
         headers: {
@@ -323,8 +213,6 @@ export default function PhysicianCard() {
         return;
       }
       const data = await response.json();
-
-      // Support two-phase tracking if both task IDs are available
       if (data.upload_task_id && data.task_id) {
         startTwoPhaseTracking(data.upload_task_id, data.task_id);
         addToast(
@@ -332,7 +220,6 @@ export default function PhysicianCard() {
           "success"
         );
       } else {
-        // Fallback: show task IDs as before
         const taskIds = data.task_ids || [];
         files.forEach((file, index) => {
           const taskId = taskIds[index] || "unknown";
@@ -342,508 +229,643 @@ export default function PhysicianCard() {
           );
         });
       }
-
-      // Clear files
       setFiles([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (err: unknown) {
       addToast("Network error uploading files", "error");
-    } finally {
-      setLoading(false);
     }
-  };
-  // Compute physician ID safely
-  const getPhysicianId = (): string | null => {
+  }, [files, session, startTwoPhaseTracking, addToast]);
+
+  const resetFiles = useCallback(() => {
+    setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  return { files, fileInputRef, handleFileSelect, handleUpload, resetFiles };
+};
+
+// Custom hook for search
+const useSearch = (mode: "wc" | "gm") => {
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const getPhysicianId = useCallback((session: any): string | null => {
     if (!session?.user) return null;
     return session.user.role === "Physician"
       ? (session.user.id as string) || null
       : session.user.physicianId || null;
-  };
-  // Handle patient selection from recommendations
-  const handlePatientSelect = (patient: Patient) => {
-    console.log("Patient selected:", patient);
-    setSelectedPatient(patient);
-    // Fetch document data for the selected patient
-    fetchDocumentData(patient);
-  };
-  // Handle mode switch - Updated: Only changes mode for search, does NOT refetch current data
-  const switchMode = (val: "wc" | "gm") => {
-    setMode(val);
-    // Removed refetch logic: Data is now mode-specific from initial API fetch on patient select
-    // Future searches will use the new mode, but current data remains unchanged
-  };
-  // Updated processAggregatedSummaries to handle grouped entries with brief_summary
-  const processAggregatedSummaries = (grouped: {
-    [key: string]: { date: string; summary: string; brief_summary: string }[];
-  }): {
-    document_summaries: DocumentSummary[];
-    previous_summaries: { [key: string]: DocumentSummary };
-  } => {
-    const document_summaries: DocumentSummary[] = [];
-    const previousByType: { [key: string]: DocumentSummary } = {};
-    Object.entries(grouped).forEach(([type, entries]) => {
-      // entries is array of {date, summary, brief_summary}
-      if (!Array.isArray(entries)) return; // Safety check
-      // Sort entries by date descending
-      entries.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      entries.forEach((entry) => {
-        document_summaries.push({
-          type,
-          date: entry.date,
-          summary: entry.summary,
-          brief_summary: entry.brief_summary,
-        });
-      });
-      // Set previous if more than one
-      if (entries.length > 1) {
-        const prevEntry = entries[1];
-        previousByType[type] = {
-          type,
-          date: prevEntry.date,
-          summary: prevEntry.summary,
-          brief_summary: prevEntry.brief_summary,
-        };
-      }
-    });
-    // Sort all summaries by date desc globally
-    document_summaries.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    return { document_summaries, previous_summaries: previousByType };
-  };
-  // Fetch document data from API - Mode is now passed from initial search context
+  }, []);
 
-  const fetchDocumentData = async (patientInfo: Patient) => {
-    const physicianId = getPhysicianId();
-    if (!physicianId) {
-      console.error("No physician ID available for document fetch");
-      setError("Session not ready. Please refresh.");
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const params = new URLSearchParams({
-        patient_name: patientInfo.patientName || patientInfo.name || "",
-        dob: patientInfo.dob,
-        doi: patientInfo.doi,
-        claim_number: patientInfo.claimNumber,
-        physicianId: physicianId,
-        mode: mode,
-      });
-      console.log("Fetching document data with params:", params.toString());
-
-      const response = await fetch(`/api/documents/get-document?${params}`, {
-        headers: {
-          Authorization: `Bearer ${session?.user?.fastapi_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch document: ${response.status}`);
-      }
-
-      // Get the raw response
-      const rawResponse = await response.json();
-
-      // Debug logging
-      console.log("🔍 Raw response keys:", Object.keys(rawResponse));
-      console.log("🔍 Response has encrypted field:", rawResponse.encrypted);
-      console.log("🔍 Route marker:", rawResponse.route_marker);
-
-      // Check if Next.js API route was called
-      if (rawResponse.route_marker === "nextjs-api-route-hit") {
-        console.log("✅ Next.js API route was successfully called!");
-      } else {
-        console.log(
-          "❌ Next.js API route was NOT called - falling back to direct Python API"
-        );
-      }
-
-      // Use the decryption utility to handle the response
-      let data: any;
-      try {
-        data = handleEncryptedResponse(rawResponse);
-        console.log("✅ Document data processed (encrypted or unencrypted)");
-      } catch (decryptError) {
-        console.error("❌ Failed to process encrypted response:", decryptError);
-
-        // Fallback: If it's not encrypted, use as-is
-        if (rawResponse.documents) {
-          console.log("🔄 Falling back to unencrypted data");
-          data = rawResponse;
-        } else {
-          throw new Error(
-            `Failed to process response: ${
-              decryptError instanceof Error
-                ? decryptError.message
-                : "Unknown error"
-            }`
-          );
-        }
-      }
-
-      // Debug: Check what we received
-      console.log("🔍 Processed data keys:", Object.keys(data));
-      console.log("🔍 Has documents:", !!data.documents);
-
-      if (!data.documents || data.documents.length === 0) {
-        setDocumentData(null);
-        setError(
-          "No documents found. The document may not have complete patient information (patient name, DOB, DOI, claim number)."
-        );
+  const fetchSearchResults = useCallback(
+    async (query: string, session: any) => {
+      if (!query.trim()) {
+        setSearchResults([]);
         return;
       }
-
-      const latestDoc = data.documents[0];
-
-      // Rest of your existing processing code remains the same...
-      let processedWhatsNew: WhatsNew = {};
-      let processedQuickNotes: QuickNoteSnapshot[] = [];
-
-      if (
-        latestDoc.whats_new &&
-        Array.isArray(latestDoc.whats_new) &&
-        latestDoc.whats_new.length > 0
-      ) {
-        const wnItem = latestDoc.whats_new[0];
-        processedWhatsNew = {
-          qme: wnItem.qme?.content || "",
-          outcome: wnItem.outcome?.content || "",
-          diagnosis: wnItem.diagnosis?.content || "",
-          ur_decision: wnItem.ur_decision?.content || "",
-          recommendations: wnItem.recommendations?.content || "",
-        };
-
-        if (wnItem.quick_note && Array.isArray(wnItem.quick_note)) {
-          processedQuickNotes = wnItem.quick_note.map((note: any) => ({
-            details: note.content || "",
-            timestamp: note.document_created_at || "",
-            one_line_note: note.description || "",
-            status_update: "",
-          }));
-        }
-      }
-
-      // Set summaries in whats_new
-      if (latestDoc.brief_summary) {
-        processedWhatsNew.brief_summary = latestDoc.brief_summary;
-      }
-      if (latestDoc.document_summary?.summary) {
-        processedWhatsNew.detailed_summary = latestDoc.document_summary.summary;
-      }
-      if (latestDoc.document_summary?.type) {
-        processedWhatsNew.summary_type = latestDoc.document_summary.type;
-      }
-      if (latestDoc.document_summary?.date) {
-        processedWhatsNew.summary_date = latestDoc.document_summary.date;
-      }
-
-      // Group summaries and briefs across all documents by type
-      const grouped: {
-        [key: string]: {
-          date: string;
-          summary: string;
-          brief_summary: string;
-        }[];
-      } = {};
-
-      data.documents.forEach((doc: any) => {
-        const docSum = doc.document_summary;
-        const brief = doc.brief_summary || "";
-        if (docSum && docSum.type) {
-          const type = docSum.type;
-          if (!grouped[type]) {
-            grouped[type] = [];
-          }
-          grouped[type].push({
-            date: docSum.date,
-            summary: docSum.summary,
-            brief_summary: brief,
-          });
-        }
-      });
-
-      const { document_summaries, previous_summaries } =
-        processAggregatedSummaries(grouped);
-
-      // Aggregate all body part snapshots from all documents
-      const sortedDocs = [...data.documents].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      const allBodyPartSnapshots = sortedDocs.flatMap((doc: any) =>
-        (doc.body_part_snapshots || []).map(
-          (snap: any): SummarySnapshotItem => ({
-            id: snap.id,
-            dx: snap.dx,
-            keyConcern: snap.keyConcern,
-            nextStep: snap.nextStep,
-            documentId: snap.documentId,
-            bodyPart: snap.bodyPart,
-            urDecision: snap.urDecision,
-            recommended: snap.recommended,
-            aiOutcome: snap.aiOutcome,
-            consultingDoctor: snap.consultingDoctor,
-            document_created_at: snap.document_created_at,
-            document_report_date: snap.document_report_date,
-          })
-        )
-      );
-
-      const processedData: DocumentData = {
-        ...data,
-        dob: latestDoc.dob,
-        doi: latestDoc.doi,
-        claim_number: latestDoc.claim_number,
-        created_at: latestDoc.created_at,
-        documents: data.documents,
-        adl: latestDoc.adl,
-        whats_new: processedWhatsNew,
-        brief_summary: latestDoc.brief_summary,
-        document_summaries,
-        previous_summaries,
-        patient_quiz: data.patient_quiz,
-        treatment_history: latestDoc.treatment_history,
-        body_part_snapshots: allBodyPartSnapshots,
-        quick_notes_snapshots: processedQuickNotes,
-        gcs_file_link: latestDoc?.gcs_file_link,
-        blob_path: latestDoc?.blob_path,
-        file_name: latestDoc?.file_name,
-        consulting_doctor:
-          allBodyPartSnapshots[0]?.consultingDoctor ||
-          latestDoc?.body_part_snapshots?.[0]?.consultingDoctor ||
-          "Not specified",
-        allVerified:
-          !!latestDoc.status && latestDoc.status.toLowerCase() === "verified",
-        summary_snapshots: allBodyPartSnapshots,
-        ...(data.total_documents > 1 && {
-          merge_metadata: {
-            total_documents_merged: data.total_documents,
-            is_merged: true,
-            latest_document_date: latestDoc.created_at || "",
-            previous_document_date: "",
-          },
-        }),
-      };
-
-      // Handle adl processing
-      if (processedData.adl) {
-        const adlData = processedData.adl;
-        adlData.adls_affected = Array.isArray(adlData.adls_affected)
-          ? adlData.adls_affected.join(", ")
-          : adlData.adls_affected || "Not specified";
-        adlData.work_restrictions = Array.isArray(adlData.work_restrictions)
-          ? adlData.work_restrictions.join(", ")
-          : adlData.work_restrictions || "Not specified";
-        adlData.adls_affected_history = adlData.adls_affected;
-        adlData.work_restrictions_history = adlData.work_restrictions;
-        adlData.has_changes = false;
-      }
-
-      setDocumentData(processedData);
-
-      // Update URL with patient details and mode
-      const docMode = latestDoc.mode || "wc";
-      if (docMode !== mode) {
-        setMode(docMode as "wc" | "gm");
-      }
-
-      const urlParams = new URLSearchParams(searchParams.toString());
-      urlParams.set("patient_name", latestDoc.patient_name || "");
-      urlParams.set("dob", latestDoc.dob || "");
-      urlParams.set("claim_number", latestDoc.claim_number || "");
-      urlParams.set("mode", docMode);
-      router.replace(`?${urlParams.toString()}`, { scroll: false });
-
-      // Fetch task quick notes
+      const currentPhysicianId = getPhysicianId(session);
       try {
-        const taskParams = new URLSearchParams({
-          mode: docMode,
-        });
-
-        if (
-          latestDoc.claim_number &&
-          latestDoc.claim_number !== "Not specified"
-        ) {
-          taskParams.set("claim", latestDoc.claim_number);
-        } else if (latestDoc.patient_name || patientInfo.patientName) {
-          taskParams.set(
-            "search",
-            latestDoc.patient_name || patientInfo.patientName || ""
-          );
+        setSearchLoading(true);
+        const response = await fetch(
+          `/api/dashboard/recommendation?patientName=${encodeURIComponent(
+            query
+          )}&claimNumber=${encodeURIComponent(query)}&dob=${encodeURIComponent(
+            query
+          )}&physicianId=${encodeURIComponent(
+            currentPhysicianId || ""
+          )}&mode=${encodeURIComponent(mode)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch search results");
         }
-
-        const taskResponse = await fetch(`/api/tasks?${taskParams}`, {
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
-        });
-
-        if (taskResponse.ok) {
-          const taskResult = await taskResponse.json();
-
-          // Debug: Check what we received
-          console.log("🔍 Task API response structure:", {
-            encrypted: taskResult.encrypted,
-            hasDataField: !!taskResult.data,
-            routeMarker: taskResult.route_marker,
-            isError: taskResult.isError,
-            timestamp: taskResult.timestamp,
-          });
-
-          // Handle encrypted response
-          let taskData;
-          try {
-            taskData = handleEncryptedResponse(taskResult);
-            console.log("✅ Task data decrypted successfully");
-          } catch (decryptError) {
-            console.error("❌ Failed to decrypt task data:", decryptError);
-
-            // Fallback for backward compatibility
-            if (taskResult.tasks && Array.isArray(taskResult.tasks)) {
-              console.log("🔄 Using unencrypted tasks data directly");
-              taskData = taskResult;
-            } else if (Array.isArray(taskResult)) {
-              console.log("🔄 Using direct array response");
-              taskData = { tasks: taskResult, totalCount: taskResult.length };
-            } else if (
-              taskResult.data &&
-              Array.isArray(taskResult.data.tasks)
-            ) {
-              console.log("🔄 Using unencrypted data field");
-              taskData = taskResult.data;
-            } else {
-              console.error("❌ Could not parse task response");
-              setTaskQuickNotes([]);
-              return;
-            }
-          }
-
-          // Now continue with your existing logic using taskData
-          const patientName = (
-            latestDoc.patient_name ||
-            patientInfo.patientName ||
-            ""
-          )
-            .toLowerCase()
-            .trim();
-          const claimNumber =
-            latestDoc.claim_number && latestDoc.claim_number !== "Not specified"
-              ? latestDoc.claim_number.toUpperCase().trim()
-              : null;
-
-          const patientDocumentIds = new Set<string>();
-          if (data.documents && Array.isArray(data.documents)) {
-            data.documents.forEach((doc: any) => {
-              if (doc.id) {
-                patientDocumentIds.add(doc.id);
-              }
-            });
-          }
-
-          const allTaskQuickNotes: QuickNoteSnapshot[] = [];
-
-          // Check if we have tasks in the response
-          if (taskData.tasks && Array.isArray(taskData.tasks)) {
-            console.log(
-              `📝 Processing ${taskData.tasks.length} tasks for quick notes`
-            );
-
-            taskData.tasks.forEach((task: any, index: number) => {
-              const taskPatient = (task.patient || "").toLowerCase().trim();
-              const taskClaim = task.document?.claimNumber
-                ? task.document.claimNumber.toUpperCase().trim()
-                : null;
-              const taskDocumentId =
-                task.documentId || task.document?.id || null;
-
-              let patientMatches = false;
-              if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
-                patientMatches = true;
-                console.log(
-                  `✅ Task ${index} matches by document ID: ${taskDocumentId}`
-                );
-              } else if (claimNumber && taskClaim) {
-                patientMatches = taskClaim === claimNumber;
-                if (patientMatches) {
-                  console.log(
-                    `✅ Task ${index} matches by claim number: ${claimNumber}`
-                  );
-                }
-              } else if (patientName && taskPatient) {
-                patientMatches =
-                  taskPatient === patientName ||
-                  taskPatient.includes(patientName) ||
-                  patientName.includes(taskPatient);
-                if (patientMatches) {
-                  console.log(
-                    `✅ Task ${index} matches by patient name: ${patientName}`
-                  );
-                }
-              }
-
-              if (patientMatches && task.quickNotes) {
-                const hasContent =
-                  (task.quickNotes.status_update &&
-                    task.quickNotes.status_update.trim()) ||
-                  (task.quickNotes.one_line_note &&
-                    task.quickNotes.one_line_note.trim()) ||
-                  (task.quickNotes.details && task.quickNotes.details.trim());
-
-                if (hasContent) {
-                  console.log(`📋 Task ${index} has quick notes content`);
-                  allTaskQuickNotes.push({
-                    details: task.quickNotes.details || "",
-                    timestamp:
-                      task.quickNotes.timestamp || task.updatedAt || "",
-                    one_line_note: task.quickNotes.one_line_note || "",
-                    status_update: task.quickNotes.status_update || "",
-                  });
-                }
-              }
-            });
-          } else {
-            console.warn("⚠️ No tasks array found in task data");
-          }
-
-          const sortedNotes = allTaskQuickNotes
-            .sort((a, b) => {
-              const timeA = new Date(a.timestamp || 0).getTime();
-              const timeB = new Date(b.timestamp || 0).getTime();
-              return timeB - timeA;
+        const data: any = await response.json();
+        if (data.success && data.data.allMatchingDocuments) {
+          const patients: Patient[] = data.data.allMatchingDocuments.map(
+            (doc: any) => ({
+              id: doc.id,
+              patientName: doc.patientName,
+              dob: formatDateToString(doc.dob),
+              doi: formatDateToString(doc.doi),
+              claimNumber: doc.claimNumber || "Not specified",
             })
-            .slice(0, 5);
-
-          console.log(`✅ Found ${sortedNotes.length} quick notes for patient`);
-          setTaskQuickNotes(sortedNotes);
+          );
+          setSearchResults(patients);
         } else {
-          console.error(`❌ Task API returned error: ${taskResponse.status}`);
-          setTaskQuickNotes([]);
+          setSearchResults([]);
         }
-      } catch (err) {
-        console.error("Error fetching task quick notes:", err);
-        setTaskQuickNotes([]);
+      } catch (err: unknown) {
+        console.error("Error fetching search results:", err);
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
       }
-    } catch (err: unknown) {
-      console.error("Error fetching document data:", err);
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
+    },
+    [mode, getPhysicianId]
+  );
+
+  const formatDateToString = useCallback((date: Date | string | null | undefined): string => {
+    if (!date) return "";
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  }, []);
+
+  const debounce = useCallback(<T extends (...args: any[]) => void>(func: T, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  }, []);
+
+  const debouncedSearch = useCallback(
+    debounce((query: string, session: any) => {
+      fetchSearchResults(query, session);
+    }, 300),
+    [fetchSearchResults, debounce]
+  );
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, session: any) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.trim()) {
+      debouncedSearch(query, session);
+    } else {
+      setSearchResults([]);
     }
-  };
-  // Handle verify toggle with API call
-  const handleVerifyToggle = async () => {
-    if (documentData?.allVerified) return; // Already all verified, no action
+  }, [debouncedSearch]);
+
+  return { searchQuery, searchResults, searchLoading, handleSearchChange, getPhysicianId };
+};
+
+// Burger Icon Component
+const BurgerIcon = React.memo(() => (
+  <svg
+    className="w-6 h-6"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M4 6h16M4 12h16M4 18h16"
+    />
+  </svg>
+));
+
+// Onboarding Help Button Component
+const OnboardingHelpButton = React.memo(({ onClick }: { onClick: () => void }) => (
+  <button
+    className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center z-40"
+    onClick={onClick}
+    title="Show onboarding tour"
+  >
+    ?
+  </button>
+));
+
+// Upload Section Component
+interface UploadSectionProps {
+  files: File[];
+  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onUpload: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}
+
+const UploadSection = React.memo<UploadSectionProps>(
+  ({ files, onFileSelect, onUpload, onCancel, loading }) => (
+    <div className="mb-3.5">
+      <input
+        type="file"
+        multiple
+        accept=".pdf,.doc,.docx,image/*"
+        onChange={onFileSelect}
+        className="hidden"
+      />
+      {files.length > 0 && (
+        <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
+          <span className="text-sm text-gray-600">
+            Selected: {files.map((f) => f.name).join(", ")}
+          </span>
+          <button
+            onClick={onUpload}
+            className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm disabled:opacity-50"
+            disabled={loading}
+          >
+            Queue for Processing
+          </button>
+          <button
+            onClick={onCancel}
+            className="text-red-500 hover:text-red-700 text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  )
+);
+
+// Error Display Component
+interface ErrorDisplayProps {
+  error: string | null;
+  onRetry: () => void;
+  selectedPatient: Patient | null;
+  fetchDocumentData: (patient: Patient, mode: "wc" | "gm") => void;
+  mode: "wc" | "gm";
+}
+
+const ErrorDisplay = React.memo<ErrorDisplayProps>(
+  ({ error, onRetry, selectedPatient, fetchDocumentData, mode }) => (
+    <div className="mb-3.5 p-4 bg-red-50 border border-red-300 rounded-xl">
+      <div className="text-red-600 font-semibold mb-2">Error</div>
+      <p className="text-red-800">{error}</p>
+      <button
+        onClick={onRetry}
+        className="mt-2 bg-red-500 text-white px-3 py-1.5 rounded-md cursor-pointer"
+      >
+        Retry
+      </button>
+    </div>
+  )
+);
+
+// Header Component
+interface HeaderProps {
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
+  staffDashboardHref: string;
+  mode: "wc" | "gm";
+  onModeChange: (mode: "wc" | "gm") => void;
+  session: any;
+  staffButtonRef: React.RefObject<HTMLAnchorElement>;
+  modeSelectorRef: React.RefObject<HTMLSelectElement>;
+}
+
+const Header = React.memo<HeaderProps>(({
+  isSidebarOpen,
+  onToggleSidebar,
+  staffDashboardHref,
+  mode,
+  onModeChange,
+  session,
+  staffButtonRef,
+  modeSelectorRef,
+}) => (
+  <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-[1000] px-5 py-3 flex items-center justify-between shadow-sm">
+    <div className="flex items-center gap-4 relative">
+      <button
+        onClick={onToggleSidebar}
+        className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+        aria-label="Toggle sidebar"
+      >
+        <BurgerIcon />
+      </button>
+      <div className="absolute left-1/2 -translate-x-1/2">
+        <img
+          src="/logo.png"
+          alt="DocLatch Logo"
+          className="h-20 max-h-20 w-auto"
+        />
+      </div>
+    </div>
+    <div className="flex items-center gap-4">
+      {session.user.role === "Physician" && (
+        <Link href={staffDashboardHref} ref={staffButtonRef}>
+          <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+            Staff Dashboard
+          </button>
+        </Link>
+      )}
+      <select
+        id="mode"
+        className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
+        value={mode}
+        onChange={(e) => onModeChange(e.target.value as "wc" | "gm")}
+        ref={modeSelectorRef}
+        title="Filter search by mode (Workers Comp or General Medicine)"
+      >
+        <option value="wc">Workers Comp</option>
+        <option value="gm">General Medicine</option>
+      </select>
+    </div>
+  </div>
+));
+
+// Toast Container Component
+interface ToastContainerProps {
+  toasts: { id: number; message: string; type: "success" | "error" }[];
+}
+
+const ToastContainer = React.memo<ToastContainerProps>(({ toasts }) => (
+  <div className="fixed top-4 right-4 space-y-2 z-50">
+    {toasts.map((toast) => (
+      <div
+        key={toast.id}
+        className={`p-4 rounded-lg shadow-lg text-white ${
+          toast.type === "success" ? "bg-green-500" : "bg-red-500"
+        } animate-in slide-in-from-top-2 duration-300`}
+      >
+        {toast.message}
+      </div>
+    ))}
+  </div>
+));
+
+// Main Content Component
+interface MainContentProps {
+  selectedPatient: Patient | null;
+  documentData: any;
+  taskQuickNotes: any[];
+  visitCount: number;
+  formatDate: (date: string | undefined) => string;
+  currentPatient: Patient;
+  collapsedSections: { [key: string]: boolean };
+  copied: { [key: string]: boolean };
+  onToggleSection: (key: string) => void;
+  onCopySection: (id: string, index?: number) => void;
+  mode: "wc" | "gm";
+  error: string | null;
+  loading: boolean;
+  onRetry: () => void;
+}
+
+const MainContent = React.memo<MainContentProps>(({
+  selectedPatient,
+  documentData,
+  taskQuickNotes,
+  visitCount,
+  formatDate,
+  currentPatient,
+  collapsedSections,
+  copied,
+  onToggleSection,
+  onCopySection,
+  mode,
+  error,
+  loading,
+  onRetry,
+}) => (
+  <>
+    <LoadingOverlay isLoading={loading} />
+    {error && <ErrorDisplay error={error} onRetry={onRetry} selectedPatient={selectedPatient} fetchDocumentData={() => {}} mode={mode} />}
+    {selectedPatient && documentData && (
+      <PatientHeader
+        patient={currentPatient}
+        visitCount={visitCount}
+        formatDate={formatDate}
+      />
+    )}
+    <div className="grid grid-cols-1 gap-3.5">
+      <div>
+        {!selectedPatient && !documentData ? (
+          <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+            <p className="text-gray-500">
+              Click the Recent Patients button to search and select a patient
+            </p>
+          </div>
+        ) : (
+          <>
+            {documentData && (
+              <StaffStatusSection
+                documentQuickNotes={documentData.quick_notes_snapshots || []}
+                taskQuickNotes={taskQuickNotes}
+              />
+            )}
+            {documentData && (
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-3.5">
+                <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-200">
+                  <div>
+                    <div className="font-extrabold text-gray-900">
+                      What's New Since Last Visit
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Scan-only cards • Click to expand • Expanded content
+                      scrolls inside the card
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {documentData?.documents?.length || 0}{" "}
+                    {documentData?.documents?.length === 1 ? "item" : "items"}
+                  </div>
+                </div>
+                <div className="max-h-[420px] overflow-y-auto p-2.5">
+                  <div className="mb-3">
+                    <PatientIntakeUpdate documentData={documentData} />
+                  </div>
+                  <WhatsNewSection
+                    documentData={documentData}
+                    mode={mode}
+                    copied={copied}
+                    onCopySection={onCopySection}
+                    isCollapsed={collapsedSections.whatsNew}
+                    onToggle={() => onToggleSection("whatsNew")}
+                  />
+                </div>
+              </div>
+            )}
+            {documentData && (
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-3.5 overflow-hidden">
+                <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-200">
+                  <div>
+                    <div className="font-extrabold text-gray-900">Treatment History</div>
+                    <div className="text-xs text-gray-500">Summary snapshots and history</div>
+                  </div>
+                </div>
+                <div className="px-3.5 py-3">
+                  <TreatmentHistorySection documentData={documentData} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  </>
+));
+
+// Brief Summary Modal Component
+interface BriefSummaryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  briefSummary: string;
+}
+
+const BriefSummaryModal = React.memo<BriefSummaryModalProps>(({
+  isOpen,
+  onClose,
+  briefSummary,
+}) => (
+  isOpen && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
+        <div className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Brief Summary</h3>
+          <p className="text-gray-700 whitespace-pre-wrap mb-6">
+            {briefSummary}
+          </p>
+          <button
+            onClick={onClose}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+));
+
+// Previous Summary Modal Component
+interface PreviousSummaryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onViewBrief: (summary: string) => void;
+  previousSummary: DocumentSummary | null;
+  formatDate: (date: string | undefined) => string;
+}
+
+const PreviousSummaryModal = React.memo<PreviousSummaryModalProps>(({
+  isOpen,
+  onClose,
+  onViewBrief,
+  previousSummary,
+  formatDate,
+}) =>
+  isOpen &&
+  previousSummary && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
+        <div className="p-6">
+          <h3 className="text-lg font-semibold mb-4">
+            Previous {previousSummary.type} Summary
+          </h3>
+          <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
+            <div className="text-gray-600 text-xs">Date</div>
+            <div>{formatDate(previousSummary.date)}</div>
+          </div>
+          <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
+            <div className="text-gray-600 text-xs">Summary</div>
+            <div>{previousSummary.summary}</div>
+          </div>
+          <button
+            onClick={() => onViewBrief(previousSummary.brief_summary || "")}
+            className="mr-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+          >
+            View Brief
+          </button>
+          <button
+            onClick={onClose}
+            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+);
+
+export default function PhysicianCard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { startTwoPhaseTracking } = useSocket();
+
+  const [mode, setMode] = useState<"wc" | "gm">("wc");
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [verifyTime, setVerifyTime] = useState<string>("—");
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedBriefSummary, setSelectedBriefSummary] = useState<string>("");
+  const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
+  const [showPreviousSummary, setShowPreviousSummary] = useState<boolean>(false);
+  const [previousSummary, setPreviousSummary] = useState<DocumentSummary | null>(null);
+  const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [recentPatientsVisible, setRecentPatientsVisible] = useState(false);
+  const [recentPatientsList, setRecentPatientsList] = useState<any[]>([]);
+  const [collapsedSections, setCollapsedSections] = useState<{
+    [key: string]: boolean;
+  }>({
+    whatsNew: false,
+    treatmentHistory: false,
+    adlWorkStatus: true,
+    documentSummary: true,
+  });
+  const [showManualTaskModal, setShowManualTaskModal] = useState(false);
+  const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  const { toasts, addToast } = useToasts();
+  const {
+    showOnboarding,
+    currentStep,
+    stepPositions,
+    showWelcomeModal,
+    onboardingSteps,
+    staffButtonRef,
+    modeSelectorRef,
+    nextStep,
+    previousStep,
+    closeOnboarding,
+    startOnboarding,
+  } = useOnboarding();
+
+  const physicianId = useMemo(() => {
+    if (!session?.user) return null;
+    return session.user.role === "Physician"
+      ? (session.user.id as string) || null
+      : session.user.physicianId || null;
+  }, [session]);
+
+  const {
+    documentData,
+    taskQuickNotes,
+    loading,
+    error,
+    fetchDocumentData,
+    setDocumentData,
+  } = usePatientData(physicianId);
+
+  const { files, fileInputRef, handleFileSelect, handleUpload, resetFiles } = useFileUpload(addToast, session, startTwoPhaseTracking);
+
+  const { searchQuery, searchResults, searchLoading, handleSearchChange, getPhysicianId: getSearchPhysicianId } = useSearch(mode);
+
+  // Memoized current patient
+  const currentPatient = useMemo(() => {
+    if (documentData) {
+      return {
+        patientName: documentData.patient_name || "Not specified",
+        dob: documentData.dob || "",
+        doi: documentData.doi || "",
+        claimNumber: documentData.claim_number || "Not specified",
+      };
+    }
+    if (selectedPatient) {
+      return {
+        patientName:
+          selectedPatient.patientName ||
+          selectedPatient.name ||
+          "Not specified",
+        dob: selectedPatient.dob || "",
+        doi: selectedPatient.doi || "",
+        claimNumber: selectedPatient.claimNumber || "Not specified",
+      };
+    }
+    return {
+      patientName: "Select a patient",
+      dob: "",
+      doi: "",
+      claimNumber: "Not specified",
+    };
+  }, [documentData, selectedPatient]);
+
+  // Memoized document ID
+  const documentId = useMemo(
+    () => documentData?.documents?.[0]?.id || documentData?.documents?.[0]?.document_id || "",
+    [documentData]
+  );
+
+  // Memoized staff dashboard href
+  const staffDashboardHref = useMemo(() => {
+    if (selectedPatient && documentData && documentId) {
+      return `/staff-dashboard?patient_name=${encodeURIComponent(
+        currentPatient.patientName
+      )}&dob=${encodeURIComponent(
+        currentPatient.dob || ""
+      )}&claim=${encodeURIComponent(
+        currentPatient.claimNumber
+      )}&document_id=${encodeURIComponent(documentId)}`;
+    } else if (selectedPatient) {
+      return `/staff-dashboard?patient_name=${encodeURIComponent(
+        currentPatient.patientName
+      )}&dob=${encodeURIComponent(
+        currentPatient.dob || ""
+      )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`;
+    }
+    return "/staff-dashboard";
+  }, [selectedPatient, documentData, documentId, currentPatient]);
+
+  // Memoized visit count
+  const visitCount = useMemo(() => documentData?.document_summaries?.length || 0, [documentData]);
+
+  // Memoized formatDate
+  const formatDate = useCallback((dateString: string | undefined): string => {
+    if (!dateString) return "Not specified";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Not specified";
+      }
+      return date.toLocaleDateString();
+    } catch {
+      return "Not specified";
+    }
+  }, []);
+
+  // Handle patient selection
+  const handlePatientSelect = useCallback((patient: Patient) => {
+    console.log("Patient selected:", patient);
+    setSelectedPatient(patient);
+    fetchDocumentData(patient, mode);
+  }, [fetchDocumentData, mode]);
+
+  // Handle mode switch
+  const switchMode = useCallback((val: "wc" | "gm") => {
+    setMode(val);
+  }, []);
+
+  // Handle verify toggle
+  const handleVerifyToggle = useCallback(async () => {
+    if (documentData?.allVerified) return;
     setIsVerified((prev) => !prev);
     if (!isVerified) {
       if (!selectedPatient || !documentData) {
-        setError("No patient data available to verify.");
+        addToast("No patient data available to verify.", "error");
         setIsVerified(false);
         return;
       }
@@ -867,8 +889,7 @@ export default function PhysicianCard() {
         }
         const verifyData = await response.json();
         console.log("Verification response:", verifyData);
-        // Optionally refetch document data to update status
-        await fetchDocumentData(selectedPatient);
+        await fetchDocumentData(selectedPatient, mode);
         const d = new Date();
         const opts: Intl.DateTimeFormatOptions = {
           year: "numeric",
@@ -880,24 +901,29 @@ export default function PhysicianCard() {
         setVerifyTime(d.toLocaleString(undefined, opts));
       } catch (err: unknown) {
         console.error("Error verifying document:", err);
-        setError(err instanceof Error ? err.message : "Verification failed");
-        setIsVerified(false); // Revert on error
+        addToast(
+          err instanceof Error ? err.message : "Verification failed",
+          "error"
+        );
+        setIsVerified(false);
       } finally {
         setVerifyLoading(false);
       }
     }
-  };
+  }, [documentData, isVerified, selectedPatient, session, fetchDocumentData, mode, addToast]);
+
   // Handle copy text
-  const handleCopy = async (text: string, fieldName: string) => {
+  const handleCopy = useCallback(async (text: string, fieldName: string) => {
     try {
       await navigator.clipboard.writeText(text);
       console.log(`${fieldName} copied to clipboard`);
     } catch (err) {
       console.error("Failed to copy text:", err);
     }
-  };
-  // Handle section copy - UPDATED TO INCLUDE BOTH SUMMARIES
-  const handleSectionCopy = async (
+  }, []);
+
+  // Handle section copy
+  const handleSectionCopy = useCallback(async (
     sectionId: string,
     snapshotIndex?: number
   ) => {
@@ -917,7 +943,6 @@ export default function PhysicianCard() {
         }
         break;
       case "section-whatsnew":
-        // Get both summaries
         const latestSummary = doc?.document_summaries?.[0];
         const shortSummary =
           latestSummary?.brief_summary || "No short summary available";
@@ -949,7 +974,7 @@ export default function PhysicianCard() {
           }\nWork Ability: ${q.workAbility}\nBarrier: ${
             q.barrier
           }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
-          q.appts.forEach((appt) => {
+          q.appts.forEach((appt: any) => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
           text += `Created: ${formatDate(q.createdAt)}\nUpdated: ${formatDate(
@@ -973,14 +998,11 @@ export default function PhysicianCard() {
     }
     if (!text) return;
     await handleCopy(text, sectionId);
-    // Clear previous timer if any
     if (timersRef.current[sectionId]) {
       clearTimeout(timersRef.current[sectionId]);
       delete timersRef.current[sectionId];
     }
-    // Set copied state
     setCopied((prev) => ({ ...prev, [sectionId]: true }));
-    // Set timer to reset
     timersRef.current[sectionId] = setTimeout(() => {
       setCopied((prev) => {
         const newCopied = { ...prev };
@@ -989,33 +1011,48 @@ export default function PhysicianCard() {
       });
       delete timersRef.current[sectionId];
     }, 2000);
-  };
+  }, [documentData, formatDate, handleCopy]);
+
   // Handle show previous summary
-  const handleShowPrevious = (type: string) => {
+  const handleShowPrevious = useCallback((type: string) => {
     const previous = documentData?.previous_summaries?.[type];
     if (previous) {
       setPreviousSummary(previous);
       setShowPreviousSummary(true);
-      setShowModal(false);
+      setSelectedBriefSummary(""); // Clear brief summary
     }
-  };
+  }, [documentData]);
+
   // Handle modal open
-  const openModal = (briefSummary: string) => {
+  const openModal = useCallback((briefSummary: string) => {
     setSelectedBriefSummary(briefSummary);
-    setShowModal(true);
     setShowPreviousSummary(false);
-  };
-  // Auto-set verified if all documents are verified
+  }, []);
+
+  // Toggle section
+  const toggleSection = useCallback((sectionKey: string) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
+  }, []);
+
+  // Retry fetch
+  const handleRetry = useCallback(() => {
+    if (selectedPatient) {
+      fetchDocumentData(selectedPatient, mode);
+    }
+  }, [selectedPatient, fetchDocumentData, mode]);
+
+  // Auto-set verified
   useEffect(() => {
     if (documentData?.allVerified) {
       setIsVerified(true);
     }
   }, [documentData?.allVerified]);
 
-  // Fetch recent patients for popup
-
+  // Fetch recent patients
   useEffect(() => {
-    // Only fetch recent patients when session is ready
     if (status === "loading" || !session) {
       return;
     }
@@ -1023,34 +1060,20 @@ export default function PhysicianCard() {
       try {
         const url = `/api/get-recent-patients?mode=${mode}`;
         const response = await fetch(url);
-
         if (!response.ok) {
           throw new Error(
             `Failed to fetch recent patients: ${response.status}`
           );
         }
-
         const result = await response.json();
-
-        // Debug: Check what we received
-        console.log("🔍 Recent patients raw response:", {
-          encrypted: result.encrypted,
-          hasData: !!result.data,
-          routeMarker: result.route_marker,
-          timestamp: result.timestamp,
-        });
-
-        // Use the decryption utility
-        let data;
+        let data: any;
         try {
           data = handleEncryptedResponse(result);
           console.log("✅ Recent patients data decrypted successfully", {
-            patientCount: data?.length || 0,
+            patientCount: Array.isArray(data) ? data.length : 0,
           });
         } catch (decryptError) {
           console.error("❌ Failed to decrypt recent patients:", decryptError);
-
-          // Fallback for backward compatibility or debugging
           if (result.data && Array.isArray(result.data)) {
             console.log("🔄 Using unencrypted data directly");
             data = result.data;
@@ -1061,15 +1084,10 @@ export default function PhysicianCard() {
             throw decryptError;
           }
         }
-
         setRecentPatientsList(data || []);
-
-        // Automatically select the latest patient (first in the list) if available and session is ready
         if (data && Array.isArray(data) && data.length > 0 && session?.user) {
           const latestPatient = data[0];
           console.log("🔄 Auto-selecting latest patient:", latestPatient.patientName);
-
-          // Format the patient data for selection
           let dobString = "";
           if (latestPatient.dob) {
             if (latestPatient.dob instanceof Date) {
@@ -1078,290 +1096,21 @@ export default function PhysicianCard() {
               dobString = String(latestPatient.dob);
             }
           }
-
           handlePatientSelect({
             patientName: latestPatient.patientName,
             dob: dobString,
             claimNumber: latestPatient.claimNumber || "",
-            doi: "", // DOI will be fetched when document data is loaded
+            doi: "",
           });
         }
       } catch (err) {
         console.error("Error fetching recent patients for popup:", err);
-        setRecentPatientsList([]); // Set empty array on error
+        setRecentPatientsList([]);
       }
     };
-
     fetchRecentPatientsForPopup();
-  }, [mode, status, session]);
-  // Format date from ISO string to MM/DD/YYYY
-  const formatDate = (dateString: string | undefined): string => {
-    if (!dateString) return "Not specified";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return "Not specified";
-      }
-      return date.toLocaleDateString();
-    } catch {
-      return "Not specified";
-    }
-  };
-  // Helper for timestamp formatting (used in copy handler)
-  const formatTimestamp = (timestamp: string): string => {
-    if (!timestamp) return "—";
-    try {
-      const date = new Date(timestamp);
-      return date.toLocaleString();
-    } catch {
-      return timestamp;
-    }
-  };
-  // Format date for display (Visit date)
-  const getVisitDate = (): string => {
-    return documentData?.created_at
-      ? formatDate(documentData.created_at)
-      : "Not specified";
-  };
+  }, [mode, status, session, handlePatientSelect]);
 
-  // Format date for recent patients popup (MM/DD/YYYY)
-  const formatShortDate = (
-    dateString: string | Date | null | undefined
-  ): string => {
-    if (!dateString) return "";
-    try {
-      const date =
-        dateString instanceof Date ? dateString : new Date(dateString);
-      if (isNaN(date.getTime())) return "";
-      return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
-    } catch {
-      return "";
-    }
-  };
-
-  // Get document type for recent patients popup
-  const getDocType = (patient: any): string => {
-    if (patient.documentType) {
-      return patient.documentType;
-    }
-    if (patient.documentCount > 0) {
-      return `${patient.documentCount} document(s)`;
-    }
-    return "Unknown";
-  };
-
-  // Helper to format date to YYYY-MM-DD string
-  const formatDateToString = (
-    date: Date | string | null | undefined
-  ): string => {
-    if (!date) return "";
-    const d = typeof date === "string" ? new Date(date) : date;
-    if (isNaN(d.getTime())) return "";
-    return d.toISOString().split("T")[0];
-  };
-
-  // Fetch search results from API
-  const fetchSearchResults = useCallback(
-    async (query: string) => {
-      if (!query.trim()) {
-        setSearchResults([]);
-        return;
-      }
-
-      const currentPhysicianId = getPhysicianId();
-
-      try {
-        setSearchLoading(true);
-        const response = await fetch(
-          `/api/dashboard/recommendation?patientName=${encodeURIComponent(
-            query
-          )}&claimNumber=${encodeURIComponent(query)}&dob=${encodeURIComponent(
-            query
-          )}&physicianId=${encodeURIComponent(
-            currentPhysicianId || ""
-          )}&mode=${encodeURIComponent(mode)}`
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch search results");
-        }
-
-        const data: any = await response.json();
-
-        if (data.success && data.data.allMatchingDocuments) {
-          const patients: Patient[] = data.data.allMatchingDocuments.map(
-            (doc: any) => ({
-              id: doc.id,
-              patientName: doc.patientName,
-              dob: formatDateToString(doc.dob),
-              doi: formatDateToString(doc.doi),
-              claimNumber: doc.claimNumber || "Not specified",
-            })
-          );
-          setSearchResults(patients);
-        } else {
-          setSearchResults([]);
-        }
-      } catch (err: unknown) {
-        console.error("Error fetching search results:", err);
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    [mode]
-  );
-
-  // Debounce function
-  const debounce = <T extends (...args: any[]) => void>(
-    func: T,
-    delay: number
-  ) => {
-    let timeoutId: NodeJS.Timeout;
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func(...args), delay);
-    };
-  };
-
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce((query: string) => {
-      fetchSearchResults(query);
-    }, 300),
-    [fetchSearchResults]
-  );
-
-  // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    if (query.trim()) {
-      debouncedSearch(query);
-    } else {
-      setSearchResults([]);
-    }
-  };
-
-  // Filter recent patients based on search query
-  const filteredRecentPatients = React.useMemo(() => {
-    const patientsList = Array.isArray(recentPatientsList)
-      ? recentPatientsList
-      : [];
-    if (!searchQuery.trim()) {
-      return patientsList;
-    }
-    const query = searchQuery.toLowerCase();
-    return patientsList.filter(
-      (patient) =>
-        patient.patientName?.toLowerCase().includes(query) ||
-        patient.claimNumber?.toLowerCase().includes(query) ||
-        patient.dob?.toLowerCase().includes(query)
-    );
-  }, [recentPatientsList, searchQuery]);
-
-  // Handle selecting a search result patient
-  const handleSearchResultSelect = (patient: Patient) => {
-    handlePatientSelect(patient);
-    setSearchQuery("");
-    setSearchResults([]);
-    setRecentPatientsVisible(false);
-  };
-  // Get current patient info for display
-  const getCurrentPatientInfo = (): Patient => {
-    if (documentData) {
-      return {
-        patientName: documentData.patient_name || "Not specified",
-        dob: documentData.dob || "",
-        doi: documentData.doi || "",
-        claimNumber: documentData.claim_number || "Not specified",
-      };
-    }
-    if (selectedPatient) {
-      return {
-        patientName:
-          selectedPatient.patientName ||
-          selectedPatient.name ||
-          "Not specified",
-        dob: selectedPatient.dob || "",
-        doi: selectedPatient.doi || "",
-        claimNumber: selectedPatient.claimNumber || "Not specified",
-      };
-    }
-    return {
-      patientName: "Select a patient",
-      dob: "",
-      doi: "",
-      claimNumber: "Not specified",
-    };
-  };
-  const currentPatient = getCurrentPatientInfo();
-  console.log(currentPatient, "currentPatient");
-  // Extract document ID from the latest document (assuming 'id' or 'document_id' field exists)
-  const documentId =
-    documentData?.documents?.[0]?.id ||
-    documentData?.documents?.[0]?.document_id ||
-    "";
-  // Dynamic href for Staff Dashboard link, including document_id if available
-  const staffDashboardHref =
-    selectedPatient && documentData && documentId
-      ? `/staff-dashboard?patient_name=${encodeURIComponent(
-          currentPatient.patientName
-        )}&dob=${encodeURIComponent(
-          currentPatient.dob || ""
-        )}&claim=${encodeURIComponent(
-          currentPatient.claimNumber
-        )}&document_id=${encodeURIComponent(documentId)}`
-      : selectedPatient
-      ? `/staff-dashboard?patient_name=${encodeURIComponent(
-          currentPatient.patientName
-        )}&dob=${encodeURIComponent(
-          currentPatient.dob || ""
-        )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-      : "/staff-dashboard";
-  const rebutalHre =
-    selectedPatient && documentData && documentId
-      ? `/generate-rebuttal?patient_name=${encodeURIComponent(
-          currentPatient.patientName
-        )}&dob=${encodeURIComponent(
-          currentPatient.dob || ""
-        )}&claim=${encodeURIComponent(
-          currentPatient.claimNumber
-        )}&document_id=${encodeURIComponent(documentId)}`
-      : selectedPatient
-      ? `/generate-rebuttal?patient_name=${encodeURIComponent(
-          currentPatient.patientName
-        )}&dob=${encodeURIComponent(
-          currentPatient.dob || ""
-        )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`
-      : "/generate-rebuttal";
-  // Burger Icon Component
-  const BurgerIcon = () => (
-    <svg
-      className="w-6 h-6"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 6h16M4 12h16M4 18h16"
-      />
-    </svg>
-  );
-  // Onboarding Help Button
-  const OnboardingHelpButton = () => (
-    <button
-      className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center z-40"
-      onClick={startOnboarding}
-      title="Show onboarding tour"
-    >
-      ?
-    </button>
-  );
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1369,6 +1118,7 @@ export default function PhysicianCard() {
       </div>
     );
   }
+
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1376,291 +1126,20 @@ export default function PhysicianCard() {
       </div>
     );
   }
-  const physicianId = getPhysicianId();
-
-  // Calculate visit count from document summaries
-  const visitCount = documentData?.document_summaries?.length || 0;
 
   return (
     <>
-      <style jsx global>{`
-        :root {
-          --bg: #f5f7fa;
-          --card: #ffffff;
-          --ink: #111827;
-          --muted: #6b7280;
-          --border: #e5e7eb;
-          --accent: #3f51b5;
-          --accent2: #1a237e;
-          --chip: #eef2ff;
-          --chip2: #e8f5e9;
-        }
-        * {
-          box-sizing: border-box;
-        }
-        html,
-        body {
-          max-width: 100%;
-          overflow-x: hidden;
-        }
-        body {
-          font-family: Arial, sans-serif;
-          background: var(--bg);
-          margin: 0;
-          padding: 0;
-          color: var(--ink);
-        }
-        .main-header {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          background: white;
-          border-bottom: 1px solid var(--border);
-          z-index: 1000;
-          padding: 12px 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-        .main-header .logo-container {
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        .main-content {
-          margin-top: 64px;
-          padding: 20px;
-        }
-        .topbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 14px;
-        }
-        .patient-header {
-          background: var(--card);
-          padding: 14px 16px;
-          border-radius: 14px;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .patient-name {
-          font-size: 18px;
-          font-weight: 700;
-          margin-right: 4px;
-        }
-        .tag {
-          background: var(--chip);
-          padding: 6px 10px;
-          border-radius: 999px;
-          font-size: 13px;
-          color: var(--ink);
-        }
-        .tag.good {
-          background: var(--chip2);
-        }
-        .grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 14px;
-          align-items: start;
-          max-width: 100%;
-        }
-        .panel {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-          overflow: hidden;
-        }
-        .panel-h {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px 14px;
-          border-bottom: 1px solid var(--border);
-        }
-        .panel-h .title {
-          font-weight: 800;
-        }
-        .panel-h .meta {
-          font-size: 12px;
-          color: var(--muted);
-        }
-        .panel-body {
-          padding: 12px 14px;
-          overflow: hidden;
-        }
-        .section-scroll {
-          max-height: 420px;
-          overflow: auto;
-          padding: 10px 10px 12px;
-        }
-        .recent-item {
-          padding: 10px 14px;
-          border-top: 1px solid var(--border);
-          font-size: 13px;
-        }
-        .recent-item:first-child {
-          border-top: none;
-        }
-        /* Staff status chips (horizontal scroll) */
-        .status-wrap {
-          width: 100%;
-          max-width: 100%;
-          display: flex;
-          flex-wrap: nowrap;
-          gap: 10px;
-          overflow-x: auto;
-          overflow-y: hidden;
-          padding-bottom: 8px;
-          -webkit-overflow-scrolling: touch;
-          scroll-snap-type: x proximity;
-        }
-        .status-wrap > .s-chip {
-          scroll-snap-align: start;
-        }
-        .status-wrap::-webkit-scrollbar {
-          height: 6px;
-        }
-        .status-wrap::-webkit-scrollbar-thumb {
-          background: #d1d5db;
-          border-radius: 999px;
-        }
-        .status-wrap::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .s-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: #fff;
-          font-size: 12px;
-          font-weight: 800;
-          color: var(--ink);
-          flex: 0 0 auto;
-        }
-        .s-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #9ca3af;
-        }
-        .s-dot.red {
-          background: #ef4444;
-        }
-        .s-dot.amber {
-          background: #f59e0b;
-        }
-        .s-dot.green {
-          background: #22c55e;
-        }
-        .s-dot.blue {
-          background: #3b82f6;
-        }
-        .s-dot.gray {
-          background: #9ca3af;
-        }
-        .s-chip.small {
-          padding: 6px 12px;
-          font-weight: 800;
-        }
-        .floating-new-order {
-          position: fixed;
-          bottom: 18px;
-          right: 18px;
-          background: var(--accent);
-          color: #fff;
-          padding: 12px 16px;
-          border-radius: 999px;
-          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 700;
-          z-index: 9999;
-        }
-        @keyframes shimmer {
-          0% {
-            width: 20%;
-            margin-left: 0;
-          }
-          50% {
-            width: 60%;
-            margin-left: 20%;
-          }
-          100% {
-            width: 20%;
-            margin-left: 80%;
-          }
-        }
-      `}</style>
-
-      {/* Fixed Header - Outside Layout */}
-      <div className="main-header">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-            aria-label="Toggle sidebar"
-          >
-            <BurgerIcon />
-          </button>
-          <div className="logo-container">
-            <img
-              src="/logo.png"
-              alt="DocLatch Logo"
-              style={{ height: "80px", maxHeight: "80px", width: "auto" }}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {session.user.role === "Physician" && (
-            <Link href={staffDashboardHref} ref={staffButtonRef}>
-              <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
-                Staff Dashboard
-              </button>
-            </Link>
-          )}
-          {/* {session.user.role === "Physician" && (
-            <Link href={rebutalHre} ref={staffButtonRef}>
-              <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
-                Generate Rebuttal
-              </button>
-            </Link>
-          )} */}
-          <select
-            id="mode"
-            className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
-            value={mode}
-            onChange={(e) => switchMode(e.target.value as "wc" | "gm")}
-            ref={modeSelectorRef}
-            title="Filter search by mode (Workers Comp or General Medicine)"
-          >
-            <option value="wc">Workers Comp</option>
-            <option value="gm">General Medicine</option>
-          </select>
-        </div>
-      </div>
-
-      <div
-        className="main-content"
-        style={{
-          fontFamily: "Arial, sans-serif",
-          background: "var(--bg)",
-          color: "var(--ink)",
-          minHeight: "calc(100vh - 64px)",
-        }}
-      >
-        {/* Onboarding Tour */}
+      <Header
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        staffDashboardHref={staffDashboardHref}
+        mode={mode}
+        onModeChange={switchMode}
+        session={session}
+        staffButtonRef={staffButtonRef as React.RefObject<HTMLAnchorElement>}
+        modeSelectorRef={modeSelectorRef as React.RefObject<HTMLSelectElement>}
+      />
+      <div className="mt-16 px-5 py-5 min-h-[calc(100vh-64px)] bg-gray-50 text-gray-900 font-sans">
         <PhysicianOnboardingTour
           isOpen={showOnboarding}
           onClose={closeOnboarding}
@@ -1670,676 +1149,53 @@ export default function PhysicianCard() {
           steps={onboardingSteps}
           stepPositions={stepPositions}
         />
-        {/* Welcome Modal */}
         <WelcomeModal
           isOpen={showWelcomeModal}
-          onClose={() => setShowWelcomeModal(false)}
+          onClose={() => {}}
         />
-        {/* Onboarding Help Button */}
-        <OnboardingHelpButton />
-
-        {/* Upload Section */}
-        <div style={{ marginBottom: "14px" }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.doc,.docx,image/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          {files.length > 0 && (
-            <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
-              <span className="text-sm text-gray-600">
-                Selected: {files.map((f) => f.name).join(", ")}
-              </span>
-              <button
-                onClick={handleUpload}
-                className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm"
-                disabled={loading}
-              >
-                Queue for Processing
-              </button>
-              <button
-                onClick={() => {
-                  setFiles([]);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
-                className="text-red-500 hover:text-red-700 text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Loading State - Professional Full-page Loader */}
-        {loading && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/80 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-6">
-              {/* Animated Logo/Icon */}
-              <div className="relative">
-                {/* Outer pulsing ring */}
-                <div
-                  className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 opacity-20 animate-ping"
-                  style={{ width: "80px", height: "80px" }}
-                ></div>
-
-                {/* Rotating gradient ring */}
-                <div className="relative w-20 h-20">
-                  <svg className="w-20 h-20 animate-spin" viewBox="0 0 80 80">
-                    <defs>
-                      <linearGradient
-                        id="loaderGradient"
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="50%" stopColor="#6366f1" />
-                        <stop offset="100%" stopColor="#8b5cf6" />
-                      </linearGradient>
-                    </defs>
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="35"
-                      fill="none"
-                      stroke="#e5e7eb"
-                      strokeWidth="6"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="35"
-                      fill="none"
-                      stroke="url(#loaderGradient)"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      strokeDasharray="165"
-                      strokeDashoffset="80"
-                    />
-                  </svg>
-
-                  {/* Center icon */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-blue-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Loading text with animated dots */}
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                  Loading Patient Data
-                </h3>
-                <div className="flex items-center justify-center gap-1 text-sm text-gray-500">
-                  <span>Please wait</span>
-                  <span className="flex gap-0.5">
-                    <span
-                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    ></span>
-                    <span
-                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    ></span>
-                    <span
-                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    ></span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Subtle progress bar */}
-              <div className="w-48 h-1 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full"
-                  style={{
-                    animation: "shimmer 1.5s ease-in-out infinite",
-                  }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div
-            style={{
-              marginBottom: "14px",
-              padding: "16px",
-              background: "#fee2e2",
-              border: "1px solid #fca5a5",
-              borderRadius: "14px",
-            }}
-          >
-            <div
-              style={{ color: "#dc2626", fontWeight: 600, marginBottom: "8px" }}
-            >
-              Error
-            </div>
-            <p style={{ color: "#991b1b" }}>{error}</p>
-            <button
-              onClick={() =>
-                selectedPatient && fetchDocumentData(selectedPatient)
-              }
-              style={{
-                marginTop: "8px",
-                background: "#dc2626",
-                color: "#fff",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Patient Header Topbar - Show when patient is selected */}
-        {selectedPatient && documentData && (
-          <div className="topbar">
-            <div className="patient-header">
-              <div className="patient-name">{currentPatient.patientName}</div>
-              <div className="tag">DOB: {formatDate(currentPatient.dob)}</div>
-              <div className="tag">Claim: {currentPatient.claimNumber}</div>
-              <div className="tag">DOI: {formatDate(currentPatient.doi)}</div>
-              {visitCount > 0 && (
-                <div className="tag good">
-                  {visitCount} {visitCount === 1 ? "Visit" : "Visits"}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Main Grid Layout */}
-        <div className="grid">
-          <div>
-            {!selectedPatient && !documentData ? (
-              <div
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "14px",
-                  padding: "32px",
-                  textAlign: "center",
-                }}
-              >
-                <p style={{ color: "var(--muted)" }}>
-                  Click the Recent Patients button to search and select a
-                  patient
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Staff Status Section - Quick Notes */}
-                {documentData && (
-                  <div className="panel" style={{ marginBottom: "14px" }}>
-                    <div className="panel-h">
-                      <div>
-                        <div className="title">Staff Status</div>
-                        <div className="meta">Patient-specific • Read-only</div>
-                      </div>
-                    </div>
-                    <div className="panel-body">
-                      {(() => {
-                        const filteredDocNotes =
-                          documentData.quick_notes_snapshots?.filter((note) => {
-                            const hasContent =
-                              (note.status_update &&
-                                note.status_update.trim()) ||
-                              (note.one_line_note &&
-                                note.one_line_note.trim()) ||
-                              (note.details && note.details.trim());
-                            return hasContent;
-                          }) || [];
-
-                        // Limit document notes to 3 most recent
-                        const limitedDocNotes = filteredDocNotes
-                          .sort((a, b) => {
-                            const timeA = new Date(a.timestamp || 0).getTime();
-                            const timeB = new Date(b.timestamp || 0).getTime();
-                            return timeB - timeA; // Most recent first
-                          })
-                          .slice(0, 3);
-
-                        const hasNotes =
-                          limitedDocNotes.length > 0 ||
-                          (taskQuickNotes && taskQuickNotes.length > 0);
-
-                        return hasNotes ? (
-                          <div className="status-wrap">
-                            {/* Document Quick Notes */}
-                            {limitedDocNotes.map((note, index) => {
-                              // Determine status color based on status_update or content
-                              const getStatusColor = () => {
-                                const fullContent = `${
-                                  note.status_update || ""
-                                } ${note.one_line_note || ""} ${
-                                  note.details || ""
-                                }`.toLowerCase();
-                                if (
-                                  fullContent.includes("urgent") ||
-                                  fullContent.includes("critical") ||
-                                  fullContent.includes("time-sensitive") ||
-                                  fullContent.includes("emergency")
-                                ) {
-                                  return "red";
-                                }
-                                if (
-                                  fullContent.includes("schedule") ||
-                                  fullContent.includes("pending") ||
-                                  fullContent.includes("waiting") ||
-                                  fullContent.includes("follow-up") ||
-                                  fullContent.includes("follow up")
-                                ) {
-                                  return "amber";
-                                }
-                                if (
-                                  fullContent.includes("completed") ||
-                                  fullContent.includes("done") ||
-                                  fullContent.includes("approved") ||
-                                  fullContent.includes("resolved")
-                                ) {
-                                  return "green";
-                                }
-                                if (
-                                  fullContent.includes("review") ||
-                                  fullContent.includes("clarify") ||
-                                  fullContent.includes("authorization") ||
-                                  fullContent.includes("decision") ||
-                                  fullContent.includes("mri") ||
-                                  fullContent.includes("findings")
-                                ) {
-                                  return "blue";
-                                }
-                                return "gray";
-                              };
-
-                              const statusColor = getStatusColor();
-                              // Build display text: prefer status_update, then one_line_note, then details
-                              let displayText = "";
-                              if (note.status_update) {
-                                displayText = note.status_update;
-                                // Append one_line_note if available and different
-                                if (
-                                  note.one_line_note &&
-                                  note.one_line_note !== note.status_update
-                                ) {
-                                  displayText += ` — ${note.one_line_note}`;
-                                }
-                              } else if (note.one_line_note) {
-                                displayText = note.one_line_note;
-                              } else if (note.details) {
-                                // Truncate details if too long
-                                displayText =
-                                  note.details.length > 50
-                                    ? note.details.substring(0, 50) + "..."
-                                    : note.details;
-                              } else {
-                                displayText = "Quick Note";
-                              }
-
-                              return (
-                                <div
-                                  key={`doc-note-${index}`}
-                                  className="s-chip small"
-                                  title={note.details || displayText}
-                                >
-                                  <span
-                                    className={`s-dot ${statusColor}`}
-                                  ></span>
-                                  {displayText}
-                                </div>
-                              );
-                            })}
-                            {/* Task Quick Notes */}
-                            {taskQuickNotes &&
-                              taskQuickNotes.map((note, index) => {
-                                // Determine status color based on status_update or content
-                                const getStatusColor = () => {
-                                  const fullContent = `${
-                                    note.status_update || ""
-                                  } ${note.one_line_note || ""} ${
-                                    note.details || ""
-                                  }`.toLowerCase();
-                                  if (
-                                    fullContent.includes("urgent") ||
-                                    fullContent.includes("critical") ||
-                                    fullContent.includes("time-sensitive") ||
-                                    fullContent.includes("emergency")
-                                  ) {
-                                    return "red";
-                                  }
-                                  if (
-                                    fullContent.includes("schedule") ||
-                                    fullContent.includes("pending") ||
-                                    fullContent.includes("waiting") ||
-                                    fullContent.includes("follow-up") ||
-                                    fullContent.includes("follow up")
-                                  ) {
-                                    return "amber";
-                                  }
-                                  if (
-                                    fullContent.includes("completed") ||
-                                    fullContent.includes("done") ||
-                                    fullContent.includes("approved") ||
-                                    fullContent.includes("resolved")
-                                  ) {
-                                    return "green";
-                                  }
-                                  if (
-                                    fullContent.includes("review") ||
-                                    fullContent.includes("clarify") ||
-                                    fullContent.includes("authorization") ||
-                                    fullContent.includes("decision") ||
-                                    fullContent.includes("mri") ||
-                                    fullContent.includes("findings")
-                                  ) {
-                                    return "blue";
-                                  }
-                                  return "gray";
-                                };
-
-                                const statusColor = getStatusColor();
-                                // Build display text: prefer status_update, then one_line_note, then details
-                                let displayText = "";
-                                if (note.status_update) {
-                                  displayText = note.status_update;
-                                  // Append one_line_note if available and different
-                                  if (
-                                    note.one_line_note &&
-                                    note.one_line_note !== note.status_update
-                                  ) {
-                                    displayText += ` — ${note.one_line_note}`;
-                                  }
-                                } else if (note.one_line_note) {
-                                  displayText = note.one_line_note;
-                                } else if (note.details) {
-                                  // Truncate details if too long
-                                  displayText =
-                                    note.details.length > 50
-                                      ? note.details.substring(0, 50) + "..."
-                                      : note.details;
-                                } else {
-                                  displayText = "Quick Note";
-                                }
-
-                                return (
-                                  <div
-                                    key={`task-note-${index}`}
-                                    className="s-chip small"
-                                    title={note.details || displayText}
-                                  >
-                                    <span
-                                      className={`s-dot ${statusColor}`}
-                                    ></span>
-                                    {displayText}
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "var(--muted)",
-                              textAlign: "center",
-                              padding: "20px",
-                            }}
-                          >
-                            No staff status updates available
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-
-                {/* What's New Section */}
-                {documentData && (
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-3.5">
-                    <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-200">
-                      <div>
-                        <div className="font-extrabold text-gray-900">
-                          What's New Since Last Visit
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          Scan-only cards • Click to expand • Expanded content
-                          scrolls inside the card
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {documentData?.documents?.length || 0}{" "}
-                        {documentData?.documents?.length === 1
-                          ? "item"
-                          : "items"}
-                      </div>
-                    </div>
-                    <div className="max-h-[420px] overflow-y-auto p-2.5">
-                      <div className="mb-3">
-                        <PatientIntakeUpdate documentData={documentData} />
-                      </div>
-                      <WhatsNewSection
-                        documentData={documentData}
-                        mode={mode}
-                        copied={copied}
-                        onCopySection={handleSectionCopy}
-                        isCollapsed={collapsedSections.whatsNew}
-                        onToggle={() => toggleSection("whatsNew")}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Treatment History Section */}
-                {documentData && (
-                  <div className="panel" style={{ marginBottom: "14px" }}>
-                    <div className="panel-h">
-                      <div>
-                        <div className="title">Treatment History</div>
-                        <div className="meta">
-                          Summary snapshots and history
-                        </div>
-                      </div>
-                    </div>
-                    <div className="panel-body">
-                      <TreatmentHistorySection
-                        documentData={documentData}
-                        mode={mode}
-                        copied={copied}
-                        onCopySection={handleSectionCopy}
-                        isCollapsed={false}
-                        onToggle={() => {}}
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Floating New Order Button */}
+        <OnboardingHelpButton onClick={startOnboarding} />
+        <UploadSection
+          files={files}
+          onFileSelect={handleFileSelect}
+          onUpload={handleUpload}
+          onCancel={resetFiles}
+          loading={loading}
+        />
+        <MainContent
+          selectedPatient={selectedPatient}
+          documentData={documentData as any}
+          taskQuickNotes={taskQuickNotes as any[]}
+          visitCount={visitCount}
+          formatDate={formatDate}
+          currentPatient={currentPatient as Patient}
+          collapsedSections={collapsedSections}
+          copied={copied}
+          onToggleSection={toggleSection}
+          onCopySection={handleSectionCopy}
+          mode={mode}
+          error={error}
+          loading={loading}
+          onRetry={handleRetry}
+        />
         <div
-          className="floating-new-order"
+          className="fixed bottom-4 right-4 bg-indigo-600 text-white px-4 py-3 rounded-full shadow-2xl cursor-pointer font-semibold text-sm z-[9999]"
           onClick={() => setShowManualTaskModal(true)}
         >
           + New Order
         </div>
-
-        {/* Recent Patients Toggle */}
-        <div
-          className={`fixed right-0 top-1/2 -translate-y-1/2 bg-[#3f51b5] text-white p-[10px_12px] rounded-l-[12px] shadow-[0_8px_18px_rgba(0,0,0,0.18)] cursor-pointer z-[9998] font-extrabold text-[13px] flex items-center gap-2 ${
-            recentPatientsVisible ? "checked" : ""
-          }`}
-          onClick={() => setRecentPatientsVisible(!recentPatientsVisible)}
-        >
-          <span className="[writing-mode:vertical-rl] rotate-180 tracking-[0.02em]">
-            Recent Patients
-          </span>
-          <div
-            className={`[writing-mode:horizontal-tb] text-[16px] leading-[1] ${
-              recentPatientsVisible ? "rotate-180" : ""
-            }`}
-          >
-            ◀
-          </div>
-        </div>
-
-        {/* Recent Patients Panel - Fixed Position next to toggle */}
-        {recentPatientsVisible && (
-          <div className="fixed right-[60px] top-1/2 -translate-y-1/2 z-[9997]">
-            <div className="bg-white border border-[#e5e7eb] rounded-[14px] shadow-[0_2px_6px_rgba(0,0,0,0.06)] overflow-hidden w-[320px]">
-              <div className="flex items-center justify-between p-[12px_14px] border-b border-[#e5e7eb]">
-                <div className="font-extrabold">Recent Patients</div>
-                <div className="text-[12px] text-[#6b7280]">
-                  Quick jump list
-                </div>
-              </div>
-
-              {/* Search Input */}
-              <div
-                style={{
-                  padding: "12px 14px",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Search patients..."
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    outline: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "var(--accent)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "var(--border)";
-                  }}
-                />
-              </div>
-
-              <div className="p-0 max-h-[400px] overflow-y-auto">
-                {/* Search Results */}
-                {searchQuery.trim() && (
-                  <>
-                    {searchLoading ? (
-                      <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
-                        Searching...
-                      </div>
-                    ) : searchResults.length > 0 ? (
-                      <>
-                        <div
-                          style={{
-                            padding: "8px 14px",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "var(--muted)",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                          }}
-                        >
-                          Search Results
-                        </div>
-                        {searchResults.map((patient, index) => (
-                          <div
-                            key={patient.id || index}
-                            className="p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer"
-                            onClick={() => handleSearchResultSelect(patient)}
-                          >
-                            {patient.patientName}
-                            {patient.claimNumber &&
-                              patient.claimNumber !== "Not specified" && (
-                                <> • Claim: {patient.claimNumber}</>
-                              )}
-                            {patient.dob && (
-                              <> • DOB: {formatShortDate(patient.dob)}</>
-                            )}
-                          </div>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
-                        No patients found
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Recent Patients List - Only show when no search query */}
-                {!searchQuery.trim() && (
-                  <>
-                    {recentPatientsList.length === 0 ? (
-                      <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
-                        No patients found
-                      </div>
-                    ) : (
-                      filteredRecentPatients.map((patient, index) => (
-                        <div
-                          key={index}
-                          className="p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => {
-                            // Format dob to string if it's a Date object
-                            let dobString = "";
-                            if (patient.dob) {
-                              if (patient.dob instanceof Date) {
-                                dobString = patient.dob
-                                  .toISOString()
-                                  .split("T")[0];
-                              } else {
-                                dobString = String(patient.dob);
-                              }
-                            }
-
-                            handlePatientSelect({
-                              patientName: patient.patientName,
-                              dob: dobString,
-                              claimNumber: patient.claimNumber || "",
-                              doi: "", // DOI will be fetched when document data is loaded
-                            });
-                            setRecentPatientsVisible(false);
-                          }}
-                        >
-                          {patient.patientName} — {getDocType(patient)} •{" "}
-                          {formatShortDate(patient.createdAt)}
-                        </div>
-                      ))
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <RecentPatientsPanel
+          isVisible={recentPatientsVisible}
+          onToggle={() => setRecentPatientsVisible(!recentPatientsVisible)}
+          recentPatients={recentPatientsList}
+          searchQuery={searchQuery}
+          onSearchChange={(e) => handleSearchChange(e, session)}
+          searchResults={searchResults}
+          searchLoading={searchLoading}
+          onPatientSelect={handlePatientSelect}
+          onClose={() => setRecentPatientsVisible(false)}
+        />
       </div>
-      {/* Sidebar Overlay - Closes on click */}
+      {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40"
@@ -2348,7 +1204,7 @@ export default function PhysicianCard() {
       )}
       {/* Sidebar */}
       <div
-        className={`sidebar-container fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -2356,115 +1212,60 @@ export default function PhysicianCard() {
           <Sidebar />
         </div>
       </div>
-      {/* Toasts */}
-      <div className="fixed top-4 right-4 space-y-2 z-50">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`p-4 rounded-lg shadow-lg text-white ${
-              toast.type === "success" ? "bg-green-500" : "bg-red-500"
-            } animate-in slide-in-from-top-2 duration-300`}
-          >
-            {toast.message}
-          </div>
-        ))}
-      </div>
-      {/* Brief Summary Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Brief Summary</h3>
-              <p className="text-gray-700 whitespace-pre-wrap mb-6">
-                {selectedBriefSummary}
-              </p>
-              <button
-                onClick={() => setShowModal(false)}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Previous Summary Modal */}
-      {showPreviousSummary && previousSummary && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                Previous {previousSummary.type} Summary
-              </h3>
-              <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
-                <div className="text-gray-600 text-xs">Date</div>
-                <div>{formatDate(previousSummary.date)}</div>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
-                <div className="text-gray-600 text-xs">Summary</div>
-                <div>{previousSummary.summary}</div>
-              </div>
-              <button
-                onClick={() => openModal(previousSummary.brief_summary || "")}
-                className="mr-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-              >
-                View Brief
-              </button>
-              <button
-                onClick={() => setShowPreviousSummary(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Manual Task Modal */}
-      <aside>
-        <ManualTaskModal
-          open={showManualTaskModal}
-          onOpenChange={setShowManualTaskModal}
-          departments={[
-            "Medical/Clinical",
-            "Scheduling & Coordination",
-            "Administrative / Compliance",
-            "Authorizations & Denials",
-          ]}
-          defaultClaim={
-            currentPatient.claimNumber !== "Not specified"
-              ? currentPatient.claimNumber
-              : undefined
-          }
-          defaultPatient={
-            selectedPatient ? currentPatient.patientName : undefined
-          }
-          defaultDocumentId={documentId || undefined}
-          onSubmit={async (data) => {
-            try {
-              const response = await fetch("/api/add-manual-task", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  ...data,
-                  physicianId: getPhysicianId(),
-                }),
-              });
-              if (!response.ok) {
-                throw new Error("Failed to create task");
-              }
-              addToast("Task created successfully", "success");
-            } catch (error) {
-              console.error("Error creating task:", error);
-              addToast("Failed to create task", "error");
-              throw error;
+      <ToastContainer toasts={toasts} />
+      <BriefSummaryModal
+        isOpen={showPreviousSummary}
+        onClose={() => setSelectedBriefSummary("")}
+        briefSummary={selectedBriefSummary}
+      />
+      <PreviousSummaryModal
+        isOpen={showPreviousSummary}
+        onClose={() => setShowPreviousSummary(false)}
+        onViewBrief={openModal}
+        previousSummary={previousSummary as DocumentSummary | null}
+        formatDate={formatDate}
+      />
+      <ManualTaskModal
+        open={showManualTaskModal}
+        onOpenChange={setShowManualTaskModal}
+        departments={[
+          "Medical/Clinical",
+          "Scheduling & Coordination",
+          "Administrative / Compliance",
+          "Authorizations & Denials",
+        ]}
+        defaultClaim={
+          (currentPatient as Patient).claimNumber !== "Not specified"
+            ? currentPatient.claimNumber
+            : undefined
+        }
+        defaultPatient={
+          selectedPatient ? (currentPatient as Patient).patientName : undefined
+        }
+        defaultDocumentId={documentId || undefined}
+        onSubmit={async (data: any) => {
+          try {
+            const response = await fetch("/api/add-manual-task", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                ...data,
+                physicianId: (session?.user as any)?.physicianId || null,
+              }),
+            });
+            if (!response.ok) {
+              throw new Error("Failed to create task");
             }
-          }}
-        />
-      </aside>
+            addToast("Task created successfully", "success");
+          } catch (error) {
+            console.error("Error creating task:", error);
+            addToast("Failed to create task", "error");
+            throw error;
+          }
+        }}
+      />
     </>
   );
 }
