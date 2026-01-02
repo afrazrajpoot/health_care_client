@@ -174,3 +174,144 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* Custom Dashboard Components Styles */
+.panel {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.panel-h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.panel-h .title {
+    font-weight: 800;
+    font-size: 16px;
+    color: #111827;
+}
+
+.panel-h .meta {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.panel-body {
+    padding: 14px;
+}
+
+.topbar {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.patient-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.patient-header .patient-name {
+    font-weight: 700;
+    font-size: 18px;
+    color: #111827;
+}
+
+.patient-header .tag {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.patient-header .tag.good {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.s-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #374151;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.s-chip.small {
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+.s-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.s-dot.red {
+    background-color: #ef4444;
+}
+
+.s-dot.amber {
+    background-color: #f59e0b;
+}
+
+.s-dot.green {
+    background-color: #10b981;
+}
+
+.s-dot.blue {
+    background-color: #3b82f6;
+}
+
+.s-dot.gray {
+    background-color: #6b7280;
+}
+
+.floating-new-order {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: #2563eb;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 50px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 9999;
+}
+
+.floating-new-order:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}

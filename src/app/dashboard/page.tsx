@@ -458,7 +458,7 @@ const Header = React.memo<HeaderProps>(({
   modeSelectorRef,
 }) => (
   <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-[1000] px-5 py-3 flex items-center justify-between shadow-sm">
-    <div className="flex items-center gap-4 relative">
+    <div className="flex items-center gap-4">
       <button
         onClick={onToggleSidebar}
         className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
@@ -466,13 +466,13 @@ const Header = React.memo<HeaderProps>(({
       >
         <BurgerIcon />
       </button>
-      <div className="absolute left-1/2 -translate-x-1/2">
-        <img
-          src="/logo.png"
-          alt="DocLatch Logo"
-          className="h-20 max-h-20 w-auto"
-        />
-      </div>
+    </div>
+    <div className="absolute left-1/2 -translate-x-1/2">
+      <img
+        src="/logo.png"
+        alt="DocLatch Logo"
+        className="h-16 w-auto"
+      />
     </div>
     <div className="flex items-center gap-4">
       {session.user.role === "Physician" && (
