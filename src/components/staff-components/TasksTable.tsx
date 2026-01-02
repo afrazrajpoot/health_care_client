@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { Eye, Trash2, Scissors, X, FileText, AlertCircle } from "lucide-react";
+import { Eye, Trash2, Scissors, X, FileText, AlertCircle, Loader2 } from "lucide-react";
 
 interface Task {
   id: string;
@@ -37,7 +37,7 @@ interface TasksTableProps {
   tasks: Task[];
   taskStatuses: { [taskId: string]: string };
   taskAssignees: { [taskId: string]: string };
-  onStatusClick: (taskId: string, status: string) => void;
+  onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => void;
   onTaskClick: (task: Task) => void;
   getStatusOptions: (task: Task) => string[];
@@ -67,6 +67,7 @@ export default function TasksTable({
 }: TasksTableProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(new Set());
 
   // Failed document states
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
@@ -384,20 +385,29 @@ export default function TasksTable({
                               )
                             }
                           >
-                            {currentStatus}
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
+                            {updatingStatuses.has(task.id) || currentStatus.toLowerCase() === 'pending' ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                {updatingStatuses.has(task.id) ? 'Updating...' : currentStatus}
+                              </>
+                            ) : (
+                              <>
+                                {currentStatus}
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 9l-7 7-7-7"
+                                  />
+                                </svg>
+                              </>
+                            )}
                           </span>
                           {openDropdown === task.id && (
                             <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[10000] min-w-[140px] max-h-[300px] overflow-y-auto">
@@ -409,12 +419,21 @@ export default function TasksTable({
                                       ? "bg-blue-50 font-semibold"
                                       : ""
                                   }`}
-                                  onClick={() => {
-                                    onStatusClick(task.id, status);
+                                  onClick={async () => {
+                                    setUpdatingStatuses(prev => new Set(prev).add(task.id));
                                     setOpenDropdown(null);
-                                    toast.success(
-                                      `Status updated to "${status}"`
-                                    );
+                                    try {
+                                      await onStatusClick(task.id, status);
+                                      toast.success(`Status updated to "${status}"`);
+                                    } catch (error) {
+                                      toast.error('Failed to update status');
+                                    } finally {
+                                      setUpdatingStatuses(prev => {
+                                        const newSet = new Set(prev);
+                                        newSet.delete(task.id);
+                                        return newSet;
+                                      });
+                                    }
                                   }}
                                 >
                                   <span

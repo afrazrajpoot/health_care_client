@@ -5,6 +5,7 @@ import { PatientHeader } from "@/components/physician-components/PatientHeader";
 import { StaffStatusSection } from "@/components/physician-components/StaffStatusSection";
 import PatientIntakeUpdate from "./PatientIntakeUpdate";
 import WhatsNewSection from "./WhatsNewSection";
+import TreatmentHistorySection from "./TreatmentHistorySection";
     // import { PatientIntakeUpdate } from "@/components/physician-components/PatientIntakeUpdate";
     // import { WhatsNewSection } from "@/components/physician-components/WhatsNewSection";
     // import { TreatmentHistorySection } from "@/components/physician-components/TreatmentHistorySection";
@@ -109,9 +110,9 @@ export const MainContent = React.memo<MainContentProps>(({
                     <div className="text-xs text-gray-500">Summary snapshots and history</div>
                   </div>
                 </div>
-                {/* <div className="px-3.5 py-3">
+                <div className="px-3.5 py-3">
                   <TreatmentHistorySection documentData={documentData} />
-                </div> */}
+                </div>
               </div>
             )}
           </>

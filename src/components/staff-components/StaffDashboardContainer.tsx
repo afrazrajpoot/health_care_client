@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+
 import { Sidebar } from "@/components/navigation/sidebar";
 import StaffDashboardHeader from "@/components/staff-components/StaffDashboardHeader";
 import PatientDrawer from "@/components/staff-components/PatientDrawer";
@@ -41,12 +41,43 @@ import {
   TaskStats,
 } from "@/utils/staffDashboardUtils";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface FileDetails {
   name: string;
   size: number;
   type: string;
 }
+
+const UploadToast: React.FC = () => {
+  useEffect(() => {
+    toast("Upload in Progress 🚀", {
+      description: (
+        <div className="flex items-center gap-2">
+          <span className="animate-spin">⏳</span>
+          <span className="text-sm  text-black">Your documents are queued and being prepared. Hang tight!</span>
+        </div>
+      ),
+      duration: 60000,
+      position: "top-center",
+      className: "border-l-4 border-blue-500 bg-blue-50 text-blue-800",
+      style: {
+        borderRadius: "8px",
+        boxShadow: "0 4px 12px rgba(59, 130, 246, 0.15)",
+      },
+      icon: "📁",
+      // action: {
+      //   label: "View Progress",
+      //   onClick: () => {
+      //     // Optionally navigate to progress section or open modal
+      //     console.log("View upload progress");
+      //   },
+      // },
+    });
+  }, []);
+
+  return null;
+};
 
 export default function StaffDashboardContainer() {
   const { data: session } = useSession();
@@ -73,6 +104,7 @@ export default function StaffDashboardContainer() {
   const taskPageSize = TASK_PAGE_SIZE;
   const [taskTotalCount, setTaskTotalCount] = useState(0);
   const [taskTypeFilter, setTaskTypeFilter] = useState<"all" | "internal" | "external">("all");
+  const [showUploadToast, setShowUploadToast] = useState(false);
 
   // Task status and assignee management
   const [taskStatuses, setTaskStatuses] = useState<{ [taskId: string]: string }>({});
@@ -186,6 +218,18 @@ export default function StaffDashboardContainer() {
   useEffect(() => {
     fetchFailedDocuments();
   }, [fetchFailedDocuments]);
+
+  // Close all modals when payment error modal is shown
+  useEffect(() => {
+    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
+      setShowModal(false);
+      setShowTaskModal(false);
+      setShowQuickNoteModal(false);
+      setShowDocumentSuccessPopup(false);
+      setShowFilePopup(false);
+      setIsUpdateModalOpen(false);
+    }
+  }, [paymentError, ignoredFiles]);
 
   // Page initialization
   useEffect(() => {
@@ -347,13 +391,7 @@ export default function StaffDashboardContainer() {
 
   // File upload handlers
   const handleFileUpload = useCallback(() => {
-    toast("Your documents are in queue and ready to upload", {
-      description: "Please wait while we prepare your files for upload",
-      duration: 60000,
-      position: "top-center",
-      action: { label: "Close", onClick: () => {} },
-    });
-
+    setShowUploadToast(true);
     setShowFilePopup(false);
     if (pendingFiles.length > 0) {
       const dataTransfer = new DataTransfer();
@@ -384,6 +422,17 @@ export default function StaffDashboardContainer() {
     clearPaymentError();
     router.push("/packages");
   }, [clearPaymentError, router]);
+
+  const handleCloseErrorModal = useCallback(() => {
+    clearPaymentError();
+    // Close all modals when error modal is closed
+    setShowModal(false);
+    setShowTaskModal(false);
+    setShowQuickNoteModal(false);
+    setShowDocumentSuccessPopup(false);
+    setShowFilePopup(false);
+    setIsUpdateModalOpen(false);
+  }, [clearPaymentError]);
 
   return (
     <>
@@ -535,7 +584,7 @@ export default function StaffDashboardContainer() {
         onCloseTaskModal={() => setShowTaskModal(false)}
         onCloseQuickNoteModal={() => setShowQuickNoteModal(false)}
         onCloseDocumentSuccessPopup={() => setShowDocumentSuccessPopup(false)}
-        onClearPaymentError={clearPaymentError}
+        onClearPaymentError={handleCloseErrorModal}
         onUpgrade={handleUpgrade}
         onManualTaskSubmit={handleManualTaskSubmit}
         onSaveQuickNote={handleSaveQuickNote}
@@ -549,11 +598,13 @@ export default function StaffDashboardContainer() {
 
       <PaymentErrorModal
         isOpen={!!paymentError || !!(ignoredFiles && ignoredFiles.length > 0)}
-        onClose={clearPaymentError}
+        onClose={handleCloseErrorModal}
         onUpgrade={handleUpgrade}
         // errorMessage={paymentError}
         ignoredFiles={ignoredFiles}
       />
+
+      {showUploadToast && <UploadToast />}
 
       {/* {pageLoading && <LoadingSpinner />} */}
     </>

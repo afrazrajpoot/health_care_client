@@ -83,6 +83,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     return displayText;
   };
 
+
   // Filter and limit document notes
   const filteredDocNotes = documentQuickNotes
     .filter((note) => {
@@ -115,32 +116,28 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
             {/* Document Quick Notes */}
             {filteredDocNotes.map((note, index) => {
               const statusColor = getStatusColor(note);
-              const displayText = getDisplayText(note);
 
               return (
                 <div
                   key={`doc-note-${index}`}
                   className="s-chip small"
-                  title={note.details || displayText}
                 >
                   <span className={`s-dot ${statusColor}`}></span>
-                  {displayText}
+                  {note.status_update || note.one_line_note || "Quick Note"}
                 </div>
               );
             })}
             {/* Task Quick Notes */}
             {taskQuickNotes.map((note, index) => {
               const statusColor = getStatusColor(note);
-              const displayText = getDisplayText(note);
 
               return (
                 <div
                   key={`task-note-${index}`}
                   className="s-chip small"
-                  title={note.details || displayText}
                 >
                   <span className={`s-dot ${statusColor}`}></span>
-                  {displayText}
+                  {note.status_update || note.one_line_note || "Quick Note"}
                 </div>
               );
             })}

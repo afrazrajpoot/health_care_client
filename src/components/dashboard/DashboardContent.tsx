@@ -170,7 +170,7 @@ const DashboardContent: React.FC = () => {
                   <div className="panel-body">
                     {(() => {
                       const filteredDocNotes =
-                        documentData.quick_notes_snapshots?.filter((note) => {
+                        documentData.quick_notes_snapshots?.filter((note: any) => {
                           const hasContent =
                             (note.status_update &&
                               note.status_update.trim()) ||
@@ -182,7 +182,7 @@ const DashboardContent: React.FC = () => {
 
                       // Limit document notes to 3 most recent
                       const limitedDocNotes = filteredDocNotes
-                        .sort((a, b) => {
+                        .sort((a: any, b: any) => {
                           const timeA = new Date(a.timestamp || 0).getTime();
                           const timeB = new Date(b.timestamp || 0).getTime();
                           return timeB - timeA;
@@ -191,12 +191,12 @@ const DashboardContent: React.FC = () => {
 
                       const hasNotes =
                         limitedDocNotes.length > 0 ||
-                        (taskQuickNotes && taskQuickNotes.length > 0);
+                        (taskQuickNotes && taskQuickNotes.length > 0) || [];
 
                       return hasNotes ? (
                         <div className="status-wrap">
                           {/* Document Quick Notes */}
-                          {limitedDocNotes.map((note, index) => {
+                          {limitedDocNotes.map((note: any, index: number) => {
                             // Determine status color based on status_update or content
                             const getStatusColor = () => {
                               const fullContent = `${
@@ -281,7 +281,7 @@ const DashboardContent: React.FC = () => {
                           })}
                           {/* Task Quick Notes */}
                           {taskQuickNotes &&
-                            taskQuickNotes.map((note, index) => {
+                            taskQuickNotes.map((note: any, index: number) => {
                               // Determine status color based on status_update or content
                               const getStatusColor = () => {
                                 const fullContent = `${

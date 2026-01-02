@@ -65,7 +65,7 @@ interface TasksSectionProps {
   formatClaimNumber: (claim: string) => string;
   onShowCompletedTasksChange: (show: boolean) => void;
   onTaskPageChange: (page: number) => void;
-  onStatusClick: (taskId: string, status: string) => void;
+  onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => void;
   onTaskClick: (task: Task) => void;
   onFailedDocumentDeleted: (docId: string) => void;

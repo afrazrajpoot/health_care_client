@@ -1,22 +1,26 @@
 "use client";
-import { Sidebar } from "@/components/navigation/sidebar";
-import ManualTaskModal from "@/components/ManualTaskModal";
-import PhysicianOnboardingTour from "@/components/physician-components/PhysicianOnboardingTour";
-import TreatmentHistorySection from "@/components/physician-components/TreatmentHistorySection";
-import { WelcomeModal } from "@/components/physician-components/WelcomeModal";
-import WhatsNewSection from "@/components/physician-components/WhatsNewSection";
-import PatientIntakeUpdate from "@/components/physician-components/PatientIntakeUpdate";
-import { PatientHeader } from "@/components/physician-components/PatientHeader";
-import { LoadingOverlay } from "@/components/physician-components/LoadingOverlay";
-import { RecentPatientsPanel } from "@/components/physician-components/RecentPatientsPanel";
-import { StaffStatusSection } from "@/components/physician-components/StaffStatusSection";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 import { handleEncryptedResponse } from "@/lib/decrypt";
 import { usePatientData } from "@/hooks/usePatientData";
+
+import { Header } from "@/components/physician-components/Header";
+import { ToastContainer } from "@/components/physician-components/ToastContainer";
+import { SidebarOverlay } from "@/components/physician-components/SidebarOverlay";
+import { SidebarContainer } from "@/components/physician-components/SidebarContainer";
+import { DashboardContent } from "@/components/physician-components/DashboardContent";
+import { ModalsContainer } from "@/components/physician-components/ModalsContainer";
+import { LoadingFallback } from "@/components/physician-components/LoadingFallback";
+import { UnauthenticatedFallback } from "@/components/physician-components/UnauthenticatedFallback";
+import { PhysicianCardLayout } from "@/components/physician-components/PhysicianCardLayout";
+// import { FloatingNewOrderButton } from "@/components/physician-components/FloatingNewOrderButton";
+
+import { useFileUpload } from "../custom-hooks/staff-hooks/physician-hooks/useFileUpload";
+import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch";
+import { useOnboarding } from "../custom-hooks/staff-hooks/physician-hooks/useOnboarding";
+import { useToasts } from "../custom-hooks/staff-hooks/physician-hooks/useToasts";
 
 // Define TypeScript interfaces for data structures
 interface Patient {
@@ -35,681 +39,6 @@ interface DocumentSummary {
   brief_summary?: string;
   document_id?: string;
 }
-
-// Custom hook for toasts
-const useToasts = () => {
-  const [toasts, setToasts] = useState<
-    { id: number; message: string; type: "success" | "error" }[]
-  >([]);
-
-  const addToast = useCallback((message: string, type: "success" | "error") => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
-  }, []);
-
-  return { toasts, addToast };
-};
-
-// Custom hook for onboarding
-const useOnboarding = () => {
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [stepPositions, setStepPositions] = useState<any[]>([]);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-
-  const staffButtonRef = useRef<HTMLAnchorElement>(null);
-  const modeSelectorRef = useRef<HTMLSelectElement>(null);
-
-  const onboardingSteps = useMemo(
-    () => [
-      {
-        title: "Staff Dashboard",
-        content:
-          "Switch to the Staff Dashboard to manage tasks, upload documents, and track workflow.",
-        target: staffButtonRef,
-      },
-    ],
-    []
-  );
-
-  const calculateStepPositions = useCallback(() => {
-    const positions = [];
-    if (staffButtonRef.current) {
-      const rect = staffButtonRef.current.getBoundingClientRect();
-      positions.push({
-        top: `${rect.bottom + 10}px`,
-        left: `${rect.left + rect.width / 2}px`,
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    } else {
-      positions.push({
-        top: "50%",
-        left: "50%",
-        arrowTop: "-8px",
-        arrowLeft: "50%",
-      });
-    }
-    return positions;
-  }, []);
-
-  const startOnboarding = useCallback(() => {
-    const positions = calculateStepPositions();
-    setStepPositions(positions);
-    setShowOnboarding(true);
-    setCurrentStep(0);
-  }, [calculateStepPositions]);
-
-  const nextStep = useCallback(() => {
-    if (currentStep < onboardingSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
-      setTimeout(() => {
-        const newPositions = calculateStepPositions();
-        setStepPositions(newPositions);
-      }, 50);
-    } else {
-      setShowOnboarding(false);
-      localStorage.setItem("physicianOnboardingCompleted", "true");
-    }
-  }, [currentStep, onboardingSteps.length, calculateStepPositions]);
-
-  const previousStep = useCallback(() => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-      setTimeout(() => {
-        const newPositions = calculateStepPositions();
-        setStepPositions(newPositions);
-      }, 50);
-    }
-  }, [currentStep, calculateStepPositions]);
-
-  const closeOnboarding = useCallback(() => {
-    setShowOnboarding(false);
-    localStorage.setItem("physicianOnboardingCompleted", "true");
-  }, []);
-
-  // Check if onboarding should be shown on component mount
-  useEffect(() => {
-    const onboardingCompleted = localStorage.getItem(
-      "physicianOnboardingCompleted"
-    );
-    const welcomeShown = localStorage.getItem("physicianWelcomeShown");
-    if (!welcomeShown) {
-      setShowWelcomeModal(true);
-      localStorage.setItem("physicianWelcomeShown", "true");
-    } else if (!onboardingCompleted) {
-      const timer = setTimeout(() => {
-        startOnboarding();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [startOnboarding]);
-
-  // Listen for start onboarding event
-  useEffect(() => {
-    const handleStartOnboarding = () => {
-      startOnboarding();
-    };
-    window.addEventListener("start-onboarding", handleStartOnboarding);
-    return () => {
-      window.removeEventListener("start-onboarding", handleStartOnboarding);
-    };
-  }, [startOnboarding]);
-
-  // Recalculate positions when step changes
-  useEffect(() => {
-    if (showOnboarding) {
-      const positions = calculateStepPositions();
-      setStepPositions(positions);
-    }
-  }, [showOnboarding, currentStep, calculateStepPositions]);
-
-  return {
-    showOnboarding,
-    currentStep,
-    stepPositions,
-    showWelcomeModal,
-    onboardingSteps,
-    staffButtonRef,
-    modeSelectorRef,
-    nextStep,
-    previousStep,
-    closeOnboarding,
-    startOnboarding,
-  };
-};
-
-// Custom hook for file upload
-const useFileUpload = (addToast: (msg: string, type: "success" | "error") => void, session: any, startTwoPhaseTracking: any) => {
-  const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-    }
-  }, []);
-
-  const handleUpload = useCallback(async () => {
-    if (files.length === 0) return;
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append("documents", file);
-    });
-    try {
-      const response = await fetch("/api/extract-documents", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session?.user?.fastapi_token}`,
-        },
-        body: formData,
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        addToast(`Failed to queue files: ${errorText}`, "error");
-        return;
-      }
-      const data = await response.json();
-      if (data.upload_task_id && data.task_id) {
-        startTwoPhaseTracking(data.upload_task_id, data.task_id);
-        addToast(
-          `Started processing ${files.length} document(s) with two-phase tracking`,
-          "success"
-        );
-      } else {
-        const taskIds = data.task_ids || [];
-        files.forEach((file, index) => {
-          const taskId = taskIds[index] || "unknown";
-          addToast(
-            `File "${file.name}" successfully queued for processing. Task ID: ${taskId}`,
-            "success"
-          );
-        });
-      }
-      setFiles([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    } catch (err: unknown) {
-      addToast("Network error uploading files", "error");
-    }
-  }, [files, session, startTwoPhaseTracking, addToast]);
-
-  const resetFiles = useCallback(() => {
-    setFiles([]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
-
-  return { files, fileInputRef, handleFileSelect, handleUpload, resetFiles };
-};
-
-// Custom hook for search
-const useSearch = (mode: "wc" | "gm") => {
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<Patient[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-
-  const getPhysicianId = useCallback((session: any): string | null => {
-    if (!session?.user) return null;
-    return session.user.role === "Physician"
-      ? (session.user.id as string) || null
-      : session.user.physicianId || null;
-  }, []);
-
-  const fetchSearchResults = useCallback(
-    async (query: string, session: any) => {
-      if (!query.trim()) {
-        setSearchResults([]);
-        return;
-      }
-      const currentPhysicianId = getPhysicianId(session);
-      try {
-        setSearchLoading(true);
-        const response = await fetch(
-          `/api/dashboard/recommendation?patientName=${encodeURIComponent(
-            query
-          )}&claimNumber=${encodeURIComponent(query)}&dob=${encodeURIComponent(
-            query
-          )}&physicianId=${encodeURIComponent(
-            currentPhysicianId || ""
-          )}&mode=${encodeURIComponent(mode)}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch search results");
-        }
-        const data: any = await response.json();
-        if (data.success && data.data.allMatchingDocuments) {
-          const patients: Patient[] = data.data.allMatchingDocuments.map(
-            (doc: any) => ({
-              id: doc.id,
-              patientName: doc.patientName,
-              dob: formatDateToString(doc.dob),
-              doi: formatDateToString(doc.doi),
-              claimNumber: doc.claimNumber || "Not specified",
-            })
-          );
-          setSearchResults(patients);
-        } else {
-          setSearchResults([]);
-        }
-      } catch (err: unknown) {
-        console.error("Error fetching search results:", err);
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    [mode, getPhysicianId]
-  );
-
-  const formatDateToString = useCallback((date: Date | string | null | undefined): string => {
-    if (!date) return "";
-    const d = typeof date === "string" ? new Date(date) : date;
-    if (isNaN(d.getTime())) return "";
-    return d.toISOString().split("T")[0];
-  }, []);
-
-  const debounce = useCallback(<T extends (...args: any[]) => void>(func: T, delay: number) => {
-    let timeoutId: NodeJS.Timeout;
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func(...args), delay);
-    };
-  }, []);
-
-  const debouncedSearch = useCallback(
-    debounce((query: string, session: any) => {
-      fetchSearchResults(query, session);
-    }, 300),
-    [fetchSearchResults, debounce]
-  );
-
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, session: any) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    if (query.trim()) {
-      debouncedSearch(query, session);
-    } else {
-      setSearchResults([]);
-    }
-  }, [debouncedSearch]);
-
-  return { searchQuery, searchResults, searchLoading, handleSearchChange, getPhysicianId };
-};
-
-// Burger Icon Component
-const BurgerIcon = React.memo(() => (
-  <svg
-    className="w-6 h-6"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-    strokeWidth={2}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M4 6h16M4 12h16M4 18h16"
-    />
-  </svg>
-));
-
-// Onboarding Help Button Component
-const OnboardingHelpButton = React.memo(({ onClick }: { onClick: () => void }) => (
-  <button
-    className="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center z-40"
-    onClick={onClick}
-    title="Show onboarding tour"
-  >
-    ?
-  </button>
-));
-
-// Upload Section Component
-interface UploadSectionProps {
-  files: File[];
-  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onUpload: () => void;
-  onCancel: () => void;
-  loading: boolean;
-}
-
-const UploadSection = React.memo<UploadSectionProps>(
-  ({ files, onFileSelect, onUpload, onCancel, loading }) => (
-    <div className="mb-3.5">
-      <input
-        type="file"
-        multiple
-        accept=".pdf,.doc,.docx,image/*"
-        onChange={onFileSelect}
-        className="hidden"
-      />
-      {files.length > 0 && (
-        <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
-          <span className="text-sm text-gray-600">
-            Selected: {files.map((f) => f.name).join(", ")}
-          </span>
-          <button
-            onClick={onUpload}
-            className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 text-sm disabled:opacity-50"
-            disabled={loading}
-          >
-            Queue for Processing
-          </button>
-          <button
-            onClick={onCancel}
-            className="text-red-500 hover:text-red-700 text-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-    </div>
-  )
-);
-
-// Error Display Component
-interface ErrorDisplayProps {
-  error: string | null;
-  onRetry: () => void;
-  selectedPatient: Patient | null;
-  fetchDocumentData: (patient: Patient, mode: "wc" | "gm") => void;
-  mode: "wc" | "gm";
-}
-
-const ErrorDisplay = React.memo<ErrorDisplayProps>(
-  ({ error, onRetry, selectedPatient, fetchDocumentData, mode }) => (
-    <div className="mb-3.5 p-4 bg-red-50 border border-red-300 rounded-xl">
-      <div className="text-red-600 font-semibold mb-2">Error</div>
-      <p className="text-red-800">{error}</p>
-      <button
-        onClick={onRetry}
-        className="mt-2 bg-red-500 text-white px-3 py-1.5 rounded-md cursor-pointer"
-      >
-        Retry
-      </button>
-    </div>
-  )
-);
-
-// Header Component
-interface HeaderProps {
-  isSidebarOpen: boolean;
-  onToggleSidebar: () => void;
-  staffDashboardHref: string;
-  mode: "wc" | "gm";
-  onModeChange: (mode: "wc" | "gm") => void;
-  session: any;
-  staffButtonRef: React.RefObject<HTMLAnchorElement>;
-  modeSelectorRef: React.RefObject<HTMLSelectElement>;
-}
-
-const Header = React.memo<HeaderProps>(({
-  isSidebarOpen,
-  onToggleSidebar,
-  staffDashboardHref,
-  mode,
-  onModeChange,
-  session,
-  staffButtonRef,
-  modeSelectorRef,
-}) => (
-  <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-[1000] px-5 py-3 flex items-center justify-between shadow-sm">
-    <div className="flex items-center gap-4">
-      <button
-        onClick={onToggleSidebar}
-        className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-        aria-label="Toggle sidebar"
-      >
-        <BurgerIcon />
-      </button>
-    </div>
-    <div className="absolute left-1/2 -translate-x-1/2">
-      <img
-        src="/logo.png"
-        alt="DocLatch Logo"
-        className="h-16 w-auto"
-      />
-    </div>
-    <div className="flex items-center gap-4">
-      {session.user.role === "Physician" && (
-        <Link href={staffDashboardHref} ref={staffButtonRef}>
-          <button className="font-bold bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
-            Staff Dashboard
-          </button>
-        </Link>
-      )}
-      <select
-        id="mode"
-        className="bg-indigo-50 text-gray-900 border border-blue-200 rounded-lg p-2 font-semibold focus:outline-none"
-        value={mode}
-        onChange={(e) => onModeChange(e.target.value as "wc" | "gm")}
-        ref={modeSelectorRef}
-        title="Filter search by mode (Workers Comp or General Medicine)"
-      >
-        <option value="wc">Workers Comp</option>
-        <option value="gm">General Medicine</option>
-      </select>
-    </div>
-  </div>
-));
-
-// Toast Container Component
-interface ToastContainerProps {
-  toasts: { id: number; message: string; type: "success" | "error" }[];
-}
-
-const ToastContainer = React.memo<ToastContainerProps>(({ toasts }) => (
-  <div className="fixed top-4 right-4 space-y-2 z-50">
-    {toasts.map((toast) => (
-      <div
-        key={toast.id}
-        className={`p-4 rounded-lg shadow-lg text-white ${
-          toast.type === "success" ? "bg-green-500" : "bg-red-500"
-        } animate-in slide-in-from-top-2 duration-300`}
-      >
-        {toast.message}
-      </div>
-    ))}
-  </div>
-));
-
-// Main Content Component
-interface MainContentProps {
-  selectedPatient: Patient | null;
-  documentData: any;
-  taskQuickNotes: any[];
-  visitCount: number;
-  formatDate: (date: string | undefined) => string;
-  currentPatient: Patient;
-  collapsedSections: { [key: string]: boolean };
-  copied: { [key: string]: boolean };
-  onToggleSection: (key: string) => void;
-  onCopySection: (id: string, index?: number) => void;
-  mode: "wc" | "gm";
-  error: string | null;
-  loading: boolean;
-  onRetry: () => void;
-}
-
-const MainContent = React.memo<MainContentProps>(({
-  selectedPatient,
-  documentData,
-  taskQuickNotes,
-  visitCount,
-  formatDate,
-  currentPatient,
-  collapsedSections,
-  copied,
-  onToggleSection,
-  onCopySection,
-  mode,
-  error,
-  loading,
-  onRetry,
-}) => (
-  <>
-    <LoadingOverlay isLoading={loading} />
-    {error && <ErrorDisplay error={error} onRetry={onRetry} selectedPatient={selectedPatient} fetchDocumentData={() => {}} mode={mode} />}
-    {selectedPatient && documentData && (
-      <PatientHeader
-        patient={currentPatient}
-        visitCount={visitCount}
-        formatDate={formatDate}
-      />
-    )}
-    <div className="grid grid-cols-1 gap-3.5">
-      <div>
-        {!selectedPatient && !documentData ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-            <p className="text-gray-500">
-              Click the Recent Patients button to search and select a patient
-            </p>
-          </div>
-        ) : (
-          <>
-            {documentData && (
-              <StaffStatusSection
-                documentQuickNotes={documentData.quick_notes_snapshots || []}
-                taskQuickNotes={taskQuickNotes}
-              />
-            )}
-            {documentData && (
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-3.5">
-                <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-200">
-                  <div>
-                    <div className="font-extrabold text-gray-900">
-                      What's New Since Last Visit
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      Scan-only cards • Click to expand • Expanded content
-                      scrolls inside the card
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {documentData?.documents?.length || 0}{" "}
-                    {documentData?.documents?.length === 1 ? "item" : "items"}
-                  </div>
-                </div>
-                <div className="max-h-[420px] overflow-y-auto p-2.5">
-                  <div className="mb-3">
-                    <PatientIntakeUpdate documentData={documentData} />
-                  </div>
-                  <WhatsNewSection
-                    documentData={documentData}
-                    mode={mode}
-                    copied={copied}
-                    onCopySection={onCopySection}
-                    isCollapsed={collapsedSections.whatsNew}
-                    onToggle={() => onToggleSection("whatsNew")}
-                  />
-                </div>
-              </div>
-            )}
-            {documentData && (
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-3.5 overflow-hidden">
-                <div className="flex items-center justify-between px-3.5 py-3 border-b border-gray-200">
-                  <div>
-                    <div className="font-extrabold text-gray-900">Treatment History</div>
-                    <div className="text-xs text-gray-500">Summary snapshots and history</div>
-                  </div>
-                </div>
-                <div className="px-3.5 py-3">
-                  <TreatmentHistorySection documentData={documentData} />
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  </>
-));
-
-// Brief Summary Modal Component
-interface BriefSummaryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  briefSummary: string;
-}
-
-const BriefSummaryModal = React.memo<BriefSummaryModalProps>(({
-  isOpen,
-  onClose,
-  briefSummary,
-}) => (
-  isOpen && (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Brief Summary</h3>
-          <p className="text-gray-700 whitespace-pre-wrap mb-6">
-            {briefSummary}
-          </p>
-          <button
-            onClick={onClose}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-));
-
-// Previous Summary Modal Component
-interface PreviousSummaryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onViewBrief: (summary: string) => void;
-  previousSummary: DocumentSummary | null;
-  formatDate: (date: string | undefined) => string;
-}
-
-const PreviousSummaryModal = React.memo<PreviousSummaryModalProps>(({
-  isOpen,
-  onClose,
-  onViewBrief,
-  previousSummary,
-  formatDate,
-}) =>
-  isOpen &&
-  previousSummary && (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl max-h-[80vh] overflow-auto shadow-2xl">
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            Previous {previousSummary.type} Summary
-          </h3>
-          <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
-            <div className="text-gray-600 text-xs">Date</div>
-            <div>{formatDate(previousSummary.date)}</div>
-          </div>
-          <div className="grid grid-cols-[140px_1fr] gap-2 mb-6">
-            <div className="text-gray-600 text-xs">Summary</div>
-            <div>{previousSummary.summary}</div>
-          </div>
-          <button
-            onClick={() => onViewBrief(previousSummary.brief_summary || "")}
-            className="mr-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-          >
-            View Brief
-          </button>
-          <button
-            onClick={onClose}
-            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-);
 
 export default function PhysicianCard() {
   const { data: session, status } = useSession();
@@ -1112,128 +441,105 @@ export default function PhysicianCard() {
   }, [mode, status, session, handlePatientSelect]);
 
   if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Please sign in to access the physician card.</p>
-      </div>
-    );
+    return <UnauthenticatedFallback />;
   }
 
+  const handleManualTaskSubmit = async (data: any) => {
+    try {
+      const response = await fetch("/api/add-manual-task", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...data,
+          physicianId: (session?.user as any)?.physicianId || null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to create task");
+      }
+      addToast("Task created successfully", "success");
+    } catch (error) {
+      console.error("Error creating task:", error);
+      addToast("Failed to create task", "error");
+      throw error;
+    }
+  };
+
+  const header = (
+    <Header
+      isSidebarOpen={isSidebarOpen}
+      onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+      staffDashboardHref={staffDashboardHref}
+      mode={mode}
+      onModeChange={switchMode}
+      session={session}
+      staffButtonRef={staffButtonRef as React.RefObject<HTMLAnchorElement>}
+      modeSelectorRef={modeSelectorRef as React.RefObject<HTMLSelectElement>}
+    />
+  );
+
+  const sidebar = <SidebarContainer isOpen={isSidebarOpen} />;
+  const overlay = <SidebarOverlay isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />;
+
+
   return (
-    <>
-      <Header
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        staffDashboardHref={staffDashboardHref}
-        mode={mode}
-        onModeChange={switchMode}
-        session={session}
-        staffButtonRef={staffButtonRef as React.RefObject<HTMLAnchorElement>}
-        modeSelectorRef={modeSelectorRef as React.RefObject<HTMLSelectElement>}
-      />
-      <div className="mt-16 px-5 py-5 min-h-[calc(100vh-64px)] bg-gray-50 text-gray-900 font-sans">
-        <PhysicianOnboardingTour
-          isOpen={showOnboarding}
-          onClose={closeOnboarding}
-          currentStep={currentStep}
-          onNext={nextStep}
-          onPrevious={previousStep}
-          steps={onboardingSteps}
-          stepPositions={stepPositions}
-        />
-        <WelcomeModal
-          isOpen={showWelcomeModal}
-          onClose={() => {}}
-        />
-        <OnboardingHelpButton onClick={startOnboarding} />
-        <UploadSection
-          files={files}
-          onFileSelect={handleFileSelect}
-          onUpload={handleUpload}
-          onCancel={resetFiles}
-          loading={loading}
-        />
-        <MainContent
-          selectedPatient={selectedPatient}
-          documentData={documentData as any}
-          taskQuickNotes={taskQuickNotes as any[]}
-          visitCount={visitCount}
-          formatDate={formatDate}
-          currentPatient={currentPatient as Patient}
-          collapsedSections={collapsedSections}
-          copied={copied}
-          onToggleSection={toggleSection}
-          onCopySection={handleSectionCopy}
-          mode={mode}
-          error={error}
-          loading={loading}
-          onRetry={handleRetry}
-        />
-        <div
-          className="fixed bottom-4 right-4 bg-indigo-600 text-white px-4 py-3 rounded-full shadow-2xl cursor-pointer font-semibold text-sm z-[9999]"
-          onClick={() => setShowManualTaskModal(true)}
-        >
-          + New Order
-        </div>
-        <RecentPatientsPanel
-          isVisible={recentPatientsVisible}
-          onToggle={() => setRecentPatientsVisible(!recentPatientsVisible)}
-          recentPatients={recentPatientsList}
-          searchQuery={searchQuery}
-          onSearchChange={(e) => handleSearchChange(e, session)}
-          searchResults={searchResults}
-          searchLoading={searchLoading}
-          onPatientSelect={handlePatientSelect}
-          onClose={() => setRecentPatientsVisible(false)}
-        />
-      </div>
-      {/* Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-      {/* Sidebar */}
-      <div
-        className={`fixed top-0 left-0 h-full w-80 z-50 transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="h-full">
-          <Sidebar />
-        </div>
-      </div>
-      <ToastContainer toasts={toasts} />
-      <BriefSummaryModal
-        isOpen={showPreviousSummary}
-        onClose={() => setSelectedBriefSummary("")}
-        briefSummary={selectedBriefSummary}
-      />
-      <PreviousSummaryModal
-        isOpen={showPreviousSummary}
-        onClose={() => setShowPreviousSummary(false)}
-        onViewBrief={openModal}
-        previousSummary={previousSummary as DocumentSummary | null}
+    <PhysicianCardLayout header={header} sidebar={sidebar} overlay={overlay} toasts={<ToastContainer toasts={toasts} />}>
+      <DashboardContent
+        showOnboarding={showOnboarding}
+        currentStep={currentStep}
+        stepPositions={stepPositions}
+        showWelcomeModal={showWelcomeModal}
+        onboardingSteps={onboardingSteps}
+        onCloseOnboarding={closeOnboarding}
+        onNextStep={nextStep}
+        onPreviousStep={previousStep}
+        onStartOnboarding={startOnboarding}
+        files={files}
+        onFileSelect={handleFileSelect}
+        onUpload={handleUpload}
+        onCancelUpload={resetFiles}
+        loading={loading}
+        selectedPatient={selectedPatient}
+        documentData={documentData}
+        taskQuickNotes={taskQuickNotes}
+        visitCount={visitCount}
         formatDate={formatDate}
+        currentPatient={currentPatient}
+        collapsedSections={collapsedSections}
+        copied={copied}
+        onToggleSection={toggleSection}
+        onCopySection={handleSectionCopy}
+        mode={mode}
+        error={error}
+        onRetry={handleRetry}
+        recentPatientsVisible={recentPatientsVisible}
+        onToggleRecentPatients={() => setRecentPatientsVisible(!recentPatientsVisible)}
+        recentPatients={recentPatientsList}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        searchResults={searchResults}
+        searchLoading={searchLoading}
+        onPatientSelect={handlePatientSelect}
+        onCloseRecentPatients={() => setRecentPatientsVisible(false)}
+        session={session}
       />
-      <ManualTaskModal
-        open={showManualTaskModal}
-        onOpenChange={setShowManualTaskModal}
-        departments={[
-          "Medical/Clinical",
-          "Scheduling & Coordination",
-          "Administrative / Compliance",
-          "Authorizations & Denials",
-        ]}
+      {/* <FloatingNewOrderButton onClick={() => setShowManualTaskModal(true)} /> */}
+      <ModalsContainer
+        showPreviousSummary={showPreviousSummary}
+        onCloseBriefSummary={() => setSelectedBriefSummary("")}
+        selectedBriefSummary={selectedBriefSummary}
+        onClosePreviousSummary={() => setShowPreviousSummary(false)}
+        onViewBrief={openModal}
+        previousSummary={previousSummary}
+        formatDate={formatDate}
+        showManualTaskModal={showManualTaskModal}
+        onManualTaskModalChange={setShowManualTaskModal}
         defaultClaim={
           (currentPatient as Patient).claimNumber !== "Not specified"
             ? currentPatient.claimNumber
@@ -1243,29 +549,14 @@ export default function PhysicianCard() {
           selectedPatient ? (currentPatient as Patient).patientName : undefined
         }
         defaultDocumentId={documentId || undefined}
-        onSubmit={async (data: any) => {
-          try {
-            const response = await fetch("/api/add-manual-task", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                ...data,
-                physicianId: (session?.user as any)?.physicianId || null,
-              }),
-            });
-            if (!response.ok) {
-              throw new Error("Failed to create task");
-            }
-            addToast("Task created successfully", "success");
-          } catch (error) {
-            console.error("Error creating task:", error);
-            addToast("Failed to create task", "error");
-            throw error;
-          }
-        }}
+        onManualTaskSubmit={handleManualTaskSubmit}
+        session={session}
+        addToast={addToast}
       />
-    </>
+    </PhysicianCardLayout>
   );
 }
+
+
+
+// vudihyz@mailinator.com
