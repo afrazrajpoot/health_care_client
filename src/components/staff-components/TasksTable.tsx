@@ -2,7 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { Eye, Trash2, Scissors, X, FileText, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Eye,
+  Trash2,
+  Scissors,
+  X,
+  FileText,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 interface Task {
   id: string;
@@ -67,7 +75,9 @@ export default function TasksTable({
 }: TasksTableProps) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(new Set());
+  const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(
+    new Set()
+  );
 
   // Failed document states
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
@@ -226,7 +236,7 @@ export default function TasksTable({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",
@@ -385,10 +395,13 @@ export default function TasksTable({
                               )
                             }
                           >
-                            {updatingStatuses.has(task.id) || currentStatus.toLowerCase() === 'pending' ? (
+                            {updatingStatuses.has(task.id) ||
+                            currentStatus.toLowerCase() === "pending" ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin" />
-                                {updatingStatuses.has(task.id) ? 'Updating...' : currentStatus}
+                                {updatingStatuses.has(task.id)
+                                  ? "Updating..."
+                                  : currentStatus}
                               </>
                             ) : (
                               <>
@@ -420,15 +433,19 @@ export default function TasksTable({
                                       : ""
                                   }`}
                                   onClick={async () => {
-                                    setUpdatingStatuses(prev => new Set(prev).add(task.id));
+                                    setUpdatingStatuses((prev) =>
+                                      new Set(prev).add(task.id)
+                                    );
                                     setOpenDropdown(null);
                                     try {
                                       await onStatusClick(task.id, status);
-                                      toast.success(`Status updated to "${status}"`);
+                                      toast.success(
+                                        `Status updated to "${status}"`
+                                      );
                                     } catch (error) {
-                                      toast.error('Failed to update status');
+                                      toast.error("Failed to update status");
                                     } finally {
-                                      setUpdatingStatuses(prev => {
+                                      setUpdatingStatuses((prev) => {
                                         const newSet = new Set(prev);
                                         newSet.delete(task.id);
                                         return newSet;
