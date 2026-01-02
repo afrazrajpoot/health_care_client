@@ -3,6 +3,7 @@ import { useSocket } from "@/providers/SocketProvider";
 import React, { useEffect, useState } from "react";
 import { Check, X, Minimize2, Maximize2 } from "lucide-react";
 import DocLatchAnimation from "./DocLatchAnimation";
+import { toast } from "sonner";
 
 interface ProgressTrackerProps {
   onComplete?: () => void;
@@ -81,6 +82,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       console.log("👁️ Showing modal - processing started with data");
       setIsVisible(true);
       localStorage.setItem("progressTrackerOpen", "true");
+
+      // Dismiss any existing toast notifications when progress modal opens
+      toast.dismiss();
     }
     // Don't hide automatically - let completion logic or manual close handle that
   }, [isProcessing, progressData, queueProgressData]);
