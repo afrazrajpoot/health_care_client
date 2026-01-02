@@ -9,6 +9,7 @@ import { useSocket } from "@/providers/SocketProvider";
 import { useTasks } from "../../app/custom-hooks/staff-hooks/useTasks";
 import { useFileUpload } from "../../app/custom-hooks/staff-hooks/useFileUpload";
 import { AlertCircle, X } from "lucide-react";
+import { toast } from "sonner";
 
 // Import new components
 import StaffDashboardHeader from "@/components/staff-components/StaffDashboardHeader";
@@ -434,7 +435,37 @@ export default function StaffDashboardContainer() {
     router.push("/packages");
   }, [clearPaymentError, router]);
 
-  // Instant detection of 100% progress - show popup immediately (page reloads on OK click)
+  // Get socket data including current phase
+  const { currentPhase } = useSocket();
+
+  // Show progress popup when extract API is successful (processing phase starts)
+  const progressPopupShownRef = useRef(false);
+
+  useEffect(() => {
+    if (!selectedPatient) {
+      return;
+    }
+
+    // Don't show success popup if there's a payment error (ignored files)
+    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
+      return;
+    }
+
+    // Show progress popup when processing phase starts (extract API successful)
+    if (currentPhase === "processing" && !progressPopupShownRef.current) {
+      console.log("🚀 Extract API successful - showing progress popup");
+      progressPopupShownRef.current = true;
+      // Note: Progress popup is shown in StaffDashboardModals component
+      // No need to call handleProgressComplete here as we want to show progress, not completion
+    }
+
+    // Reset when not processing
+    if (!isProcessing) {
+      progressPopupShownRef.current = false;
+    }
+  }, [currentPhase, isProcessing, selectedPatient, paymentError, ignoredFiles]);
+
+  // Instant detection of 100% progress - show success popup
   useEffect(() => {
     if (!selectedPatient) {
       return;
@@ -466,10 +497,10 @@ export default function StaffDashboardContainer() {
       allFilesProcessed &&
       !progressCompleteHandledRef.current
     ) {
-      console.log("🚀 Progress reached 100% - showing popup instantly");
+      console.log("🚀 Progress reached 100% - showing success popup instantly");
       progressCompleteHandledRef.current = true;
 
-      // Show popup immediately (APIs will be called when user clicks OK)
+      // Show success popup immediately (APIs will be called when user clicks OK)
       handleProgressComplete();
     }
   }, [
@@ -836,6 +867,17 @@ export default function StaffDashboardContainer() {
                   </button>
                   <button
                     onClick={() => {
+                      // Show toast with loader
+                      toast("Your documents are in queue and ready to upload", {
+                        description: "Please wait while we prepare your files for upload",
+                        duration: 60000, // 1 minute
+                        position: "top-center",
+                        action: {
+                          label: "Close",
+                          onClick: () => {},
+                        },
+                      });
+
                       setShowFilePopup(false);
                       // Upload the pending files (which may have been filtered)
                       if (pendingFiles.length > 0) {
@@ -855,10 +897,17 @@ export default function StaffDashboardContainer() {
                       setFileDetailsPopup([]);
                       setPendingFiles([]);
                     }}
-                    disabled={uploading || fileDetailsPopup.length === 0}
-                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={uploading || isProcessing || fileDetailsPopup.length === 0}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {uploading ? "Uploading..." : "Upload"}
+                    {(uploading || isProcessing) ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        {uploading ? "Uploading..." : isProcessing ? "Processing..." : "Uploading..."}
+                      </>
+                    ) : (
+                      "Upload"
+                    )}
                   </button>
                 </div>
               </div>
