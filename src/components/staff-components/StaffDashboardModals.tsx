@@ -141,7 +141,10 @@ export default function StaffDashboardModals({
               Your document has been processed and verified successfully.
             </p>
             <button
-              onClick={onCloseDocumentSuccessPopup}
+              onClick={() => {
+                onCloseDocumentSuccessPopup();
+                window.location.reload();
+              }}
               className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors duration-200"
             >
               OK

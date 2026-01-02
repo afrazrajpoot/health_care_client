@@ -16,6 +16,7 @@ import PatientDrawer from "@/components/staff-components/PatientDrawer";
 import TasksSection from "@/components/staff-components/TasksSection";
 import StaffDashboardModals from "@/components/staff-components/StaffDashboardModals";
 import { useFailedDocuments } from "../../app/custom-hooks/staff-hooks/useFailedDocuments";
+import { Sidebar } from "@/components/navigation/sidebar";
 
 // Import utilities
 import {
@@ -61,6 +62,7 @@ export default function StaffDashboardContainer() {
   }
 
   const [fileDetailsPopup, setFileDetailsPopup] = useState<FileDetails[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [loadingPatientData, setLoadingPatientData] = useState(false);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
@@ -98,39 +100,46 @@ export default function StaffDashboardContainer() {
 
   // Initialize task statuses and assignees when tasks are loaded
   useEffect(() => {
-    const { updatedStatuses, updatedAssignees } = initializeTaskStatuses(patientTasks);
+    const { updatedStatuses, updatedAssignees } =
+      initializeTaskStatuses(patientTasks);
     setTaskStatuses(updatedStatuses);
     setTaskAssignees(updatedAssignees);
   }, [patientTasks]);
 
   // Handle status chip click - memoized
-  const handleStatusChipClick = useCallback(async (taskId: string, status: string) => {
-    setTaskStatuses((prev) => ({ ...prev, [taskId]: status }));
+  const handleStatusChipClick = useCallback(
+    async (taskId: string, status: string) => {
+      setTaskStatuses((prev) => ({ ...prev, [taskId]: status }));
 
-    const result = await updateTaskStatus(taskId, status, patientTasks);
-    if (!result.success) {
-      const task = patientTasks.find((t) => t.id === taskId);
-      if (task) {
-        setTaskStatuses((prev) => ({ ...prev, [taskId]: task.status }));
+      const result = await updateTaskStatus(taskId, status, patientTasks);
+      if (!result.success) {
+        const task = patientTasks.find((t) => t.id === taskId);
+        if (task) {
+          setTaskStatuses((prev) => ({ ...prev, [taskId]: task.status }));
+        }
       }
-    }
-  }, [patientTasks]);
+    },
+    [patientTasks]
+  );
 
   // Handle assignee chip click - memoized
-  const handleAssigneeChipClick = useCallback(async (taskId: string, assignee: string) => {
-    setTaskAssignees((prev) => ({ ...prev, [taskId]: assignee }));
+  const handleAssigneeChipClick = useCallback(
+    async (taskId: string, assignee: string) => {
+      setTaskAssignees((prev) => ({ ...prev, [taskId]: assignee }));
 
-    const result = await updateTaskAssignee(taskId, assignee, patientTasks);
-    if (!result.success) {
-      const task = patientTasks.find((t) => t.id === taskId);
-      if (task) {
-        setTaskAssignees((prev) => ({
-          ...prev,
-          [taskId]: task.assignee || "Unclaimed",
-        }));
+      const result = await updateTaskAssignee(taskId, assignee, patientTasks);
+      if (!result.success) {
+        const task = patientTasks.find((t) => t.id === taskId);
+        if (task) {
+          setTaskAssignees((prev) => ({
+            ...prev,
+            [taskId]: task.assignee || "Unclaimed",
+          }));
+        }
       }
-    }
-  }, [patientTasks]);
+    },
+    [patientTasks]
+  );
 
   // Get status options based on current status - memoized
   const getStatusOptions = useCallback((task: Task): string[] => {
@@ -178,11 +187,14 @@ export default function StaffDashboardContainer() {
   } = useFileUpload(initialMode);
 
   // Task summary statistics - memoized for performance
-  const taskStats: TaskStats = useMemo(() => calculateTaskStats(patientTasks), [patientTasks]);
+  const taskStats: TaskStats = useMemo(
+    () => calculateTaskStats(patientTasks),
+    [patientTasks]
+  );
 
   // Questionnaire chips - memoized for performance
-  const questionnaireChips = useMemo(() =>
-    getQuestionnaireChipsUtil(patientIntakeUpdate, patientQuiz),
+  const questionnaireChips = useMemo(
+    () => getQuestionnaireChipsUtil(patientIntakeUpdate, patientQuiz),
     [patientIntakeUpdate, patientQuiz]
   );
 
@@ -193,10 +205,16 @@ export default function StaffDashboardContainer() {
   const physicianId = useMemo(() => getPhysicianIdUtil(session), [session]);
 
   // Total pages calculation - memoized
-  const totalPages = useMemo(() => Math.ceil(taskTotalCount / taskPageSize), [taskTotalCount, taskPageSize]);
+  const totalPages = useMemo(
+    () => Math.ceil(taskTotalCount / taskPageSize),
+    [taskTotalCount, taskPageSize]
+  );
 
   // Pagination helpers - memoized
-  const hasNextPage = useMemo(() => taskPage < totalPages, [taskPage, totalPages]);
+  const hasNextPage = useMemo(
+    () => taskPage < totalPages,
+    [taskPage, totalPages]
+  );
   const hasPrevPage = useMemo(() => taskPage > 1, [taskPage]);
 
   // Displayed tasks - memoized
@@ -250,7 +268,7 @@ export default function StaffDashboardContainer() {
     const initializePage = async () => {
       try {
         // Show loading for at least 1 second for better UX
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         setPageLoading(false);
       } catch (error) {
         console.error("Error initializing page:", error);
@@ -368,16 +386,46 @@ export default function StaffDashboardContainer() {
   }, []);
 
   // Handle progress complete - memoized
-  const handleProgressComplete = useCallback(() => {
-    // Show popup instantly when progress reaches 100%
+  const handleProgressComplete = useCallback(async () => {
+    // Fetch updated data in realtime instead of just showing popup
+    console.log("🔄 Progress complete - fetching updated data...");
+
+    // Fetch tasks and failed documents in parallel
+    const fetchPromises: Promise<void>[] = [];
+
+    if (selectedPatient) {
+      fetchPromises.push(
+        fetchPatientTasks(selectedPatient, taskPage, taskPageSize)
+      );
+      fetchPromises.push(fetchRecentPatients(patientSearchQuery));
+    }
+
+    // Fetch failed documents
+    fetchPromises.push(fetchFailedDocuments());
+
+    try {
+      await Promise.all(fetchPromises);
+      console.log("✅ Data refreshed successfully after upload complete");
+    } catch (error) {
+      console.error("❌ Error refreshing data after upload:", error);
+    }
+
+    // Show success popup
     setShowDocumentSuccessPopup(true);
-  }, []);
+  }, [
+    selectedPatient,
+    fetchPatientTasks,
+    taskPage,
+    taskPageSize,
+    fetchRecentPatients,
+    patientSearchQuery,
+    fetchFailedDocuments,
+  ]);
 
   // Handle popup OK button click - memoized
   const handlePopupOkClick = useCallback(() => {
-    // Close popup and reload the page
+    // Close popup - data is already refreshed, no need to reload
     setShowDocumentSuccessPopup(false);
-    window.location.reload();
   }, []);
 
   // Handle upgrade for payment errors - memoized
@@ -385,7 +433,6 @@ export default function StaffDashboardContainer() {
     clearPaymentError();
     router.push("/packages");
   }, [clearPaymentError, router]);
-
 
   // Instant detection of 100% progress - show popup immediately (page reloads on OK click)
   useEffect(() => {
@@ -637,8 +684,14 @@ export default function StaffDashboardContainer() {
   };
 
   // Pagination helpers - use memoized values
-  const totalPagesMemo = useMemo(() => Math.ceil(taskTotalCount / taskPageSize), [taskTotalCount, taskPageSize]);
-  const hasNextPageMemo = useMemo(() => taskPage < totalPagesMemo, [taskPage, totalPagesMemo]);
+  const totalPagesMemo = useMemo(
+    () => Math.ceil(taskTotalCount / taskPageSize),
+    [taskTotalCount, taskPageSize]
+  );
+  const hasNextPageMemo = useMemo(
+    () => taskPage < totalPagesMemo,
+    [taskPage, totalPagesMemo]
+  );
   const hasPrevPageMemo = useMemo(() => taskPage > 1, [taskPage]);
 
   // Displayed tasks - use memoized value
@@ -687,128 +740,184 @@ export default function StaffDashboardContainer() {
         }
       `}</style>
 
-      <StaffDashboardHeader
-        onCreateIntakeLink={() => setShowModal(true)}
-        onAddTask={() => setShowTaskModal(true)}
-        onUploadDocument={() => snapInputRef.current?.click()}
-      />
+      <div className="flex h-screen overflow-hidden">
+        {/* Sidebar for navigation */}
+        <Sidebar />
 
-      <input
-        type="file"
-        ref={snapInputRef}
-        multiple
-        max={10}
-        style={{ display: "none" }}
-        onChange={(e) => {
-          if (e.target.files && e.target.files.length > 0) {
-            const fileDetails = Array.from(e.target.files).map((file) => ({
-              name: file.name,
-              size: file.size,
-              type: file.type,
-            }));
-            setFileDetailsPopup(fileDetails as FileDetails[]);
-            setShowFilePopup(true);
-          }
-        }}
-        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-      />
-
-      {/* File Details Popup */}
-      {showFilePopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h2 className="text-lg font-bold mb-4">File Details</h2>
-            <ul className="space-y-2">
-              {fileDetailsPopup.map((file, index) => (
-                <li key={index} className="text-sm">
-                  <strong>Name:</strong> {file.name} <br />
-                  <strong>Size:</strong> {(file.size / 1024).toFixed(2)} KB{" "}
-                  <br />
-                  <strong>Type:</strong> {file.type}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowFilePopup(false);
-                  setFileDetailsPopup([]);
-                  if (snapInputRef.current) {
-                    snapInputRef.current.value = "";
-                  }
-                }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowFilePopup(false);
-                  // Trigger the extract document API by calling handleSnap with the current input
-                  if (snapInputRef.current && snapInputRef.current.files) {
-                    const event = {
-                      target: snapInputRef.current,
-                    } as React.ChangeEvent<HTMLInputElement>;
-                    handleSnap(event);
-                  }
-                }}
-                disabled={uploading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {uploading ? "Uploading..." : "OK"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <main className="p-4 max-w-[1280px] mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
-        <PatientDrawer
-          patients={recentPatients}
-          selectedPatient={selectedPatient}
-          loading={loading}
-          collapsed={patientDrawerCollapsed}
-          onToggle={() => setPatientDrawerCollapsed(!patientDrawerCollapsed)}
-          onSelectPatient={setSelectedPatient}
-          formatDOB={formatDOB}
-          formatClaimNumber={formatClaimNumber}
-          onSearchChange={setPatientSearchQuery}
-        />
-
-        <section className="flex flex-col gap-3.5 h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
-          <TasksSection
-            selectedPatient={selectedPatient}
-            displayedTasks={displayedTasksMemo}
-            taskTotalCount={taskTotalCount}
-            taskPage={taskPage}
-            taskPageSize={taskPageSize}
-            totalPages={totalPagesMemo}
-            hasNextPage={hasNextPageMemo}
-            hasPrevPage={hasPrevPageMemo}
-            showCompletedTasks={showCompletedTasks}
-            taskStatuses={taskStatuses}
-            taskAssignees={taskAssignees}
-            failedDocuments={Array.isArray(failedDocuments) ? failedDocuments : []}
-            loadingPatientData={loadingPatientData}
-            patientIntakeUpdate={patientIntakeUpdate}
-            patientQuiz={patientQuiz}
-            taskStats={taskStats}
-            questionnaireChips={questionnaireChips}
-            physicianId={physicianId}
-            getStatusOptions={getStatusOptions}
-            getAssigneeOptions={getAssigneeOptions}
-            formatDOB={formatDOB}
-            formatClaimNumber={formatClaimNumber}
-            onShowCompletedTasksChange={setShowCompletedTasks}
-            onTaskPageChange={setTaskPage}
-            onStatusClick={handleStatusChipClick}
-            onAssigneeClick={handleAssigneeChipClick}
-            onTaskClick={handleTaskClick}
-            onFailedDocumentDeleted={removeFailedDocument}
-            onFailedDocumentRowClick={handleRowClick}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <StaffDashboardHeader
+            onCreateIntakeLink={() => setShowModal(true)}
+            onAddTask={() => setShowTaskModal(true)}
+            onUploadDocument={() => snapInputRef.current?.click()}
           />
-        </section>
-      </main>
+
+          <input
+            type="file"
+            ref={snapInputRef}
+            multiple
+            max={10}
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                const filesArray = Array.from(e.target.files);
+                const fileDetails = filesArray.map((file) => ({
+                  name: file.name,
+                  size: file.size,
+                  type: file.type,
+                }));
+                setFileDetailsPopup(fileDetails as FileDetails[]);
+                setPendingFiles(filesArray);
+                setShowFilePopup(true);
+              }
+            }}
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          />
+
+          {/* File Details Popup */}
+          {showFilePopup && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                <h2 className="text-lg font-bold mb-4">File Details</h2>
+                {fileDetailsPopup.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No files selected
+                  </p>
+                ) : (
+                  <ul className="space-y-3 max-h-80 overflow-y-auto">
+                    {fileDetailsPopup.map((file, index) => (
+                      <li
+                        key={index}
+                        className="text-sm bg-gray-50 rounded-lg p-3 relative group"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                              {(file.size / 1024).toFixed(2)} KB •{" "}
+                              {file.type || "Unknown type"}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Remove file from both arrays
+                              setFileDetailsPopup((prev) =>
+                                prev.filter((_, i) => i !== index)
+                              );
+                              setPendingFiles((prev) =>
+                                prev.filter((_, i) => i !== index)
+                              );
+                            }}
+                            className="flex-shrink-0 p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Remove file"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setShowFilePopup(false);
+                      setFileDetailsPopup([]);
+                      setPendingFiles([]);
+                      if (snapInputRef.current) {
+                        snapInputRef.current.value = "";
+                      }
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowFilePopup(false);
+                      // Upload the pending files (which may have been filtered)
+                      if (pendingFiles.length > 0) {
+                        // Create a DataTransfer to set files on input
+                        const dataTransfer = new DataTransfer();
+                        pendingFiles.forEach((file) =>
+                          dataTransfer.items.add(file)
+                        );
+                        if (snapInputRef.current) {
+                          snapInputRef.current.files = dataTransfer.files;
+                          const event = {
+                            target: snapInputRef.current,
+                          } as React.ChangeEvent<HTMLInputElement>;
+                          handleSnap(event);
+                        }
+                      }
+                      setFileDetailsPopup([]);
+                      setPendingFiles([]);
+                    }}
+                    disabled={uploading || fileDetailsPopup.length === 0}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? "Uploading..." : "Upload"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <main className="p-4 max-w-[1280px] mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
+            <PatientDrawer
+              patients={recentPatients}
+              selectedPatient={selectedPatient}
+              loading={loading}
+              collapsed={patientDrawerCollapsed}
+              onToggle={() =>
+                setPatientDrawerCollapsed(!patientDrawerCollapsed)
+              }
+              onSelectPatient={setSelectedPatient}
+              formatDOB={formatDOB}
+              formatClaimNumber={formatClaimNumber}
+              onSearchChange={setPatientSearchQuery}
+            />
+
+            <section className="flex flex-col gap-3.5 h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
+              <TasksSection
+                selectedPatient={selectedPatient}
+                displayedTasks={displayedTasksMemo}
+                taskTotalCount={taskTotalCount}
+                taskPage={taskPage}
+                taskPageSize={taskPageSize}
+                totalPages={totalPagesMemo}
+                hasNextPage={hasNextPageMemo}
+                hasPrevPage={hasPrevPageMemo}
+                showCompletedTasks={showCompletedTasks}
+                taskStatuses={taskStatuses}
+                taskAssignees={taskAssignees}
+                failedDocuments={
+                  Array.isArray(failedDocuments) ? failedDocuments : []
+                }
+                loadingPatientData={loadingPatientData}
+                patientIntakeUpdate={patientIntakeUpdate}
+                patientQuiz={patientQuiz}
+                taskStats={taskStats}
+                questionnaireChips={questionnaireChips}
+                physicianId={physicianId}
+                getStatusOptions={getStatusOptions}
+                getAssigneeOptions={getAssigneeOptions}
+                formatDOB={formatDOB}
+                formatClaimNumber={formatClaimNumber}
+                onShowCompletedTasksChange={setShowCompletedTasks}
+                onTaskPageChange={setTaskPage}
+                onStatusClick={handleStatusChipClick}
+                onAssigneeClick={handleAssigneeChipClick}
+                onTaskClick={handleTaskClick}
+                onFailedDocumentDeleted={removeFailedDocument}
+                onFailedDocumentRowClick={handleRowClick}
+              />
+            </section>
+          </main>
+        </div>
+      </div>
 
       <StaffDashboardModals
         showModal={showModal}
@@ -836,7 +945,7 @@ export default function StaffDashboardContainer() {
         onUpdateInputChange={(field: string, value: string) => {
           // Create a synthetic event for the handleUpdateInputChange function
           const syntheticEvent = {
-            target: { name: field, value }
+            target: { name: field, value },
           } as React.ChangeEvent<HTMLInputElement>;
           handleUpdateInputChange(syntheticEvent);
         }}

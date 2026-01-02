@@ -1,5 +1,12 @@
 // app/dashboard/data/config.ts
 // components/staff-components/types.ts
+
+export interface FileDetails {
+  name: string;
+  size: number;
+  type: string;
+}
+
 export interface Task {
   id: string;
   task: string;

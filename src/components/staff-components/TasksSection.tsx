@@ -26,10 +26,18 @@ interface Task {
 
 interface FailedDocument {
   id: string;
-  filename: string;
   reason: string;
-  existing_file?: string;
-  document_id?: string;
+  db?: string;
+  doi?: string;
+  claimNumber?: string;
+  patientName?: string;
+  documentText?: string;
+  physicianId?: string;
+  gcsFileLink?: string;
+  fileName: string;
+  fileHash?: string;
+  blobPath?: string;
+  summary?: string;
 }
 
 interface TasksSectionProps {
@@ -141,23 +149,23 @@ export default function TasksSection({
                   : "bg-white text-slate-900 hover:bg-gray-50"
               }`}
             >
-              {showCompletedTasks
-                ? "Show Open Tasks"
-                : "Show Completed Tasks"}
+              {showCompletedTasks ? "Show Open Tasks" : "Show Completed Tasks"}
             </button>
           </div>
         )}
       </div>
 
+      {/* Show TasksTable - only one instance, handle both cases */}
       <TasksTable
-        // Only pass patient tasks if patient is selected AND has tasks
         tasks={
-          selectedPatient && displayedTasks.length > 0
-            ? displayedTasks
-            : []
+          selectedPatient && displayedTasks.length > 0 ? displayedTasks : []
         }
-        taskStatuses={taskStatuses}
-        taskAssignees={taskAssignees}
+        taskStatuses={
+          selectedPatient && displayedTasks.length > 0 ? taskStatuses : {}
+        }
+        taskAssignees={
+          selectedPatient && displayedTasks.length > 0 ? taskAssignees : {}
+        }
         onStatusClick={onStatusClick}
         onAssigneeClick={onAssigneeClick}
         onTaskClick={onTaskClick}
@@ -178,14 +186,12 @@ export default function TasksSection({
           <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
             <div className="text-sm text-gray-600">
               Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
-              {Math.min(taskPage * taskPageSize, taskTotalCount)}{" "}
-              of {taskTotalCount} tasks
+              {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
+              {taskTotalCount} tasks
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() =>
-                  onTaskPageChange(Math.max(1, taskPage - 1))
-                }
+                onClick={() => onTaskPageChange(Math.max(1, taskPage - 1))}
                 disabled={!hasPrevPage}
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
                   hasPrevPage
@@ -214,26 +220,6 @@ export default function TasksSection({
             </div>
           </div>
         )}
-
-      {/* Show TasksTable with ONLY failed documents when no patient selected */}
-      {(!selectedPatient || displayedTasks.length === 0) && (
-        <TasksTable
-          tasks={[]} // Empty array - no patient tasks
-          taskStatuses={{}}
-          taskAssignees={{}}
-          onStatusClick={onStatusClick}
-          onAssigneeClick={onAssigneeClick}
-          onTaskClick={onTaskClick}
-          getStatusOptions={getStatusOptions}
-          getAssigneeOptions={getAssigneeOptions}
-          // ALWAYS pass failed documents (they show even without patient)
-          failedDocuments={failedDocuments}
-          onFailedDocumentDeleted={onFailedDocumentDeleted}
-          onFailedDocumentRowClick={onFailedDocumentRowClick}
-          mode="wc"
-          physicianId={physicianId || undefined}
-        />
-      )}
     </div>
   );
 }

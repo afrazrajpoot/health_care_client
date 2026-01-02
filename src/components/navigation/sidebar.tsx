@@ -49,15 +49,15 @@ const navigationItems: NavigationItem[] = [
     description: "Pricing and billing",
     roles: ["Physician"], // ✅ Physician only
   },
-  {
-    name: "Rebuttals",
-    href: "/generate-rebuttal",
+  // {
+  //   name: "Rebuttals",
+  //   href: "/generate-rebuttal",
 
-    icon: CheckSquare,
-    // badge: "8",
-    description: "Task management & assignments",
-    roles: ["Physician"], // ✅ Both
-  },
+  //   icon: CheckSquare,
+  //   // badge: "8",
+  //   description: "Task management & assignments",
+  //   roles: ["Physician"], // ✅ Both
+  // },
   {
     name: "Upload Documents",
     href: "/staff-dashboard",
@@ -236,13 +236,13 @@ export function Sidebar({ className }: SidebarProps) {
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-200 space-y-2">
-          <Link
+          {/* <Link
             href="/settings"
             className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
           >
             <Settings size={20} className="shrink-0" />
             <span className="font-semibold text-sm">Settings</span>
-          </Link>
+          </Link> */}
           {/* ✅ Logout Button */}
           <Button
             variant="ghost"

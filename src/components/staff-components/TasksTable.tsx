@@ -103,48 +103,41 @@ export default function TasksTable({
   }, []);
 
   // Failed document handlers
-  const handlePreviewFile = async (
-    e: React.MouseEvent,
-    doc: FailedDocument
-  ) => {
+  const handlePreviewFile = (e: React.MouseEvent, doc: FailedDocument) => {
     e.stopPropagation();
     if (!doc.gcsFileLink) {
       toast.error("No file link available");
       return;
     }
-    setLoadingPreview(doc.id);
-    try {
-      let previewUrl = doc.gcsFileLink;
-      if (
-        previewUrl.includes("storage.googleapis.com") ||
-        previewUrl.includes("storage.cloud.google.com")
-      ) {
-        const separator = previewUrl.includes("?") ? "&" : "?";
-        previewUrl = `${previewUrl}${separator}response-content-disposition=inline`;
-      }
-      const fileName = doc.fileName?.toLowerCase() || "";
-      if (
-        fileName.endsWith(".pdf") ||
-        fileName.endsWith(".doc") ||
-        fileName.endsWith(".docx")
-      ) {
-        previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(
-          doc.gcsFileLink
-        )}&embedded=true`;
-      }
-      const newWindow = window.open(
-        previewUrl,
-        "_blank",
-        "noopener,noreferrer"
-      );
-      if (!newWindow) {
-        toast.error("Popup was blocked. Please allow popups for this site.");
-      }
-    } catch (error) {
-      console.error("Error opening file:", error);
-    } finally {
-      setLoadingPreview(null);
+
+    // Build the preview URL
+    let previewUrl = doc.gcsFileLink;
+    if (
+      previewUrl.includes("storage.googleapis.com") ||
+      previewUrl.includes("storage.cloud.google.com")
+    ) {
+      const separator = previewUrl.includes("?") ? "&" : "?";
+      previewUrl = `${previewUrl}${separator}response-content-disposition=inline`;
     }
+    const fileName = doc.fileName?.toLowerCase() || "";
+    if (
+      fileName.endsWith(".pdf") ||
+      fileName.endsWith(".doc") ||
+      fileName.endsWith(".docx")
+    ) {
+      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(
+        doc.gcsFileLink
+      )}&embedded=true`;
+    }
+
+    // Use anchor element to open - most reliable way to avoid popup blockers
+    const link = document.createElement("a");
+    link.href = previewUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDeleteClick = (e: React.MouseEvent, doc: FailedDocument) => {

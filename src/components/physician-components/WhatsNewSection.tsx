@@ -828,7 +828,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .sub {
           font-size: 12px;
-          color: var(--muted);
+          // color: var(--muted);
           margin-top: 2px;
         }
         .scanline {
@@ -892,7 +892,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         }
         .label {
           font-size: 12px;
-          color: var(--muted);
+          // color: var(--muted);
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.02em;
