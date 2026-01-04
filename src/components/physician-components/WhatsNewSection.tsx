@@ -18,6 +18,11 @@ import {
   BookOpenIcon,
   FileText,
   Loader2,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
@@ -29,6 +34,40 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+
+// Types for new structured short summary response
+interface SummaryFinding {
+  label: string;
+  value: string;
+  indicator: "danger" | "warning" | "normal";
+}
+
+interface SummaryRecommendation {
+  label: string;
+  value: string;
+}
+
+interface SummaryStatus {
+  label: string;
+  value: string;
+}
+
+interface SummaryHeader {
+  title: string;
+  source_type: string;
+  author: string;
+  date: string;
+  disclaimer: string;
+}
+
+interface StructuredShortSummary {
+  header: SummaryHeader;
+  summary: {
+    findings: SummaryFinding[];
+    recommendations: SummaryRecommendation[];
+    status: SummaryStatus[];
+  };
+}
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -181,6 +220,153 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return <span className="summary-text">{text}</span>;
   };
 
+  // Get indicator color based on type
+  const getIndicatorColor = (indicator: string): string => {
+    switch (indicator) {
+      case "danger":
+        return "#ef4444"; // Red
+      case "warning":
+        return "#f59e0b"; // Amber/Yellow
+      case "normal":
+        return "#22c55e"; // Green
+      default:
+        return "#6b7280"; // Gray
+    }
+  };
+
+  // Get indicator icon based on type
+  const getIndicatorIcon = (indicator: string) => {
+    switch (indicator) {
+      case "danger":
+        return (
+          <AlertCircle size={18} style={{ color: "#dc2626", flexShrink: 0 }} />
+        );
+      case "warning":
+        return (
+          <AlertTriangle
+            size={18}
+            style={{ color: "#d97706", flexShrink: 0 }}
+          />
+        );
+      case "normal":
+        return (
+          <CheckCircle2 size={18} style={{ color: "#16a34a", flexShrink: 0 }} />
+        );
+      default:
+        return (
+          <Activity size={18} style={{ color: "#6b7280", flexShrink: 0 }} />
+        );
+    }
+  };
+
+  // Get indicator text color based on type
+  const getIndicatorTextColor = (indicator: string): string => {
+    switch (indicator) {
+      case "danger":
+        return "#dc2626"; // Red
+      case "warning":
+        return "#d97706"; // Amber
+      case "normal":
+        return "#16a34a"; // Green
+      default:
+        return "#374151"; // Gray
+    }
+  };
+
+  // Render structured short summary with clean, professional UI
+  const renderStructuredShortSummary = (summary: StructuredShortSummary) => {
+    const { header, summary: summaryContent } = summary;
+
+    return (
+      <div className="structured-summary">
+        {/* Header Section */}
+        <div className="summary-header-block">
+          <div className="summary-title-row">
+            <span className="summary-doc-title">{header.title}</span>
+          </div>
+          <div className="summary-meta-row">
+            <span className="summary-source-badge">{header.source_type}</span>
+            {header.date && (
+              <span className="summary-date-text">• {header.date}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Findings Section */}
+        {summaryContent.findings && summaryContent.findings.length > 0 && (
+          <div className="summary-block">
+            <div className="summary-block-header">
+              <ClipboardList size={14} style={{ color: "#6b7280" }} />
+              <span>FINDINGS (REFERENCED FROM EXTERNAL RECORDS)</span>
+            </div>
+            <div className="findings-list">
+              {summaryContent.findings.map((finding, idx) => (
+                <div key={idx} className="finding-row">
+                  <span className="finding-icon-wrapper">
+                    {getIndicatorIcon(finding.indicator)}
+                  </span>
+                  <span
+                    className="finding-text"
+                    style={{
+                      color: getIndicatorTextColor(finding.indicator),
+                      fontWeight: 600,
+                    }}
+                  >
+                    {finding.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations Section */}
+        {summaryContent.recommendations &&
+          summaryContent.recommendations.length > 0 && (
+            <div className="summary-block">
+              <div className="summary-block-header">
+                <Activity size={14} style={{ color: "#6b7280" }} />
+                <span>RECOMMENDED ACTIONS (WORKFLOW)</span>
+              </div>
+              <div className="recommendations-list">
+                {summaryContent.recommendations.map((rec, idx) => (
+                  <div key={idx} className="recommendation-row">
+                    <ChevronRightIcon
+                      size={16}
+                      style={{ color: "#3b82f6", flexShrink: 0 }}
+                    />
+                    <span className="recommendation-text">{rec.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        {/* Status Section */}
+        {summaryContent.status && summaryContent.status.length > 0 && (
+          <div className="summary-block">
+            <div className="summary-block-header">
+              <CheckCircle2 size={14} style={{ color: "#6b7280" }} />
+              <span>STATUS</span>
+            </div>
+            <div className="status-pills-row">
+              {summaryContent.status.map((status, idx) => (
+                <span key={idx} className="status-badge">
+                  {status.value}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Disclaimer */}
+        {header.disclaimer && (
+          <div className="summary-disclaimer-text">{header.disclaimer}</div>
+        )}
+      </div>
+    );
+  };
+
   // Function to format long summary with colors
   const formatLongSummaryWithColors = (summary: string): string => {
     if (!summary) return "";
@@ -207,6 +393,49 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return formatted;
   };
 
+  // Helper function to parse short summary - handles both string and structured object
+  const parseShortSummary = (
+    shortSummary: any
+  ): StructuredShortSummary | string | null => {
+    if (!shortSummary) return null;
+
+    // If it's already an object with the expected structure
+    if (
+      typeof shortSummary === "object" &&
+      shortSummary.header &&
+      shortSummary.summary
+    ) {
+      return shortSummary as StructuredShortSummary;
+    }
+
+    // If it's a string, try to parse it as JSON
+    if (typeof shortSummary === "string") {
+      try {
+        const parsed = JSON.parse(shortSummary);
+        if (parsed.header && parsed.summary) {
+          return parsed as StructuredShortSummary;
+        }
+      } catch {
+        // Not JSON, return as plain string
+        return shortSummary;
+      }
+    }
+
+    return shortSummary;
+  };
+
+  // Helper to check if summary is structured
+  const isStructuredSummary = (
+    summary: any
+  ): summary is StructuredShortSummary => {
+    return (
+      summary &&
+      typeof summary === "object" &&
+      summary.header &&
+      summary.summary
+    );
+  };
+
   const documentGroups = useMemo(() => {
     if (!documentData?.documents) return [];
 
@@ -215,7 +444,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         const docId = doc.document_id || `doc_${docIndex}`;
 
         const longSummary = doc.whats_new?.long_summary || "";
-        const shortSummary = doc.whats_new?.short_summary || "";
+        const rawShortSummary = doc.whats_new?.short_summary;
+        const parsedShortSummary = parseShortSummary(rawShortSummary);
         const fallbackShortSummary = doc.brief_summary || "";
 
         const consultingDoctor =
@@ -238,7 +468,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           isLatest: doc.is_latest || false,
           reportDate: doc.report_date || doc.created_at || "",
           longSummary,
-          shortSummary: shortSummary || fallbackShortSummary,
+          shortSummary: parsedShortSummary || fallbackShortSummary,
           briefSummary: doc.brief_summary || "",
           contentType: "summaries",
           doc,
@@ -337,11 +567,59 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       return;
     }
 
-    // Remove HTML tags when copying to clipboard
-    const cleanText = group.shortSummary.replace(/<[^>]*>/g, "");
-    const textToCopy =
-      `📋 Brief Summary:\n${cleanText}\n\n` +
-      `These findings have been reviewed by Physician`;
+    let textToCopy = "";
+
+    // Handle structured summary
+    if (isStructuredSummary(group.shortSummary)) {
+      const { header, summary: summaryContent } = group.shortSummary;
+
+      let parts: string[] = [];
+      parts.push(`📋 ${header.title}`);
+      parts.push(`Source: ${header.source_type} • ${header.date}`);
+      parts.push("");
+
+      if (summaryContent.findings?.length > 0) {
+        parts.push("FINDINGS:");
+        summaryContent.findings.forEach((f: SummaryFinding) => {
+          const indicator =
+            f.indicator === "danger"
+              ? "🔴"
+              : f.indicator === "warning"
+              ? "🟡"
+              : "🟢";
+          parts.push(`${indicator} ${f.value}`);
+        });
+        parts.push("");
+      }
+
+      if (summaryContent.recommendations?.length > 0) {
+        parts.push("RECOMMENDATIONS:");
+        summaryContent.recommendations.forEach((r: SummaryRecommendation) => {
+          parts.push(`• ${r.value}`);
+        });
+        parts.push("");
+      }
+
+      if (summaryContent.status?.length > 0) {
+        parts.push("STATUS:");
+        summaryContent.status.forEach((s: SummaryStatus) => {
+          parts.push(`• ${s.value}`);
+        });
+        parts.push("");
+      }
+
+      parts.push("These findings have been reviewed by Physician");
+      textToCopy = parts.join("\n");
+    } else {
+      // Handle string summary - Remove HTML tags when copying to clipboard
+      const cleanText =
+        typeof group.shortSummary === "string"
+          ? group.shortSummary.replace(/<[^>]*>/g, "")
+          : "";
+      textToCopy =
+        `📋 Brief Summary:\n${cleanText}\n\n` +
+        `These findings have been reviewed by Physician`;
+    }
 
     navigator.clipboard
       .writeText(textToCopy)
@@ -424,7 +702,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -497,22 +775,30 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     return docId ? loadingPreviews.has(docId) : false;
   };
 
-  // Extract meaningful document title from short summary (text before first pipe)
+  // Extract meaningful document title from short summary (text before first pipe or from structured header)
   const extractDocumentTitle = (
-    shortSummary: string,
+    shortSummary: string | StructuredShortSummary,
     fallbackType: string
   ): string => {
     if (!shortSummary) return fallbackType || "Document";
 
-    // Split by pipe and get the first part
-    const firstPart = shortSummary.split("|")[0]?.trim();
+    // Handle structured summary
+    if (isStructuredSummary(shortSummary)) {
+      return shortSummary.header?.title || fallbackType || "Document";
+    }
 
-    // If we got a meaningful title, use it; otherwise fall back to document type
-    if (firstPart && firstPart.length > 0 && firstPart.length < 100) {
-      // Remove any HTML tags that might be present
-      return (
-        firstPart.replace(/<[^>]*>/g, "").trim() || fallbackType || "Document"
-      );
+    // Handle string summary
+    if (typeof shortSummary === "string") {
+      // Split by pipe and get the first part
+      const firstPart = shortSummary.split("|")[0]?.trim();
+
+      // If we got a meaningful title, use it; otherwise fall back to document type
+      if (firstPart && firstPart.length > 0 && firstPart.length < 100) {
+        // Remove any HTML tags that might be present
+        return (
+          firstPart.replace(/<[^>]*>/g, "").trim() || fallbackType || "Document"
+        );
+      }
     }
 
     return fallbackType || "Document";
@@ -560,16 +846,33 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               };
 
               // Extract key findings from summary for pills
-              const extractPills = (summary: string) => {
-                const pills: string[] = [];
-                const lines = summary.split("\n").slice(0, 3);
-                lines.forEach((line) => {
-                  const words = line.split(" ").slice(0, 3).join(" ");
-                  if (words.length > 0 && words.length < 30) {
-                    pills.push(words);
-                  }
-                });
-                return pills.slice(0, 3);
+              const extractPills = (
+                summary: string | StructuredShortSummary
+              ) => {
+                if (!summary) return [];
+
+                // Handle structured summary
+                if (isStructuredSummary(summary)) {
+                  return (
+                    summary.summary.findings?.slice(0, 3).map((f) => f.label) ||
+                    []
+                  );
+                }
+
+                // Handle string summary
+                if (typeof summary === "string") {
+                  const pills: string[] = [];
+                  const lines = summary.split("\n").slice(0, 3);
+                  lines.forEach((line) => {
+                    const words = line.split(" ").slice(0, 3).join(" ");
+                    if (words.length > 0 && words.length < 30) {
+                      pills.push(words);
+                    }
+                  });
+                  return pills.slice(0, 3);
+                }
+
+                return [];
               };
 
               const pills = extractPills(group.shortSummary || "");
@@ -662,12 +965,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         </div>
                       ) : (
                         <div className="detail-box">
-                          <div className="label">Key Findings</div>
-                          <div className="text long">
-                            {renderSummaryWithHTML(
-                              group.shortSummary || "",
-                              false
-                            )}
+                          <div className="label">Referenced Summary</div>
+                          <div className="text long structured-summary-container">
+                            {isStructuredSummary(group.shortSummary)
+                              ? renderStructuredShortSummary(group.shortSummary)
+                              : renderSummaryWithHTML(
+                                  typeof group.shortSummary === "string"
+                                    ? group.shortSummary
+                                    : "",
+                                  false
+                                )}
                           </div>
                         </div>
                       )}
@@ -888,14 +1195,15 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           background: #fff;
           border: 1px solid var(--border);
           border-radius: 12px;
-          padding: 10px;
+          padding: 16px;
         }
         .label {
-          font-size: 12px;
-          // color: var(--muted);
-          font-weight: 800;
+          font-size: 11px;
+          color: #6b7280;
+          font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.05em;
+          margin-bottom: 12px;
         }
         .text {
           font-size: 13px;
@@ -904,10 +1212,207 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           color: #111827;
         }
         .long {
-          max-height: 120px;
-          overflow: auto;
+          max-height: none;
+          overflow: visible;
           padding-right: 6px;
         }
+        .structured-summary-container {
+          max-height: none;
+          overflow: visible;
+        }
+
+        /* Structured Summary Styles - Clean Professional UI */
+        .structured-summary {
+          padding: 0;
+        }
+
+        .summary-header-block {
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .summary-title-row {
+          margin-bottom: 4px;
+        }
+
+        .summary-doc-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #111827;
+        }
+
+        .summary-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .summary-source-badge {
+          font-size: 11px;
+          color: #6b7280;
+          font-weight: 500;
+        }
+
+        .summary-date-text {
+          font-size: 11px;
+          color: #9ca3af;
+        }
+
+        .summary-block {
+          margin-bottom: 16px;
+        }
+
+        .summary-block-header {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 700;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 12px;
+        }
+
+        .summary-block-header svg {
+          display: block;
+          flex-shrink: 0;
+        }
+
+        .block-header-icon {
+          color: #9ca3af;
+          display: flex;
+          align-items: center;
+        }
+
+        .findings-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+
+        .finding-row {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 0;
+          border-bottom: 1px solid #f3f4f6;
+        }
+
+        .finding-row:last-child {
+          border-bottom: none;
+        }
+
+        .finding-icon-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          width: 18px;
+          height: 18px;
+          line-height: 1;
+        }
+
+        .finding-icon-wrapper svg {
+          display: block;
+        }
+
+        .finding-text {
+          flex: 1;
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.4;
+          display: flex;
+          align-items: center;
+        }
+
+        .indicator-icon {
+          flex-shrink: 0;
+        }
+
+        .indicator-icon.danger {
+          color: #dc2626;
+        }
+
+        .indicator-icon.warning {
+          color: #d97706;
+        }
+
+        .indicator-icon.normal {
+          color: #16a34a;
+        }
+
+        .finding-text {
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.4;
+        }
+
+        .recommendations-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+
+        .recommendation-row {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 0;
+        }
+
+        .recommendation-row svg {
+          display: block;
+          flex-shrink: 0;
+        }
+
+        .rec-bullet {
+          flex-shrink: 0;
+          color: #3b82f6;
+          display: flex;
+          align-items: center;
+        }
+
+        .recommendation-text {
+          flex: 1;
+          font-size: 14px;
+          color: #374151;
+          font-weight: 600;
+          line-height: 1.4;
+        }
+
+        .status-pills-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 6px 12px;
+          background: #f3f4f6;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          color: #374151;
+        }
+
+        .summary-disclaimer-text {
+          margin-top: 16px;
+          padding-top: 12px;
+          border-top: 1px solid #e5e7eb;
+          font-size: 11px;
+          color: #9ca3af;
+          font-style: italic;
+          line-height: 1.5;
+        }
+
         .actions {
           display: flex;
           gap: 8px;
@@ -1392,6 +1897,154 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .brief-summary-btn:hover {
           background: #e0f2fe;
           color: #075985;
+        }
+
+        /* Structured Summary Styles */
+        .structured-summary-container {
+          max-height: none;
+          overflow: visible;
+        }
+
+        .structured-summary {
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .summary-header {
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .summary-header-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #1f2937;
+          margin-bottom: 4px;
+        }
+
+        .summary-header-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          color: #6b7280;
+        }
+
+        .summary-source {
+          color: #3b82f6;
+          font-weight: 500;
+        }
+
+        .summary-date {
+          color: #9ca3af;
+        }
+
+        .summary-section {
+          margin-bottom: 16px;
+        }
+
+        .summary-section-title {
+          font-size: 10px;
+          font-weight: 700;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+        }
+
+        .summary-findings {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .finding-item {
+          display: flex;
+          align-items: flex-start;
+          padding: 8px 10px;
+          border-left: 3px solid;
+          border-radius: 4px;
+          font-size: 12px;
+          line-height: 1.4;
+          transition: all 0.2s ease;
+        }
+
+        .finding-item:hover {
+          transform: translateX(2px);
+        }
+
+        .finding-value {
+          color: #374151;
+          flex: 1;
+        }
+
+        .summary-recommendations {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .recommendation-item {
+          display: flex;
+          align-items: flex-start;
+          padding: 8px 10px;
+          border-left: 3px solid #3b82f6;
+          background-color: #eff6ff;
+          border-radius: 4px;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .recommendation-value {
+          color: #374151;
+          flex: 1;
+        }
+
+        .summary-status-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          padding: 6px 12px;
+          background: #f3f4f6;
+          border: 1px solid #e5e7eb;
+          border-radius: 16px;
+          font-size: 11px;
+          font-weight: 500;
+          color: #374151;
+        }
+
+        .summary-disclaimer {
+          margin-top: 16px;
+          padding: 10px 12px;
+          background: #fefce8;
+          border: 1px solid #fef08a;
+          border-radius: 6px;
+          font-size: 10px;
+          color: #854d0e;
+          line-height: 1.4;
+          font-style: italic;
+        }
+
+        /* View reference details collapsible */
+        .reference-details-toggle {
+          font-size: 11px;
+          color: #3b82f6;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 12px;
+          font-weight: 500;
+        }
+
+        .reference-details-toggle:hover {
+          text-decoration: underline;
         }
       `}</style>
 
