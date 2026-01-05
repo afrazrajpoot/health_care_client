@@ -34,6 +34,7 @@ interface StaffDashboardModalsProps {
   showDocumentSuccessPopup: boolean;
   paymentError: string | null;
   ignoredFiles: any[];
+  uploadError: string | null;
   selectedPatient: RecentPatient | null;
   selectedTaskForQuickNote: Task | null;
   departments: string[];
@@ -46,6 +47,7 @@ interface StaffDashboardModalsProps {
   onCloseQuickNoteModal: () => void;
   onCloseDocumentSuccessPopup: () => void;
   onClearPaymentError: () => void;
+  onClearUploadError: () => void;
   onUpgrade: () => void;
   onManualTaskSubmit: (formData: any) => Promise<void>;
   onSaveQuickNote: (taskId: string, quickNotes: any) => Promise<void>;
@@ -61,6 +63,7 @@ export default function StaffDashboardModals({
   showDocumentSuccessPopup,
   paymentError,
   ignoredFiles,
+  uploadError,
   selectedPatient,
   selectedTaskForQuickNote,
   departments,
@@ -73,6 +76,7 @@ export default function StaffDashboardModals({
   onCloseQuickNoteModal,
   onCloseDocumentSuccessPopup,
   onClearPaymentError,
+  onClearUploadError,
   onUpgrade,
   onManualTaskSubmit,
   onSaveQuickNote,
@@ -160,6 +164,13 @@ export default function StaffDashboardModals({
         onUpgrade={onUpgrade}
         errorMessage={paymentError || undefined}
         ignoredFiles={ignoredFiles}
+      />
+
+      {/* Upload Error Modal */}
+      <UploadErrorModal
+        isOpen={!!uploadError}
+        onClose={onClearUploadError}
+        errorMessage={uploadError || undefined}
       />
 
       <QuickNoteModal
@@ -291,6 +302,59 @@ const PaymentErrorModal = ({
             className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-white transition-colors font-medium text-gray-700"
           >
             Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// UploadErrorModal component
+const UploadErrorModal = ({
+  isOpen,
+  onClose,
+  errorMessage,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  errorMessage?: string;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 pb-8">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+          >
+            <AlertCircle className="text-white" size={20} />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 rounded-full p-3">
+              <AlertCircle className="text-white" size={24} />
+            </div>
+            <h2 className="text-xl font-bold text-white">
+              Upload Failed
+            </h2>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <p className="text-gray-700 leading-relaxed">
+            {errorMessage ||
+              "An error occurred during upload. Please try again."}
+          </p>
+        </div>
+
+        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+          >
+            Try Again
           </button>
         </div>
       </div>

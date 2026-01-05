@@ -8,6 +8,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const [uploading, setUploading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [ignoredFiles, setIgnoredFiles] = useState<any[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const snapInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
   const { setActiveTask, startTwoPhaseTracking } = useSocket();
@@ -24,12 +25,18 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     setIgnoredFiles([]);
   }, []);
 
+  const clearUploadError = useCallback(() => {
+    console.log("🧹 Clearing upload error");
+    setUploadError(null);
+  }, []);
+
   const submitFiles = useCallback(
     async (filesToSubmit: File[]) => {
       if (filesToSubmit.length === 0) return;
 
       setUploading(true);
       setPaymentError(null);
+      setUploadError(null);
 
       const formDataUpload = new FormData();
       filesToSubmit.forEach((file) => {
@@ -142,16 +149,16 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       } catch (error: any) {
         console.error("❌ Upload error:", error);
 
-        // if (error.name === "AbortError") {
-        //   setPaymentError("Request timeout. Please try again.");
-        // } else if (error.message.includes("Failed to fetch")) {
-        //   setPaymentError(
-        //     "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-        //     (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
-        //   );
-        // } else {
-        //   setPaymentError(`Upload failed: ${error.message}`);
-        // }
+        if (error.name === "AbortError") {
+          setUploadError("Request timeout. Please try again.");
+        } else if (error.message.includes("Failed to fetch")) {
+          setUploadError(
+            "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
+            (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
+          );
+        } else {
+          setUploadError(`Upload failed: ${error.message}`);
+        }
       } finally {
         setUploading(false);
       }
@@ -226,6 +233,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     }
     setPaymentError(null);
     setIgnoredFiles([]);
+    setUploadError(null);
   }, []);
 
   const removeFile = useCallback((indexToRemove: number) => {
@@ -257,6 +265,8 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     paymentError,
     clearPaymentError,
     ignoredFiles,
+    uploadError,
+    clearUploadError,
     removeFile,
   };
 };

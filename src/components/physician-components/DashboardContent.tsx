@@ -24,6 +24,7 @@ interface DashboardContentProps {
   onUpload: () => void;
   onCancelUpload: () => void;
   loading: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   selectedPatient: any | null;
   documentData: any;
   taskQuickNotes: any[];
@@ -64,6 +65,7 @@ export const DashboardContent = React.memo<DashboardContentProps>(({
   onUpload,
   onCancelUpload,
   loading,
+  fileInputRef,
   selectedPatient,
   documentData,
   taskQuickNotes,
@@ -109,6 +111,7 @@ export const DashboardContent = React.memo<DashboardContentProps>(({
       onUpload={onUpload}
       onCancel={onCancelUpload}
       loading={loading}
+      fileInputRef={fileInputRef}
     />
     <MainContent
       selectedPatient={selectedPatient}

@@ -266,6 +266,8 @@ export async function GET(request: Request) {
               ur_denial_reason: true,
               blobPath: true,
               patientName: true,
+              gcsFileLink: true,
+              fileName: true,
             },
           },
         },

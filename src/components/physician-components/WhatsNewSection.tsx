@@ -6,11 +6,25 @@ import {
 } from "@/app/custom-hooks/staff-hooks/physician-hooks/useWhatsNewData";
 import {
   ChevronRightIcon,
+  ChevronDownIcon,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
   Activity,
+  FileText,
+  Stethoscope,
+  Zap,
+  Shield,
+  Clock,
+  Eye,
+  Copy,
+  Check,
+  XCircle,
+  Calendar,
+  User,
+  FileCheck,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import React, { useState, useMemo, useEffect } from "react";
@@ -151,9 +165,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const getPatientName = () => {
-    if (!documentData?.documents?.[0]) return "Unknown Patient";
+    if (!documentData || !(documentData as any)?.documents?.[0]) return "Unknown Patient";
 
-    const firstDoc = documentData.documents[0];
+    const firstDoc = (documentData as any).documents[0];
     return (
       firstDoc.patient_name ||
       firstDoc.document_summary?.patient_name ||
@@ -197,15 +211,15 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
       return (
         <span
-          className={`summary-text ${
-            isInModal ? "modal-summary" : "inline-summary"
+          className={`inline-block ${
+            isInModal ? "text-gray-800" : "text-gray-900"
           }`}
           dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
         />
       );
     }
 
-    return <span className="summary-text">{text}</span>;
+    return <span className="inline-block">{text}</span>;
   };
 
   // Get indicator color based on type
@@ -266,40 +280,31 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     const { header, summary: summaryContent } = summary;
 
     return (
-      <div className="structured-summary">
-        {/* Header Section */}
-        <div className="summary-header-block">
-          <div className="summary-title-row">
-            {/* <span className="summary-doc-title">{header.title}</span> */}
-          </div>
-          {/* <div className="summary-meta-row">
-            <span className="summary-source-badge">{header.source_type}</span>
-            {header.date && (
-              <span className="summary-date-text">• {header.date}</span>
-            )}
-          </div> */}
-        </div>
-
+      <div className="p-0">
         {/* Findings Section */}
         {summaryContent.findings && summaryContent.findings.length > 0 && (
-          <div className="summary-block">
-            <div className="summary-block-header">
-              <div className="flex font-bold items-center gap-2">
-                <ClipboardList size={14} style={{ color: "#6b7280" }} />
-                <span>FINDINGS (REFERENCED FROM EXTERNAL RECORDS)</span>
+          <div className="mb-6">
+            <div className="flex font-bold items-center gap-2.5 text-xs text-gray-600 uppercase tracking-wide mb-4 pb-2 border-b border-gray-200">
+              <div className="p-1.5 bg-red-50 rounded-lg">
+                <ClipboardList size={14} className="text-red-600" />
               </div>
+              <span className="text-gray-800">Clinical Findings</span>
+              <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {summaryContent.findings.length} item{summaryContent.findings.length !== 1 ? 's' : ''}
+              </span>
             </div>
-            <div className="findings-list">
+            <div className="space-y-1">
               {summaryContent.findings.map((finding, idx) => (
-                <div key={idx} className="finding-row">
-                  {/* <span className="finding-icon-wrapper">
-                    {getIndicatorIcon(finding.indicator)}
-                  </span> */}
+                <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {finding.indicator === "danger" && <AlertCircle size={16} className="text-red-500" />}
+                    {finding.indicator === "warning" && <AlertTriangle size={16} className="text-yellow-500" />}
+                    {finding.indicator === "normal" && <CheckCircle2 size={16} className="text-green-500" />}
+                  </div>
                   <span
-                    className="finding-text"
+                    className="flex-1 text-sm leading-relaxed font-medium"
                     style={{
                       color: getIndicatorTextColor(finding.indicator),
-                      fontWeight: 600,
                     }}
                   >
                     {finding.value}
@@ -313,22 +318,29 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         {/* Recommendations Section */}
         {summaryContent.recommendations &&
           summaryContent.recommendations.length > 0 && (
-            <div className="summary-block">
-              <div className="summary-block-header font-bold flex items-center gap-2">
-                <Activity size={14} style={{ color: "#6b7280" }} />
-                <span>RECOMMENDED ACTIONS (WORKFLOW)</span>
+            <div className="mb-6">
+              <div className="flex font-bold items-center gap-2.5 text-xs text-gray-600 uppercase tracking-wide mb-4 pb-2 border-b border-gray-200">
+                <div className="p-1.5 bg-blue-50 rounded-lg">
+                  <Activity size={14} className="text-blue-600" />
+                </div>
+                <span className="text-gray-800">Recommended Actions</span>
+                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {summaryContent.recommendations.length} action{summaryContent.recommendations.length !== 1 ? 's' : ''}
+                </span>
               </div>
-              <div className="recommendations-list">
+              <div className="space-y-1">
                 {summaryContent.recommendations.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="recommendation-row flex items-center"
+                    className="flex items-start gap-3 p-3 bg-blue-50/30 rounded-lg border border-blue-100 hover:bg-blue-50/50 transition-colors"
                   >
-                    <ChevronRightIcon
-                      size={16}
-                      style={{ color: "#3b82f6", flexShrink: 0 }}
-                    />
-                    <span className="recommendation-text">{rec.value}</span>
+                    <div className="flex-shrink-0 mt-0.5 p-1 bg-blue-100 rounded">
+                      <ChevronRightIcon
+                        size={12}
+                        className="text-blue-600"
+                      />
+                    </div>
+                    <span className="flex-1 text-sm text-gray-800 font-medium leading-relaxed">{rec.value}</span>
                   </div>
                 ))}
               </div>
@@ -337,16 +349,22 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
         {/* Status Section */}
         {summaryContent.status && summaryContent.status.length > 0 && (
-          <div className="summary-block">
-            <div className="summary-block-header font-bold flex items-center gap-2">
-              <CheckCircle2 size={14} style={{ color: "#6b7280" }} />
-              <span>STATUS</span>
+          <div className="mb-6">
+            <div className="flex font-bold items-center gap-2.5 text-xs text-gray-600 uppercase tracking-wide mb-4 pb-2 border-b border-gray-200">
+              <div className="p-1.5 bg-green-50 rounded-lg">
+                <CheckCircle2 size={14} className="text-green-600" />
+              </div>
+              <span className="text-gray-800">Current Status</span>
+              <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {summaryContent.status.length} status{summaryContent.status.length !== 1 ? 'es' : ''}
+              </span>
             </div>
-            <div className="status-pills-row">
+            <div className="flex flex-wrap gap-2">
               {summaryContent.status.map((status, idx) => (
-                <span key={idx} className="status-badge">
-                  {status.value}
-                </span>
+                <div key={idx} className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm font-medium text-green-800">
+                  <CheckCircle2 size={14} className="text-green-600" />
+                  <span>{status.value}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -354,7 +372,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
         {/* Disclaimer */}
         {header.disclaimer && (
-          <div className="summary-disclaimer-text">{header.disclaimer}</div>
+          <div className="mt-6 pt-4 border-t border-gray-200 bg-yellow-50/50 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 p-1 bg-yellow-100 rounded">
+                <AlertTriangle size={14} className="text-yellow-600" />
+              </div>
+              <div className="text-sm text-gray-700 leading-relaxed italic">
+                <span className="font-medium text-yellow-800">Important Notice:</span> {header.disclaimer}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
@@ -430,10 +457,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const documentGroups = useMemo(() => {
-    if (!documentData?.documents) return [];
+    if (!documentData || !(documentData as any)?.documents) return [];
 
-    return documentData.documents
-      .map((doc, docIndex) => {
+    return (documentData as any).documents
+      .map((doc: any, docIndex: number) => {
         const docId = doc.document_id || `doc_${docIndex}`;
 
         const longSummary = doc.whats_new?.long_summary || "";
@@ -476,14 +503,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           claimNumber,
         };
       })
-      .filter((group) => {
+      .filter((group: any) => {
         if (!group.shortSummary) return false;
         if (mode && group.docMode) {
           return group.docMode === mode;
         }
         return true;
       });
-  }, [documentData?.documents, mode]);
+  }, [documentData, mode]);
 
   const formatDisplayDate = (dateString: string): string => {
     if (!dateString) return "Not provided";
@@ -502,17 +529,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const renderFormattedSummary = (text: string) => {
-    if (!text) return <div className="no-summary">No summary available</div>;
+    if (!text) return <div className="text-sm text-gray-500 italic text-center py-5">No summary available</div>;
 
     const lines = text.split("\n");
     return lines.map((line, index) => {
       if (line.includes("**") && line.includes("**")) {
         const parts = line.split("**");
         return (
-          <div key={index} className="summary-line">
+          <div key={index} className="mb-3">
             {parts.map((part, partIndex) =>
               partIndex % 2 === 1 ? (
-                <strong key={partIndex} className="summary-heading">
+                <strong key={partIndex} className="text-blue-600 font-semibold">
                   {part}
                 </strong>
               ) : (
@@ -524,7 +551,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       }
 
       return (
-        <div key={index} className="summary-line">
+        <div key={index} className="mb-3">
           {line}
         </div>
       );
@@ -533,11 +560,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   useEffect(() => {
     const verifiedIds = documentGroups
-      .filter((g) => g.status === "verified")
-      .map((g) => g.docId);
+      .filter((g: any) => g.status === "verified")
+      .map((g: any) => g.docId);
     setViewedWhatsNew((prev) => {
       const newSet = new Set(prev);
-      verifiedIds.forEach((id) => newSet.add(id));
+      verifiedIds.forEach((id: any) => newSet.add(id));
       return newSet;
     });
   }, [documentGroups]);
@@ -551,7 +578,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const handleCopyClick = (e: React.MouseEvent, groupId: string) => {
     e.stopPropagation();
 
-    const group = documentGroups.find((g) => g.docId === groupId);
+    const group = documentGroups.find((g: any) => g.docId === groupId);
     if (!group || !group.shortSummary) {
       toast.error("No summary found to copy", {
         duration: 5000,
@@ -563,7 +590,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     let textToCopy = "";
 
     // Handle structured summary
-    if (isStructuredSummary(group.shortSummary)) {
+    if (isStructuredSummary((group as any).shortSummary)) {
       const { header, summary: summaryContent } = group.shortSummary;
 
       let parts: string[] = [];
@@ -606,8 +633,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     } else {
       // Handle string summary - Remove HTML tags when copying to clipboard
       const cleanText =
-        typeof group.shortSummary === "string"
-          ? group.shortSummary.replace(/<[^>]*>/g, "")
+        typeof (group as any).shortSummary === "string"
+          ? (group as any).shortSummary.replace(/<[^>]*>/g, "")
           : "";
       textToCopy =
         `📋 Brief Summary:\n${cleanText}\n\n` +
@@ -624,7 +651,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const handleReviewClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setViewedWhatsNew(new Set(documentGroups.map((group) => group.docId)));
+    setViewedWhatsNew(new Set(documentGroups.map((group: any) => group.docId)));
   };
 
   const handleMarkViewed = async (e: React.MouseEvent, group: any) => {
@@ -801,7 +828,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     e.stopPropagation();
 
     const reportNames = documentGroups
-      .map((group) => {
+      .map((group: any) => {
         const formattedDate = formatDisplayDate(group.reportDate);
         return `${group.documentType} Report for ${group.patientName} by  ${group.consultingDoctor} (${formattedDate})`;
       })
@@ -818,9 +845,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   return (
     <>
       {!isCollapsed && (
-        <div className="section-content">
-          <div className="whats-new-list">
-            {documentGroups.map((group, groupIndex) => {
+        <div className="mt-0">
+          <div className="flex flex-col gap-2.5">
+            {documentGroups.map((group: any, groupIndex: number) => {
               const isViewed = isGroupViewed(group.docId);
               const isGroupCopied = copied[`whatsnew-${group.docId}`];
               const isLoading = isLoadingForGroup(group);
@@ -830,12 +857,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               // Get icon based on document type
               const getIcon = () => {
                 const type = (group.documentType || "").toLowerCase();
-                if (type.includes("mri")) return "📘";
-                if (type.includes("emg") || type.includes("ncs")) return "⚡";
-                if (type.includes("ortho")) return "🩺";
-                if (type.includes("pt") || type.includes("physical therapy"))
-                  return "�";
-                return "📘";
+                if (type.includes("mri")) return <FileText size={16} className="text-blue-600" />;
+                if (type.includes("emg") || type.includes("ncs")) return <Zap size={16} className="text-yellow-600" />;
+                if (type.includes("ortho")) return <Shield size={16} className="text-green-600" />;
+                if (type.includes("pt") || type.includes("physical therapy")) return <Activity size={16} className="text-purple-600" />;
+                if (type.includes("report")) return <FileCheck size={16} className="text-indigo-600" />;
+                if (type.includes("consultation")) return <Stethoscope size={16} className="text-teal-600" />;
+                return <FileText size={16} className="text-gray-600" />;
               };
 
               // Extract key findings from summary for pills
@@ -873,7 +901,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               return (
                 <details
                   key={group.docId}
-                  className="card"
+                  className="bg-card border border-border rounded-2xl m-0 overflow-hidden"
                   open={openCards.has(group.docId)}
                   onToggle={(e) => {
                     const isOpen = (e.currentTarget as HTMLDetailsElement).open;
@@ -901,54 +929,68 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     }
                   }}
                 >
-                  <summary>
-                    <div className="icon">{getIcon()}</div>
-                    <div className="main">
-                      <div className="row1">
-                        <div className="left">
-                          <div className="flex items-center gap-2">
-                            {extractDocumentTitle(
-                              group.shortSummary,
-                              group.documentType
+                  <summary className="list-none cursor-pointer p-4 flex gap-3 items-start hover:bg-gray-50/50 transition-colors">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 text-base flex-shrink-0 shadow-sm">
+                      {getIcon()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-base font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
+                              {extractDocumentTitle(
+                                (group as any).shortSummary,
+                                (group as any).documentType
+                              )}
+                            </span>
+                            {isViewed && (
+                              <div className="flex-shrink-0">
+                                <CheckCircle2 size={14} className="text-green-600" />
+                              </div>
                             )}
-                            <div className="sub">
-                              {/* {group.consultingDoctor || "Unknown"} */}•{" "}
-                              {formattedDate}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <Calendar size={12} className="text-gray-400" />
+                              <span>{formattedDate}</span>
                             </div>
+                            {(group as any).consultingDoctor && (
+                              <div className="flex items-center gap-1">
+                                <User size={12} className="text-gray-400" />
+                                <span className="truncate">{(group as any).consultingDoctor}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="cta">
-                          <span
-                            className="doc-pill"
+                        <div className="flex gap-2 items-center flex-shrink-0">
+                          <button
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               handlePreviewClick(e, group.doc);
                             }}
+                            title="View Original Document"
                           >
-                            📄 View Original
-                          </span>
+                            <ExternalLink size={12} />
+                            <span>View</span>
+                          </button>
+                          <div className="flex items-center">
+                            <ChevronDownIcon size={16} className="text-gray-400" />
+                          </div>
                         </div>
                       </div>
-                      {/* <div className="scanline">
-                        {pills.map((pill, idx) => (
-                          <span
-                            key={idx}
-                            className={idx === 0 ? "pill" : "pill gray"}
-                          >
-                            {pill}
-                          </span>
-                        ))}
-                      </div> */}
                     </div>
                   </summary>
-                  <div className="detail">
-                    <div className="detail-grid">
+                  <div className="border-t border-border p-3 bg-gray-50">
+                    <div className="grid grid-cols-1 gap-2">
                       {expandedLongSummary === group.docId &&
                       group.longSummary ? (
-                        <div className="detail-box">
-                          <div className="label">Long Summary</div>
-                          <div className="text long">
+                        <div className="bg-white border border-border rounded-xl p-4">
+                          <div className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-3">
+                            Long Summary
+                          </div>
+                          <div className="text-sm leading-relaxed text-gray-900">
                             {renderFormattedSummary(
                               formatLongSummaryWithColors(
                                 group.longSummary || group.briefSummary || ""
@@ -957,9 +999,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="detail-box">
-                          <div className="label">Referenced Summary</div>
-                          <div className="text long structured-summary-container">
+                        <div className="bg-white border border-border rounded-xl p-4">
+                          <div className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-3">
+                            Referenced Summary
+                          </div>
+                          <div className="text-sm leading-relaxed text-gray-900">
                             {isStructuredSummary(group.shortSummary)
                               ? renderStructuredShortSummary(group.shortSummary)
                               : renderSummaryWithHTML(
@@ -972,51 +1016,69 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         </div>
                       )}
                     </div>
-                    <div className="actions">
+                    <div className="flex gap-2 flex-wrap mt-4 pt-3 border-t border-gray-100">
                       {group.longSummary && (
                         <button
                           onClick={(e) => handleReadMoreClick(e, group)}
-                          className="action-btn read-more-btn"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 min-h-[32px]"
                           title={
                             expandedLongSummary === group.docId
                               ? "Show brief summary"
                               : "Read detailed summary"
                           }
                         >
-                          {expandedLongSummary === group.docId
-                            ? "Show brief"
-                            : "Read more"}
+                          <FileText size={12} />
+                          <span>
+                            {expandedLongSummary === group.docId
+                              ? "Show Brief"
+                              : "Read More"}
+                          </span>
                         </button>
                       )}
 
                       {(group.briefSummary || group.longSummary) && (
                         <button
                           onClick={(e) => handleBriefSummaryClick(e, group)}
-                          className="action-btn brief-summary-btn"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 min-h-[32px]"
                           title="View Document Summary"
                         >
-                          Brief Summary
+                          <Eye size={12} />
+                          <span>Summary</span>
                         </button>
                       )}
 
                       <button
-                        className={`action-btn copy-btn ${
-                          isGroupCopied ? "copied" : ""
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${
+                          isGroupCopied
+                            ? "bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
                         }`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           handleCopyClick(e, group.docId);
                         }}
-                        title="Copy Macro"
+                        title="Copy to Clipboard"
                       >
-                        {isGroupCopied ? "Copied" : "Copy Macro"}
+                        {isGroupCopied ? (
+                          <>
+                            <Check size={12} />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} />
+                            <span>Copy</span>
+                          </>
+                        )}
                       </button>
 
                       <button
-                        className={`action-btn mark-viewed-btn ${
-                          isViewed ? "viewed" : ""
-                        } ${isLoading ? "loading" : ""}`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${
+                          isViewed
+                            ? "bg-green-50 border-green-300 text-green-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+                        } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1025,15 +1087,26 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         disabled={isLoading}
                         title="Mark as Reviewed"
                       >
-                        {isLoading
-                          ? "Loading..."
-                          : isViewed
-                          ? "Reviewed"
-                          : "Mark Reviewed"}
+                        {isLoading ? (
+                          <>
+                            <Clock size={12} />
+                            <span>Loading...</span>
+                          </>
+                        ) : isViewed ? (
+                          <>
+                            <CheckCircle2 size={12} />
+                            <span>Reviewed</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={12} />
+                            <span>Mark Reviewed</span>
+                          </>
+                        )}
                       </button>
 
                       <button
-                        className="action-btn preview-btn"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 min-h-[32px] disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1042,7 +1115,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         disabled={isPreviewLoading}
                         title="Preview Document"
                       >
-                        {isPreviewLoading ? "Loading..." : "Preview"}
+                        {isPreviewLoading ? (
+                          <>
+                            <Clock size={12} />
+                            <span>Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink size={12} />
+                            <span>Preview</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1050,1006 +1133,57 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               );
             })}
             {documentGroups.length === 0 && (
-              <div className="no-items">
-                No significant changes since last visit
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <CheckCircle2 size={20} className="text-gray-400" />
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1">All Caught Up!</div>
+                <div className="text-xs text-gray-500">No significant changes since last visit</div>
               </div>
             )}
           </div>
-
-          {/* Patient Intake Submissions Section */}
         </div>
       )}
 
-      <style jsx>{`
-        .section {
-          padding: 0;
-          border: none;
-        }
-        .section-header {
-          display: none;
-        }
-        .section-content {
-          margin-top: 0;
-        }
-        .whats-new-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        /* Card styles from HTML */
-        .card {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          margin: 0;
-          overflow: hidden;
-        }
-        .card summary {
-          list-style: none;
-          cursor: pointer;
-          padding: 10px 12px;
-          display: flex;
-          gap: 10px;
-          align-items: flex-start;
-        }
-        .card summary::-webkit-details-marker {
-          display: none;
-        }
-        .icon {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f3f4f6;
-          font-size: 16px;
-          flex: 0 0 34px;
-        }
-        .main {
-          flex: 1;
-          min-width: 0;
-        }
-        .row1 {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-        .left {
-          min-width: 0;
-        }
-        .t {
-          font-size: 14px;
-          font-weight: 800;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .sub {
-          font-size: 12px;
-          // color: var(--muted);
-          margin-top: 2px;
-        }
-        .scanline {
-          margin-top: 6px;
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-        .pill {
-          font-size: 12px;
-          padding: 4px 8px;
-          border-radius: 999px;
-          background: var(--chip);
-          color: var(--accent2);
-          font-weight: 700;
-        }
-        .pill.gray {
-          background: #f3f4f6;
-          color: #374151;
-          font-weight: 600;
-        }
-        .cta {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          flex: 0 0 auto;
-        }
-        .doc-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 10px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: #fff;
-          font-size: 12px;
-          font-weight: 800;
-          color: var(--accent2);
-          cursor: pointer;
-          white-space: nowrap;
-        }
-        .doc-pill:hover {
-          background: var(--chip);
-        }
-        .detail {
-          border-top: 1px solid var(--border);
-          padding: 10px 12px;
-          background: #fafafa;
-        }
-        .detail-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 8px;
-        }
-        .detail-box {
-          background: #fff;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 16px;
-        }
-        .label {
-          font-size: 11px;
-          color: #6b7280;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 12px;
-        }
-        .text {
-          font-size: 13px;
-          margin-top: 6px;
-          line-height: 1.35;
-          color: #111827;
-        }
-        .long {
-          max-height: none;
-          overflow: visible;
-          padding-right: 6px;
-        }
-        .structured-summary-container {
-          max-height: none;
-          overflow: visible;
-        }
-
-        /* Structured Summary Styles - Clean Professional UI */
-        .structured-summary {
-          padding: 0;
-        }
-
-        .summary-header-block {
-          margin-bottom: 16px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .summary-title-row {
-          margin-bottom: 4px;
-        }
-
-        .summary-doc-title {
-          font-size: 15px;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .summary-meta-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .summary-source-badge {
-          font-size: 11px;
-          color: #6b7280;
-          font-weight: 500;
-        }
-
-        .summary-date-text {
-          font-size: 11px;
-          color: #9ca3af;
-        }
-
-        .summary-block {
-          margin-bottom: 16px;
-        }
-
-        .summary-block-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 11px;
-          font-weight: 700;
-          color: #6b7280;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 12px;
-        }
-
-        .summary-block-header svg {
-          display: block;
-          flex-shrink: 0;
-        }
-
-        .block-header-icon {
-          color: #9ca3af;
-          display: flex;
-          align-items: center;
-        }
-
-        .findings-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-        }
-
-        .finding-row {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          gap: 12px;
-          padding: 10px 0;
-          border-bottom: 1px solid #f3f4f6;
-        }
-
-        .finding-row:last-child {
-          border-bottom: none;
-        }
-
-        .finding-icon-wrapper {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          width: 18px;
-          height: 18px;
-          line-height: 1;
-        }
-
-        .finding-icon-wrapper svg {
-          display: block;
-        }
-
-        .finding-text {
-          flex: 1;
-          font-size: 14px;
-          font-weight: 600;
-          line-height: 1.4;
-          display: flex;
-          align-items: center;
-        }
-
-        .indicator-icon {
-          flex-shrink: 0;
-        }
-
-        .indicator-icon.danger {
-          color: #dc2626;
-        }
-
-        .indicator-icon.warning {
-          color: #d97706;
-        }
-
-        .indicator-icon.normal {
-          color: #16a34a;
-        }
-
-        .finding-text {
-          font-size: 14px;
-          font-weight: 600;
-          line-height: 1.4;
-        }
-
-        .recommendations-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-        }
-
-        .recommendation-row {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          gap: 12px;
-          padding: 10px 0;
-        }
-
-        .recommendation-row svg {
-          display: block;
-          flex-shrink: 0;
-        }
-
-        .rec-bullet {
-          flex-shrink: 0;
-          color: #3b82f6;
-          display: flex;
-          align-items: center;
-        }
-
-        .recommendation-text {
-          flex: 1;
-          font-size: 14px;
-          color: #374151;
-          font-weight: 600;
-          line-height: 1.4;
-        }
-
-        .status-pills-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 6px 12px;
-          background: #f3f4f6;
-          border: 1px solid #e5e7eb;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 500;
-          color: #374151;
-        }
-
-        .summary-disclaimer-text {
-          margin-top: 16px;
-          padding-top: 12px;
-          border-top: 1px solid #e5e7eb;
-          font-size: 11px;
-          color: #9ca3af;
-          font-style: italic;
-          line-height: 1.5;
-        }
-
-        .actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 10px;
-        }
-        details[open] summary {
-          background: #f9fafb;
-        }
-        details[open] .t {
-          color: #0f172a;
-        }
-        .whats-new-list::-webkit-scrollbar {
-          width: 8px;
-        }
-        .whats-new-list::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 10px;
-        }
-        .whats-new-list::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 10px;
-          transition: background 0.2s;
-        }
-        .whats-new-list::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-        .whats-new-bullet-item {
-          padding: 12px;
-          border: 1px solid #e5e7eb;
-          border-radius: 6px;
-          background-color: #f9fafb;
-        }
-        .report-heading {
-          font-size: 12px;
-          font-weight: 600;
-          color: #1f2937;
-          margin-bottom: 8px;
-          padding-bottom: 6px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .bullet-content {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          margin-bottom: 4px;
-        }
-        .bullet-marker {
-          color: #3b82f6;
-          font-weight: bold;
-          font-size: 14px;
-          line-height: 1.3;
-          min-width: 12px;
-          margin-top: 1px;
-        }
-        .bullet-text {
-          flex: 1;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-          line-height: 1.3;
-        }
-        .summary-text-wrapper {
-          font-size: 12px;
-          line-height: 1.3;
-          color: #374151;
-          font-weight: 400;
-          flex: 1;
-          margin-bottom: 8px;
-          display: block;
-        }
-        .summary-text {
-          display: inline;
-        }
-
-        /* Comfortable, readable text with subtle background hints */
-        .inline-summary :global(span[style*="color:yellow"]) {
-          color: #374151 !important; /* Standard readable text color */
-          font-weight: 500 !important;
-          background-color: rgba(
-            251,
-            191,
-            36,
-            0.1
-          ) !important; /* Very subtle yellow tint */
-          padding: 1px 4px !important;
-          border-radius: 3px !important;
-          margin: 0 1px !important;
-          display: inline-block !important;
-          font-size: 11px !important;
-          line-height: 1.4 !important;
-        }
-
-        .inline-summary :global(span[style*="color:red"]) {
-          color: #374151 !important; /* Standard readable text color */
-          font-weight: 500 !important;
-          background-color: rgba(
-            252,
-            165,
-            165,
-            0.1
-          ) !important; /* Very subtle red tint */
-          padding: 1px 4px !important;
-          border-radius: 3px !important;
-          margin: 0 1px !important;
-          display: inline-block !important;
-          font-size: 11px !important;
-          line-height: 1.4 !important;
-        }
-
-        .modal-summary :global(span[style*="color:yellow"]) {
-          color: #1f2937 !important; /* Slightly darker for better modal contrast */
-          font-weight: 500 !important;
-          background-color: rgba(
-            251,
-            191,
-            36,
-            0.15
-          ) !important; /* Slightly more visible */
-          padding: 2px 6px !important;
-          border-radius: 4px !important;
-          margin: 0 2px !important;
-          display: inline-block !important;
-          font-size: 13px !important;
-          line-height: 1.5 !important;
-        }
-
-        .modal-summary :global(span[style*="color:red"]) {
-          color: #1f2937 !important; /* Slightly darker for better modal contrast */
-          font-weight: 500 !important;
-          background-color: rgba(
-            252,
-            165,
-            165,
-            0.15
-          ) !important; /* Slightly more visible */
-          padding: 2px 6px !important;
-          border-radius: 4px !important;
-          margin: 0 2px !important;
-          display: inline-block !important;
-          font-size: 13px !important;
-          line-height: 1.5 !important;
-        }
-
-        .action-buttons {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin-top: 8px;
-        }
-        .action-btn {
-          background: transparent;
-          border: 1px solid #d1d5db;
-          padding: 4px 10px;
-          font-size: 11px;
-          cursor: pointer;
-          color: black;
-          border-radius: 4px;
-          font-weight: 500;
-          transition: all 0.2s;
-          text-decoration: none;
-          font-family: inherit;
-          min-height: 24px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .action-btn:hover:not(:disabled) {
-          background: #f3f4f6;
-        }
-        .action-btn:active:not(:disabled) {
-          background: #e5e7eb;
-          transform: translateY(1px);
-        }
-        .action-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          border-color: #d1d5db;
-          color: #9ca3af;
-        }
-        .copy-btn.copied {
-          background: #f0fdf4;
-          border-color: #16a34a;
-          color: #16a34a;
-        }
-        .mark-viewed-btn.viewed {
-          background: #f0fdf4;
-          border-color: #16a34a;
-          color: #16a34a;
-        }
-        .no-items {
-          font-size: 12px;
-          line-height: 1.3;
-          color: #6b7280;
-          text-align: center;
-          padding: 16px;
-          font-style: italic;
-        }
-
-        /* Modal Styles */
-        .modal-header {
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .patient-info-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 16px;
-          margin-top: 12px;
-        }
-
-        .info-item {
-          padding: 8px 0;
-        }
-
-        .info-label {
-          font-size: 12px;
-          font-weight: 500;
-          color: #6b7280;
-          margin-bottom: 4px;
-          display: flex;
-          align-items: center;
-        }
-
-        .info-value {
-          font-size: 14px;
-          font-weight: 600;
-          color: #1f2937;
-        }
-
-        .summary-section {
-          margin-bottom: 24px;
-        }
-
-        .summary-title {
-          font-size: 18px;
-          font-weight: 600;
-          color: #1f2937;
-          margin-bottom: 12px;
-          padding-bottom: 8px;
-          border-bottom: 2px solid #3b82f6;
-          display: flex;
-          align-items: center;
-        }
-
-        .summary-content {
-          background: #f9fafb;
-          border-radius: 8px;
-          padding: 20px;
-          border: 1px solid #e5e7eb;
-        }
-
-        .brief-summary-text {
-          font-size: 14px;
-          line-height: 1.6;
-          color: #374151;
-          white-space: pre-wrap;
-        }
-
-        .detailed-summary-text {
-          font-size: 13px;
-          line-height: 1.5;
-          color: #4b5563;
-        }
-
-        .summary-line {
-          margin-bottom: 12px;
-        }
-
-        .summary-heading {
-          color: #1e40af;
-          font-weight: 600;
-        }
-
-        .no-summary {
-          font-size: 14px;
-          color: #6b7280;
-          font-style: italic;
-          text-align: center;
-          padding: 20px;
-        }
-
-        .modal-footer {
-          border-top: 1px solid #e5e7eb;
-        }
-
-        .icon-sm {
-          width: 14px;
-          height: 14px;
-        }
-
-        .icon-xs {
-          width: 10px;
-          height: 10px;
-        }
-
-        /* Quick Notes Styles */
-        .quick-notes-section {
-          margin-top: 12px;
-          padding: 8px 0;
-          border-top: 1px dashed #e5e7eb;
-          margin-left: 20px;
-        }
-        .quick-notes-header {
-          font-size: 11px;
-          font-weight: 600;
-          color: #6b7280;
-          margin-bottom: 4px;
-        }
-        .quick-notes-list {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .quick-note-item {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          font-size: 10px;
-          color: #4b5563;
-          line-height: 1.2;
-        }
-        .note-status {
-          font-weight: 500;
-          color: #059669;
-        }
-        .note-one-line {
-          font-style: italic;
-          color: #6b7280;
-          min-width: 120px;
-        }
-        .note-details {
-          flex: 1;
-          min-width: 150px;
-        }
-        .note-timestamp {
-          font-size: 9px;
-          color: #9ca3af;
-          white-space: nowrap;
-        }
-
-        /* Patient Intake Submissions Styles */
-        .intake-submissions-section {
-          margin-top: 16px;
-          border: 1px solid #c7d2fe;
-          border-radius: 8px;
-          background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
-          overflow: hidden;
-        }
-        .intake-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 14px;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        .intake-header:hover {
-          background-color: rgba(99, 102, 241, 0.1);
-        }
-        .intake-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          font-weight: 600;
-          color: #4338ca;
-        }
-        .intake-list {
-          border-top: 1px solid #c7d2fe;
-          max-height: 400px;
-          overflow-y: auto;
-        }
-        .intake-item {
-          padding: 12px 14px;
-          border-bottom: 1px solid #e0e7ff;
-          background: white;
-        }
-        .intake-item:last-child {
-          border-bottom: none;
-        }
-        .intake-item:hover {
-          background: #f8fafc;
-        }
-        .intake-item-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-        }
-        .intake-date {
-          font-size: 11px;
-          font-weight: 600;
-          color: #4338ca;
-        }
-        .intake-lang {
-          font-size: 10px;
-          padding: 2px 8px;
-          background: #e0e7ff;
-          color: #4338ca;
-          border-radius: 12px;
-        }
-        .intake-details {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .intake-row {
-          display: flex;
-          gap: 8px;
-          font-size: 11px;
-          line-height: 1.4;
-        }
-        .intake-label {
-          font-weight: 600;
-          color: #6b7280;
-          min-width: 110px;
-          flex-shrink: 0;
-        }
-        .intake-value {
-          color: #374151;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-        }
-        .appt-badge {
-          display: inline-block;
-          padding: 2px 6px;
-          background: #dbeafe;
-          color: #1e40af;
-          border-radius: 4px;
-          font-size: 10px;
-          margin-right: 4px;
-        }
-        .therapy-badge {
-          display: inline-block;
-          padding: 2px 6px;
-          background: #f3e8ff;
-          color: #7c3aed;
-          border-radius: 4px;
-          font-size: 10px;
-          margin-right: 4px;
-        }
-        .therapy-badge.effect-much-better {
-          background: #d1fae5;
-          color: #059669;
-        }
-        .therapy-badge.effect-slightly-better {
-          background: #fef3c7;
-          color: #d97706;
-        }
-        .therapy-badge.effect-no-change {
-          background: #f3f4f6;
-          color: #6b7280;
-        }
-        .adl-status-better {
-          color: #059669;
-        }
-        .adl-status-worse {
-          color: #dc2626;
-        }
-        .adl-status-same {
-          color: #6b7280;
-        }
-        .adl-list {
-          font-weight: normal;
-          color: #6b7280;
-        }
-        .loading-intakes {
-          padding: 16px;
-          text-align: center;
-          color: #6b7280;
-          font-size: 12px;
-          font-style: italic;
-        }
-        .brief-summary-btn {
-          background: #f0f9ff;
-          color: #0369a1;
-          border: 1px solid #bae6fd;
-        }
-        .brief-summary-btn:hover {
-          background: #e0f2fe;
-          color: #075985;
-        }
-
-        /* Structured Summary Styles */
-        .structured-summary-container {
-          max-height: none;
-          overflow: visible;
-        }
-
-        .structured-summary {
-          font-size: 12px;
-          line-height: 1.5;
-        }
-
-        .summary-header {
-          margin-bottom: 16px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .summary-header-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: #1f2937;
-          margin-bottom: 4px;
-        }
-
-        .summary-header-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 11px;
-          color: #6b7280;
-        }
-
-        .summary-source {
-          color: #3b82f6;
-          font-weight: 500;
-        }
-
-        .summary-date {
-          color: #9ca3af;
-        }
-
-        .summary-section {
-          margin-bottom: 16px;
-        }
-
-        .summary-section-title {
-          font-size: 10px;
-          font-weight: 700;
-          color: #6b7280;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 8px;
-        }
-
-        .summary-findings {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .finding-item {
-          display: flex;
-          align-items: flex-start;
-          padding: 8px 10px;
-          border-left: 3px solid;
-          border-radius: 4px;
-          font-size: 12px;
-          line-height: 1.4;
-          transition: all 0.2s ease;
-        }
-
-        .finding-item:hover {
-          transform: translateX(2px);
-        }
-
-        .finding-value {
-          color: #374151;
-          flex: 1;
-        }
-
-        .summary-recommendations {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .recommendation-item {
-          display: flex;
-          align-items: flex-start;
-          padding: 8px 10px;
-          border-left: 3px solid #3b82f6;
-          background-color: #eff6ff;
-          border-radius: 4px;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-
-        .recommendation-value {
-          color: #374151;
-          flex: 1;
-        }
-
-        .summary-status-pills {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .status-pill {
-          display: inline-flex;
-          align-items: center;
-          padding: 6px 12px;
-          background: #f3f4f6;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          font-size: 11px;
-          font-weight: 500;
-          color: #374151;
-        }
-
-        .summary-disclaimer {
-          margin-top: 16px;
-          padding: 10px 12px;
-          background: #fefce8;
-          border: 1px solid #fef08a;
-          border-radius: 6px;
-          font-size: 10px;
-          color: #854d0e;
-          line-height: 1.4;
-          font-style: italic;
-        }
-
-        /* View reference details collapsible */
-        .reference-details-toggle {
-          font-size: 11px;
-          color: #3b82f6;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          margin-top: 12px;
-          font-weight: 500;
-        }
-
-        .reference-details-toggle:hover {
-          text-decoration: underline;
-        }
-      `}</style>
 
       {/* Brief Summary Modal */}
       <Dialog
         open={briefSummaryModalOpen}
         onOpenChange={setBriefSummaryModalOpen}
       >
-        <DialogContent className="w-[40vw] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-gray-900">
-              Brief Summary
-            </DialogTitle>
+        <DialogContent className="w-[45vw] max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="border-b border-gray-200 pb-4 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <FileText size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold text-gray-900 mb-1">
+                  Document Summary
+                </DialogTitle>
+                {selectedDocumentInfo && (
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    {selectedDocumentInfo.patientName && (
+                      <div className="flex items-center gap-1">
+                        <User size={12} />
+                        <span>{selectedDocumentInfo.patientName}</span>
+                      </div>
+                    )}
+                    {selectedDocumentInfo.reportDate && (
+                      <div className="flex items-center gap-1">
+                        <Calendar size={12} />
+                        <span>{selectedDocumentInfo.reportDate}</span>
+                      </div>
+                    )}
+                    {selectedDocumentInfo.documentType && (
+                      <span className="px-2 py-0.5 bg-gray-100 rounded-full">
+                        {selectedDocumentInfo.documentType}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </DialogHeader>
           <div className="text-gray-700 leading-relaxed">
             {selectedBriefSummary ? (
@@ -2057,8 +1191,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 {renderFormattedSummary(selectedBriefSummary)}
               </div>
             ) : (
-              <div className="text-gray-500 italic">
-                No brief summary available
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <FileText size={20} className="text-gray-400" />
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1">No Summary Available</div>
+                <div className="text-xs text-gray-500">This document doesn't have a summary yet.</div>
               </div>
             )}
           </div>

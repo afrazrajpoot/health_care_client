@@ -1,9 +1,8 @@
 import { useState, useRef, useCallback } from "react";
 
 export const useFileUpload = (
-  addToast: (msg: string, type: "success" | "error") => void,
   session: any,
-  startTwoPhaseTracking: any
+  mode: "wc" | "gm" = "wc"
 ) => {
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -16,48 +15,61 @@ export const useFileUpload = (
 
   const handleUpload = useCallback(async () => {
     if (files.length === 0) return;
+
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("documents", file);
     });
+    formData.append("mode", mode);
+
     try {
-      const response = await fetch("/api/extract-documents", {
+      console.log(`🚀 Starting upload for ${files.length} files in mode: ${mode}`);
+
+      // ✅ Determine physician ID based on role (same as staff dashboard)
+      const user = session?.user;
+      const physicianId =
+        user?.role === "Physician"
+          ? user?.id // if Physician, send their own ID
+          : user?.physicianId || ""; // otherwise, send assigned physician's ID
+
+      const apiUrl = `${
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+      }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
+        user?.id || ""
+      }`;
+
+      console.log("🌐 API URL:", apiUrl);
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          Authorization: `Bearer ${user?.fastapi_token}`,
         },
         body: formData,
       });
+
+      console.log("📡 Response status:", response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
-        addToast(`Failed to queue files: ${errorText}`, "error");
+        console.error("❌ Upload failed:", errorText);
         return;
       }
+
       const data = await response.json();
-      if (data.upload_task_id && data.task_id) {
-        startTwoPhaseTracking(data.upload_task_id, data.task_id);
-        addToast(
-          `Started processing ${files.length} document(s) with two-phase tracking`,
-          "success"
-        );
-      } else {
-        const taskIds = data.task_ids || [];
-        files.forEach((file, index) => {
-          const taskId = taskIds[index] || "unknown";
-          addToast(
-            `File "${file.name}" successfully queued for processing. Task ID: ${taskId}`,
-            "success"
-          );
-        });
-      }
+      console.log("✅ Upload response:", data);
+
+      console.log(`✅ Successfully uploaded ${files.length} document(s)`);
+      console.log("Response data:", data);
+
       setFiles([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (err: unknown) {
-      addToast("Network error uploading files", "error");
+      console.error("❌ Network error uploading files:", err);
     }
-  }, [files, session, startTwoPhaseTracking, addToast]);
+  }, [files, session, mode]);
 
   const resetFiles = useCallback(() => {
     setFiles([]);

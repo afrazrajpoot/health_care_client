@@ -135,6 +135,8 @@ export default function StaffDashboardContainer() {
     clearPaymentError,
     ignoredFiles,
     paymentError,
+    uploadError,
+    clearUploadError,
   } = useFileUpload(initialMode);
 
   // Initialize task statuses and assignees
@@ -219,9 +221,9 @@ export default function StaffDashboardContainer() {
     fetchFailedDocuments();
   }, [fetchFailedDocuments]);
 
-  // Close all modals when payment error modal is shown
+  // Close all modals when error modals are shown
   useEffect(() => {
-    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
+    if (paymentError || (ignoredFiles && ignoredFiles.length > 0) || uploadError) {
       setShowModal(false);
       setShowTaskModal(false);
       setShowQuickNoteModal(false);
@@ -229,7 +231,7 @@ export default function StaffDashboardContainer() {
       setShowFilePopup(false);
       setIsUpdateModalOpen(false);
     }
-  }, [paymentError, ignoredFiles]);
+  }, [paymentError, ignoredFiles, uploadError]);
 
   // Page initialization
   useEffect(() => {
@@ -425,6 +427,7 @@ export default function StaffDashboardContainer() {
 
   const handleCloseErrorModal = useCallback(() => {
     clearPaymentError();
+    clearUploadError();
     // Close all modals when error modal is closed
     setShowModal(false);
     setShowTaskModal(false);
@@ -432,7 +435,7 @@ export default function StaffDashboardContainer() {
     setShowDocumentSuccessPopup(false);
     setShowFilePopup(false);
     setIsUpdateModalOpen(false);
-  }, [clearPaymentError]);
+  }, [clearPaymentError, clearUploadError]);
 
   return (
     <>
@@ -463,7 +466,7 @@ export default function StaffDashboardContainer() {
       `}</style>
 
       <div className="flex h-screen overflow-hidden">
-        <Sidebar />
+        {/* <Sidebar /> */}
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <StaffDashboardHeader
@@ -573,6 +576,7 @@ export default function StaffDashboardContainer() {
         showDocumentSuccessPopup={showDocumentSuccessPopup}
         paymentError={paymentError}
         ignoredFiles={ignoredFiles}
+        uploadError={uploadError}
         selectedPatient={selectedPatient}
         selectedTaskForQuickNote={selectedTaskForQuickNote}
         departments={departments}
@@ -583,8 +587,9 @@ export default function StaffDashboardContainer() {
         onCloseModal={() => setShowModal(false)}
         onCloseTaskModal={() => setShowTaskModal(false)}
         onCloseQuickNoteModal={() => setShowQuickNoteModal(false)}
-        onCloseDocumentSuccessPopup={() => setShowDocumentSuccessPopup(false)}
+        onCloseDocumentSuccessPopup={() => window.location.reload()}
         onClearPaymentError={handleCloseErrorModal}
+        onClearUploadError={clearUploadError}
         onUpgrade={handleUpgrade}
         onManualTaskSubmit={handleManualTaskSubmit}
         onSaveQuickNote={handleSaveQuickNote}

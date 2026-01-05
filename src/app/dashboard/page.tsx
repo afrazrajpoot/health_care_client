@@ -1,7 +1,7 @@
 "use client";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 import { handleEncryptedResponse } from "@/lib/decrypt";
 import { usePatientData } from "@/hooks/usePatientData";
@@ -15,9 +15,10 @@ import { ModalsContainer } from "@/components/physician-components/ModalsContain
 import { LoadingFallback } from "@/components/physician-components/LoadingFallback";
 import { UnauthenticatedFallback } from "@/components/physician-components/UnauthenticatedFallback";
 import { PhysicianCardLayout } from "@/components/physician-components/PhysicianCardLayout";
+import FileConfirmationModal from "@/components/physician-components/FileConfirmationModal";
+import UploadProgressModal from "@/components/physician-components/UploadProgressModal";
 // import { FloatingNewOrderButton } from "@/components/physician-components/FloatingNewOrderButton";
 
-import { useFileUpload } from "../custom-hooks/staff-hooks/physician-hooks/useFileUpload";
 import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch";
 import { useOnboarding } from "../custom-hooks/staff-hooks/physician-hooks/useOnboarding";
 import { useToasts } from "../custom-hooks/staff-hooks/physician-hooks/useToasts";
@@ -44,7 +45,6 @@ export default function PhysicianCard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { startTwoPhaseTracking } = useSocket();
 
   const [mode, setMode] = useState<"wc" | "gm">("wc");
   const [isVerified, setIsVerified] = useState<boolean>(false);
@@ -67,6 +67,10 @@ export default function PhysicianCard() {
     documentSummary: true,
   });
   const [showManualTaskModal, setShowManualTaskModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showProgressPopup, setShowProgressPopup] = useState(false);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   const { toasts, addToast } = useToasts();
@@ -100,7 +104,113 @@ export default function PhysicianCard() {
     setDocumentData,
   } = usePatientData(physicianId);
 
-  const { files, fileInputRef, handleFileSelect, handleUpload, resetFiles } = useFileUpload(addToast, session, startTwoPhaseTracking);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+
+  const handleDragDropFiles = useCallback((files: File[]) => {
+    setPendingFiles(files);
+    setShowConfirmationModal(true);
+  }, []);
+
+  // Confirmation modal handlers
+  const handleConfirmUpload = useCallback(async () => {
+    setShowConfirmationModal(false);
+    setShowProgressPopup(true); // Show progress popup
+
+    try {
+      // Create FormData directly for API call
+      const formData = new FormData();
+      pendingFiles.forEach((file) => {
+        formData.append("documents", file);
+      });
+      formData.append("mode", mode);
+
+      console.log(`🚀 Starting upload for ${pendingFiles.length} files in mode: ${mode}`);
+
+      // Determine physician ID based on role
+      const user = session?.user;
+      const physicianId =
+        user?.role === "Physician"
+          ? user?.id // if Physician, send their own ID
+          : user?.physicianId || ""; // otherwise, send assigned physician's ID
+
+      const apiUrl = `${
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+      }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
+        user?.id || ""
+      }`;
+
+      console.log("🌐 API URL:", apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${user?.fastapi_token}`,
+        },
+        body: formData,
+      });
+
+      console.log("📡 Response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Upload failed:", errorText);
+        throw new Error(`Upload failed: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log("✅ Upload successful:", data);
+
+      // Clear files after successful upload
+      setPendingFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      console.error("❌ Upload failed:", error);
+      throw error; // Re-throw to handle in calling code if needed
+    } finally {
+      // Hide progress popup when done
+      setShowProgressPopup(false);
+    }
+  }, [pendingFiles, mode, session]);
+
+  const handleCancelUpload = useCallback(() => {
+    setShowConfirmationModal(false);
+    setPendingFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [fileInputRef]);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setPendingFiles((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      // Close modal if no files left
+      if (updated.length === 0) {
+        setShowConfirmationModal(false);
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleUploadClick = useCallback(() => {
+    // Directly trigger file input without drag drop zone
+    fileInputRef.current?.click();
+  }, []);
+
+
+  // Handle file input changes - show confirmation modal
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files);
+      setPendingFiles(filesArray);
+      setShowConfirmationModal(true);
+    }
+  }, []);
+
+  // Dummy values for DashboardContent (not used in new upload flow)
+  const dummyFiles: File[] = [];
+  const dummyHandleUpload = useCallback(() => {}, []);
+  const dummyResetFiles = useCallback(() => {}, []);
 
   const { searchQuery, searchResults, searchLoading, handleSearchChange, getPhysicianId: getSearchPhysicianId } = useSearch(mode);
 
@@ -481,6 +591,7 @@ export default function PhysicianCard() {
       session={session}
       staffButtonRef={staffButtonRef as React.RefObject<HTMLAnchorElement>}
       modeSelectorRef={modeSelectorRef as React.RefObject<HTMLSelectElement>}
+      onUploadDocument={handleUploadClick}
     />
   );
 
@@ -489,6 +600,7 @@ export default function PhysicianCard() {
 
 
   return (
+    <>
     <PhysicianCardLayout header={header} sidebar={sidebar} overlay={overlay} toasts={<ToastContainer toasts={toasts} />}>
       <DashboardContent
         showOnboarding={showOnboarding}
@@ -500,10 +612,11 @@ export default function PhysicianCard() {
         onNextStep={nextStep}
         onPreviousStep={previousStep}
         onStartOnboarding={startOnboarding}
-        files={files}
-        onFileSelect={handleFileSelect}
-        onUpload={handleUpload}
-        onCancelUpload={resetFiles}
+        files={dummyFiles}
+        onFileSelect={handleFileInputChange}
+        fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+        onUpload={dummyHandleUpload}
+        onCancelUpload={dummyResetFiles}
         loading={loading}
         selectedPatient={selectedPatient}
         documentData={documentData}
@@ -554,6 +667,22 @@ export default function PhysicianCard() {
         addToast={addToast}
       />
     </PhysicianCardLayout>
+
+
+
+    <FileConfirmationModal
+      showModal={showConfirmationModal}
+      files={pendingFiles}
+      onConfirm={handleConfirmUpload}
+      onCancel={handleCancelUpload}
+      onRemoveFile={handleRemoveFile}
+    />
+
+    <UploadProgressModal
+      showModal={showProgressPopup}
+      fileCount={pendingFiles.length}
+    />
+    </>
   );
 }
 

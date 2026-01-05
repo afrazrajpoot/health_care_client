@@ -22,6 +22,16 @@ export interface Task {
   assignee?: string;
   actions?: string[];
   type?: string;
+  document?: {
+    id: string;
+    claimNumber: string;
+    status: string;
+    ur_denial_reason?: string;
+    blobPath?: string;
+    patientName: string;
+    gcsFileLink?: string;
+    fileName?: string;
+  };
 }
 
 export interface PatientQuiz {

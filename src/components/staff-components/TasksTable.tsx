@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -23,6 +24,16 @@ interface Task {
   quickNotes?: any;
   assignee?: string;
   actions?: string[];
+  document?: {
+    id: string;
+    claimNumber: string;
+    status: string;
+    ur_denial_reason?: string;
+    blobPath?: string;
+    patientName: string;
+    gcsFileLink?: string;
+    fileName?: string;
+  };
 }
 
 interface FailedDocument {
@@ -73,13 +84,15 @@ export default function TasksTable({
   mode = "wc",
   physicianId,
 }: TasksTableProps) {
+  const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(
     new Set()
   );
 
-  // Failed document states
+  // Document preview states
+  const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] =
@@ -113,42 +126,87 @@ export default function TasksTable({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Failed document handlers
-  const handlePreviewFile = (e: React.MouseEvent, doc: FailedDocument) => {
+  // Task document preview handler (using physician dashboard approach)
+  const handleTaskDocumentPreview = async (e: React.MouseEvent, task: Task) => {
     e.stopPropagation();
-    if (!doc.gcsFileLink) {
-      toast.error("No file link available");
+
+    if (!task.document?.blobPath) {
+      console.error("Blob path not found for task document preview");
+      toast.error("Document preview not available");
       return;
     }
 
-    // Build the preview URL
-    let previewUrl = doc.gcsFileLink;
-    if (
-      previewUrl.includes("storage.googleapis.com") ||
-      previewUrl.includes("storage.cloud.google.com")
-    ) {
-      const separator = previewUrl.includes("?") ? "&" : "?";
-      previewUrl = `${previewUrl}${separator}response-content-disposition=inline`;
+    const taskId = task.id;
+    if (!taskId || loadingTaskPreview === taskId) return;
+
+    setLoadingTaskPreview(taskId);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          task.document.blobPath
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preview: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (error) {
+      console.error("Error fetching task document preview:", error);
+      toast.error("Failed to preview document");
+    } finally {
+      setLoadingTaskPreview(null);
     }
-    const fileName = doc.fileName?.toLowerCase() || "";
-    if (
-      fileName.endsWith(".pdf") ||
-      fileName.endsWith(".doc") ||
-      fileName.endsWith(".docx")
-    ) {
-      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(
-        doc.gcsFileLink
-      )}&embedded=true`;
+  };
+
+  // Failed document preview handler (updated to use backend API like physician dashboard)
+  const handlePreviewFile = async (e: React.MouseEvent, doc: FailedDocument) => {
+    e.stopPropagation();
+
+    if (!doc.blobPath) {
+      console.error("Blob path not found for failed document preview");
+      toast.error("Document preview not available");
+      return;
     }
 
-    // Use anchor element to open - most reliable way to avoid popup blockers
-    const link = document.createElement("a");
-    link.href = previewUrl;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (loadingPreview === doc.id) return;
+
+    setLoadingPreview(doc.id);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+          doc.blobPath
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preview: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (error) {
+      console.error("Error fetching failed document preview:", error);
+      toast.error("Failed to preview document");
+    } finally {
+      setLoadingPreview(null);
+    }
   };
 
   const handleDeleteClick = (e: React.MouseEvent, doc: FailedDocument) => {
@@ -358,6 +416,9 @@ export default function TasksTable({
                   Type
                 </th>
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
+                  Preview
+                </th>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
                   Due
                 </th>
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[150px] w-[150px] whitespace-nowrap">
@@ -483,6 +544,24 @@ export default function TasksTable({
                         {task.department}
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
+                        {task.document?.blobPath ? (
+                          <button
+                            onClick={(e) => handleTaskDocumentPreview(e, task)}
+                            disabled={loadingTaskPreview === task.id}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                            title="Preview Document"
+                          >
+                            {loadingTaskPreview === task.id ? (
+                              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <FileText className="w-4 h-4" />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
                         {task.dueDate
                           ? new Date(task.dueDate).toLocaleDateString("en-US", {
                               month: "2-digit",
@@ -534,6 +613,25 @@ export default function TasksTable({
                           Failed Document
                         </span>
                       </td>
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          {/* Preview File - already exists for failed documents */}
+                          {doc.gcsFileLink && (
+                            <button
+                              onClick={(e) => handlePreviewFile(e, doc)}
+                              disabled={loadingPreview === doc.id}
+                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                              title="Preview File"
+                            >
+                              {loadingPreview === doc.id ? (
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap text-gray-400">
                         —
                       </td>
@@ -548,7 +646,7 @@ export default function TasksTable({
                             <Eye className="w-4 h-4" />
                           </button>
                           {/* Preview File */}
-                          {doc.gcsFileLink && (
+                          {doc.blobPath && (
                             <button
                               onClick={(e) => handlePreviewFile(e, doc)}
                               disabled={loadingPreview === doc.id}

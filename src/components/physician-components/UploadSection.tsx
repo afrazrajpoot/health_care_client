@@ -6,10 +6,11 @@ interface UploadSectionProps {
   onUpload: () => void;
   onCancel: () => void;
   loading: boolean;
+  fileInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export const UploadSection = React.memo<UploadSectionProps>(
-  ({ files, onFileSelect, onUpload, onCancel, loading }) => (
+  ({ files, onFileSelect, onUpload, onCancel, loading, fileInputRef }) => (
     <div className="mb-3.5">
       <input
         type="file"
@@ -17,6 +18,7 @@ export const UploadSection = React.memo<UploadSectionProps>(
         accept=".pdf,.doc,.docx,image/*"
         onChange={onFileSelect}
         className="hidden"
+        ref={fileInputRef}
       />
       {files.length > 0 && (
         <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
