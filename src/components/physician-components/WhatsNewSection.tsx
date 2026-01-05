@@ -165,7 +165,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const getPatientName = () => {
-    if (!documentData || !(documentData as any)?.documents?.[0]) return "Unknown Patient";
+    if (!documentData || !(documentData as any)?.documents?.[0])
+      return "Unknown Patient";
 
     const firstDoc = (documentData as any).documents[0];
     return (
@@ -290,16 +291,26 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               </div>
               <span className="text-gray-800">Clinical Findings</span>
               <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                {summaryContent.findings.length} item{summaryContent.findings.length !== 1 ? 's' : ''}
+                {summaryContent.findings.length} item
+                {summaryContent.findings.length !== 1 ? "s" : ""}
               </span>
             </div>
             <div className="space-y-1">
               {summaryContent.findings.map((finding, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                <div
+                  key={idx}
+                  className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                >
                   <div className="flex-shrink-0 mt-0.5">
-                    {finding.indicator === "danger" && <AlertCircle size={16} className="text-red-500" />}
-                    {finding.indicator === "warning" && <AlertTriangle size={16} className="text-yellow-500" />}
-                    {finding.indicator === "normal" && <CheckCircle2 size={16} className="text-green-500" />}
+                    {finding.indicator === "danger" && (
+                      <AlertCircle size={16} className="text-red-500" />
+                    )}
+                    {finding.indicator === "warning" && (
+                      <AlertTriangle size={16} className="text-yellow-500" />
+                    )}
+                    {finding.indicator === "normal" && (
+                      <CheckCircle2 size={16} className="text-green-500" />
+                    )}
                   </div>
                   <span
                     className="flex-1 text-sm leading-relaxed font-medium"
@@ -325,7 +336,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 </div>
                 <span className="text-gray-800">Recommended Actions</span>
                 <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                  {summaryContent.recommendations.length} action{summaryContent.recommendations.length !== 1 ? 's' : ''}
+                  {summaryContent.recommendations.length} action
+                  {summaryContent.recommendations.length !== 1 ? "s" : ""}
                 </span>
               </div>
               <div className="space-y-1">
@@ -335,12 +347,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     className="flex items-start gap-3 p-3 bg-blue-50/30 rounded-lg border border-blue-100 hover:bg-blue-50/50 transition-colors"
                   >
                     <div className="flex-shrink-0 mt-0.5 p-1 bg-blue-100 rounded">
-                      <ChevronRightIcon
-                        size={12}
-                        className="text-blue-600"
-                      />
+                      <ChevronRightIcon size={12} className="text-blue-600" />
                     </div>
-                    <span className="flex-1 text-sm text-gray-800 font-medium leading-relaxed">{rec.value}</span>
+                    <span className="flex-1 text-sm text-gray-800 font-medium leading-relaxed">
+                      {rec.value}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -356,12 +367,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               </div>
               <span className="text-gray-800">Current Status</span>
               <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                {summaryContent.status.length} status{summaryContent.status.length !== 1 ? 'es' : ''}
+                {summaryContent.status.length} status
+                {summaryContent.status.length !== 1 ? "es" : ""}
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
               {summaryContent.status.map((status, idx) => (
-                <div key={idx} className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm font-medium text-green-800">
+                <div
+                  key={idx}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm font-medium text-green-800"
+                >
                   <CheckCircle2 size={14} className="text-green-600" />
                   <span>{status.value}</span>
                 </div>
@@ -378,7 +393,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 <AlertTriangle size={14} className="text-yellow-600" />
               </div>
               <div className="text-sm text-gray-700 leading-relaxed italic">
-                <span className="font-medium text-yellow-800">Important Notice:</span> {header.disclaimer}
+                <span className="font-medium text-yellow-800">
+                  Important Notice:
+                </span>{" "}
+                {header.disclaimer}
               </div>
             </div>
           </div>
@@ -529,7 +547,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   const renderFormattedSummary = (text: string) => {
-    if (!text) return <div className="text-sm text-gray-500 italic text-center py-5">No summary available</div>;
+    if (!text)
+      return (
+        <div className="text-sm text-gray-500 italic text-center py-5">
+          No summary available
+        </div>
+      );
 
     const lines = text.split("\n");
     return lines.map((line, index) => {
@@ -722,7 +745,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -857,12 +880,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               // Get icon based on document type
               const getIcon = () => {
                 const type = (group.documentType || "").toLowerCase();
-                if (type.includes("mri")) return <FileText size={16} className="text-blue-600" />;
-                if (type.includes("emg") || type.includes("ncs")) return <Zap size={16} className="text-yellow-600" />;
-                if (type.includes("ortho")) return <Shield size={16} className="text-green-600" />;
-                if (type.includes("pt") || type.includes("physical therapy")) return <Activity size={16} className="text-purple-600" />;
-                if (type.includes("report")) return <FileCheck size={16} className="text-indigo-600" />;
-                if (type.includes("consultation")) return <Stethoscope size={16} className="text-teal-600" />;
+                if (type.includes("mri"))
+                  return <FileText size={16} className="text-blue-600" />;
+                if (type.includes("emg") || type.includes("ncs"))
+                  return <Zap size={16} className="text-yellow-600" />;
+                if (type.includes("ortho"))
+                  return <Shield size={16} className="text-green-600" />;
+                if (type.includes("pt") || type.includes("physical therapy"))
+                  return <Activity size={16} className="text-purple-600" />;
+                if (type.includes("report"))
+                  return <FileCheck size={16} className="text-indigo-600" />;
+                if (type.includes("consultation"))
+                  return <Stethoscope size={16} className="text-teal-600" />;
                 return <FileText size={16} className="text-gray-600" />;
               };
 
@@ -945,7 +974,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             </span>
                             {isViewed && (
                               <div className="flex-shrink-0">
-                                <CheckCircle2 size={14} className="text-green-600" />
+                                <CheckCircle2
+                                  size={14}
+                                  className="text-green-600"
+                                />
                               </div>
                             )}
                           </div>
@@ -957,7 +989,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             {(group as any).consultingDoctor && (
                               <div className="flex items-center gap-1">
                                 <User size={12} className="text-gray-400" />
-                                <span className="truncate">{(group as any).consultingDoctor}</span>
+                                <span className="truncate">
+                                  {(group as any).consultingDoctor}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -976,7 +1010,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             <span>View</span>
                           </button>
                           <div className="flex items-center">
-                            <ChevronDownIcon size={16} className="text-gray-400" />
+                            <ChevronDownIcon
+                              size={16}
+                              className="text-gray-400"
+                            />
                           </div>
                         </div>
                       </div>
@@ -1137,14 +1174,17 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
                   <CheckCircle2 size={20} className="text-gray-400" />
                 </div>
-                <div className="text-sm font-medium text-gray-900 mb-1">All Caught Up!</div>
-                <div className="text-xs text-gray-500">No significant changes since last visit</div>
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  All Caught Up!
+                </div>
+                <div className="text-xs text-gray-500">
+                  No significant changes since last visit
+                </div>
               </div>
             )}
           </div>
         </div>
       )}
-
 
       {/* Brief Summary Modal */}
       <Dialog
@@ -1195,8 +1235,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
                   <FileText size={20} className="text-gray-400" />
                 </div>
-                <div className="text-sm font-medium text-gray-900 mb-1">No Summary Available</div>
-                <div className="text-xs text-gray-500">This document doesn't have a summary yet.</div>
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  No Summary Available
+                </div>
+                <div className="text-xs text-gray-500">
+                  This document doesn't have a summary yet.
+                </div>
               </div>
             )}
           </div>

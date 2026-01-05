@@ -1,7 +1,13 @@
 "use client";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  useEffect,
+} from "react";
 import { useSocket } from "@/providers/SocketProvider";
 import { handleEncryptedResponse } from "@/lib/decrypt";
 import { usePatientData } from "@/hooks/usePatientData";
@@ -52,8 +58,10 @@ export default function PhysicianCard() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedBriefSummary, setSelectedBriefSummary] = useState<string>("");
   const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
-  const [showPreviousSummary, setShowPreviousSummary] = useState<boolean>(false);
-  const [previousSummary, setPreviousSummary] = useState<DocumentSummary | null>(null);
+  const [showPreviousSummary, setShowPreviousSummary] =
+    useState<boolean>(false);
+  const [previousSummary, setPreviousSummary] =
+    useState<DocumentSummary | null>(null);
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [recentPatientsVisible, setRecentPatientsVisible] = useState(false);
@@ -106,7 +114,6 @@ export default function PhysicianCard() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
   const handleDragDropFiles = useCallback((files: File[]) => {
     setPendingFiles(files);
     setShowConfirmationModal(true);
@@ -125,7 +132,9 @@ export default function PhysicianCard() {
       });
       formData.append("mode", mode);
 
-      console.log(`🚀 Starting upload for ${pendingFiles.length} files in mode: ${mode}`);
+      console.log(
+        `🚀 Starting upload for ${pendingFiles.length} files in mode: ${mode}`
+      );
 
       // Determine physician ID based on role
       const user = session?.user;
@@ -135,7 +144,7 @@ export default function PhysicianCard() {
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
@@ -197,22 +206,30 @@ export default function PhysicianCard() {
     fileInputRef.current?.click();
   }, []);
 
-
   // Handle file input changes - show confirmation modal
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const filesArray = Array.from(e.target.files);
-      setPendingFiles(filesArray);
-      setShowConfirmationModal(true);
-    }
-  }, []);
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const filesArray = Array.from(e.target.files);
+        setPendingFiles(filesArray);
+        setShowConfirmationModal(true);
+      }
+    },
+    []
+  );
 
   // Dummy values for DashboardContent (not used in new upload flow)
   const dummyFiles: File[] = [];
   const dummyHandleUpload = useCallback(() => {}, []);
   const dummyResetFiles = useCallback(() => {}, []);
 
-  const { searchQuery, searchResults, searchLoading, handleSearchChange, getPhysicianId: getSearchPhysicianId } = useSearch(mode);
+  const {
+    searchQuery,
+    searchResults,
+    searchLoading,
+    handleSearchChange,
+    getPhysicianId: getSearchPhysicianId,
+  } = useSearch(mode);
 
   // Memoized current patient
   const currentPatient = useMemo(() => {
@@ -245,7 +262,10 @@ export default function PhysicianCard() {
 
   // Memoized document ID
   const documentId = useMemo(
-    () => documentData?.documents?.[0]?.id || documentData?.documents?.[0]?.document_id || "",
+    () =>
+      documentData?.documents?.[0]?.id ||
+      documentData?.documents?.[0]?.document_id ||
+      "",
     [documentData]
   );
 
@@ -270,7 +290,10 @@ export default function PhysicianCard() {
   }, [selectedPatient, documentData, documentId, currentPatient]);
 
   // Memoized visit count
-  const visitCount = useMemo(() => documentData?.document_summaries?.length || 0, [documentData]);
+  const visitCount = useMemo(
+    () => documentData?.document_summaries?.length || 0,
+    [documentData]
+  );
 
   // Memoized formatDate
   const formatDate = useCallback((dateString: string | undefined): string => {
@@ -287,11 +310,14 @@ export default function PhysicianCard() {
   }, []);
 
   // Handle patient selection
-  const handlePatientSelect = useCallback((patient: Patient) => {
-    console.log("Patient selected:", patient);
-    setSelectedPatient(patient);
-    fetchDocumentData(patient, mode);
-  }, [fetchDocumentData, mode]);
+  const handlePatientSelect = useCallback(
+    (patient: Patient) => {
+      console.log("Patient selected:", patient);
+      setSelectedPatient(patient);
+      fetchDocumentData(patient, mode);
+    },
+    [fetchDocumentData, mode]
+  );
 
   // Handle mode switch
   const switchMode = useCallback((val: "wc" | "gm") => {
@@ -349,7 +375,15 @@ export default function PhysicianCard() {
         setVerifyLoading(false);
       }
     }
-  }, [documentData, isVerified, selectedPatient, session, fetchDocumentData, mode, addToast]);
+  }, [
+    documentData,
+    isVerified,
+    selectedPatient,
+    session,
+    fetchDocumentData,
+    mode,
+    addToast,
+  ]);
 
   // Handle copy text
   const handleCopy = useCallback(async (text: string, fieldName: string) => {
@@ -362,105 +396,108 @@ export default function PhysicianCard() {
   }, []);
 
   // Handle section copy
-  const handleSectionCopy = useCallback(async (
-    sectionId: string,
-    snapshotIndex?: number
-  ) => {
-    let text = "";
-    const doc = documentData;
-    switch (sectionId) {
-      case "section-snapshot":
-        const snapshots = doc?.summary_snapshots || [];
-        const currentIdx = snapshotIndex || 0;
-        const currentSnap = snapshots[currentIdx];
-        if (currentSnap) {
-          text = `Summary Snapshot\nDx: ${
-            currentSnap.dx || "Not specified"
-          }\nKey Concern: ${
-            currentSnap.keyConcern || "Not specified"
-          }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
-        }
-        break;
-      case "section-whatsnew":
-        const latestSummary = doc?.document_summaries?.[0];
-        const shortSummary =
-          latestSummary?.brief_summary || "No short summary available";
-        const longSummary =
-          latestSummary?.summary || "No long summary available";
-        text = `DOCUMENT SUMMARIES\n\n`;
-        text += `📋 BRIEF SUMMARY:\n${shortSummary}\n\n`;
-        text += `📄 DETAILED SUMMARY:\n${longSummary}\n\n`;
-        if (latestSummary) {
-          text += `📊 METADATA:\n`;
-          text += `Type: ${latestSummary.type}\n`;
-          text += `Date: ${formatDate(latestSummary.date)}\n`;
-        }
-        break;
-      case "section-adl":
-        text = `ADL / Work Status\nADLs Affected: ${
-          doc?.adl?.adls_affected || "Not specified"
-        }\nWork Restrictions: ${
-          doc?.adl?.work_restrictions || "Not specified"
-        }`;
-        break;
-      case "section-patient-quiz":
-        if (doc?.patient_quiz) {
-          const q = doc.patient_quiz;
-          text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
-            q.newAppt
-          }\nPain Level: ${q.pain}/10\nWork Difficulty: ${q.workDiff}\nTrend: ${
-            q.trend
-          }\nWork Ability: ${q.workAbility}\nBarrier: ${
-            q.barrier
-          }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
-          q.appts.forEach((appt: any) => {
-            text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
-          });
-          text += `Created: ${formatDate(q.createdAt)}\nUpdated: ${formatDate(
-            q.updatedAt
-          )}`;
-        } else {
-          text = "No patient quiz data available";
-        }
-        break;
-      default:
-        if (sectionId.startsWith("section-summary-")) {
-          const index = parseInt(sectionId.split("-")[2]);
-          const summary = doc?.document_summaries?.[index];
-          if (summary) {
-            text = `${summary.type} - ${formatDate(summary.date)}\n${
-              summary.summary
-            }`;
+  const handleSectionCopy = useCallback(
+    async (sectionId: string, snapshotIndex?: number) => {
+      let text = "";
+      const doc = documentData;
+      switch (sectionId) {
+        case "section-snapshot":
+          const snapshots = doc?.summary_snapshots || [];
+          const currentIdx = snapshotIndex || 0;
+          const currentSnap = snapshots[currentIdx];
+          if (currentSnap) {
+            text = `Summary Snapshot\nDx: ${
+              currentSnap.dx || "Not specified"
+            }\nKey Concern: ${
+              currentSnap.keyConcern || "Not specified"
+            }\nNext Step: ${currentSnap.nextStep || "Not specified"}`;
           }
-        }
-        break;
-    }
-    if (!text) return;
-    await handleCopy(text, sectionId);
-    if (timersRef.current[sectionId]) {
-      clearTimeout(timersRef.current[sectionId]);
-      delete timersRef.current[sectionId];
-    }
-    setCopied((prev) => ({ ...prev, [sectionId]: true }));
-    timersRef.current[sectionId] = setTimeout(() => {
-      setCopied((prev) => {
-        const newCopied = { ...prev };
-        delete newCopied[sectionId];
-        return newCopied;
-      });
-      delete timersRef.current[sectionId];
-    }, 2000);
-  }, [documentData, formatDate, handleCopy]);
+          break;
+        case "section-whatsnew":
+          const latestSummary = doc?.document_summaries?.[0];
+          const shortSummary =
+            latestSummary?.brief_summary || "No short summary available";
+          const longSummary =
+            latestSummary?.summary || "No long summary available";
+          text = `DOCUMENT SUMMARIES\n\n`;
+          text += `📋 BRIEF SUMMARY:\n${shortSummary}\n\n`;
+          text += `📄 DETAILED SUMMARY:\n${longSummary}\n\n`;
+          if (latestSummary) {
+            text += `📊 METADATA:\n`;
+            text += `Type: ${latestSummary.type}\n`;
+            text += `Date: ${formatDate(latestSummary.date)}\n`;
+          }
+          break;
+        case "section-adl":
+          text = `ADL / Work Status\nADLs Affected: ${
+            doc?.adl?.adls_affected || "Not specified"
+          }\nWork Restrictions: ${
+            doc?.adl?.work_restrictions || "Not specified"
+          }`;
+          break;
+        case "section-patient-quiz":
+          if (doc?.patient_quiz) {
+            const q = doc.patient_quiz;
+            text = `Patient Quiz\nLanguage: ${q.lang}\nNew Appt: ${
+              q.newAppt
+            }\nPain Level: ${q.pain}/10\nWork Difficulty: ${
+              q.workDiff
+            }\nTrend: ${q.trend}\nWork Ability: ${q.workAbility}\nBarrier: ${
+              q.barrier
+            }\nADLs Affected: ${q.adl.join(", ")}\nUpcoming Appts:\n`;
+            q.appts.forEach((appt: any) => {
+              text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
+            });
+            text += `Created: ${formatDate(q.createdAt)}\nUpdated: ${formatDate(
+              q.updatedAt
+            )}`;
+          } else {
+            text = "No patient quiz data available";
+          }
+          break;
+        default:
+          if (sectionId.startsWith("section-summary-")) {
+            const index = parseInt(sectionId.split("-")[2]);
+            const summary = doc?.document_summaries?.[index];
+            if (summary) {
+              text = `${summary.type} - ${formatDate(summary.date)}\n${
+                summary.summary
+              }`;
+            }
+          }
+          break;
+      }
+      if (!text) return;
+      await handleCopy(text, sectionId);
+      if (timersRef.current[sectionId]) {
+        clearTimeout(timersRef.current[sectionId]);
+        delete timersRef.current[sectionId];
+      }
+      setCopied((prev) => ({ ...prev, [sectionId]: true }));
+      timersRef.current[sectionId] = setTimeout(() => {
+        setCopied((prev) => {
+          const newCopied = { ...prev };
+          delete newCopied[sectionId];
+          return newCopied;
+        });
+        delete timersRef.current[sectionId];
+      }, 2000);
+    },
+    [documentData, formatDate, handleCopy]
+  );
 
   // Handle show previous summary
-  const handleShowPrevious = useCallback((type: string) => {
-    const previous = documentData?.previous_summaries?.[type];
-    if (previous) {
-      setPreviousSummary(previous);
-      setShowPreviousSummary(true);
-      setSelectedBriefSummary(""); // Clear brief summary
-    }
-  }, [documentData]);
+  const handleShowPrevious = useCallback(
+    (type: string) => {
+      const previous = documentData?.previous_summaries?.[type];
+      if (previous) {
+        setPreviousSummary(previous);
+        setShowPreviousSummary(true);
+        setSelectedBriefSummary(""); // Clear brief summary
+      }
+    },
+    [documentData]
+  );
 
   // Handle modal open
   const openModal = useCallback((briefSummary: string) => {
@@ -526,7 +563,10 @@ export default function PhysicianCard() {
         setRecentPatientsList(data || []);
         if (data && Array.isArray(data) && data.length > 0 && session?.user) {
           const latestPatient = data[0];
-          console.log("🔄 Auto-selecting latest patient:", latestPatient.patientName);
+          console.log(
+            "🔄 Auto-selecting latest patient:",
+            latestPatient.patientName
+          );
           let dobString = "";
           if (latestPatient.dob) {
             if (latestPatient.dob instanceof Date) {
@@ -596,96 +636,105 @@ export default function PhysicianCard() {
   );
 
   const sidebar = <SidebarContainer isOpen={isSidebarOpen} />;
-  const overlay = <SidebarOverlay isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />;
-
+  const overlay = (
+    <SidebarOverlay
+      isOpen={isSidebarOpen}
+      onClose={() => setIsSidebarOpen(false)}
+    />
+  );
 
   return (
     <>
-    <PhysicianCardLayout header={header} sidebar={sidebar} overlay={overlay} toasts={<ToastContainer toasts={toasts} />}>
-      <DashboardContent
-        showOnboarding={showOnboarding}
-        currentStep={currentStep}
-        stepPositions={stepPositions}
-        showWelcomeModal={showWelcomeModal}
-        onboardingSteps={onboardingSteps}
-        onCloseOnboarding={closeOnboarding}
-        onNextStep={nextStep}
-        onPreviousStep={previousStep}
-        onStartOnboarding={startOnboarding}
-        files={dummyFiles}
-        onFileSelect={handleFileInputChange}
-        fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
-        onUpload={dummyHandleUpload}
-        onCancelUpload={dummyResetFiles}
-        loading={loading}
-        selectedPatient={selectedPatient}
-        documentData={documentData}
-        taskQuickNotes={taskQuickNotes}
-        visitCount={visitCount}
-        formatDate={formatDate}
-        currentPatient={currentPatient}
-        collapsedSections={collapsedSections}
-        copied={copied}
-        onToggleSection={toggleSection}
-        onCopySection={handleSectionCopy}
-        mode={mode}
-        error={error}
-        onRetry={handleRetry}
-        recentPatientsVisible={recentPatientsVisible}
-        onToggleRecentPatients={() => setRecentPatientsVisible(!recentPatientsVisible)}
-        recentPatients={recentPatientsList}
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        searchResults={searchResults}
-        searchLoading={searchLoading}
-        onPatientSelect={handlePatientSelect}
-        onCloseRecentPatients={() => setRecentPatientsVisible(false)}
-        session={session}
+      <PhysicianCardLayout
+        header={header}
+        sidebar={sidebar}
+        overlay={overlay}
+        toasts={<ToastContainer toasts={toasts} />}
+      >
+        <DashboardContent
+          showOnboarding={showOnboarding}
+          currentStep={currentStep}
+          stepPositions={stepPositions}
+          showWelcomeModal={showWelcomeModal}
+          onboardingSteps={onboardingSteps}
+          onCloseOnboarding={closeOnboarding}
+          onNextStep={nextStep}
+          onPreviousStep={previousStep}
+          onStartOnboarding={startOnboarding}
+          files={dummyFiles}
+          onFileSelect={handleFileInputChange}
+          fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+          onUpload={dummyHandleUpload}
+          onCancelUpload={dummyResetFiles}
+          loading={loading}
+          selectedPatient={selectedPatient}
+          documentData={documentData}
+          taskQuickNotes={taskQuickNotes}
+          visitCount={visitCount}
+          formatDate={formatDate}
+          currentPatient={currentPatient}
+          collapsedSections={collapsedSections}
+          copied={copied}
+          onToggleSection={toggleSection}
+          onCopySection={handleSectionCopy}
+          mode={mode}
+          error={error}
+          onRetry={handleRetry}
+          recentPatientsVisible={recentPatientsVisible}
+          onToggleRecentPatients={() =>
+            setRecentPatientsVisible(!recentPatientsVisible)
+          }
+          recentPatients={recentPatientsList}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          searchResults={searchResults}
+          searchLoading={searchLoading}
+          onPatientSelect={handlePatientSelect}
+          onCloseRecentPatients={() => setRecentPatientsVisible(false)}
+          session={session}
+        />
+        {/* <FloatingNewOrderButton onClick={() => setShowManualTaskModal(true)} /> */}
+        <ModalsContainer
+          showPreviousSummary={showPreviousSummary}
+          onCloseBriefSummary={() => setSelectedBriefSummary("")}
+          selectedBriefSummary={selectedBriefSummary}
+          onClosePreviousSummary={() => setShowPreviousSummary(false)}
+          onViewBrief={openModal}
+          previousSummary={previousSummary}
+          formatDate={formatDate}
+          showManualTaskModal={showManualTaskModal}
+          onManualTaskModalChange={setShowManualTaskModal}
+          defaultClaim={
+            (currentPatient as Patient).claimNumber !== "Not specified"
+              ? currentPatient.claimNumber
+              : undefined
+          }
+          defaultPatient={
+            selectedPatient
+              ? (currentPatient as Patient).patientName
+              : undefined
+          }
+          defaultDocumentId={documentId || undefined}
+          onManualTaskSubmit={handleManualTaskSubmit}
+          session={session}
+          addToast={addToast}
+        />
+      </PhysicianCardLayout>
+
+      <FileConfirmationModal
+        showModal={showConfirmationModal}
+        files={pendingFiles}
+        onConfirm={handleConfirmUpload}
+        onCancel={handleCancelUpload}
+        onRemoveFile={handleRemoveFile}
       />
-      {/* <FloatingNewOrderButton onClick={() => setShowManualTaskModal(true)} /> */}
-      <ModalsContainer
-        showPreviousSummary={showPreviousSummary}
-        onCloseBriefSummary={() => setSelectedBriefSummary("")}
-        selectedBriefSummary={selectedBriefSummary}
-        onClosePreviousSummary={() => setShowPreviousSummary(false)}
-        onViewBrief={openModal}
-        previousSummary={previousSummary}
-        formatDate={formatDate}
-        showManualTaskModal={showManualTaskModal}
-        onManualTaskModalChange={setShowManualTaskModal}
-        defaultClaim={
-          (currentPatient as Patient).claimNumber !== "Not specified"
-            ? currentPatient.claimNumber
-            : undefined
-        }
-        defaultPatient={
-          selectedPatient ? (currentPatient as Patient).patientName : undefined
-        }
-        defaultDocumentId={documentId || undefined}
-        onManualTaskSubmit={handleManualTaskSubmit}
-        session={session}
-        addToast={addToast}
+
+      <UploadProgressModal
+        showModal={showProgressPopup}
+        fileCount={pendingFiles.length}
       />
-    </PhysicianCardLayout>
-
-
-
-    <FileConfirmationModal
-      showModal={showConfirmationModal}
-      files={pendingFiles}
-      onConfirm={handleConfirmUpload}
-      onCancel={handleCancelUpload}
-      onRemoveFile={handleRemoveFile}
-    />
-
-    <UploadProgressModal
-      showModal={showProgressPopup}
-      fileCount={pendingFiles.length}
-    />
     </>
   );
 }
-
-
 
 // vudihyz@mailinator.com

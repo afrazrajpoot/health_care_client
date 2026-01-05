@@ -92,7 +92,9 @@ export default function TasksTable({
   );
 
   // Document preview states
-  const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(null);
+  const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(
+    null
+  );
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] =
@@ -143,7 +145,7 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           task.document.blobPath
         )}`,
         {
@@ -169,7 +171,10 @@ export default function TasksTable({
   };
 
   // Failed document preview handler (updated to use backend API like physician dashboard)
-  const handlePreviewFile = async (e: React.MouseEvent, doc: FailedDocument) => {
+  const handlePreviewFile = async (
+    e: React.MouseEvent,
+    doc: FailedDocument
+  ) => {
     e.stopPropagation();
 
     if (!doc.blobPath) {
@@ -184,7 +189,7 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blobPath
         )}`,
         {
@@ -294,7 +299,7 @@ export default function TasksTable({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",
