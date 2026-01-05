@@ -28,10 +28,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [displayProgress, setDisplayProgress] = useState(0);
   const [displayQueueProgress, setDisplayQueueProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [pollCount, setPollCount] = useState(0);
   const [lastPollTime, setLastPollTime] = useState(Date.now());
-  const [viewMode, setViewMode] = useState<"task" | "queue">("task");
+  const [viewMode, setViewMode] = useState<"task" | "queue">("queue");
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -42,23 +42,24 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     const hasActiveProgress =
       isProcessing && (progressData || queueProgressData);
 
-    // Check if it was minimized before
-    const wasMinimized =
-      localStorage.getItem("progressTrackerMinimized") === "true";
+    // Check if it was explicitly maximized before (default to minimized)
+    const wasMaximized =
+      localStorage.getItem("progressTrackerMinimized") === "false";
 
     console.log("🔍 Mount check:", {
       hasActiveProgress,
       isProcessing,
       progressData,
       queueProgressData,
-      wasMinimized,
+      wasMaximized,
     });
 
     // ONLY show if there's ACTIVE processing with data
     if (hasActiveProgress) {
       console.log("👁️ Setting visible on mount - active processing detected");
       setIsVisible(true);
-      setIsMinimized(wasMinimized);
+      // Default to minimized (small top-right modal), only maximize if explicitly set
+      setIsMinimized(!wasMaximized);
       localStorage.setItem("progressTrackerOpen", "true");
     } else {
       // Clear stale localStorage on mount if no active processing
@@ -66,7 +67,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       localStorage.removeItem("progressTrackerOpen");
       localStorage.removeItem("progressTrackerMinimized");
       setIsVisible(false);
-      setIsMinimized(false);
+      setIsMinimized(true);
     }
 
     // Auto-detect view mode: prefer queue if available
@@ -283,7 +284,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const handleClose = () => {
     console.log("✕ Closing progress tracker");
     setIsVisible(false);
-    setIsMinimized(false);
+    setIsMinimized(true);
     localStorage.removeItem("progressTrackerOpen");
     localStorage.removeItem("progressTrackerMinimized");
 
