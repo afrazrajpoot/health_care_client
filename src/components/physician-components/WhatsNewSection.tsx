@@ -5,19 +5,7 @@ import {
   useWhatsNewData,
 } from "@/app/custom-hooks/staff-hooks/physician-hooks/useWhatsNewData";
 import {
-  BriefcaseMedicalIcon,
-  CheckIcon,
-  ChevronDownIcon,
   ChevronRightIcon,
-  CopyIcon,
-  EyeIcon,
-  FileTextIcon,
-  CalendarIcon,
-  UserIcon,
-  StethoscopeIcon,
-  BookOpenIcon,
-  FileText,
-  Loader2,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -282,29 +270,31 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         {/* Header Section */}
         <div className="summary-header-block">
           <div className="summary-title-row">
-            <span className="summary-doc-title">{header.title}</span>
+            {/* <span className="summary-doc-title">{header.title}</span> */}
           </div>
-          <div className="summary-meta-row">
+          {/* <div className="summary-meta-row">
             <span className="summary-source-badge">{header.source_type}</span>
             {header.date && (
               <span className="summary-date-text">• {header.date}</span>
             )}
-          </div>
+          </div> */}
         </div>
 
         {/* Findings Section */}
         {summaryContent.findings && summaryContent.findings.length > 0 && (
           <div className="summary-block">
             <div className="summary-block-header">
-              <ClipboardList size={14} style={{ color: "#6b7280" }} />
-              <span>FINDINGS (REFERENCED FROM EXTERNAL RECORDS)</span>
+              <div className="flex font-bold items-center gap-2">
+                <ClipboardList size={14} style={{ color: "#6b7280" }} />
+                <span>FINDINGS (REFERENCED FROM EXTERNAL RECORDS)</span>
+              </div>
             </div>
             <div className="findings-list">
               {summaryContent.findings.map((finding, idx) => (
                 <div key={idx} className="finding-row">
-                  <span className="finding-icon-wrapper">
+                  {/* <span className="finding-icon-wrapper">
                     {getIndicatorIcon(finding.indicator)}
-                  </span>
+                  </span> */}
                   <span
                     className="finding-text"
                     style={{
@@ -324,13 +314,16 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         {summaryContent.recommendations &&
           summaryContent.recommendations.length > 0 && (
             <div className="summary-block">
-              <div className="summary-block-header">
+              <div className="summary-block-header font-bold flex items-center gap-2">
                 <Activity size={14} style={{ color: "#6b7280" }} />
                 <span>RECOMMENDED ACTIONS (WORKFLOW)</span>
               </div>
               <div className="recommendations-list">
                 {summaryContent.recommendations.map((rec, idx) => (
-                  <div key={idx} className="recommendation-row">
+                  <div
+                    key={idx}
+                    className="recommendation-row flex items-center"
+                  >
                     <ChevronRightIcon
                       size={16}
                       style={{ color: "#3b82f6", flexShrink: 0 }}
@@ -345,7 +338,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         {/* Status Section */}
         {summaryContent.status && summaryContent.status.length > 0 && (
           <div className="summary-block">
-            <div className="summary-block-header">
+            <div className="summary-block-header font-bold flex items-center gap-2">
               <CheckCircle2 size={14} style={{ color: "#6b7280" }} />
               <span>STATUS</span>
             </div>
@@ -1265,7 +1258,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
         .summary-block-header {
           display: flex;
-          flex-direction: row;
           align-items: center;
           gap: 8px;
           font-size: 11px;
