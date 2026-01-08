@@ -31,7 +31,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [isMinimized, setIsMinimized] = useState(true);
   const [pollCount, setPollCount] = useState(0);
   const [lastPollTime, setLastPollTime] = useState(Date.now());
-  const [viewMode, setViewMode] = useState<"task" | "queue">("queue");
+  const [viewMode, setViewMode] = useState<"task" | "queue">("task"); // Default to task mode
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -58,9 +58,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     if (hasActiveProgress) {
       console.log("👁️ Setting visible on mount - active processing detected");
       setIsVisible(true);
-      // Default to minimized (small top-right modal), only maximize if explicitly set
-      setIsMinimized(!wasMaximized);
+      // Always default to minimized (small top-right modal) on first load
+      setIsMinimized(true);
       localStorage.setItem("progressTrackerOpen", "true");
+      localStorage.setItem("progressTrackerMinimized", "true");
     } else {
       // Clear stale localStorage on mount if no active processing
       console.log("🧹 Clearing stale localStorage - no active processing");
@@ -68,11 +69,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       localStorage.removeItem("progressTrackerMinimized");
       setIsVisible(false);
       setIsMinimized(true);
-    }
-
-    // Auto-detect view mode: prefer queue if available
-    if (queueProgressData) {
-      setViewMode("queue");
     }
   }, []); // Run only once on mount
 
@@ -82,7 +78,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     if (isProcessing && (progressData || queueProgressData)) {
       console.log("👁️ Showing modal - processing started with data");
       setIsVisible(true);
+      // Always start minimized for new uploads
+      setIsMinimized(true);
       localStorage.setItem("progressTrackerOpen", "true");
+      localStorage.setItem("progressTrackerMinimized", "true");
 
       // Dismiss any existing toast notifications when progress modal opens
       toast.dismiss();
@@ -92,17 +91,37 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   // Auto-switch to queue view when queue data is available
   useEffect(() => {
-    if (queueProgressData && viewMode === "task") {
+    if (queueProgressData && !progressData) {
+      // Only switch to queue if we don't have task data
       setViewMode("queue");
+    } else if (progressData && !queueProgressData) {
+      // Switch to task if we have task data but no queue data
+      setViewMode("task");
     }
-  }, [queueProgressData, viewMode]);
+  }, [queueProgressData, progressData]);
 
-  // Robust manual polling
+  // Robust manual polling - stops at 100%
   useEffect(() => {
-    if ((activeTaskId || activeQueueId) && isProcessing) {
+    // Check if we should stop polling
+    const taskComplete =
+      progressData?.progress_percentage === 100 ||
+      progressData?.status === "completed" ||
+      progressData?.status === "upload_complete";
+    const queueComplete =
+      queueProgressData?.overall_progress === 100 ||
+      queueProgressData?.status === "completed";
+
+    if (
+      (activeTaskId || activeQueueId) &&
+      isProcessing &&
+      !taskComplete &&
+      !queueComplete
+    ) {
       console.log("⏰ Starting tracker polling for:", {
         activeTaskId,
         activeQueueId,
+        taskProgress: progressData?.progress_percentage,
+        queueProgress: queueProgressData?.overall_progress,
       });
       const interval = setInterval(async () => {
         setPollCount((prev) => {
@@ -118,16 +137,39 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             const result = await checkProgress(activeTaskId);
             console.log(
               "✅ Task poll success:",
-              result ? "data received" : "null"
+              result ? "data received" : "null",
+              "Progress:",
+              result?.progress_percentage
             );
+
+            // Stop polling if we reach 100%
+            if (
+              result?.progress_percentage === 100 ||
+              result?.status === "completed" ||
+              (result?.status as any) === "upload_complete"
+            ) {
+              console.log("🎯 Task reached 100% - stopping polling");
+              clearInterval(interval);
+            }
           }
 
           if (activeQueueId && checkQueueProgress) {
             const result = await checkQueueProgress(activeQueueId);
             console.log(
               "✅ Queue poll success:",
-              result ? "data received" : "null"
+              result ? "data received" : "null",
+              "Progress:",
+              result?.overall_progress
             );
+
+            // Stop polling if we reach 100%
+            if (
+              result?.overall_progress === 100 ||
+              result?.status === "completed"
+            ) {
+              console.log("🎯 Queue reached 100% - stopping polling");
+              clearInterval(interval);
+            }
           }
 
           setLastPollTime(Date.now());
@@ -140,6 +182,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         console.log("🛑 Clearing tracker interval");
         clearInterval(interval);
       };
+    } else if (taskComplete || queueComplete) {
+      console.log("✅ Progress complete - not starting polling");
     }
   }, [
     activeTaskId,
@@ -147,60 +191,60 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     isProcessing,
     checkProgress,
     checkQueueProgress,
+    progressData?.progress_percentage,
+    progressData?.status,
+    queueProgressData?.overall_progress,
+    queueProgressData?.status,
   ]);
 
   // Handle completion and auto-close
   useEffect(() => {
-    // CRITICAL: Don't auto-close if we're still in a phase (upload or processing)
-    const inTwoPhaseMode = currentPhase !== null;
-
-    // Backend now guarantees: status='completed' AND progress=100 when done
-    const progressComplete = progressData?.progress === 100;
+    // STRICT completion check - ONLY close when progress_percentage is 100 AND status is completed
+    const progressComplete = progressData?.progress_percentage === 100;
     const statusCompleted = progressData?.status === "completed";
-    const allFilesProcessed = progressData
-      ? progressData.processed_count >= progressData.total_files
-      : false;
 
-    const isCompleted =
-      (!inTwoPhaseMode &&
-        statusCompleted &&
-        progressComplete &&
-        allFilesProcessed) ||
+    // Check task completion
+    const isCompleted = statusCompleted && progressComplete;
+
+    // Check queue completion
+    const queueCompleted =
+      queueProgressData?.overall_progress === 100 &&
       queueProgressData?.status === "completed";
 
     console.log("🔍 Auto-close check:", {
-      inTwoPhaseMode,
       currentPhase,
-      statusCompleted,
-      progressComplete,
-      allFilesProcessed,
+      progressPercentage: progressData?.progress_percentage,
       progressStatus: progressData?.status,
-      progressValue: progressData?.progress,
-      processed: progressData?.processed_count,
-      total: progressData?.total_files,
+      progressComplete,
+      statusCompleted,
       isCompleted,
+      queueCompleted,
+      hasAutoCloseTimer: !!autoCloseTimer,
     });
 
-    if (isCompleted) {
+    if ((isCompleted || queueCompleted) && !autoCloseTimer) {
       console.log(
-        "✅ All completion conditions met - status=completed, progress=100%, all files done"
+        "✅ All completion conditions met - progress_percentage=100 AND status=completed"
       );
-
-      // Call the onComplete callback first
-      if (onComplete) {
-        onComplete();
-      }
 
       // Set progress to 100%
       setDisplayProgress(100);
       setDisplayQueueProgress(100);
 
-      // Auto-close after brief delay (SocketProvider already showed success for 3s)
-      console.log("⏰ Setting auto-close timer (500ms)");
+      // Auto-close after brief delay
+      console.log("⏰ Setting auto-close timer (2000ms)");
       const timer = setTimeout(() => {
-        console.log("🕒 Auto-closing progress tracker");
+        console.log(
+          "🕒 Auto-closing progress tracker and triggering onComplete"
+        );
+
+        // Call the onComplete callback just before closing
+        if (onComplete) {
+          onComplete();
+        }
+
         handleClose();
-      }, 500); // Short delay since success was already shown
+      }, 2000); // 2 second delay to show completion
 
       setAutoCloseTimer(timer);
     }
@@ -211,29 +255,38 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
         clearTimeout(autoCloseTimer);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     progressData?.status,
-    progressData?.progress,
+    progressData?.progress_percentage,
     currentPhase,
     queueProgressData?.status,
-    onComplete,
+    queueProgressData?.overall_progress,
+    // Don't include autoCloseTimer to prevent clearing the timer
   ]);
 
   // Smooth progress animation for task
   useEffect(() => {
-    if (progressData && isProcessing && viewMode === "task") {
+    if (progressData) {
+      // Use progress_percentage from API response
+      const targetProgress =
+        progressData.progress_percentage || progressData.progress || 0;
       console.log(
         "🎬 Starting task animation for progress:",
-        progressData.progress
+        targetProgress,
+        "from data:",
+        {
+          progress_percentage: progressData.progress_percentage,
+          progress: progressData.progress,
+        }
       );
-      const targetProgress = progressData.progress || 0;
       animateProgress(targetProgress, setDisplayProgress);
     }
-  }, [progressData?.progress, isProcessing, viewMode]);
+  }, [progressData?.progress_percentage, progressData?.progress]);
 
   // Smooth progress animation for queue
   useEffect(() => {
-    if (queueProgressData && isProcessing && viewMode === "queue") {
+    if (queueProgressData) {
       console.log(
         "🎬 Starting queue animation for progress:",
         queueProgressData.overall_progress
@@ -241,7 +294,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
       const targetProgress = queueProgressData.overall_progress || 0;
       animateProgress(targetProgress, setDisplayQueueProgress);
     }
-  }, [queueProgressData?.overall_progress, isProcessing, viewMode]);
+  }, [queueProgressData?.overall_progress]);
 
   // Helper function for smooth progress animation
   const animateProgress = (
@@ -326,15 +379,17 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     ? displayQueueProgress
     : displayProgress;
 
-  // Get progress counts for display
+  // Get progress counts for display - use actual file count from filenames
   const processedCount =
     viewMode === "queue"
       ? queueProgressData?.completed_tasks || 0
-      : progressData?.processed_count || 0;
+      : progressData?.completed_steps || 0;
   const totalCount =
     viewMode === "queue"
       ? queueProgressData?.total_tasks || 0
-      : progressData?.total_files || 0;
+      : (progressData as any)?.filenames?.length ||
+        progressData?.total_steps ||
+        1;
 
   // Minimized floating view - shows in top-right corner
   if (isMinimized) {
@@ -608,8 +663,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               </>
             ) : (
               <>
-                {progressData?.processed_count || 0} of{" "}
-                {progressData?.total_files || 0} files processed
+                Processing {(progressData as any)?.filenames?.length || 1} file
+                {((progressData as any)?.filenames?.length || 1) !== 1
+                  ? "s"
+                  : ""}
                 {progressData?.failed_files?.length
                   ? ` (${progressData.failed_files.length} failed)`
                   : ""}

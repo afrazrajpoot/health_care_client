@@ -38,20 +38,10 @@ import {
 } from "@/components/ui/dialog";
 
 // Types for new structured short summary response
-interface SummaryFinding {
-  label: string;
-  value: string;
-  indicator: "danger" | "warning" | "normal";
-}
-
-interface SummaryRecommendation {
-  label: string;
-  value: string;
-}
-
-interface SummaryStatus {
-  label: string;
-  value: string;
+interface SummaryItem {
+  field: string;
+  collapsed: string;
+  expanded: string;
 }
 
 interface SummaryHeader {
@@ -65,11 +55,33 @@ interface SummaryHeader {
 interface StructuredShortSummary {
   header: SummaryHeader;
   summary: {
-    findings: SummaryFinding[];
-    recommendations: SummaryRecommendation[];
-    status: SummaryStatus[];
+    items: SummaryItem[];
   };
 }
+
+// Field label mapping
+const FIELD_LABELS: Record<string, string> = {
+  findings: "Finding",
+  diagnosis: "Diagnosis",
+  body_parts: "Body Parts",
+  physical_exam: "Physical Exam",
+  vital_signs: "Vital Signs",
+  medications: "Medications",
+  recommendations: "Recommendation",
+  rationale: "Rationale",
+  mmi_status: "MMI Status",
+  work_status: "Work Status",
+  med_legal: "Med-Legal",
+  imaging: "Imaging",
+};
+
+// Get indicator color based on field type
+const getFieldIndicatorColor = (field: string): string => {
+  if (field === "findings" || field === "diagnosis") return "#ef4444"; // Red
+  if (field === "recommendations" || field === "rationale") return "#3b82f6"; // Blue
+  if (field === "mmi_status" || field === "work_status") return "#f59e0b"; // Amber
+  return "#6b7280"; // Gray
+};
 
 interface WhatsNewSectionProps {
   documentData: DocumentData | null;
@@ -276,129 +288,243 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
   };
 
-  // Render structured short summary with clean, professional UI
-  const renderStructuredShortSummary = (summary: StructuredShortSummary) => {
+  // State for expanded items
+  const [expandedItems, setExpandedItems] = useState<
+    Record<string, Set<number>>
+  >({});
+
+  // State for showing source-specific details
+  const [showSourceDetails, setShowSourceDetails] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Toggle expanded state for a specific item
+  const toggleItemExpanded = (docId: string, itemIndex: number) => {
+    setExpandedItems((prev) => {
+      const docItems = prev[docId] || new Set();
+      const newDocItems = new Set(docItems);
+      if (newDocItems.has(itemIndex)) {
+        newDocItems.delete(itemIndex);
+      } else {
+        newDocItems.add(itemIndex);
+      }
+      return { ...prev, [docId]: newDocItems };
+    });
+  };
+
+  // Helper function to render expanded text with bullet points
+  const renderExpandedText = (text: string) => {
+    if (!text) return null;
+
+    // Check if text contains bullet points
+    const hasBullets = text.includes("•") || /^\s*[-*]\s/m.test(text);
+
+    if (hasBullets) {
+      // Split by newlines and render as list
+      const lines = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      return (
+        <ul className="space-y-1.5 mt-2 pt-2 border-t border-gray-100">
+          {lines.map((line, idx) => {
+            // Remove bullet character if present
+            const cleanLine = line.replace(/^[•\-*]\s*/, "");
+            return (
+              <li
+                key={idx}
+                className="text-sm text-gray-700 leading-relaxed flex items-start gap-2"
+              >
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>{cleanLine}</span>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+
+    // Render as normal text if no bullets
+    return (
+      <p className="text-sm text-gray-700 leading-relaxed mt-2 pt-2 border-t border-gray-100">
+        {text}
+      </p>
+    );
+  };
+
+  // Determine if document is QME/PQME/AME/IME type
+  const isQMEType = (title: string, sourceType: string) => {
+    const text = `${title} ${sourceType}`.toLowerCase();
+    return (
+      text.includes("qme") ||
+      text.includes("pqme") ||
+      text.includes("ame") ||
+      text.includes("ime") ||
+      text.includes("qualified medical")
+    );
+  };
+
+  // Get default visible fields based on document type
+  const getDefaultVisibleFields = (isQME: boolean): string[] => {
+    const baseFields = ["findings", "recommendations"];
+    if (isQME) {
+      return [...baseFields, "work_status", "mmi_status"];
+    }
+    return baseFields;
+  };
+
+  // Render structured short summary with collapsible items
+  const renderStructuredShortSummary = (
+    summary: StructuredShortSummary,
+    docId: string
+  ) => {
     const { header, summary: summaryContent } = summary;
+    const expandedItemsSet = expandedItems[docId] || new Set();
+    const showDetails = showSourceDetails[docId] || false;
+    const isQME = isQMEType(header.title, header.source_type);
+    const defaultFields = getDefaultVisibleFields(isQME);
+
+    // Filter items based on visibility
+    const defaultItems = summaryContent.items.filter((item) =>
+      defaultFields.includes(item.field)
+    );
+    const additionalItems = summaryContent.items.filter(
+      (item) => !defaultFields.includes(item.field)
+    );
+    const visibleItems = defaultItems; // Always show only default items in main container
 
     return (
-      <div className="p-0">
-        {/* Findings Section */}
-        {summaryContent.findings && summaryContent.findings.length > 0 && (
-          <div className="mb-6">
-            <div className="flex font-bold items-center gap-2.5 text-xs text-gray-600 uppercase tracking-wide mb-4 pb-2 border-b border-gray-200">
-              <div className="p-1.5 bg-red-50 rounded-lg">
-                <ClipboardList size={14} className="text-red-600" />
-              </div>
-              <span className="text-gray-800">Clinical Findings</span>
-              <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                {summaryContent.findings.length} item
-                {summaryContent.findings.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="space-y-1">
-              {summaryContent.findings.map((finding, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    {finding.indicator === "danger" && (
-                      <AlertCircle size={16} className="text-red-500" />
-                    )}
-                    {finding.indicator === "warning" && (
-                      <AlertTriangle size={16} className="text-yellow-500" />
-                    )}
-                    {finding.indicator === "normal" && (
-                      <CheckCircle2 size={16} className="text-green-500" />
-                    )}
-                  </div>
-                  <span
-                    className="flex-1 text-sm leading-relaxed font-medium"
-                    style={{
-                      color: getIndicatorTextColor(finding.indicator),
-                    }}
+      <div className="space-y-0">
+        {/* Default Summary Items in ONE Container */}
+        {visibleItems && visibleItems.length > 0 && (
+          <div className="space-y-0">
+            {visibleItems.map((item, idx) => {
+              const isExpanded = expandedItemsSet.has(idx);
+              const label = FIELD_LABELS[item.field] || item.field;
+              const indicatorColor = getFieldIndicatorColor(item.field);
+
+              return (
+                <div key={idx}>
+                  {/* Item Row */}
+                  <div
+                    className="flex items-start gap-3 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                    onClick={() => toggleItemExpanded(docId, idx)}
                   >
-                    {finding.value}
-                  </span>
+                    {/* Label Column */}
+                    <div className="w-32 flex-shrink-0">
+                      <span
+                        className="text-xs font-semibold uppercase tracking-wide inline-block"
+                        style={{ color: indicatorColor }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+
+                    {/* Content Column */}
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="text-sm text-gray-900 leading-relaxed">
+                        {item.collapsed}
+                      </p>
+                      {isExpanded &&
+                        item.expanded &&
+                        renderExpandedText(item.expanded)}
+                    </div>
+                  </div>
+
+                  {/* Divider between items (not after last item) */}
+                  {idx < visibleItems.length - 1 && (
+                    <div className="border-b border-gray-100" />
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Recommendations Section */}
-        {summaryContent.recommendations &&
-          summaryContent.recommendations.length > 0 && (
-            <div className="mb-6">
-              <div className="flex font-bold items-center gap-2.5 text-xs text-gray-600 uppercase tracking-wide mb-4 pb-2 border-b border-gray-200">
-                <div className="p-1.5 bg-blue-50 rounded-lg">
-                  <Activity size={14} className="text-blue-600" />
-                </div>
-                <span className="text-gray-800">Recommended Actions</span>
-                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                  {summaryContent.recommendations.length} action
-                  {summaryContent.recommendations.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="space-y-1">
-                {summaryContent.recommendations.map((rec, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-3 p-3 bg-blue-50/30 rounded-lg border border-blue-100 hover:bg-blue-50/50 transition-colors"
-                  >
-                    <div className="flex-shrink-0 mt-0.5 p-1 bg-blue-100 rounded">
-                      <ChevronRightIcon size={12} className="text-blue-600" />
-                    </div>
-                    <span className="flex-1 text-sm text-gray-800 font-medium leading-relaxed">
-                      {rec.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        {/* Status Section */}
-        {summaryContent.status && summaryContent.status.length > 0 && (
-          <div className="mb-6">
-            <div className="flex font-bold items-center gap-2.5 text-xs text-gray-600 uppercase tracking-wide mb-4 pb-2 border-b border-gray-200">
-              <div className="p-1.5 bg-green-50 rounded-lg">
-                <CheckCircle2 size={14} className="text-green-600" />
-              </div>
-              <span className="text-gray-800">Current Status</span>
-              <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                {summaryContent.status.length} status
-                {summaryContent.status.length !== 1 ? "es" : ""}
+        {/* Toggle button and additional details section */}
+        {additionalItems.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-gray-200">
+            <button
+              onClick={() =>
+                setShowSourceDetails((prev) => ({
+                  ...prev,
+                  [docId]: !prev[docId],
+                }))
+              }
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Shield size={14} />
+              <span>
+                {showDetails ? "Hide" : "View"} Source-Specific Details
               </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {summaryContent.status.map((status, idx) => (
-                <div
-                  key={idx}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm font-medium text-green-800"
-                >
-                  <CheckCircle2 size={14} className="text-green-600" />
-                  <span>{status.value}</span>
+              {showDetails ? (
+                <ChevronDownIcon size={14} className="rotate-180" />
+              ) : (
+                <ChevronDownIcon size={14} />
+              )}
+            </button>
+
+            {/* Additional fields in separate colored container */}
+            {showDetails && (
+              <div className="mt-3 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
+                <div className="space-y-0">
+                  {additionalItems.map((item, idx) => {
+                    const isExpanded = expandedItemsSet.has(
+                      visibleItems.length + idx
+                    );
+                    const label = FIELD_LABELS[item.field] || item.field;
+                    const indicatorColor = getFieldIndicatorColor(item.field);
+
+                    return (
+                      <div key={idx}>
+                        {/* Item Row */}
+                        <div
+                          className="flex items-start gap-3 py-3 cursor-pointer hover:bg-blue-100/30 transition-colors rounded"
+                          onClick={() =>
+                            toggleItemExpanded(docId, visibleItems.length + idx)
+                          }
+                        >
+                          {/* Label Column */}
+                          <div className="w-32 flex-shrink-0">
+                            <span
+                              className="text-xs font-semibold uppercase tracking-wide inline-block"
+                              style={{ color: indicatorColor }}
+                            >
+                              {label}
+                            </span>
+                          </div>
+
+                          {/* Content Column */}
+                          <div className="flex-1 min-w-0 pr-2">
+                            <p className="text-sm text-gray-900 leading-relaxed">
+                              {item.collapsed}
+                            </p>
+                            {isExpanded && item.expanded && (
+                              <div className="mt-2 pt-2 border-t border-blue-200">
+                                {renderExpandedText(item.expanded)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Divider between items (not after last item) */}
+                        {idx < additionalItems.length - 1 && (
+                          <div className="border-b border-blue-100" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Disclaimer */}
         {header.disclaimer && (
-          <div className="mt-6 pt-4 border-t border-gray-200 bg-yellow-50/50 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 p-1 bg-yellow-100 rounded">
-                <AlertTriangle size={14} className="text-yellow-600" />
-              </div>
-              <div className="text-sm text-gray-700 leading-relaxed italic">
-                <span className="font-medium text-yellow-800">
-                  Important Notice:
-                </span>{" "}
-                {header.disclaimer}
-              </div>
-            </div>
+          <div className="text-xs text-gray-500 italic mt-4 pt-3 border-t border-gray-200">
+            {header.disclaimer}
           </div>
         )}
       </div>
@@ -618,37 +744,18 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
       let parts: string[] = [];
       parts.push(`📋 ${header.title}`);
-      parts.push(`Source: ${header.source_type} • ${header.date}`);
+      parts.push(
+        `Source: ${header.source_type} • Author: ${header.author} • Date: ${header.date}`
+      );
       parts.push("");
 
-      if (summaryContent.findings?.length > 0) {
-        parts.push("FINDINGS:");
-        summaryContent.findings.forEach((f: SummaryFinding) => {
-          const indicator =
-            f.indicator === "danger"
-              ? "🔴"
-              : f.indicator === "warning"
-              ? "🟡"
-              : "🟢";
-          parts.push(`${indicator} ${f.value}`);
+      if (summaryContent.items?.length > 0) {
+        summaryContent.items.forEach((item: SummaryItem) => {
+          const label = FIELD_LABELS[item.field] || item.field;
+          parts.push(`${label.toUpperCase()}:`);
+          parts.push(`${item.collapsed}`);
+          parts.push("");
         });
-        parts.push("");
-      }
-
-      if (summaryContent.recommendations?.length > 0) {
-        parts.push("RECOMMENDATIONS:");
-        summaryContent.recommendations.forEach((r: SummaryRecommendation) => {
-          parts.push(`• ${r.value}`);
-        });
-        parts.push("");
-      }
-
-      if (summaryContent.status?.length > 0) {
-        parts.push("STATUS:");
-        summaryContent.status.forEach((s: SummaryStatus) => {
-          parts.push(`• ${s.value}`);
-        });
-        parts.push("");
       }
 
       parts.push("These findings have been reviewed by Physician");
@@ -745,7 +852,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -895,42 +1002,68 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 return <FileText size={16} className="text-gray-600" />;
               };
 
-              // Extract key findings from summary for pills
-              const extractPills = (
-                summary: string | StructuredShortSummary
+              // Get badges based on document type and summary items
+              const getBadges = (
+                summary: string | StructuredShortSummary,
+                doc: any
               ) => {
-                if (!summary) return [];
+                const badges: Array<{ text: string; variant: string }> = [];
 
-                // Handle structured summary
+                // Always show status badge
+                if (isViewed) {
+                  badges.push({ text: "Reviewed", variant: "success" });
+                }
+
+                // Add document type badges based on content
                 if (isStructuredSummary(summary)) {
-                  return (
-                    summary.summary.findings?.slice(0, 3).map((f) => f.label) ||
-                    []
+                  const hasTask = summary.summary.items?.some(
+                    (item) =>
+                      item.field === "recommendations" ||
+                      item.field === "rationale"
                   );
+                  if (hasTask) {
+                    badges.push({ text: "Task", variant: "blue" });
+                  }
                 }
 
-                // Handle string summary
-                if (typeof summary === "string") {
-                  const pills: string[] = [];
-                  const lines = summary.split("\n").slice(0, 3);
-                  lines.forEach((line) => {
-                    const words = line.split(" ").slice(0, 3).join(" ");
-                    if (words.length > 0 && words.length < 30) {
-                      pills.push(words);
-                    }
-                  });
-                  return pills.slice(0, 3);
-                }
+                badges.push({ text: "Source", variant: "gray" });
 
-                return [];
+                return badges;
               };
 
-              const pills = extractPills(group.shortSummary || "");
+              const badges = getBadges(group.shortSummary || "", group.doc);
+
+              // Get indicator dot color based on document type or priority
+              const getIndicatorDotColor = (
+                summary: string | StructuredShortSummary
+              ) => {
+                if (isStructuredSummary(summary)) {
+                  // Check if has critical findings
+                  const hasFindings = summary.summary.items?.some(
+                    (item) =>
+                      item.field === "findings" || item.field === "diagnosis"
+                  );
+                  const hasMMI = summary.summary.items?.some(
+                    (item) =>
+                      item.field === "mmi_status" ||
+                      item.field === "work_status"
+                  );
+
+                  if (hasFindings) return "#ef4444"; // Red for findings
+                  if (hasMMI) return "#f59e0b"; // Yellow for MMI/Work status
+                  return "#3b82f6"; // Blue for other docs
+                }
+                return "#6b7280"; // Gray default
+              };
+
+              const indicatorColor = getIndicatorDotColor(
+                group.shortSummary || ""
+              );
 
               return (
                 <details
                   key={group.docId}
-                  className="bg-card border border-border rounded-2xl m-0 overflow-hidden"
+                  className="bg-white border border-gray-200 rounded-lg m-0 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                   open={openCards.has(group.docId)}
                   onToggle={(e) => {
                     const isOpen = (e.currentTarget as HTMLDetailsElement).open;
@@ -958,43 +1091,57 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     }
                   }}
                 >
-                  <summary className="list-none cursor-pointer p-4 flex gap-3 items-start hover:bg-gray-50/50 transition-colors">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 text-base flex-shrink-0 shadow-sm">
-                      {getIcon()}
-                    </div>
+                  <summary className="list-none cursor-pointer p-4 flex gap-3 items-start hover:bg-gray-50 transition-colors">
+                    {/* Indicator Dot */}
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ backgroundColor: indicatorColor }}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-base font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <h3 className="text-base font-semibold text-gray-900">
                               {extractDocumentTitle(
                                 (group as any).shortSummary,
                                 (group as any).documentType
                               )}
-                            </span>
+                            </h3>
                             {isViewed && (
                               <div className="flex-shrink-0">
                                 <CheckCircle2
-                                  size={14}
+                                  size={16}
                                   className="text-green-600"
                                 />
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <div className="flex items-center gap-1">
-                              <Calendar size={12} className="text-gray-400" />
-                              <span>{formattedDate}</span>
+
+                          {/* Subtitle with type and author */}
+                          {isStructuredSummary(group.shortSummary) && (
+                            <div className="text-xs text-gray-600 mb-1.5">
+                              {group.shortSummary.header.date} -{" "}
+                              {group.shortSummary.header.source_type} -{" "}
+                              {group.shortSummary.header.author}
                             </div>
-                            {(group as any).consultingDoctor && (
+                          )}
+
+                          {!isStructuredSummary(group.shortSummary) && (
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
                               <div className="flex items-center gap-1">
-                                <User size={12} className="text-gray-400" />
-                                <span className="truncate">
-                                  {(group as any).consultingDoctor}
-                                </span>
+                                <Calendar size={12} className="text-gray-400" />
+                                <span>{formattedDate}</span>
                               </div>
-                            )}
-                          </div>
+                              {(group as any).consultingDoctor && (
+                                <div className="flex items-center gap-1">
+                                  <User size={12} className="text-gray-400" />
+                                  <span className="truncate">
+                                    {(group as any).consultingDoctor}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2 items-center flex-shrink-0">
                           <button
@@ -1019,7 +1166,27 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                     </div>
                   </summary>
-                  <div className="border-t border-border p-3 bg-gray-50">
+                  <div className="border-t border-border p-4 bg-gray-50">
+                    {/* Show header info for structured summaries */}
+                    {isStructuredSummary(group.shortSummary) && (
+                      <div className="mb-3 flex items-center gap-2 flex-wrap">
+                        {badges.map((badge, idx) => (
+                          <span
+                            key={idx}
+                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
+                              badge.variant === "success"
+                                ? "bg-green-100 text-green-700 border border-green-300"
+                                : badge.variant === "blue"
+                                ? "bg-blue-100 text-blue-700 border border-blue-300"
+                                : "bg-gray-100 text-gray-700 border border-gray-300"
+                            }`}
+                          >
+                            {badge.text}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-2">
                       {expandedLongSummary === group.docId &&
                       group.longSummary ? (
@@ -1037,12 +1204,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         </div>
                       ) : (
                         <div className="bg-white border border-border rounded-xl p-4">
-                          <div className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-3">
-                            Referenced Summary
-                          </div>
                           <div className="text-sm leading-relaxed text-gray-900">
                             {isStructuredSummary(group.shortSummary)
-                              ? renderStructuredShortSummary(group.shortSummary)
+                              ? renderStructuredShortSummary(
+                                  group.shortSummary,
+                                  group.docId
+                                )
                               : renderSummaryWithHTML(
                                   typeof group.shortSummary === "string"
                                     ? group.shortSummary

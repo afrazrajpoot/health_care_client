@@ -1,5 +1,5 @@
 // hooks/useProgress.ts
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { io, Socket } from "socket.io-client";
 
@@ -33,12 +33,18 @@ export const useProgress = ({
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
+  // Track if onComplete has been called to prevent duplicate calls
+  const hasCompletedRef = useRef(false);
+
   useEffect(() => {
     if (!taskId) return;
 
+    // Reset completion flag when taskId changes
+    hasCompletedRef.current = false;
+
     // Initialize socket connection
     const newSocket = io(
-      process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com",
+      process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000",
       {
         transports: ["websocket", "polling"],
         auth: {
@@ -50,7 +56,7 @@ export const useProgress = ({
     newSocket.on("connect", () => {
       setIsConnected(true);
       setError(null);
-      console.log("Connected to progress server");
+      console.log("✅ Connected to progress server");
 
       // Join user room if userId provided
       if (userId) {
@@ -60,23 +66,35 @@ export const useProgress = ({
 
     newSocket.on("disconnect", () => {
       setIsConnected(false);
-      console.log("Disconnected from progress server");
+      console.log("❌ Disconnected from progress server");
     });
 
     newSocket.on("connect_error", (err) => {
       setError(`Connection failed: ${err.message}`);
-      console.error("Socket connection error:", err);
+      console.error("❌ Socket connection error:", err);
     });
 
     // Listen for progress updates
     newSocket.on("progress_update", (data: ProgressData) => {
       if (data.task_id === taskId) {
+        console.log("📊 Progress update:", data);
         setProgress(data);
         setError(null);
 
-        // Call onComplete when processing is done
-        if (data.status === "completed" && onComplete) {
-          onComplete(data);
+        // Call onComplete when processing is done OR when progress reaches 100%
+        // AND we haven't called it yet
+        if (!hasCompletedRef.current && onComplete) {
+          const isComplete =
+            data.status === "completed" ||
+            data.progress >= 100 ||
+            (data.processed_count > 0 &&
+              data.processed_count >= data.total_files);
+
+          if (isComplete) {
+            console.log("✅ Task completed, calling onComplete callback");
+            hasCompletedRef.current = true;
+            onComplete(data);
+          }
         }
       }
     });
@@ -84,20 +102,26 @@ export const useProgress = ({
     // Listen for batch start
     newSocket.on("batch_started", (data: { task_id: string }) => {
       if (data.task_id === taskId) {
-        console.log("Batch started:", data.task_id);
+        console.log("🚀 Batch started:", data.task_id);
         setError(null);
       }
     });
 
     // Listen for task completion
     newSocket.on("task_complete", (data: any) => {
-      console.log("Task completed:", data);
+      console.log("✅ Task completed:", data);
+      if (data.task_id === taskId && !hasCompletedRef.current && onComplete) {
+        hasCompletedRef.current = true;
+        onComplete(data);
+      }
     });
 
     // Listen for task errors
     newSocket.on("task_error", (data: any) => {
       if (data.task_id === taskId) {
-        setError(`Processing error: ${data.error}`);
+        const errorMsg = `Processing error: ${data.error}`;
+        setError(errorMsg);
+        console.error("❌", errorMsg);
         if (onError) onError(data.error);
       }
     });
@@ -105,6 +129,7 @@ export const useProgress = ({
     setSocket(newSocket);
 
     return () => {
+      console.log("🧹 Cleaning up socket connection");
       newSocket.close();
     };
   }, [taskId, userId, onComplete, onError, session?.user?.fastapi_token]);
@@ -112,18 +137,16 @@ export const useProgress = ({
   // Function to manually check progress (fallback)
   const checkProgress = useCallback(async () => {
     if (!taskId || !session?.user?.fastapi_token) {
-      console.warn("Task ID or FastAPI token not available for progress check");
+      console.warn(
+        "⚠️ Task ID or FastAPI token not available for progress check"
+      );
       return;
     }
 
     try {
       const response = await fetch(
-<<<<<<< HEAD
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com"
-=======
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.kebilo.com"
->>>>>>> 5c0a3a6 (set the ui)
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
         }/api/agent/progress/${taskId}`,
         {
           headers: {
@@ -140,7 +163,7 @@ export const useProgress = ({
     } catch (error) {
       const errorMsg = `Failed to fetch progress: ${error}`;
       setError(errorMsg);
-      console.error(errorMsg);
+      console.error("❌", errorMsg);
     }
   }, [taskId, session?.user?.fastapi_token]);
 

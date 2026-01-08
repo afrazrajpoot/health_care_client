@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.kebilo.com";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
 
 // Backend progress data interfaces
 interface BackendProgressData {
@@ -47,13 +47,17 @@ interface BackendQueueProgressData {
 interface ProgressData {
   task_id: string;
   progress: number;
+  progress_percentage?: number; // New field from API
   current_file: string;
-  status: "processing" | "completed" | "failed";
+  status: "processing" | "completed" | "failed" | "upload_complete"; // Added upload_complete
   processed_count: number;
   total_files: number;
   successful_count: number;
   failed_files: string[];
   current_step: number;
+  total_steps?: number; // New field from API
+  completed_steps?: number; // New field from API
+  filenames?: string[]; // Array of filenames being processed
   queue_id?: string;
 }
 

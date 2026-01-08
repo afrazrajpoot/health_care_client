@@ -1,60 +1,80 @@
 // components/physician-components/UploadProgressManager.tsx
 import { useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
-import { useRouter } from "next/navigation";
 
 interface UploadProgressManagerProps {
   selectedPatient: any | null;
-  showDocumentSuccessPopup: boolean;
-  setShowDocumentSuccessPopup: (open: boolean) => void;
   onRefreshData: () => Promise<void>;
+  onShowSuccessPopup: () => void;
 }
 
 export default function UploadProgressManager({
   selectedPatient,
-  showDocumentSuccessPopup,
-  setShowDocumentSuccessPopup,
   onRefreshData,
+  onShowSuccessPopup,
 }: UploadProgressManagerProps) {
-  const { progressData, queueProgressData, isProcessing, currentPhase } = useSocket();
-  const router = useRouter();
+  const { progressData, queueProgressData, isProcessing, currentPhase } =
+    useSocket();
 
-  const progressPopupShownRef = useRef(false);
   const progressCompleteHandledRef = useRef(false);
 
   const handleProgressComplete = useCallback(async () => {
-    console.log("🔄 Progress complete - fetching updated data...");
-    await onRefreshData();
-    setShowDocumentSuccessPopup(true);
-  }, [onRefreshData, setShowDocumentSuccessPopup]);
+    console.log(
+      "🔄 Progress complete - refreshing patient data and showing success popup..."
+    );
 
-  // Handle progress completion
+    // Small delay to ensure backend has finished processing
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    try {
+      // Refresh data first
+      await onRefreshData();
+
+      console.log("✅ Data refreshed - showing success popup");
+
+      // Show success popup modal
+      onShowSuccessPopup();
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      // Still show popup even if refresh fails
+      onShowSuccessPopup();
+    }
+  }, [onRefreshData, onShowSuccessPopup]);
+
+  // Effect for instant 100% progress detection
   useEffect(() => {
-    if (
-      progressData &&
-      progressData.progress >= 100 &&
-      !progressCompleteHandledRef.current
-    ) {
+    if (!isProcessing || (!progressData && !queueProgressData)) {
+      progressCompleteHandledRef.current = false;
+      return;
+    }
+
+    // Check task progress completion
+    const taskProgressComplete =
+      progressData?.progress_percentage === 100 &&
+      progressData?.status === "completed";
+
+    // Check queue progress completion
+    const queueProgressComplete =
+      queueProgressData?.overall_progress === 100 &&
+      queueProgressData?.status === "completed";
+
+    const progressComplete = taskProgressComplete || queueProgressComplete;
+
+    if (progressComplete && !progressCompleteHandledRef.current) {
+      console.log("🚀 Progress reached 100% - triggering refresh and reload");
       progressCompleteHandledRef.current = true;
-      console.log("✅ Upload progress complete!");
       handleProgressComplete();
     }
-  }, [progressData, handleProgressComplete]);
+  }, [
+    progressData?.progress_percentage,
+    progressData?.status,
+    queueProgressData?.overall_progress,
+    queueProgressData?.status,
+    isProcessing,
+    handleProgressComplete,
+    progressData,
+    queueProgressData,
+  ]);
 
-  // Reset refs when starting new upload
-  useEffect(() => {
-    if (isProcessing && !progressPopupShownRef.current) {
-      progressPopupShownRef.current = true;
-      progressCompleteHandledRef.current = false;
-    }
-  }, [isProcessing]);
-
-  // Reset when processing stops
-  useEffect(() => {
-    if (!isProcessing) {
-      progressPopupShownRef.current = false;
-    }
-  }, [isProcessing]);
-
-  return null; // This component manages state but doesn't render UI
+  return null; // This component doesn't render UI, only manages effects
 }

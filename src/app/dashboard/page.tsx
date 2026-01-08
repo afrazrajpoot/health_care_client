@@ -22,7 +22,8 @@ import { LoadingFallback } from "@/components/physician-components/LoadingFallba
 import { UnauthenticatedFallback } from "@/components/physician-components/UnauthenticatedFallback";
 import { PhysicianCardLayout } from "@/components/physician-components/PhysicianCardLayout";
 import FileConfirmationModal from "@/components/physician-components/FileConfirmationModal";
-import UploadProgressModal from "@/components/physician-components/UploadProgressModal";
+import UploadProgressManager from "@/components/physician-components/UploadProgressManager";
+import DocumentSuccessPopup from "@/components/staff-components/DocumentSuccessPopup";
 // import { FloatingNewOrderButton } from "@/components/physician-components/FloatingNewOrderButton";
 
 import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch";
@@ -78,7 +79,8 @@ export default function PhysicianCard() {
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [showProgressPopup, setShowProgressPopup] = useState(false);
+  const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
+    useState(false);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   const { toasts, addToast } = useToasts();
@@ -122,7 +124,7 @@ export default function PhysicianCard() {
   // Confirmation modal handlers
   const handleConfirmUpload = useCallback(async () => {
     setShowConfirmationModal(false);
-    setShowProgressPopup(true); // Show progress popup
+    // ProgressTracker will automatically show in minimized mode
 
     try {
       // Create FormData directly for API call
@@ -144,7 +146,7 @@ export default function PhysicianCard() {
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.kebilo.com"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
@@ -179,8 +181,7 @@ export default function PhysicianCard() {
       console.error("❌ Upload failed:", error);
       throw error; // Re-throw to handle in calling code if needed
     } finally {
-      // Hide progress popup when done
-      setShowProgressPopup(false);
+      // ProgressTracker will automatically close when processing completes
     }
   }, [pendingFiles, mode, session]);
 
@@ -200,6 +201,30 @@ export default function PhysicianCard() {
       return updated;
     });
   }, []);
+
+  // Callback to refresh data after upload completion
+  const handleRefreshData = useCallback(async () => {
+    console.log("🔄 Refreshing patient data after upload completion...");
+
+    if (selectedPatient) {
+      try {
+        // Fetch latest document data for the patient
+        await fetchDocumentData(
+          {
+            patientName: selectedPatient.patientName,
+            dob: selectedPatient.dob,
+            claimNumber: selectedPatient.claimNumber || "",
+            doi: selectedPatient.doi || "",
+          },
+          mode
+        );
+
+        console.log("✅ Patient data refreshed successfully");
+      } catch (error) {
+        console.error("❌ Error refreshing patient data:", error);
+      }
+    }
+  }, [selectedPatient, fetchDocumentData, mode]);
 
   const handleUploadClick = useCallback(() => {
     // Directly trigger file input without drag drop zone
@@ -729,9 +754,18 @@ export default function PhysicianCard() {
         onRemoveFile={handleRemoveFile}
       />
 
-      <UploadProgressModal
-        showModal={showProgressPopup}
-        fileCount={pendingFiles.length}
+      <UploadProgressManager
+        selectedPatient={selectedPatient}
+        onRefreshData={handleRefreshData}
+        onShowSuccessPopup={() => setShowDocumentSuccessPopup(true)}
+      />
+
+      <DocumentSuccessPopup
+        isOpen={showDocumentSuccessPopup}
+        onConfirm={() => {
+          setShowDocumentSuccessPopup(false);
+          window.location.reload();
+        }}
       />
     </>
   );
