@@ -627,11 +627,20 @@ export default function StaffDashboardContainer() {
             type="file"
             ref={snapInputRef}
             multiple
-            max={10}
             style={{ display: "none" }}
             onChange={(e) => {
               if (e.target.files && e.target.files.length > 0) {
                 const filesArray = Array.from(e.target.files);
+
+                if (filesArray.length > 5) {
+                  toast.error("Maximum 5 documents allowed at once", {
+                    duration: 4000,
+                    position: "top-center",
+                  });
+                  if (snapInputRef.current) snapInputRef.current.value = "";
+                  return;
+                }
+
                 const fileDetails = filesArray.map((file) => ({
                   name: file.name,
                   size: file.size,

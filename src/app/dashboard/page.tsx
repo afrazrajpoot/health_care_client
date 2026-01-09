@@ -264,6 +264,19 @@ export default function PhysicianCard() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
         const filesArray = Array.from(e.target.files);
+
+        if (filesArray.length > 5) {
+          toast("Maximum 5 documents allowed", {
+            description:
+              "Please select up to 5 documents at a time for upload.",
+            duration: 4000,
+            position: "top-center",
+            className: "border-l-4 border-red-500 bg-red-50 text-red-800",
+          });
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+
         setPendingFiles(filesArray);
         setShowConfirmationModal(true);
       }
