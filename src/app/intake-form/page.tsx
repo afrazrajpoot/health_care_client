@@ -625,7 +625,9 @@ function PatientIntakeContent() {
                         dateFormat="yyyy-MM-dd"
                         className="w-[17vw] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                         placeholderText="Select appointment date (YYYY-MM-DD)"
-                        minDate={new Date()}
+                        showYearDropdown
+                        scrollableYearDropdown
+                        yearDropdownItemNumber={100}
                       />
                     </div>
                     {index > 0 && (

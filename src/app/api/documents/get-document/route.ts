@@ -102,6 +102,66 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     console.log('✅ Successfully retrieved document data from Python API');
 
+    // Sort documents to show unverified/unreviewed first
+    if (data && typeof data === 'object') {
+      // Sort document_summaries if present
+      if (Array.isArray(data.document_summaries)) {
+        console.log('📋 Before sorting - document_summaries count:', data.document_summaries.length);
+        console.log('📋 Sample status:', data.document_summaries.slice(0, 3).map((d: any) => ({
+          type: d.type,
+          status: d.status
+        })));
+
+        data.document_summaries = data.document_summaries.sort((a: any, b: any) => {
+          // Check if status is "Reviewed" (case-insensitive)
+          const aReviewed = (a.status || '').toLowerCase() === 'reviewed';
+          const bReviewed = (b.status || '').toLowerCase() === 'reviewed';
+          
+          // Unreviewed comes first, reviewed comes later
+          if (aReviewed !== bReviewed) {
+            return aReviewed ? 1 : -1; // false before true
+          }
+          
+          // If both have same review status, sort by date (newest first)
+          const aDate = new Date(a.date || a.created_at || 0).getTime();
+          const bDate = new Date(b.date || b.created_at || 0).getTime();
+          return bDate - aDate;
+        });
+        
+        console.log('📋 After sorting - first 3 docs:', data.document_summaries.slice(0, 3).map((d: any) => ({
+          type: d.type,
+          status: d.status,
+          date: d.date
+        })));
+      }
+
+      // Sort documents array if present
+      if (Array.isArray(data.documents)) {
+        console.log('📄 Before sorting - documents count:', data.documents.length);
+        
+        data.documents = data.documents.sort((a: any, b: any) => {
+          // Check if status is "Reviewed" (case-insensitive)
+          const aReviewed = (a.status || '').toLowerCase() === 'reviewed';
+          const bReviewed = (b.status || '').toLowerCase() === 'reviewed';
+          
+          // Unreviewed comes first, reviewed comes later
+          if (aReviewed !== bReviewed) {
+            return aReviewed ? 1 : -1; // false before true
+          }
+          
+          // If both have same review status, sort by date (newest first)
+          const aDate = new Date(a.date || a.created_at || a.createdAt || 0).getTime();
+          const bDate = new Date(b.date || b.created_at || b.createdAt || 0).getTime();
+          return bDate - aDate;
+        });
+        
+        console.log('📄 After sorting - first 3 docs:', data.documents.slice(0, 3).map((d: any) => ({
+          id: d.id,
+          status: d.status
+        })));
+      }
+    }
+
     // Encrypt the data before sending to client
     console.log('🔐 Encrypting response data...');
     const dataString = JSON.stringify(data);

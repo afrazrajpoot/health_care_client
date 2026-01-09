@@ -4,7 +4,7 @@ interface QuickNoteSnapshot {
   details: string;
   timestamp: string;
   one_line_note: string;
-  status_update: string;
+  one_line_note: string;
 }
 
 interface StaffStatusSectionProps {
@@ -18,7 +18,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
 }) => {
   // Determine status color based on content
   const getStatusColor = (note: QuickNoteSnapshot): string => {
-    const fullContent = `${note.status_update || ""} ${
+    const fullContent = `${note.one_line_note || ""} ${
       note.one_line_note || ""
     } ${note.details || ""}`.toLowerCase();
 
@@ -63,10 +63,10 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
   // Build display text for note
   const getDisplayText = (note: QuickNoteSnapshot): string => {
     let displayText = "";
-    if (note.status_update) {
-      displayText = note.status_update;
+    if (note.one_line_note) {
+      displayText = note.one_line_note;
       // Append one_line_note if available and different
-      if (note.one_line_note && note.one_line_note !== note.status_update) {
+      if (note.one_line_note && note.one_line_note !== note.one_line_note) {
         displayText += ` — ${note.one_line_note}`;
       }
     } else if (note.one_line_note) {
@@ -83,12 +83,11 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     return displayText;
   };
 
-
   // Filter and limit document notes
   const filteredDocNotes = documentQuickNotes
     .filter((note) => {
       const hasContent =
-        (note.status_update && note.status_update.trim()) ||
+        (note.one_line_note && note.one_line_note.trim()) ||
         (note.one_line_note && note.one_line_note.trim()) ||
         (note.details && note.details.trim());
       return hasContent;
@@ -118,12 +117,9 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
               const statusColor = getStatusColor(note);
 
               return (
-                <div
-                  key={`doc-note-${index}`}
-                  className="s-chip small"
-                >
+                <div key={`doc-note-${index}`} className="s-chip small">
                   <span className={`s-dot ${statusColor}`}></span>
-                  {note.status_update || note.one_line_note || "Quick Note"}
+                  {note.one_line_note || note.one_line_note || "Quick Note"}
                 </div>
               );
             })}
@@ -132,12 +128,9 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
               const statusColor = getStatusColor(note);
 
               return (
-                <div
-                  key={`task-note-${index}`}
-                  className="s-chip small"
-                >
+                <div key={`task-note-${index}`} className="s-chip small">
                   <span className={`s-dot ${statusColor}`}></span>
-                  {note.status_update || note.one_line_note || "Quick Note"}
+                  {note.one_line_note || note.one_line_note || "Quick Note"}
                 </div>
               );
             })}
@@ -158,4 +151,3 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     </div>
   );
 };
-

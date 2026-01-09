@@ -152,8 +152,7 @@ const DashboardContent: React.FC = () => {
               }}
             >
               <p style={{ color: "var(--muted)" }}>
-                Click the Recent Patients button to search and select a
-                patient
+                Click the Recent Patients button to search and select a patient
               </p>
             </div>
           ) : (
@@ -170,15 +169,17 @@ const DashboardContent: React.FC = () => {
                   <div className="panel-body">
                     {(() => {
                       const filteredDocNotes =
-                        documentData.quick_notes_snapshots?.filter((note: any) => {
-                          const hasContent =
-                            (note.status_update &&
-                              note.status_update.trim()) ||
-                            (note.one_line_note &&
-                              note.one_line_note.trim()) ||
-                            (note.details && note.details.trim());
-                          return hasContent;
-                        }) || [];
+                        documentData.quick_notes_snapshots?.filter(
+                          (note: any) => {
+                            const hasContent =
+                              (note.status_update &&
+                                note.status_update.trim()) ||
+                              (note.one_line_note &&
+                                note.one_line_note.trim()) ||
+                              (note.details && note.details.trim());
+                            return hasContent;
+                          }
+                        ) || [];
 
                       // Limit document notes to 3 most recent
                       const limitedDocNotes = filteredDocNotes
@@ -191,7 +192,8 @@ const DashboardContent: React.FC = () => {
 
                       const hasNotes =
                         limitedDocNotes.length > 0 ||
-                        (taskQuickNotes && taskQuickNotes.length > 0) || [];
+                        (taskQuickNotes && taskQuickNotes.length > 0) ||
+                        [];
 
                       return hasNotes ? (
                         <div className="status-wrap">
@@ -272,9 +274,7 @@ const DashboardContent: React.FC = () => {
                                 className="s-chip small"
                                 title={note.details || displayText}
                               >
-                                <span
-                                  className={`s-dot ${statusColor}`}
-                                ></span>
+                                <span className={`s-dot ${statusColor}`}></span>
                                 {displayText}
                               </div>
                             );
@@ -397,9 +397,7 @@ const DashboardContent: React.FC = () => {
                     </div>
                     <div className="text-xs text-gray-500">
                       {documentData?.documents?.length || 0}{" "}
-                      {documentData?.documents?.length === 1
-                        ? "item"
-                        : "items"}
+                      {documentData?.documents?.length === 1 ? "item" : "items"}
                     </div>
                   </div>
                   <div className="max-h-[420px] overflow-y-auto p-2.5">
@@ -424,15 +422,11 @@ const DashboardContent: React.FC = () => {
                   <div className="panel-h">
                     <div>
                       <div className="title">Treatment History</div>
-                      <div className="meta">
-                        Summary snapshots and history
-                      </div>
+                      <div className="meta">Summary snapshots and history</div>
                     </div>
                   </div>
                   <div className="panel-body">
-                    <TreatmentHistorySection
-                      documentData={documentData}
-                    />
+                    <TreatmentHistorySection documentData={documentData} />
                   </div>
                 </div>
               )}

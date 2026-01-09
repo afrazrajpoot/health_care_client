@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 import { Sidebar } from "@/components/navigation/sidebar";
 import StaffDashboardHeader from "@/components/staff-components/StaffDashboardHeader";
@@ -55,7 +56,9 @@ const UploadToast: React.FC = () => {
       description: (
         <div className="flex items-center gap-2">
           <span className="animate-spin">⏳</span>
-          <span className="text-sm  text-black">Your documents are queued and being prepared. Hang tight!</span>
+          <span className="text-sm  text-black">
+            Your documents are queued and being prepared. Hang tight!
+          </span>
         </div>
       ),
       duration: 60000,
@@ -81,8 +84,11 @@ const UploadToast: React.FC = () => {
 
 export default function StaffDashboardContainer() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [recentPatients, setRecentPatients] = useState<RecentPatient[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(
+    null
+  );
   const [patientTasks, setPatientTasks] = useState<Task[]>([]);
   const [patientQuiz, setPatientQuiz] = useState<PatientQuiz | null>(null);
   const [patientIntakeUpdate, setPatientIntakeUpdate] = useState<any>(null);
@@ -97,18 +103,26 @@ export default function StaffDashboardContainer() {
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
-  const [selectedTaskForQuickNote, setSelectedTaskForQuickNote] = useState<Task | null>(null);
-  const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] = useState(false);
+  const [selectedTaskForQuickNote, setSelectedTaskForQuickNote] =
+    useState<Task | null>(null);
+  const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
+    useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [taskPage, setTaskPage] = useState(1);
   const taskPageSize = TASK_PAGE_SIZE;
   const [taskTotalCount, setTaskTotalCount] = useState(0);
-  const [taskTypeFilter, setTaskTypeFilter] = useState<"all" | "internal" | "external">("all");
+  const [taskTypeFilter, setTaskTypeFilter] = useState<
+    "all" | "internal" | "external"
+  >("all");
   const [showUploadToast, setShowUploadToast] = useState(false);
 
   // Task status and assignee management
-  const [taskStatuses, setTaskStatuses] = useState<{ [taskId: string]: string }>({});
-  const [taskAssignees, setTaskAssignees] = useState<{ [taskId: string]: string }>({});
+  const [taskStatuses, setTaskStatuses] = useState<{
+    [taskId: string]: string;
+  }>({});
+  const [taskAssignees, setTaskAssignees] = useState<{
+    [taskId: string]: string;
+  }>({});
 
   // Hooks
   const { isProcessing } = useSocket();
@@ -141,7 +155,8 @@ export default function StaffDashboardContainer() {
 
   // Initialize task statuses and assignees
   useEffect(() => {
-    const { updatedStatuses, updatedAssignees } = initializeTaskStatuses(patientTasks);
+    const { updatedStatuses, updatedAssignees } =
+      initializeTaskStatuses(patientTasks);
     setTaskStatuses(updatedStatuses);
     setTaskAssignees(updatedAssignees);
   }, [patientTasks]);
@@ -153,7 +168,8 @@ export default function StaffDashboardContainer() {
       const result = await updateTaskStatus(taskId, status, patientTasks);
       if (!result.success) {
         const task = patientTasks.find((t) => t.id === taskId);
-        if (task) setTaskStatuses((prev) => ({ ...prev, [taskId]: task.status }));
+        if (task)
+          setTaskStatuses((prev) => ({ ...prev, [taskId]: task.status }));
       }
     },
     [patientTasks]
@@ -165,53 +181,107 @@ export default function StaffDashboardContainer() {
       const result = await updateTaskAssignee(taskId, assignee, patientTasks);
       if (!result.success) {
         const task = patientTasks.find((t) => t.id === taskId);
-        if (task) setTaskAssignees((prev) => ({ ...prev, [taskId]: task.assignee || "Unclaimed" }));
+        if (task)
+          setTaskAssignees((prev) => ({
+            ...prev,
+            [taskId]: task.assignee || "Unclaimed",
+          }));
       }
     },
     [patientTasks]
   );
 
-  const getStatusOptions = useCallback((task: Task): string[] => getStatusOptionsUtil(task), []);
-  const getAssigneeOptions = useCallback((task: Task): string[] => getAssigneeOptionsUtil(task), []);
+  const getStatusOptions = useCallback(
+    (task: Task): string[] => getStatusOptionsUtil(task),
+    []
+  );
+  const getAssigneeOptions = useCallback(
+    (task: Task): string[] => getAssigneeOptionsUtil(task),
+    []
+  );
 
-  const taskStats: TaskStats = useMemo(() => calculateTaskStats(patientTasks), [patientTasks]);
+  const taskStats: TaskStats = useMemo(
+    () => calculateTaskStats(patientTasks),
+    [patientTasks]
+  );
   const questionnaireChips = useMemo(
     () => getQuestionnaireChipsUtil(patientIntakeUpdate, patientQuiz),
     [patientIntakeUpdate, patientQuiz]
   );
   const departments = useMemo(() => DEPARTMENTS, []);
   const physicianId = useMemo(() => getPhysicianIdUtil(session), [session]);
-  const totalPages = useMemo(() => Math.ceil(taskTotalCount / taskPageSize), [taskTotalCount, taskPageSize]);
-  const hasNextPage = useMemo(() => taskPage < totalPages, [taskPage, totalPages]);
+  const totalPages = useMemo(
+    () => Math.ceil(taskTotalCount / taskPageSize),
+    [taskTotalCount, taskPageSize]
+  );
+  const hasNextPage = useMemo(
+    () => taskPage < totalPages,
+    [taskPage, totalPages]
+  );
   const hasPrevPage = useMemo(() => taskPage > 1, [taskPage]);
   const displayedTasks = useMemo(() => patientTasks, [patientTasks]);
 
   // Fetch recent patients
-  const fetchRecentPatients = useCallback(async (searchQuery: string = "") => {
-    try {
-      setLoading(true);
-      const data = await fetchRecentPatientsUtil(searchQuery);
-      setRecentPatients(data);
-      setSelectedPatient((currentSelected) => {
-        if (data.length > 0) {
-          if (currentSelected) {
-            const updatedPatient = data.find(
-              (p: RecentPatient) =>
-                p.patientName === currentSelected.patientName &&
-                p.claimNumber === currentSelected.claimNumber
-            );
-            if (updatedPatient) return updatedPatient;
+  const fetchRecentPatients = useCallback(
+    async (searchQuery: string = "") => {
+      try {
+        setLoading(true);
+        const data = await fetchRecentPatientsUtil(searchQuery);
+        setRecentPatients(data);
+
+        // Check for patient_name in URL params
+        const patientNameFromUrl = searchParams.get("patient_name");
+        const dobFromUrl = searchParams.get("dob");
+        const claimFromUrl = searchParams.get("claim");
+
+        setSelectedPatient((currentSelected) => {
+          if (data.length > 0) {
+            // If URL has patient_name, try to find and select that patient
+            if (patientNameFromUrl) {
+              const urlPatient = data.find((p: RecentPatient) => {
+                const nameMatch =
+                  p.patientName.toLowerCase() ===
+                  patientNameFromUrl.toLowerCase();
+                // Also match by DOB or claim if provided for better accuracy
+                if (dobFromUrl) {
+                  return nameMatch && p.dob === dobFromUrl;
+                }
+                if (claimFromUrl) {
+                  return nameMatch && p.claimNumber === claimFromUrl;
+                }
+                return nameMatch;
+              });
+
+              if (urlPatient) {
+                console.log(
+                  "🔗 Auto-selecting patient from URL:",
+                  urlPatient.patientName
+                );
+                return urlPatient;
+              }
+            }
+
+            // Otherwise, maintain current selection or select first patient
+            if (currentSelected) {
+              const updatedPatient = data.find(
+                (p: RecentPatient) =>
+                  p.patientName === currentSelected.patientName &&
+                  p.claimNumber === currentSelected.claimNumber
+              );
+              if (updatedPatient) return updatedPatient;
+            }
+            if (!currentSelected) return data[0];
           }
-          if (!currentSelected) return data[0];
-        }
-        return currentSelected;
-      });
-    } catch (error) {
-      console.error("Error fetching recent patients:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+          return currentSelected;
+        });
+      } catch (error) {
+        console.error("Error fetching recent patients:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [searchParams]
+  );
 
   useEffect(() => {
     fetchRecentPatients(patientSearchQuery);
@@ -223,7 +293,11 @@ export default function StaffDashboardContainer() {
 
   // Close all modals when error modals are shown
   useEffect(() => {
-    if (paymentError || (ignoredFiles && ignoredFiles.length > 0) || uploadError) {
+    if (
+      paymentError ||
+      (ignoredFiles && ignoredFiles.length > 0) ||
+      uploadError
+    ) {
       setShowModal(false);
       setShowTaskModal(false);
       setShowQuickNoteModal(false);
@@ -292,7 +366,8 @@ export default function StaffDashboardContainer() {
         await fetchPatientTasks(selectedPatient, 1, taskPageSize);
         if (isCancelled) return;
 
-        const { patientQuiz: quiz, patientIntakeUpdate: intakeUpdate } = await fetchPatientDataUtil(selectedPatient);
+        const { patientQuiz: quiz, patientIntakeUpdate: intakeUpdate } =
+          await fetchPatientDataUtil(selectedPatient);
 
         if (!isCancelled) {
           setPatientQuiz(quiz);
@@ -323,29 +398,79 @@ export default function StaffDashboardContainer() {
     if (selectedPatient) {
       fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
     }
-  }, [taskPage, showCompletedTasks, fetchPatientTasks, selectedPatient, taskPageSize]);
+  }, [
+    taskPage,
+    showCompletedTasks,
+    fetchPatientTasks,
+    selectedPatient,
+    taskPageSize,
+  ]);
 
   const formatDOB = useCallback((dob: string) => formatDOBUtil(dob), []);
-  const formatClaimNumber = useCallback((claim: string) => formatClaimNumberUtil(claim), []);
+  const formatClaimNumber = useCallback(
+    (claim: string) => formatClaimNumberUtil(claim),
+    []
+  );
+
+  // Handle patient selection and update URL
+  const handleSelectPatient = useCallback(
+    (patient: RecentPatient | null) => {
+      setSelectedPatient(patient);
+
+      // Update URL parameters
+      if (patient) {
+        const params = new URLSearchParams();
+        params.set("patient_name", patient.patientName);
+        if (patient.dob) {
+          params.set("dob", patient.dob);
+        }
+        if (patient.claimNumber && patient.claimNumber !== "Not specified") {
+          params.set("claim", patient.claimNumber);
+        }
+
+        // Update URL without page reload
+        router.push(`/staff-dashboard?${params.toString()}`, { scroll: false });
+      } else {
+        // Clear URL params if no patient selected
+        router.push("/staff-dashboard", { scroll: false });
+      }
+    },
+    [router]
+  );
 
   // Handle manual task submit
   const handleManualTaskSubmit = useCallback(
     async (formData: any) => {
       try {
         if (selectedPatient) {
-          if (!formData.patientName) formData.patientName = selectedPatient.patientName;
-          if (!formData.claim && selectedPatient.claimNumber && selectedPatient.claimNumber !== "Not specified") {
+          if (!formData.patientName)
+            formData.patientName = selectedPatient.patientName;
+          if (
+            !formData.claim &&
+            selectedPatient.claimNumber &&
+            selectedPatient.claimNumber !== "Not specified"
+          ) {
             formData.claim = selectedPatient.claimNumber;
           }
-          if (!formData.documentId && selectedPatient.documentIds && selectedPatient.documentIds.length > 0) {
+          if (
+            !formData.documentId &&
+            selectedPatient.documentIds &&
+            selectedPatient.documentIds.length > 0
+          ) {
             formData.documentId = selectedPatient.documentIds[0];
           }
         }
         if (!formData.claim) {
-          formData.claim = `Recommendation-${new Date().toISOString().slice(0, 10)}`;
+          formData.claim = `Recommendation-${new Date()
+            .toISOString()
+            .slice(0, 10)}`;
         }
 
-        await handleCreateManualTask(formData, initialMode, selectedPatient?.claimNumber || "");
+        await handleCreateManualTask(
+          formData,
+          initialMode,
+          selectedPatient?.claimNumber || ""
+        );
 
         if (selectedPatient) {
           await fetchPatientTasks(selectedPatient);
@@ -365,7 +490,11 @@ export default function StaffDashboardContainer() {
 
   const handleSaveQuickNote = async (
     taskId: string,
-    quickNotes: { status_update: string; details: string; one_line_note: string }
+    quickNotes: {
+      status_update: string;
+      details: string;
+      one_line_note: string;
+    }
   ) => {
     const result = await saveQuickNote(taskId, quickNotes);
     if (result.success && selectedPatient) {
@@ -379,7 +508,9 @@ export default function StaffDashboardContainer() {
   const handleRefreshData = useCallback(async () => {
     const fetchPromises: Promise<void>[] = [];
     if (selectedPatient) {
-      fetchPromises.push(fetchPatientTasks(selectedPatient, taskPage, taskPageSize));
+      fetchPromises.push(
+        fetchPatientTasks(selectedPatient, taskPage, taskPageSize)
+      );
       fetchPromises.push(fetchRecentPatients(patientSearchQuery));
     }
     fetchPromises.push(fetchFailedDocuments());
@@ -389,7 +520,15 @@ export default function StaffDashboardContainer() {
     } catch (error) {
       console.error("❌ Error refreshing data after upload:", error);
     }
-  }, [selectedPatient, fetchPatientTasks, taskPage, taskPageSize, fetchRecentPatients, patientSearchQuery, fetchFailedDocuments]);
+  }, [
+    selectedPatient,
+    fetchPatientTasks,
+    taskPage,
+    taskPageSize,
+    fetchRecentPatients,
+    patientSearchQuery,
+    fetchFailedDocuments,
+  ]);
 
   // File upload handlers
   const handleFileUpload = useCallback(() => {
@@ -400,7 +539,9 @@ export default function StaffDashboardContainer() {
       pendingFiles.forEach((file) => dataTransfer.items.add(file));
       if (snapInputRef.current) {
         snapInputRef.current.files = dataTransfer.files;
-        const event = { target: snapInputRef.current } as React.ChangeEvent<HTMLInputElement>;
+        const event = {
+          target: snapInputRef.current,
+        } as React.ChangeEvent<HTMLInputElement>;
         handleSnap(event);
       }
     }
@@ -456,13 +597,27 @@ export default function StaffDashboardContainer() {
             Helvetica, Arial;
         }
 
-        * { box-sizing: border-box; }
-        html, body {
-          margin: 0; padding: 0; width: 100%; height: 100%;
-          font-family: var(--font); background: var(--bg); color: var(--text);
-          font-size: 13px; overflow: hidden;
+        * {
+          box-sizing: border-box;
         }
-        #__next { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          font-family: var(--font);
+          background: var(--bg);
+          color: var(--text);
+          font-size: 13px;
+          overflow: hidden;
+        }
+        #__next {
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
       `}</style>
 
       <div className="flex h-screen overflow-hidden">
@@ -515,8 +670,10 @@ export default function StaffDashboardContainer() {
               selectedPatient={selectedPatient}
               loading={loading}
               collapsed={patientDrawerCollapsed}
-              onToggle={() => setPatientDrawerCollapsed(!patientDrawerCollapsed)}
-              onSelectPatient={setSelectedPatient}
+              onToggle={() =>
+                setPatientDrawerCollapsed(!patientDrawerCollapsed)
+              }
+              onSelectPatient={handleSelectPatient}
               formatDOB={formatDOB}
               formatClaimNumber={formatClaimNumber}
               onSearchChange={setPatientSearchQuery}
@@ -535,7 +692,9 @@ export default function StaffDashboardContainer() {
                 showCompletedTasks={showCompletedTasks}
                 taskStatuses={taskStatuses}
                 taskAssignees={taskAssignees}
-                failedDocuments={Array.isArray(failedDocuments) ? failedDocuments : []}
+                failedDocuments={
+                  Array.isArray(failedDocuments) ? failedDocuments : []
+                }
                 loadingPatientData={loadingPatientData}
                 patientIntakeUpdate={patientIntakeUpdate}
                 patientQuiz={patientQuiz}
@@ -595,7 +754,9 @@ export default function StaffDashboardContainer() {
         onSaveQuickNote={handleSaveQuickNote}
         onCloseUpdateModal={() => setIsUpdateModalOpen(false)}
         onUpdateInputChange={(field: string, value: string) => {
-          const syntheticEvent = { target: { name: field, value } } as React.ChangeEvent<HTMLInputElement>;
+          const syntheticEvent = {
+            target: { name: field, value },
+          } as React.ChangeEvent<HTMLInputElement>;
           handleUpdateInputChange(syntheticEvent);
         }}
         onUpdateSubmit={handleUpdateSubmit}

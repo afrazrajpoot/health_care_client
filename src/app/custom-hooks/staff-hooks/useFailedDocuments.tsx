@@ -12,6 +12,7 @@ export const useFailedDocuments = () => {
     claimNumber: "",
     dob: null as Date | null,
     doi: "",
+    author: "",
   });
   const [updateLoading, setUpdateLoading] = useState(false);
   const { data: session } = useSession();
@@ -57,6 +58,7 @@ export const useFailedDocuments = () => {
       claimNumber: doc.claimNumber || "",
       dob: parsedDob,
       doi: doc.doi || "",
+      author: doc.author || "",
     });
     setIsUpdateModalOpen(true);
   }, []);
@@ -67,8 +69,8 @@ export const useFailedDocuments = () => {
       if (name === "dob") {
         // Handle both Date objects and string values
         let dobValue: Date | null = null;
-        if (value instanceof Date) {
-          dobValue = value;
+        if ((value as any) instanceof Date) {
+          dobValue = value as any;
         } else if (typeof value === "string" && value) {
           dobValue = new Date(value);
         }
@@ -93,6 +95,7 @@ export const useFailedDocuments = () => {
         patient_name: updateFormData.patientName,
         claim_number: updateFormData.claimNumber,
         doi: updateFormData.doi,
+        author: updateFormData.author,
       };
       if (updateFormData.dob && !isNaN(updateFormData.dob.getTime())) {
         updateData.dob = updateFormData.dob.toISOString().split("T")[0];

@@ -3,18 +3,15 @@ import { useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 
 interface UploadProgressManagerProps {
-  selectedPatient: any | null;
   onRefreshData: () => Promise<void>;
   onShowSuccessPopup: () => void;
 }
 
 export default function UploadProgressManager({
-  selectedPatient,
   onRefreshData,
   onShowSuccessPopup,
 }: UploadProgressManagerProps) {
-  const { progressData, queueProgressData, isProcessing, currentPhase } =
-    useSocket();
+  const { progressData, queueProgressData, clearProgress } = useSocket();
 
   const progressCompleteHandledRef = useRef(false);
 
@@ -38,20 +35,36 @@ export default function UploadProgressManager({
       console.error("Error refreshing data:", error);
       // Still show popup even if refresh fails
       onShowSuccessPopup();
+    } finally {
+      // Clear progress to close the modal
+      console.log("🧹 Clearing progress after completion");
+      clearProgress();
     }
-  }, [onRefreshData, onShowSuccessPopup]);
+  }, [onRefreshData, onShowSuccessPopup, clearProgress]);
 
   // Effect for instant 100% progress detection
   useEffect(() => {
-    if (!isProcessing || (!progressData && !queueProgressData)) {
+    // Log current state for debugging
+    console.log("📊 UploadProgressManager effect triggered:", {
+      hasProgressData: !!progressData,
+      hasQueueProgressData: !!queueProgressData,
+      progressDataProgress: progressData?.progress,
+      progressDataStatus: progressData?.status,
+      queueOverallProgress: queueProgressData?.overall_progress,
+      queueStatus: queueProgressData?.status,
+      alreadyHandled: progressCompleteHandledRef.current,
+    });
+
+    // Only reset the ref when there's truly no data at all
+    if (!progressData && !queueProgressData) {
       progressCompleteHandledRef.current = false;
       return;
     }
 
-    // Check task progress completion
+    // Check task progress completion - use 'progress' field (not progress_percentage)
+    // because mapToProgressData maps progress_percentage to 'progress'
     const taskProgressComplete =
-      progressData?.progress_percentage === 100 &&
-      progressData?.status === "completed";
+      progressData?.progress === 100 && progressData?.status === "completed";
 
     // Check queue progress completion
     const queueProgressComplete =
@@ -60,21 +73,23 @@ export default function UploadProgressManager({
 
     const progressComplete = taskProgressComplete || queueProgressComplete;
 
+    console.log("📊 Progress completion check:", {
+      taskProgressComplete,
+      queueProgressComplete,
+      progressComplete,
+      alreadyHandled: progressCompleteHandledRef.current,
+    });
+
     if (progressComplete && !progressCompleteHandledRef.current) {
       console.log("🚀 Progress reached 100% - triggering refresh and reload");
+      console.log("📊 Full progress data:", {
+        progressData,
+        queueProgressData,
+      });
       progressCompleteHandledRef.current = true;
       handleProgressComplete();
     }
-  }, [
-    progressData?.progress_percentage,
-    progressData?.status,
-    queueProgressData?.overall_progress,
-    queueProgressData?.status,
-    isProcessing,
-    handleProgressComplete,
-    progressData,
-    queueProgressData,
-  ]);
+  }, [progressData, queueProgressData, handleProgressComplete]);
 
   return null; // This component doesn't render UI, only manages effects
 }

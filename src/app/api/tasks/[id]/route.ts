@@ -3,11 +3,6 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/services/authSErvice";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
 
 export async function PATCH(
   request: Request,
@@ -74,9 +69,6 @@ export async function PATCH(
       ('one_line_note' in updates);
 
     if (hasQuickNotesUpdate) {
-      // Skip LLM if status is being set to "in progress"
-      const skipLLM = 'status' in updates && updates.status === "in progress";
-
       const textToSummarize =
         quickNotes.one_line_note ||
         quickNotes.details ||
@@ -86,36 +78,14 @@ export async function PATCH(
         updates.notes ||
         "";
 
-      let aiSummary = quickNotes.one_line_note || textToSummarize || "";
-
-      if (textToSummarize && !skipLLM) {
-        try {
-          const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a helpful clinical assistant. Summarize the note into one professional and concise sentence. should be very concise but clear meaningful no more than 20 words.",
-              },
-              {
-                role: "user",
-                content: textToSummarize,
-              },
-            ],
-          });
-
-          aiSummary = completion.choices[0].message.content?.trim() || aiSummary;
-        } catch (err) {
-          console.error("AI summarization failed:", err);
-        }
-      }
+      // Save notes directly without AI processing
+      const directNote = quickNotes.one_line_note || textToSummarize || "";
 
       // 📝 Update only quickNotes (keep existing structure)
       const updatedQuickNotes = {
-        ...existingTask.quickNotes,
+        ...(existingTask.quickNotes as object || {}),
         ...quickNotes,
-        one_line_note: aiSummary, // ✅ Save AI summary inside quickNotes
+        one_line_note: directNote, // ✅ Save notes directly
         timestamp: new Date().toISOString(),
       };
 
