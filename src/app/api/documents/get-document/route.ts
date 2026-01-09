@@ -31,10 +31,10 @@ export async function GET(request: NextRequest) {
     const mode = searchParams.get('mode');
 
     // Validate required parameters
-    if (!patientName || !dob || !physicianId) {
+    if (!patientName || !physicianId) {
       return NextResponse.json(
         {
-          error: 'Missing required parameters: patient_name, dob, and physicianId are required'
+          error: 'Missing required parameters: patient_name and physicianId are required'
         },
         { status: 400 }
       );
@@ -62,8 +62,8 @@ export async function GET(request: NextRequest) {
     // Construct the full URL with parameters
     const params = new URLSearchParams({
       patient_name: patientName,
-      dob: dob,
       physicianId: physicianId,
+      ...(dob && { dob: dob }),
     });
 
     // Add optional parameters if they exist
