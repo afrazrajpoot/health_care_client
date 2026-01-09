@@ -68,7 +68,9 @@ const DashboardModals: React.FC = () => {
 
   // Initialize onboarding on component mount
   React.useEffect(() => {
-    const onboardingCompleted = localStorage.getItem("physicianOnboardingCompleted");
+    const onboardingCompleted = localStorage.getItem(
+      "physicianOnboardingCompleted"
+    );
     const welcomeShown = localStorage.getItem("physicianWelcomeShown");
 
     if (!welcomeShown) {
@@ -93,11 +95,10 @@ const DashboardModals: React.FC = () => {
     };
   }, []);
 
-
   return (
     <>
       {/* Onboarding Tour */}
-      <PhysicianOnboardingTour
+      {/* <PhysicianOnboardingTour
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         currentStep={currentStep}
@@ -116,14 +117,13 @@ const DashboardModals: React.FC = () => {
         }}
         steps={onboardingSteps}
         stepPositions={stepPositions}
-      />
+      /> */}
 
       {/* Welcome Modal */}
-      <WelcomeModal
+      {/* <WelcomeModal
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
-      />
-
+      /> */}
 
       {/* Manual Task Modal */}
       <ManualTaskModal
@@ -153,9 +153,10 @@ const DashboardModals: React.FC = () => {
               },
               body: JSON.stringify({
                 ...data,
-                physicianId: session?.user?.role === "Physician"
-                  ? (session.user.id as string) || null
-                  : session?.user?.physicianId || null,
+                physicianId:
+                  session?.user?.role === "Physician"
+                    ? (session.user.id as string) || null
+                    : session?.user?.physicianId || null,
               }),
             });
             if (!response.ok) {
