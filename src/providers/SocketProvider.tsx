@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.kebilo.com";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.doclatch.com";
 
 // Backend progress data interfaces
 interface BackendProgressData {
