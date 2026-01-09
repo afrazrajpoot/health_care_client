@@ -186,9 +186,6 @@ const TreatmentHistory = ({ documentData }) => {
     return systems.length > 0 ? systems : [];
   };
 
-  console.log("====================================");
-  console.log(documentData, "documentData");
-  console.log("====================================");
   // Use transformed data
   const systems = transformData();
 

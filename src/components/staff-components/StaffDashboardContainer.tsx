@@ -69,13 +69,6 @@ const UploadToast: React.FC = () => {
         boxShadow: "0 4px 12px rgba(59, 130, 246, 0.15)",
       },
       icon: "📁",
-      // action: {
-      //   label: "View Progress",
-      //   onClick: () => {
-      //     // Optionally navigate to progress section or open modal
-      //     console.log("View upload progress");
-      //   },
-      // },
     });
   }, []);
 

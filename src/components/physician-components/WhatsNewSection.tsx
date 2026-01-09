@@ -455,9 +455,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <Shield size={14} />
-              <span>
-                {showDetails ? "Hide" : "View"} Source-Specific Details
-              </span>
+              <span>Verify & View Source-Specific Details</span>
               {showDetails ? (
                 <ChevronDownIcon size={14} className="rotate-180" />
               ) : (
@@ -852,7 +850,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `https://api.kebilo.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {

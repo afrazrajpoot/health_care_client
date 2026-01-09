@@ -336,9 +336,7 @@ const UploadErrorModal = ({
             <div className="bg-white/20 rounded-full p-3">
               <AlertCircle className="text-white" size={24} />
             </div>
-            <h2 className="text-xl font-bold text-white">
-              Upload Failed
-            </h2>
+            <h2 className="text-xl font-bold text-white">Upload Failed</h2>
           </div>
         </div>
 

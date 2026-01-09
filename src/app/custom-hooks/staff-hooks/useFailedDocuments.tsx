@@ -10,7 +10,7 @@ export const useFailedDocuments = () => {
   const [updateFormData, setUpdateFormData] = useState({
     patientName: "",
     claimNumber: "",
-    dob: null as Date | null,
+    dob: null as Date | string | null,
     doi: "",
     author: "",
   });
@@ -42,20 +42,21 @@ export const useFailedDocuments = () => {
 
   const handleRowClick = useCallback((doc: any) => {
     setSelectedDoc(doc);
-    let parsedDob: Date | null = null;
-    if (
-      doc.db &&
-      typeof doc.db === "string" &&
-      doc.db.toLowerCase() !== "not specified"
-    ) {
-      const date = new Date(doc.db);
-      if (!isNaN(date.getTime())) {
-        parsedDob = date;
+    let parsedDob: Date | string | null = null;
+    if (doc.dob) {
+      if (
+        typeof doc.dob === "string" &&
+        doc.dob.toLowerCase() !== "not specified"
+      ) {
+        // Keep as string for the modal to handle parsing
+        parsedDob = doc.dob;
+      } else if (doc.dob instanceof Date) {
+        parsedDob = doc.dob;
       }
     }
     setUpdateFormData({
       patientName: doc.patientName || "",
-      claimNumber: doc.claimNumber || "",
+      claimNumber: String(doc.claimNumber || ""),
       dob: parsedDob,
       doi: doc.doi || "",
       author: doc.author || "",
@@ -97,8 +98,17 @@ export const useFailedDocuments = () => {
         doi: updateFormData.doi,
         author: updateFormData.author,
       };
-      if (updateFormData.dob && !isNaN(updateFormData.dob.getTime())) {
-        updateData.dob = updateFormData.dob.toISOString().split("T")[0];
+
+      // Handle DOB - can be Date object or string
+      if (updateFormData.dob) {
+        if (typeof updateFormData.dob === "string") {
+          updateData.dob = updateFormData.dob;
+        } else if (
+          updateFormData.dob instanceof Date &&
+          !isNaN(updateFormData.dob.getTime())
+        ) {
+          updateData.dob = updateFormData.dob.toISOString().split("T")[0];
+        }
       } else {
         updateData.dob = null;
       }

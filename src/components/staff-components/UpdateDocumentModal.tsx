@@ -82,12 +82,23 @@ export default function UpdateDocumentModal({
     if (!formData.dob) return null;
 
     // If it's already a Date object, return it
-    if (formData.dob instanceof Date) {
-      return formData.dob;
+    if ((formData.dob as any) instanceof Date) {
+      return formData.dob as Date;
     }
 
-    // If it's a string, parse it
+    // If it's a string, parse it as local date to avoid timezone issues
     if (typeof formData.dob === "string") {
+      // Split the date string (YYYY-MM-DD format) to create local date
+      const parts = formData.dob.split("-");
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+        const day = parseInt(parts[2], 10);
+        const parsed = new Date(year, month, day);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      }
+
+      // Fallback to regular parsing
       const parsed = new Date(formData.dob);
       return isNaN(parsed.getTime()) ? null : parsed;
     }
@@ -96,10 +107,7 @@ export default function UpdateDocumentModal({
   };
 
   const isFormValid = Boolean(
-    formData.patientName?.trim() &&
-      formData.claimNumber?.trim() &&
-      formData.dob &&
-      formData.author?.trim()
+    formData.patientName?.trim() && formData.dob && formData.author?.trim()
   );
 
   return (
@@ -185,7 +193,7 @@ export default function UpdateDocumentModal({
                     htmlFor="claimNumber"
                     className="text-sm font-semibold text-gray-700 flex items-center gap-1"
                   >
-                    Claim Number <span className="text-red-500">*</span>
+                    Claim Number
                   </Label>
                   <Input
                     id="claimNumber"

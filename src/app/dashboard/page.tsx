@@ -11,6 +11,7 @@ import React, {
 import { useSocket } from "@/providers/SocketProvider";
 import { handleEncryptedResponse } from "@/lib/decrypt";
 import { usePatientData } from "@/hooks/usePatientData";
+import { toast } from "sonner";
 
 import { Header } from "@/components/physician-components/Header";
 import { ToastContainer } from "@/components/physician-components/ToastContainer";
@@ -48,6 +49,31 @@ interface DocumentSummary {
   document_id?: string;
 }
 
+const UploadToast: React.FC = () => {
+  useEffect(() => {
+    toast("Upload in Progress 🚀", {
+      description: (
+        <div className="flex items-center gap-2">
+          <span className="animate-spin">⏳</span>
+          <span className="text-sm text-black">
+            Your documents are queued and being prepared. Hang tight!
+          </span>
+        </div>
+      ),
+      duration: 60000,
+      position: "top-center",
+      className: "border-l-4 border-blue-500 bg-blue-50 text-blue-800",
+      style: {
+        borderRadius: "8px",
+        boxShadow: "0 4px 12px rgba(59, 130, 246, 0.15)",
+      },
+      icon: "📁",
+    });
+  }, []);
+
+  return null;
+};
+
 export default function PhysicianCard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -81,6 +107,7 @@ export default function PhysicianCard() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
     useState(false);
+  const [showUploadToast, setShowUploadToast] = useState(false);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   const { toasts, addToast } = useToasts();
@@ -124,6 +151,7 @@ export default function PhysicianCard() {
   // Confirmation modal handlers
   const handleConfirmUpload = useCallback(async () => {
     setShowConfirmationModal(false);
+    setShowUploadToast(true);
     // ProgressTracker will automatically show in minimized mode
 
     try {
@@ -766,6 +794,8 @@ export default function PhysicianCard() {
           window.location.reload();
         }}
       />
+
+      {showUploadToast && <UploadToast />}
     </>
   );
 }
