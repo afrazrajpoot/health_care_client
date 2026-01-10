@@ -146,7 +146,7 @@ export const usePatientData = (
         let taskData;
         try {
           taskData = handleEncryptedResponse(taskResult);
-          console.log("✅ Task data decrypted successfully");
+      
         } catch (decryptError) {
           console.error("❌ Failed to decrypt task data:", decryptError);
 
@@ -234,7 +234,7 @@ export const usePatientData = (
           })
           .slice(0, 5);
 
-        console.log(`✅ Found ${sortedNotes.length} quick notes for patient`);
+ 
         return sortedNotes;
       } catch (err) {
         console.error("Error fetching task quick notes:", err);
@@ -265,7 +265,7 @@ export const usePatientData = (
           mode: mode,
         });
 
-        console.log("Fetching document data with params:", params.toString());
+  
 
         const response = await fetch(`/api/documents/get-document?${params}`, {
           headers: {
@@ -283,7 +283,7 @@ export const usePatientData = (
         let data: any;
         try {
           data = handleEncryptedResponse(rawResponse);
-          console.log("✅ Document data processed (encrypted or unencrypted)");
+  
         } catch (decryptError) {
           console.error("❌ Failed to process encrypted response:", decryptError);
 

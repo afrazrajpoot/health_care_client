@@ -20,13 +20,11 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   }, []);
 
   const clearPaymentError = useCallback(() => {
-    console.log("🧹 Clearing payment error");
     setPaymentError(null);
     setIgnoredFiles([]);
   }, []);
 
   const clearUploadError = useCallback(() => {
-    console.log("🧹 Clearing upload error");
     setUploadError(null);
   }, []);
 
@@ -45,10 +43,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       formDataUpload.append("mode", mode);
 
       try {
-        console.log(
-          `🚀 Starting upload for ${filesToSubmit.length} files in mode: ${mode}`
-        );
-
         // ✅ Determine physician ID based on role
         const user = session?.user;
         const physicianId =
@@ -61,8 +55,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
           user?.id || ""
         }`;
-
-        console.log("🌐 API URL:", apiUrl);
 
         // Create AbortController but DON'T set a timeout
         // The upload endpoint returns immediately with task IDs
@@ -80,7 +72,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         });
 
         // No timeout to clear since we removed it
-        console.log("📡 Response status:", response.status);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -95,9 +86,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
               errorText.toLowerCase().includes("upgrade your plan") ||
               errorText.toLowerCase().includes("no active subscription"))
           ) {
-            console.log(
-              "🚨 Document limit error detected, but not showing modal"
-            );
             return;
           }
 
@@ -107,7 +95,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         const data = await response.json();
         // Check if there are ignored files
         if (data.ignored && data.ignored.length > 0) {
-          console.log(`⚠️ ${data.ignored_count} file(s) were ignored`);
           setIgnoredFiles(data.ignored);
           setPaymentError(
             `${data.ignored_count} file${
@@ -125,22 +112,12 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         if (data.upload_task_id && data.task_id) {
           // Use two-phase tracking
           startTwoPhaseTracking(data.upload_task_id, data.task_id);
-          console.log(
-            `🎯 Starting two-phase tracking - Upload: ${data.upload_task_id}, Processing: ${data.task_id}`
-          );
         } else if (data.task_id) {
           // Fallback to single-phase tracking
           setActiveTask(data.task_id, data.payload_count);
-          console.log(`🎯 Tracking progress for task: ${data.task_id}`);
         } else {
           throw new Error("No task_id returned from server");
         }
-
-        console.log(
-          `✅ Started processing ${
-            data.payload_count || 0
-          } document(s) in ${mode.toUpperCase()} mode`
-        );
 
         setSelectedFiles([]);
         if (snapInputRef.current) {

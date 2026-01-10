@@ -39,6 +39,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('mode') || 'wc';
     const claim = searchParams.get('claim');
+    const claimNumber = searchParams.get('claimNumber') || claim; // Support both 'claim' and 'claimNumber'
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
     const search = searchParams.get('search') || '';
@@ -55,6 +56,13 @@ export async function GET(request: Request) {
     
     // NEW: Get documentId parameter
     const documentId = searchParams.get('documentId');
+    
+    // NEW: Check for extension parameter
+    const extension = searchParams.get('extension') === 'true';
+    
+    // NEW: Get patient name and DOB for matching
+    const patientName = searchParams.get('patient_name') || '';
+    const patientDob = searchParams.get('dob') || '';
 
     const now = new Date();
 
@@ -66,10 +74,179 @@ export async function GET(request: Request) {
     
     console.log('🔍 Filtering tasks by physicianId:', physicianId, 'for user role:', user.role);
 
+    // NEW: Create array to hold all patient matching conditions
+    const patientMatchingConditions: any[] = [];
+
+    // NEW: Add patient name and DOB matching if provided
+    if (patientName && patientDob) {
+      console.log('🩺 Patient matching enabled:', {
+        patientName,
+        patientDob,
+        claimNumber: claimNumber || 'Not provided'
+      });
+      
+      // Normalize the DOB format
+      let normalizedDob = patientDob;
+      
+      try {
+        const dobDate = new Date(patientDob);
+        if (!isNaN(dobDate.getTime())) {
+          // Format as YYYY-MM-DD for consistent comparison
+          normalizedDob = dobDate.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.log('⚠️ Could not parse DOB date, using as-is:', patientDob);
+      }
+      
+      console.log('📊 Patient search criteria:', {
+        originalDob: patientDob,
+        normalizedDob,
+        patientName,
+        claimNumber
+      });
+      
+      // Option 1: Look for tasks where patient field contains the name
+      if (patientName) {
+        patientMatchingConditions.push({
+          patient: {
+            contains: patientName,
+            mode: 'insensitive' as const
+          }
+        });
+      }
+      
+      // Option 2: Look for tasks where description contains both name and DOB
+      const combinedSearch = `${patientName} ${normalizedDob}`;
+      patientMatchingConditions.push({
+        description: {
+          contains: combinedSearch,
+          mode: 'insensitive' as const
+        }
+      });
+      
+      // Option 3: If there's a document relation, we can filter through it
+      // Check if document has patient info
+      patientMatchingConditions.push({
+        document: {
+          patientName: {
+            contains: patientName,
+            mode: 'insensitive' as const
+          }
+        }
+      });
+      
+      console.log('✅ Patient matching conditions added:', {
+        conditionsCount: patientMatchingConditions.length
+      });
+    } else if (patientName || patientDob) {
+      console.log('⚠️ Patient name or DOB missing. Both are required for patient matching.');
+      return NextResponse.json({
+        error: "Both patient_name and dob parameters are required for patient matching",
+        timestamp: new Date().toISOString()
+      }, { status: 400 });
+    }
+
+    // NEW: Add claim number matching if provided
+    if (claimNumber) {
+      console.log('🔢 Claim number matching enabled:', { claimNumber });
+      
+      const claimMatchingConditions: any[] = [];
+      
+      // Option 1: Direct claim number match in task description or patient field
+      claimMatchingConditions.push({
+        OR: [
+          {
+            description: {
+              contains: claimNumber,
+              mode: 'insensitive' as const
+            }
+          },
+          {
+            patient: {
+              contains: claimNumber,
+              mode: 'insensitive' as const
+            }
+          }
+        ]
+      });
+      
+      // Option 2: Match through document relation
+      claimMatchingConditions.push({
+        document: {
+          claimNumber: {
+            contains: claimNumber,
+            mode: 'insensitive' as const
+          }
+        }
+      });
+      
+      // Option 3: If claim number has a specific format (like WC-), look for partial matches
+      if (claimNumber.includes('-')) {
+        // Try to match just the numeric part or different formats
+        const parts = claimNumber.split('-');
+        if (parts.length > 1) {
+          const numericPart = parts[parts.length - 1];
+          claimMatchingConditions.push({
+            OR: [
+              {
+                description: {
+                  contains: numericPart,
+                  mode: 'insensitive' as const
+                }
+              },
+              {
+                patient: {
+                  contains: numericPart,
+                  mode: 'insensitive' as const
+                }
+              },
+              {
+                document: {
+                  claimNumber: {
+                    contains: numericPart,
+                    mode: 'insensitive' as const
+                  }
+                }
+              }
+            ]
+          });
+        }
+      }
+      
+      console.log('✅ Claim number matching conditions added:', {
+        conditionsCount: claimMatchingConditions.length
+      });
+      
+      // Add claim matching conditions to patient matching conditions if we have both
+      // This creates an OR relationship between patient matching and claim matching
+      if (patientMatchingConditions.length > 0) {
+        // If we have both patient info and claim number, search for EITHER
+        patientMatchingConditions.push({
+          OR: claimMatchingConditions
+        });
+      } else {
+        // If we only have claim number, use those conditions directly
+        patientMatchingConditions.push(...claimMatchingConditions);
+      }
+    }
+
     // NEW: Filter by documentId if provided
     if (documentId) {
       console.log('📄 Filtering tasks by documentId:', documentId);
       andConditions.push({ documentId: documentId });
+    }
+
+    // Add patient/claim matching conditions if we have any
+    if (patientMatchingConditions.length > 0) {
+      andConditions.push({
+        OR: patientMatchingConditions
+      });
+      
+      console.log('🎯 Combined patient/claim matching conditions:', {
+        totalConditions: patientMatchingConditions.length,
+        hasPatientInfo: !!(patientName && patientDob),
+        hasClaimNumber: !!claimNumber
+      });
     }
 
     // Department filter - remove "Department" from the search term
@@ -139,7 +316,8 @@ export async function GET(request: Request) {
     }
 
     // Search filter - OR between description and patient
-    if (search) {
+    // Only add if we're not doing patient/claim matching
+    if (search && patientMatchingConditions.length === 0) {
       andConditions.push({
         OR: [
           { description: { contains: search, mode: 'insensitive' } },
@@ -231,11 +409,17 @@ export async function GET(request: Request) {
     console.log('📋 Task query filters:', {
       physicianId,
       documentId,
+      patientName: patientName || 'Not provided',
+      patientDob: patientDob || 'Not provided',
+      claimNumber: claimNumber || 'Not provided',
+      patientMatching: patientName && patientDob ? 'Enabled' : 'Disabled',
+      claimMatching: claimNumber ? 'Enabled' : 'Disabled',
       userRole: user.role,
       search,
       dept,
       status: effectiveStatus,
       totalConditions: andConditions.length,
+      extension,
       whereClause: JSON.stringify(whereClause, null, 2)
     });
 
@@ -277,6 +461,34 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    // Log matched patient info
+    if (patientName && patientDob) {
+      console.log('🩺 Patient-matched tasks found:', {
+        patientName,
+        patientDob,
+        claimNumber,
+        matchedTasks: tasks.length,
+        sampleTask: tasks.length > 0 ? {
+          id: tasks[0].id,
+          patient: tasks[0].patient,
+          description: tasks[0].description?.substring(0, 100),
+          documentPatientName: tasks[0].document?.patientName,
+          documentClaimNumber: tasks[0].document?.claimNumber
+        } : 'No tasks found'
+      });
+    } else if (claimNumber) {
+      console.log('🔢 Claim-matched tasks found:', {
+        claimNumber,
+        matchedTasks: tasks.length,
+        sampleTask: tasks.length > 0 ? {
+          id: tasks[0].id,
+          patient: tasks[0].patient,
+          description: tasks[0].description?.substring(0, 100),
+          documentClaimNumber: tasks[0].document?.claimNumber
+        } : 'No tasks found'
+      });
+    }
+
     // 🧠 Attach `ur_denial_reason` directly to each task for easy frontend access
     // and compute priority
     const tasksWithURAndPriority = tasks.map((task: any) => {
@@ -308,12 +520,50 @@ export async function GET(request: Request) {
     console.log('🔍 Query filters applied:', {
       documentId,
       physicianId,
+      patientName: patientName || 'Not filtered',
+      patientDob: patientDob || 'Not filtered',
+      claimNumber: claimNumber || 'Not filtered',
       patientSearch: search,
       status: effectiveStatus,
+      extension,
     });
 
+    // NEW: Check if request is from extension
+    if (extension) {
+      console.log('🔄 Extension request detected - returning unencrypted data');
+      
+      // Return unencrypted response for extension
+      return NextResponse.json({
+        tasks: tasksWithURAndPriority,
+        totalCount,
+        timestamp: new Date().toISOString(),
+        pagination: {
+          page,
+          pageSize,
+          totalPages: Math.ceil(totalCount / pageSize)
+        },
+        filters: {
+          applied: {
+            documentId,
+            mode,
+            patientName: patientName || undefined,
+            patientDob: patientDob || undefined,
+            claimNumber: claimNumber || undefined,
+            search,
+            dept,
+            status: effectiveStatus,
+            priority,
+            taskTypeFilter,
+            assignedTo,
+            extension: true
+          }
+        },
+        source: 'extension'
+      });
+    }
+
     /* ---------------------------------------------
-     * ENCRYPT THE RESPONSE
+     * ENCRYPT THE RESPONSE (Only for non-extension requests)
      * --------------------------------------------- */
     
     // Get encryption secret from environment variables
@@ -344,6 +594,9 @@ export async function GET(request: Request) {
           applied: {
             documentId,
             mode,
+            patientName: patientName || undefined,
+            patientDob: patientDob || undefined,
+            claimNumber: claimNumber || undefined,
             search,
             dept,
             status: effectiveStatus,
@@ -362,7 +615,9 @@ export async function GET(request: Request) {
         taskCount: tasksWithURAndPriority.length,
         encryptedDataLength: encryptedData.length,
         page,
-        pageSize
+        pageSize,
+        patientFiltered: !!(patientName && patientDob),
+        claimFiltered: !!claimNumber
       });
 
       // Return encrypted response
@@ -376,6 +631,8 @@ export async function GET(request: Request) {
           totalCount,
           page,
           pageSize,
+          patientFiltered: !!(patientName && patientDob),
+          claimFiltered: !!claimNumber,
           encryption: 'AES'
         }
       });
@@ -400,12 +657,36 @@ export async function GET(request: Request) {
     // Get encryption secret for error response
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
     
+    // Check if request is from extension
+    const { searchParams } = new URL(request.url);
+    const extension = searchParams.get('extension') === 'true';
+    const patientName = searchParams.get('patient_name');
+    const patientDob = searchParams.get('dob');
+    const claimNumber = searchParams.get('claimNumber') || searchParams.get('claim');
+    
+    if (extension) {
+      // Return unencrypted error for extension
+      return NextResponse.json(
+        { 
+          error: "Failed to fetch tasks",
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString(),
+          patientFiltered: !!(patientName && patientDob),
+          claimFiltered: !!claimNumber,
+          source: 'extension'
+        },
+        { status: 500 }
+      );
+    }
+    
     if (ENCRYPTION_SECRET) {
       try {
         const errorData = { 
           error: "Failed to fetch tasks",
           details: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          patientFiltered: !!(patientName && patientDob),
+          claimFiltered: !!claimNumber
         };
         const dataString = JSON.stringify(errorData);
         const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();

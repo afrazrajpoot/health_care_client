@@ -31,14 +31,7 @@ export async function GET(request: NextRequest) {
     const mode = searchParams.get('mode');
 
     // Validate required parameters
-    if (!patientName || !physicianId) {
-      return NextResponse.json(
-        {
-          error: 'Missing required parameters: patient_name and physicianId are required'
-        },
-        { status: 400 }
-      );
-    }
+   
 
     // Get encryption secret from environment variables
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;

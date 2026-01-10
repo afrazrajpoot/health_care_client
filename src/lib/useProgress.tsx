@@ -56,7 +56,6 @@ export const useProgress = ({
     newSocket.on("connect", () => {
       setIsConnected(true);
       setError(null);
-      console.log("✅ Connected to progress server");
 
       // Join user room if userId provided
       if (userId) {
@@ -66,7 +65,6 @@ export const useProgress = ({
 
     newSocket.on("disconnect", () => {
       setIsConnected(false);
-      console.log("❌ Disconnected from progress server");
     });
 
     newSocket.on("connect_error", (err) => {
@@ -77,7 +75,6 @@ export const useProgress = ({
     // Listen for progress updates
     newSocket.on("progress_update", (data: ProgressData) => {
       if (data.task_id === taskId) {
-        console.log("📊 Progress update:", data);
         setProgress(data);
         setError(null);
 
@@ -91,7 +88,6 @@ export const useProgress = ({
               data.processed_count >= data.total_files);
 
           if (isComplete) {
-            console.log("✅ Task completed, calling onComplete callback");
             hasCompletedRef.current = true;
             onComplete(data);
           }
@@ -102,14 +98,12 @@ export const useProgress = ({
     // Listen for batch start
     newSocket.on("batch_started", (data: { task_id: string }) => {
       if (data.task_id === taskId) {
-        console.log("🚀 Batch started:", data.task_id);
         setError(null);
       }
     });
 
     // Listen for task completion
     newSocket.on("task_complete", (data: any) => {
-      console.log("✅ Task completed:", data);
       if (data.task_id === taskId && !hasCompletedRef.current && onComplete) {
         hasCompletedRef.current = true;
         onComplete(data);
@@ -129,7 +123,6 @@ export const useProgress = ({
     setSocket(newSocket);
 
     return () => {
-      console.log("🧹 Cleaning up socket connection");
       newSocket.close();
     };
   }, [taskId, userId, onComplete, onError, session?.user?.fastapi_token]);

@@ -402,6 +402,7 @@ export const getQuestionnaireChips = (
   patientIntakeUpdate: any,
   patientQuiz: PatientQuiz | null
 ): QuestionnaireChip[] => {
+  console.log("Generating questionnaire chips with:", { patientIntakeUpdate, patientQuiz });
   const chips: QuestionnaireChip[] = [];
 
   // Use AI-generated points from PatientIntakeUpdate if available

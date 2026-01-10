@@ -91,7 +91,6 @@ const SearchBar = ({
       }
 
       const data: RecommendationsResponse = await response.json();
-      console.log("Recommendations API response:", data);
 
       if (data.success && data.data.allMatchingDocuments) {
         const patients: Patient[] = data.data.allMatchingDocuments.map(
@@ -139,7 +138,6 @@ const SearchBar = ({
 
   // Handle patient selection from recommendations
   const handlePatientSelectInternal = (patient: Patient) => {
-    console.log("Patient selected:", patient);
     setSearchQuery(patient.patientName || patient.name || "");
     setShowRecommendations(false);
     onPatientSelect(patient);

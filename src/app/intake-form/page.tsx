@@ -200,7 +200,6 @@ function PatientIntakeContent() {
       setIsLoading(true);
 
       if (!token) {
-        console.log("No token provided - using demo data");
         setIsLoading(false);
         setShowAuth(false);
         return;
@@ -225,8 +224,6 @@ function PatientIntakeContent() {
 
         const patientData = decryptData.patientData;
         setExpectedPatientData(patientData);
-
-        console.log("Decrypted patient data:", patientData);
 
         if (patientData.requireAuth === "no") {
           setPatient(patientData.patientName);
@@ -264,11 +261,6 @@ function PatientIntakeContent() {
 
     const expected = expectedPatientData;
     const expectedDob = expected.dateOfBirth.split("T")[0];
-
-    console.log("Auth comparison:", {
-      authDob,
-      expectedDob,
-    });
 
     // Only verify DOB - patient name is already shown from token
     if (authDob === expectedDob) {
@@ -388,8 +380,6 @@ function PatientIntakeContent() {
       adl: adlData,
       therapies: therapyRatings,
     };
-
-    console.log("Intake submitted:", formData);
 
     try {
       const response = await fetch("/api/submit-quiz", {

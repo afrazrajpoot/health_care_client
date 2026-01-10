@@ -43,13 +43,6 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
 
   const physicianId = session.user.id;
 
-  console.log(
-    "🎉 SUCCESS PAGE: Processing session",
-    sessionId,
-    "for physician",
-    physicianId
-  );
-
   // Look up checkout session in DB
   let checkoutSession;
   try {
@@ -82,7 +75,6 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
 
     // Check if already processed
     if (checkoutSession.status === "completed") {
-      console.log("ℹ️ Checkout already completed, redirecting to dashboard");
       redirect("/dashboard?success=already_processed");
       return;
     }
@@ -105,10 +97,6 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     });
 
     if (existingSubscription) {
-      console.log(
-        "⚠️ Active subscription already exists, updating checkout status only"
-      );
-
       // Update checkout session status
       await prisma.checkoutSession.update({
         where: { id: checkoutSession.id },
@@ -146,17 +134,6 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
       data: { status: "completed" },
     });
 
-    console.log(
-      "✅ SUCCESS PAGE: Created subscription",
-      subscription.id,
-      "for",
-      physicianId,
-      "plan:",
-      checkoutSession.plan,
-      "with document parse limit:",
-      documentParseLimit
-    );
-
     // Redirect to dashboard with success message
     redirect(`/dashboard?success=true&plan=${checkoutSession.plan}`);
     return;
@@ -164,7 +141,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     // Only catch REAL errors (not redirects)
     if (error.message === "NEXT_REDIRECT") {
       // Ignore - Next.js will handle the redirect
-      console.log("ℹ️ Redirect triggered (internal Next.js handling)");
+
       return;
     }
 

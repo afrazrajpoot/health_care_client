@@ -162,10 +162,6 @@ export default function PhysicianCard() {
       });
       formData.append("mode", mode);
 
-      console.log(
-        `🚀 Starting upload for ${pendingFiles.length} files in mode: ${mode}`
-      );
-
       // Determine physician ID based on role
       const user = session?.user;
       const physicianId =
@@ -179,8 +175,6 @@ export default function PhysicianCard() {
         user?.id || ""
       }`;
 
-      console.log("🌐 API URL:", apiUrl);
-
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -189,8 +183,6 @@ export default function PhysicianCard() {
         body: formData,
       });
 
-      console.log("📡 Response status:", response.status);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error("❌ Upload failed:", errorText);
@@ -198,7 +190,6 @@ export default function PhysicianCard() {
       }
 
       const data = await response.json();
-      console.log("✅ Upload successful:", data);
 
       // Clear files after successful upload
       setPendingFiles([]);
@@ -232,8 +223,6 @@ export default function PhysicianCard() {
 
   // Callback to refresh data after upload completion
   const handleRefreshData = useCallback(async () => {
-    console.log("🔄 Refreshing patient data after upload completion...");
-
     if (selectedPatient) {
       try {
         // Fetch latest document data for the patient
@@ -246,8 +235,6 @@ export default function PhysicianCard() {
           },
           mode
         );
-
-        console.log("✅ Patient data refreshed successfully");
       } catch (error) {
         console.error("❌ Error refreshing patient data:", error);
       }
@@ -378,7 +365,6 @@ export default function PhysicianCard() {
   // Handle patient selection
   const handlePatientSelect = useCallback(
     (patient: Patient) => {
-      console.log("Patient selected:", patient);
       setSelectedPatient(patient);
       fetchDocumentData(patient, mode);
     },
@@ -419,7 +405,7 @@ export default function PhysicianCard() {
           throw new Error(`Failed to verify document: ${response.status}`);
         }
         const verifyData = await response.json();
-        console.log("Verification response:", verifyData);
+
         await fetchDocumentData(selectedPatient, mode);
         const d = new Date();
         const opts: Intl.DateTimeFormatOptions = {
@@ -455,7 +441,6 @@ export default function PhysicianCard() {
   const handleCopy = useCallback(async (text: string, fieldName: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log(`${fieldName} copied to clipboard`);
     } catch (err) {
       console.error("Failed to copy text:", err);
     }
@@ -611,16 +596,11 @@ export default function PhysicianCard() {
         let data: any;
         try {
           data = handleEncryptedResponse(result);
-          console.log("✅ Recent patients data decrypted successfully", {
-            patientCount: Array.isArray(data) ? data.length : 0,
-          });
         } catch (decryptError) {
           console.error("❌ Failed to decrypt recent patients:", decryptError);
           if (result.data && Array.isArray(result.data)) {
-            console.log("🔄 Using unencrypted data directly");
             data = result.data;
           } else if (Array.isArray(result)) {
-            console.log("🔄 Using direct array response");
             data = result;
           } else {
             throw decryptError;
@@ -629,10 +609,7 @@ export default function PhysicianCard() {
         setRecentPatientsList(data || []);
         if (data && Array.isArray(data) && data.length > 0 && session?.user) {
           const latestPatient = data[0];
-          console.log(
-            "🔄 Auto-selecting latest patient:",
-            latestPatient.patientName
-          );
+       
           let dobString = "";
           if (latestPatient.dob) {
             if (latestPatient.dob instanceof Date) {

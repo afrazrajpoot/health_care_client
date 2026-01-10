@@ -23,7 +23,7 @@ export const useFileUpload = (
     formData.append("mode", mode);
 
     try {
-      console.log(`🚀 Starting upload for ${files.length} files in mode: ${mode}`);
+
 
       // ✅ Determine physician ID based on role (same as staff dashboard)
       const user = session?.user;
@@ -38,7 +38,7 @@ export const useFileUpload = (
         user?.id || ""
       }`;
 
-      console.log("🌐 API URL:", apiUrl);
+
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -48,7 +48,7 @@ export const useFileUpload = (
         body: formData,
       });
 
-      console.log("📡 Response status:", response.status);
+
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -57,10 +57,8 @@ export const useFileUpload = (
       }
 
       const data = await response.json();
-      console.log("✅ Upload response:", data);
+   
 
-      console.log(`✅ Successfully uploaded ${files.length} document(s)`);
-      console.log("Response data:", data);
 
       setFiles([]);
       if (fileInputRef.current) {

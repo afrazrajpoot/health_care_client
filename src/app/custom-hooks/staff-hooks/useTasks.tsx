@@ -436,7 +436,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
     if (!socket) return;
 
     const handleTasksCreated = (data: any) => {
-      console.log("📡 Received 'tasks_created' event:", data);
+
       if (data.user_id !== session?.user?.id) return;
 
       // Refetch to handle pagination and filters correctly

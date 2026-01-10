@@ -8,9 +8,9 @@ export async function GET(request: NextRequest) {
     await ensurePrismaConnection();
 
     const { searchParams } = new URL(request.url);
-    const patientName = searchParams.get("patientName");
+    const patientName = searchParams.get("patientName") || searchParams.get("patient_name");
     const dob = searchParams.get("dob");
-    const claimNumber = searchParams.get("claimNumber");
+    const claimNumber = searchParams.get("claimNumber") || searchParams.get("claim_number");
 
     if (!patientName) {
       return NextResponse.json(

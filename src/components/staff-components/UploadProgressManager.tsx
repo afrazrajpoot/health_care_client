@@ -29,7 +29,8 @@ export default function UploadProgressManager({
   setShowDocumentSuccessPopup,
   onRefreshData,
 }: UploadProgressManagerProps) {
-  const { progressData, queueProgressData, isProcessing, currentPhase } = useSocket();
+  const { progressData, queueProgressData, isProcessing, currentPhase } =
+    useSocket();
   const { paymentError, ignoredFiles, clearPaymentError } = useFileUpload("wc");
   const router = useRouter();
   const { fetchTasks } = useTasks("wc" as const);
@@ -44,7 +45,6 @@ export default function UploadProgressManager({
   }, [clearPaymentError, router]);
 
   const handleProgressComplete = useCallback(async () => {
-    console.log("🔄 Progress complete - fetching updated data...");
     await onRefreshData();
     setShowDocumentSuccessPopup(true);
   }, [onRefreshData, setShowDocumentSuccessPopup]);
@@ -58,7 +58,6 @@ export default function UploadProgressManager({
     }
 
     if (currentPhase === "processing" && !progressPopupShownRef.current) {
-      console.log("🚀 Extract API successful - showing progress popup");
       progressPopupShownRef.current = true;
     }
 
@@ -81,15 +80,20 @@ export default function UploadProgressManager({
     }
 
     const progressComplete =
-      (progressData?.progress === 100 && progressData?.status === "completed") ||
+      (progressData?.progress === 100 &&
+        progressData?.status === "completed") ||
       queueProgressData?.status === "completed";
 
     const allFilesProcessed = progressData
       ? progressData.processed_count >= progressData.total_files
       : true;
 
-    if (progressComplete && allFilesProcessed && !progressCompleteHandledRef.current) {
-      console.log("🚀 Progress reached 100% - showing success popup instantly");
+    if (
+      progressComplete &&
+      allFilesProcessed &&
+      !progressCompleteHandledRef.current
+    ) {
+
       progressCompleteHandledRef.current = true;
       handleProgressComplete();
     }

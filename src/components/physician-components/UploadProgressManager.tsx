@@ -16,18 +16,12 @@ export default function UploadProgressManager({
   const progressCompleteHandledRef = useRef(false);
 
   const handleProgressComplete = useCallback(async () => {
-    console.log(
-      "🔄 Progress complete - refreshing patient data and showing success popup..."
-    );
-
     // Small delay to ensure backend has finished processing
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     try {
       // Refresh data first
       await onRefreshData();
-
-      console.log("✅ Data refreshed - showing success popup");
 
       // Show success popup modal
       onShowSuccessPopup();

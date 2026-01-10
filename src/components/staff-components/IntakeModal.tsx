@@ -386,8 +386,6 @@ export default function IntakeModal({
   };
 
   const generateLink = async () => {
-    console.log("Generating link...");
-
     setIsGenerating(true);
     try {
       const metadata = {
@@ -437,10 +435,7 @@ export default function IntakeModal({
         }
         setTimeout(() => setCopyStatus("idle"), 2000);
       } catch (clipboardError) {
-        console.log(
-          "Auto-copy failed, user can copy manually:",
-          clipboardError
-        );
+        console.error("Auto-copy failed:", clipboardError);
       }
     } catch (error) {
       console.error("Token generation error:", error);

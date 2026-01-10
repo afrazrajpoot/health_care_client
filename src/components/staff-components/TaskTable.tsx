@@ -74,8 +74,6 @@ export default function TaskTable({
     }
   };
 
-  console.log("Rendering TaskTable with tasks:", tasks);
-
   const getBaseTasks = () =>
     tasks.filter((t) => {
       if (mode === "wc" && t.mode === "gm") return false;
@@ -86,7 +84,6 @@ export default function TaskTable({
   const getFilteredTasks = () => getBaseTasks();
 
   const displayedTasks = getFilteredTasks();
-  console.log("Displayed tasks:", displayedTasks);
 
   // ==================== ALL PANE ====================
   if (currentPane === "all") {

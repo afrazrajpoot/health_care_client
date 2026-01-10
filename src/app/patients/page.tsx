@@ -99,7 +99,7 @@ const PatientsPage = () => {
     searchParams.get("priority") ?? "all"
   );
   const [patients, setPatients] = useState<Patient[]>([]);
-  console.log("PatientsPage session:", patients);
+
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 

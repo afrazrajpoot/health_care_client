@@ -405,32 +405,6 @@ export default function StaffDashboardContainer() {
     []
   );
 
-  // Handle patient selection and update URL
-  const handleSelectPatient = useCallback(
-    (patient: RecentPatient | null) => {
-      setSelectedPatient(patient);
-
-      // Update URL parameters
-      if (patient) {
-        const params = new URLSearchParams();
-        params.set("patient_name", patient.patientName);
-        if (patient.dob) {
-          params.set("dob", patient.dob);
-        }
-        if (patient.claimNumber && patient.claimNumber !== "Not specified") {
-          params.set("claim", patient.claimNumber);
-        }
-
-        // Update URL without page reload
-        router.push(`/staff-dashboard?${params.toString()}`, { scroll: false });
-      } else {
-        // Clear URL params if no patient selected
-        router.push("/staff-dashboard", { scroll: false });
-      }
-    },
-    [router]
-  );
-
   // Handle manual task submit
   const handleManualTaskSubmit = useCallback(
     async (formData: any) => {
@@ -509,7 +483,6 @@ export default function StaffDashboardContainer() {
     fetchPromises.push(fetchFailedDocuments());
     try {
       await Promise.all(fetchPromises);
-      console.log("✅ Data refreshed successfully after upload complete");
     } catch (error) {
       console.error("❌ Error refreshing data after upload:", error);
     }
@@ -675,7 +648,7 @@ export default function StaffDashboardContainer() {
               onToggle={() =>
                 setPatientDrawerCollapsed(!patientDrawerCollapsed)
               }
-              onSelectPatient={handleSelectPatient}
+              onSelectPatient={setSelectedPatient}
               formatDOB={formatDOB}
               formatClaimNumber={formatClaimNumber}
               onSearchChange={setPatientSearchQuery}
