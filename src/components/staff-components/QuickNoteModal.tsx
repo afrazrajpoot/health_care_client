@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 interface ChipData {
   label: string;
@@ -113,8 +113,6 @@ export default function QuickNoteModal({
 }: QuickNoteModalProps) {
   const [selectedChips, setSelectedChips] = useState<ChipData[]>([]);
   const [saving, setSaving] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   // Reset form when modal opens with new task
   useEffect(() => {
     if (task && isOpen) {
@@ -126,25 +124,6 @@ export default function QuickNoteModal({
       }
     }
   }, [task, isOpen]);
-
-  // Handle click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, onClose]);
 
   if (!isOpen || !task) return null;
 
@@ -236,11 +215,11 @@ export default function QuickNoteModal({
   };
 
   return (
-    <div
-      ref={dropdownRef}
-      className="absolute right-0 top-full mt-2 z-[1000] w-[450px] bg-white border border-gray-200 rounded-lg shadow-xl flex flex-col max-h-[60vh] overflow-hidden"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
       <div className="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 flex-shrink-0">
         <h3 className="m-0 text-sm font-bold text-slate-800">
           Quick Note
@@ -371,6 +350,7 @@ export default function QuickNoteModal({
           {saving ? "Saving..." : "Save Note"}
         </button>
       </div>
+    </div>
     </div>
   );
 }
