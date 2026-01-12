@@ -33,7 +33,7 @@ export const useFileUpload = (
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;

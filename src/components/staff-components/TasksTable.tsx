@@ -145,7 +145,7 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
           task.document.blobPath
         )}`,
         {
@@ -189,7 +189,7 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
           doc.blobPath
         )}`,
         {
@@ -299,7 +299,7 @@ export default function TasksTable({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",
