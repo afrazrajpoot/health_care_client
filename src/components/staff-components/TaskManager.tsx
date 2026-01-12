@@ -267,9 +267,9 @@ const TaskManager = ({ tasks }: TaskManagerProps) => {
                     <div className="text-xs text-gray-500">
                       Updated: {formatDate(task.updatedAt)}
                     </div>
-                    <div className="text-xs px-2 py-1 rounded-full bg-gray-100">
+                    {/* <div className="text-xs px-2 py-1 rounded-full bg-gray-100">
                       {task.assignee}
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               ))}
@@ -362,9 +362,9 @@ const TaskManager = ({ tasks }: TaskManagerProps) => {
                     <div className="text-xs text-gray-500">
                       {task.department}
                     </div>
-                    <div className="text-xs px-2 py-1 rounded-full bg-gray-100">
+                    {/* <div className="text-xs px-2 py-1 rounded-full bg-gray-100">
                       {task.assignee}
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               ))}
