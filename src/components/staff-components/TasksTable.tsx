@@ -591,7 +591,9 @@ export default function TasksTable({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (onSaveQuickNote) {
-                                setOpenQuickNoteId(openQuickNoteId === task.id ? null : task.id);
+                                setOpenQuickNoteId(
+                                  openQuickNoteId === task.id ? null : task.id
+                                );
                               } else {
                                 onTaskClick(task);
                               }
@@ -604,7 +606,7 @@ export default function TasksTable({
                               ? "Review"
                               : "View"}
                           </span>
-                          
+
                           {openQuickNoteId === task.id && onSaveQuickNote && (
                             <QuickNoteModal
                               isOpen={true}
