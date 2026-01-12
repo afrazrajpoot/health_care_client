@@ -220,7 +220,7 @@ export default function UpdateDocumentModal({
                   <DatePicker
                     selected={getDobAsDate()}
                     onChange={handleDateChange}
-                    dateFormat="yyyy-MM-dd"
+                    dateFormat="MM-dd-yyyy"
                     placeholderText="Select date of birth"
                     showYearDropdown
                     scrollableYearDropdown
@@ -341,11 +341,13 @@ export default function UpdateDocumentModal({
                     if (!formData.dob) return "N/A";
                     const dateObj = getDobAsDate();
                     if (!dateObj) return String(formData.dob);
-                    return dateObj.toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    });
+                    const month = String(dateObj.getMonth() + 1).padStart(
+                      2,
+                      "0"
+                    );
+                    const day = String(dateObj.getDate()).padStart(2, "0");
+                    const year = dateObj.getFullYear();
+                    return `${month}-${day}-${year}`;
                   })()}
                 </span>
               </div>

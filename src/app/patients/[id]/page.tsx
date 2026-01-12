@@ -76,14 +76,17 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
         const doiDate = new Date(data.doi);
         const doiFormatted = `${(doiDate.getMonth() + 1)
           .toString()
-          .padStart(2, "0")}/${doiDate
-            .getDate()
-            .toString()
-            .padStart(2, "0")}/${doiDate.getFullYear()}`;
-        const updatedFormatted = updated.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
+          .padStart(2, "0")}-${doiDate
+          .getDate()
+          .toString()
+          .padStart(2, "0")}-${doiDate.getFullYear()}`;
+        const updatedFormatted = `${String(updated.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(updated.getDate()).padStart(
+          2,
+          "0"
+        )}-${updated.getFullYear()}`;
 
         // Map status to workStatus
         let workStatus: "TTD" | "MODIFIED" | "REGULAR" = "REGULAR";
@@ -109,10 +112,13 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
 
         // Map to documents array
         const docDate = new Date(data.documentSummary?.date || data.createdAt);
-        const docDateFormatted = docDate.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
+        const docDateFormatted = `${String(docDate.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(docDate.getDate()).padStart(
+          2,
+          "0"
+        )}-${docDate.getFullYear()}`;
         const mappedDocuments: Document[] = [
           {
             id: data.id,
@@ -150,10 +156,10 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
 
   const getFormattedDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${month}-${day}-${year}`;
   };
 
   const handleDownloadFile = (fileUrl: string) => {
@@ -238,10 +244,11 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
                         Work Status
                       </h3>
                       <div
-                        className={`p-4 rounded-lg border-l-4 ${daysOverdue > 30
+                        className={`p-4 rounded-lg border-l-4 ${
+                          daysOverdue > 30
                             ? "bg-amber-50 border-l-amber-400 border border-amber-200"
                             : "bg-green-50 border-l-green-400 border border-green-200"
-                          }`}
+                        }`}
                       >
                         <div className="flex items-center gap-2 mb-2">
                           {daysOverdue > 30 && (
@@ -406,10 +413,11 @@ const PatientDetail = ({ params }: { params: { id: string } }) => {
                             </div>
                             <Badge
                               variant="outline"
-                              className={`font-medium ${doc.type === "QME"
+                              className={`font-medium ${
+                                doc.type === "QME"
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
                                   : "bg-purple-50 text-[#33c7d8] border-purple-200"
-                                }`}
+                              }`}
                             >
                               {doc.type}
                             </Badge>

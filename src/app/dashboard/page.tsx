@@ -170,7 +170,7 @@ export default function PhysicianCard() {
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
@@ -348,7 +348,7 @@ export default function PhysicianCard() {
     [documentData]
   );
 
-  // Memoized formatDate
+  // Memoized formatDate (MM-DD-YYYY)
   const formatDate = useCallback((dateString: string | undefined): string => {
     if (!dateString) return "Not specified";
     try {
@@ -356,7 +356,10 @@ export default function PhysicianCard() {
       if (isNaN(date.getTime())) {
         return "Not specified";
       }
-      return date.toLocaleDateString();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${month}-${day}-${year}`;
     } catch {
       return "Not specified";
     }
@@ -609,7 +612,7 @@ export default function PhysicianCard() {
         setRecentPatientsList(data || []);
         if (data && Array.isArray(data) && data.length > 0 && session?.user) {
           const latestPatient = data[0];
-       
+
           let dobString = "";
           if (latestPatient.dob) {
             if (latestPatient.dob instanceof Date) {

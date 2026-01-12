@@ -659,12 +659,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "Not provided";
-      return date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-        timeZone: "UTC",
-      });
+      const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(date.getUTCDate()).padStart(2, "0");
+      const year = date.getUTCFullYear();
+      return `${month}-${day}-${year}`;
     } catch {
       return "Not provided";
     }
@@ -850,7 +848,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {

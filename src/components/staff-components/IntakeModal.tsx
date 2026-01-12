@@ -29,7 +29,7 @@ const modalFields: ModalField[] = [
     id: "lkDob",
     label: "Date of Birth",
     type: "input",
-    placeholder: "e.g., 1990-01-01",
+    placeholder: "e.g., 01-01-1990",
     value: "",
     fullWidth: false,
   },
@@ -247,7 +247,7 @@ export default function IntakeModal({
     }
   };
 
-  // Helper function to format date for input field (YYYY-MM-DD)
+  // Helper function to format date for input field (MM-DD-YYYY)
   // Avoids timezone issues by extracting date string directly or using local time methods
   const formatDateForInput = (
     date: Date | string | null | undefined
@@ -258,7 +258,9 @@ export default function IntakeModal({
     if (typeof date === "string") {
       const dateOnly = date.split("T")[0];
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
-        return dateOnly;
+        // Convert from YYYY-MM-DD to MM-DD-YYYY
+        const [year, month, day] = dateOnly.split("-");
+        return `${month}-${day}-${year}`;
       }
     }
 
@@ -269,7 +271,7 @@ export default function IntakeModal({
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return `${month}-${day}-${year}`;
   };
 
   // Debounced version of fetchPatientRecommendations
@@ -376,10 +378,13 @@ export default function IntakeModal({
     }
   }, [isOpen]);
 
-  // Convert YYYY-MM-DD string to Date object (for DatePicker only)
+  // Convert MM-DD-YYYY string to Date object (for DatePicker only)
   const stringToDate = (dateStr: string): Date | null => {
     if (!dateStr) return null;
-    const [year, month, day] = dateStr.split("-").map(Number);
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length !== 3) return null;
+    // Handle MM-DD-YYYY format
+    const [month, day, year] = parts;
     if (!year || !month || !day) return null;
     // Use local time to avoid timezone offset issues
     return new Date(year, month - 1, day);
@@ -571,12 +576,12 @@ Thank you.`);
                             "0"
                           );
                           const day = String(date.getDate()).padStart(2, "0");
-                          handleChange(field.id, `${year}-${month}-${day}`);
+                          handleChange(field.id, `${month}-${day}-${year}`);
                         } else {
                           handleChange(field.id, "");
                         }
                       }}
-                      dateFormat="yyyy-MM-dd"
+                      dateFormat="MM-dd-yyyy"
                       placeholderText={field.placeholder}
                       showYearDropdown
                       scrollableYearDropdown

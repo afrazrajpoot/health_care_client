@@ -156,7 +156,7 @@ const TreatmentHistory = ({ documentData }) => {
         const timeline = (systemData.current || []).map((entry, index) => ({
           id: `${systemKey}-current-${index}`,
           date: entry.date || "No date",
-          title: entry.event || "Treatment Event",
+          title: entry.event || entry?.event_type || "Treatment Event",
           detail: entry.details || "No details available",
           isArchive: false,
         }));
@@ -167,6 +167,8 @@ const TreatmentHistory = ({ documentData }) => {
           date: entry.date || "No date",
           title: entry.event
             ? `${entry.event} (archive)`
+            : entry?.event_type
+            ? `${entry.event_type} (archive)`
             : "Treatment Event (archive)",
           detail: entry.details || "No details available",
           isArchive: true,

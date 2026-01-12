@@ -1,8 +1,12 @@
-import React from 'react';
+import React from "react";
 import PatientHeader from "@/components/staff-components/PatientHeader";
 import TaskSummary from "@/components/staff-components/TaskSummary";
 import QuestionnaireSummary from "@/components/staff-components/QuestionnaireSummary";
-import { RecentPatient, PatientQuiz, TaskStats } from "@/components/staff-components/types";
+import {
+  RecentPatient,
+  PatientQuiz,
+  TaskStats,
+} from "@/components/staff-components/types";
 
 interface PatientDataSectionProps {
   selectedPatient: RecentPatient;
@@ -23,11 +27,10 @@ const PatientDataSection: React.FC<PatientDataSectionProps> = ({
     if (!dob) return "";
     try {
       const date = new Date(dob);
-      return date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-      });
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${month}-${day}-${year}`;
     } catch {
       return dob;
     }

@@ -18,15 +18,15 @@ export const useTasks = (initialMode: "wc" | "gm") => {
 
       const notes = apiTask.quickNotes
         ? [
-          {
-            ts: new Date(apiTask.updatedAt).toLocaleString(),
-            user: "System",
-            line:
-              apiTask.quickNotes.one_line_note ||
-              apiTask.quickNotes.details ||
-              "Note added",
-          },
-        ]
+            {
+              ts: new Date(apiTask.updatedAt).toLocaleString(),
+              user: "System",
+              line:
+                apiTask.quickNotes.one_line_note ||
+                apiTask.quickNotes.details ||
+                "Note added",
+            },
+          ]
         : [];
 
       // Get UR denial reason from multiple possible sources
@@ -41,13 +41,16 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       const assignee = isClaimed ? "You" : "Unclaimed";
       const actions = isClaimed ? ["Complete"] : ["Claimed", "Complete"];
 
+      const month = String(dueDate.getMonth() + 1).padStart(2, "0");
+      const day = String(dueDate.getDate()).padStart(2, "0");
+      const year = dueDate.getFullYear();
       return {
         id: apiTask.id,
         task: apiTask.description,
         dept: apiTask.department,
         statusText: apiTask.status,
         statusClass: apiTask.status.toLowerCase().replace(/\s+/g, "-"),
-        due: dueDate.toLocaleDateString(),
+        due: `${month}-${day}-${year}`,
         overdue,
         patient: apiTask?.patient,
         assignee,
@@ -216,12 +219,12 @@ export const useTasks = (initialMode: "wc" | "gm") => {
         prev.map((t) =>
           t.id === id
             ? {
-              ...t,
-              statusText: newStatus,
-              statusClass: newStatusClass,
-              assignee: newAssignee,
-              actions: newActions,
-            }
+                ...t,
+                statusText: newStatus,
+                statusClass: newStatusClass,
+                assignee: newAssignee,
+                actions: newActions,
+              }
             : t
         )
       );
@@ -243,12 +246,12 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           prev.map((t) =>
             t.id === id
               ? {
-                ...t,
-                statusText: isClaimed ? "in progress" : "Open",
-                statusClass: isClaimed ? "in-progress" : "open",
-                assignee: isClaimed ? "You" : "Unclaimed",
-                actions: isClaimed ? ["Complete"] : ["Claimed", "Complete"],
-              }
+                  ...t,
+                  statusText: isClaimed ? "in progress" : "Open",
+                  statusClass: isClaimed ? "in-progress" : "open",
+                  assignee: isClaimed ? "You" : "Unclaimed",
+                  actions: isClaimed ? ["Complete"] : ["Claimed", "Complete"],
+                }
               : t
           )
         );
@@ -332,9 +335,9 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           prev.map((t) =>
             t.id === taskId
               ? {
-                ...t,
-                notes: [...(t.notes || []), { ts, user: "You", line }],
-              }
+                  ...t,
+                  notes: [...(t.notes || []), { ts, user: "You", line }],
+                }
               : t
           )
         );
@@ -436,7 +439,6 @@ export const useTasks = (initialMode: "wc" | "gm") => {
     if (!socket) return;
 
     const handleTasksCreated = (data: any) => {
-
       if (data.user_id !== session?.user?.id) return;
 
       // Refetch to handle pagination and filters correctly

@@ -44,22 +44,22 @@ interface Document {
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  return `${month}-${day}-${year}, ${hour12}:${minutes} ${ampm}`;
 };
 
 const formatShortDate = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${month}-${day}-${year}`;
 };
 
 export default function RecentDocumentsPage() {
@@ -112,7 +112,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath: any = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -148,7 +148,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath: any = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -203,7 +203,7 @@ export default function RecentDocumentsPage() {
         const filePath: any = doc.blobPath || doc.gcsFileLink;
 
         const response = await fetch(
-          `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+          `http://localhost:8000/api/documents/preview/${encodeURIComponent(
             filePath
           )}`,
           {

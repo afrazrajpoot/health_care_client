@@ -145,7 +145,7 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           task.document.blobPath
         )}`,
         {
@@ -189,7 +189,7 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
           doc.blobPath
         )}`,
         {
@@ -299,7 +299,7 @@ export default function TasksTable({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",
@@ -568,10 +568,16 @@ export default function TasksTable({
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
                         {task.dueDate
-                          ? new Date(task.dueDate).toLocaleDateString("en-US", {
-                              month: "2-digit",
-                              day: "2-digit",
-                            })
+                          ? (() => {
+                              const d = new Date(task.dueDate);
+                              const month = String(d.getMonth() + 1).padStart(
+                                2,
+                                "0"
+                              );
+                              const day = String(d.getDate()).padStart(2, "0");
+                              const year = d.getFullYear();
+                              return `${month}-${day}-${year}`;
+                            })()
                           : "—"}
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">

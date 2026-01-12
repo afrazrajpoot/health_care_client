@@ -62,11 +62,11 @@ export default function FailedDocuments({
   >([{ start_page: 1, end_page: 1, report_title: "" }]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    const date = new Date(dateString);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${month}-${day}-${year}`;
   };
 
   const handlePreviewFile = async (
@@ -239,7 +239,7 @@ export default function FailedDocuments({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",

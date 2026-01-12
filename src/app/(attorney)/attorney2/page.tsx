@@ -78,8 +78,8 @@ const AttorneyCardPage = () => {
     const d = new Date(dateStr);
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
-    const year = String(d.getFullYear()).slice(-2);
-    return `${month}/${day}/${year}`;
+    const year = d.getFullYear();
+    return `${month}-${day}-${year}`;
   };
 
   const calculateDays = (dateStr: string) => {
