@@ -9,10 +9,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ Await the params first
     const params = await context.params;
     const taskId = params.id;
-    
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.id) {
@@ -26,9 +25,21 @@ export async function PATCH(
       physicianId = session.user.physicianId;
     }
 
-    const updates = await request.json();
+    // Get the request body which contains quickNotes object
+    const body = await request.json();
 
-    // 🩺 Validate that the task belongs to the logged-in physician
+    // Extract quickNotes from the request body
+    const { quickNotes } = body;
+
+    // Validate that quickNotes exists
+    if (!quickNotes) {
+      return NextResponse.json(
+        { error: "quickNotes is required in request body" },
+        { status: 400 }
+      );
+    }
+
+    // Validate task ownership
     const existingTask = await prisma.task.findFirst({
       where: {
         id: taskId,
@@ -37,74 +48,30 @@ export async function PATCH(
     });
 
     if (!existingTask) {
-      console.log(`Task ${taskId} not found for physician ${physicianId}`);
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Prepare update data
-    const data: any = {};
+    // Get existing quickNotes or default empty object
+    const existingQuickNotes = (existingTask.quickNotes as any) || {};
 
-    // Handle status update
-    if ('status' in updates) {
-      data.status = updates.status;
-    }
-
-    // Handle assignee update
-    if ('assignee' in updates) {
-      data.assignee = updates.assignee;
-    }
-
-    // ✅ Handle UR denial reason update - direct assignment
-    if ('ur_denial_reason' in updates) {
-      data.ur_denial_reason = updates.ur_denial_reason;
-    }
-
-    // Handle quickNotes update only if relevant fields are present
-    const quickNotes = updates.quickNotes || {};
-    const hasQuickNotesUpdate = Object.keys(quickNotes).length > 0 ||
-      ('description' in updates) ||
-      ('details' in updates) ||
-      ('notes' in updates) ||
-      ('status_update' in updates) ||
-      ('one_line_note' in updates);
-
-    if (hasQuickNotesUpdate) {
-      const textToSummarize =
-        quickNotes.one_line_note ||
-        quickNotes.details ||
-        quickNotes.status_update ||
-        updates.description ||
-        updates.details ||
-        updates.notes ||
-        "";
-
-      // Save notes directly without AI processing
-      const directNote = quickNotes.one_line_note || textToSummarize || "";
-
-      // 📝 Update only quickNotes (keep existing structure)
-      const updatedQuickNotes = {
-        ...(existingTask.quickNotes as object || {}),
-        ...quickNotes,
-        one_line_note: directNote, // ✅ Save notes directly
-        timestamp: new Date().toISOString(),
-      };
-
-      data.quickNotes = updatedQuickNotes;
-    }
-
-    // If no data to update, return error
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json({ error: "No valid updates provided" }, { status: 400 });
-    }
-
+    // Update task with the new quickNotes structure
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
-      data,
+      data: {
+        quickNotes: {
+          // Keep existing fields
+          ...existingQuickNotes,
+          // Override with new quickNotes data (options and timestamp)
+          ...quickNotes,
+          // Ensure timestamp is updated (in case client didn't send it)
+          timestamp: quickNotes.timestamp || new Date().toISOString(),
+        }
+      },
     });
 
     return NextResponse.json(updatedTask);
   } catch (error) {
-    console.error("Error updating task:", error);
+    console.error("Error updating task quickNotes:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

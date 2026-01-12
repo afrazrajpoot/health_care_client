@@ -685,6 +685,7 @@ export default function StaffDashboardContainer() {
                 onStatusClick={handleStatusChipClick}
                 onAssigneeClick={handleAssigneeChipClick}
                 onTaskClick={handleTaskClick}
+                onSaveQuickNote={handleSaveQuickNote}
                 onFailedDocumentDeleted={removeFailedDocument}
                 onFailedDocumentRowClick={handleRowClick}
               />

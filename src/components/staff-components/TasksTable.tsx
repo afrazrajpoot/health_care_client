@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 
 interface Task {
   id: string;
@@ -59,6 +60,7 @@ interface TasksTableProps {
   onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => void;
   onTaskClick: (task: Task) => void;
+  onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
   getStatusOptions: (task: Task) => string[];
   getAssigneeOptions: (task: Task) => string[];
   // New props for failed documents
@@ -76,6 +78,7 @@ export default function TasksTable({
   onStatusClick,
   onAssigneeClick,
   onTaskClick,
+  onSaveQuickNote,
   getStatusOptions,
   getAssigneeOptions,
   failedDocuments = [],
@@ -86,6 +89,7 @@ export default function TasksTable({
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [openQuickNoteId, setOpenQuickNoteId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(
     new Set()
@@ -580,18 +584,36 @@ export default function TasksTable({
                             })()
                           : "—"}
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
-                        <span
-                          className="text-blue-600 font-semibold cursor-pointer"
-                          onClick={() => onTaskClick(task)}
-                        >
-                          {task.department
-                            ?.toLowerCase()
-                            .includes("clinical") ||
-                          task.department?.toLowerCase().includes("medical")
-                            ? "Review"
-                            : "View"}
-                        </span>
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap relative">
+                        <div className="relative">
+                          <span
+                            className="text-blue-600 font-semibold cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onSaveQuickNote) {
+                                setOpenQuickNoteId(openQuickNoteId === task.id ? null : task.id);
+                              } else {
+                                onTaskClick(task);
+                              }
+                            }}
+                          >
+                            {task.department
+                              ?.toLowerCase()
+                              .includes("clinical") ||
+                            task.department?.toLowerCase().includes("medical")
+                              ? "Review"
+                              : "View"}
+                          </span>
+                          
+                          {openQuickNoteId === task.id && onSaveQuickNote && (
+                            <QuickNoteModal
+                              isOpen={true}
+                              task={task}
+                              onClose={() => setOpenQuickNoteId(null)}
+                              onSave={onSaveQuickNote}
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+interface ChipData {
+  label: string;
+  description: string;
+  category: string; // Add category here
+}
 
 interface Task {
   id: string;
   description: string;
   quickNotes?: {
-    status_update?: string;
-    details?: string;
-    one_line_note?: string;
+    options?: ChipData[];
     timestamp?: string;
   };
 }
@@ -17,135 +21,88 @@ interface QuickNoteModalProps {
   isOpen: boolean;
   task: Task | null;
   onClose: () => void;
-  onSave: (
+  onSave?: (
     taskId: string,
     quickNotes: {
-      status_update: string;
-      details: string;
-      one_line_note: string;
+      options: ChipData[];
     }
   ) => Promise<void>;
 }
 
-// Quick note templates organized by category
-const QUICK_NOTE_OPTIONS = {
-  "Scheduling-Related": {
-    "Outbound Scheduling": [
-      "Called patient – left voicemail.",
-      "Called patient – scheduled appointment.",
-      "Called patient – patient declined appointment.",
-      "Unable to reach patient – no voicemail available.",
-      "Text message sent – awaiting response.",
-      "Email sent – awaiting response.",
-      "Patient reports appointment already scheduled elsewhere.",
-      "Specialist office contacted – awaiting available dates.",
-      "Specialist office contacted – appointment confirmed.",
-      "Specialist office requested updated referral/authorization.",
-      "Specialist office does not accept patient's insurance.",
-    ],
-    "Inbound Scheduling": [
-      "Outside office sent appointment date – updated in system.",
-      "Outside office cancelled/rescheduled appointment.",
-      "Specialist requested additional documentation before scheduling.",
-    ],
-  },
-  "Lab / Imaging Follow-Up": {
-    "Lab Results": [
-      "Lab results received – forwarded to provider.",
-      "Critical lab flagged – provider notified.",
-    ],
-    Imaging: [
-      "Imaging report received – provider notified.",
-      "Imaging center requesting updated order.",
-      "Imaging center unable to proceed – insurance issue.",
-      "Patient instructed to schedule imaging.",
-      "Patient completed imaging – awaiting report.",
-    ],
-  },
-  "Pharmacy / Medication": {
-    "Pharmacy Communication": [
-      "Pharmacy requested clarification – forwarded to provider.",
-      "Pharmacy refill request received – sent to provider.",
-      "Medication not covered – pharmacy requested alternative.",
-    ],
-    "Prior Authorization": [
-      "Prior authorization required – beginning process.",
-      "Prior authorization submitted.",
-      "Prior authorization approved.",
-      "Prior authorization denied – provider notified.",
-    ],
-  },
-  "Insurance / Care Coordination": {
-    "Insurance Requests": [
-      "Insurance requested additional documentation.",
-      "Insurance denied request – report uploaded for provider.",
-      "Insurance authorization received – ready to schedule.",
-      "Patient's insurance inactive – requested updated information.",
-    ],
-    "Insurance Forms": [
-      "Insurance form completed and faxed.",
-      "Insurance form incomplete – need missing details.",
-    ],
-  },
-  "Hospital / ER / Urgent Care": {
-    Records: [
-      "Hospital discharge summary received – forwarded to provider.",
-      "ED visit report received – provider notified.",
-      "Hospital requested follow-up appointment.",
-    ],
-    "Care Transition": [
-      "Care transition call made – left voicemail.",
-      "Care transition call completed – appointment scheduled.",
-    ],
-  },
-  "Specialist / Outside Provider": {
-    Reports: [
-      "Consult report received – provider notified.",
-      "Consult report recommends follow-up – scheduling patient.",
-      "Consult report recommends new medication – awaiting provider decision.",
-      "Specialist requested updated labs/imaging.",
-      "Specialist requested new referral.",
-    ],
-  },
-  "Administrative Documents": {
-    "Forms Processing": [
-      "Form received – routed to provider.",
-      "Form completed – faxed/emailed.",
-      "Form incomplete – need missing patient information.",
-      "Employer requested additional information.",
-      "Patient notified form is ready for pick-up.",
-    ],
-  },
-  "Task Status": {
-    "Completion Status": [
-      "Completed as requested.",
-      "Unable to complete – missing documentation.",
-      "Unable to complete – requires provider review.",
-      "Pending patient response.",
-      "Pending outside office response.",
-      "Pending insurance response.",
-      "Task resolved – no further action needed.",
-    ],
-  },
-  "Patient Communication": {
-    "Notification Method": [
-      "Patient notified via phone.",
-      "Patient notified via text.",
-      "Patient notified via patient portal.",
-      "Patient notified via email.",
-      "Patient acknowledged and understands.",
-      "Patient needs clarification – routed to provider.",
-    ],
-  },
-  Escalation: {
-    "Escalation Actions": [
-      "Escalated to provider.",
-      "Escalated to supervisor.",
-      "Requires clinical decision – provider notified.",
-      "Requires insurance specialist – forwarded.",
-      "Requires follow-up from management.",
-    ],
-  },
+// Custom status chips organized by category
+const STATUS_CHIPS = {
+  "General Task Status": [
+    { emoji: "🟡", label: "New", description: "Task auto-generated, no action yet" },
+    { emoji: "🔵", label: "In Progress", description: "Staff actively working" },
+    { emoji: "⏸", label: "Waiting", description: "Blocked by external party" },
+    { emoji: "✅", label: "Completed", description: "Task finished" },
+    { emoji: "🚫", label: "Unable to Complete", description: "Action attempted but not possible" },
+    { emoji: "🔁", label: "Reopened", description: "Task returned after closure" },
+  ],
+  "Contact & Outreach Status": [
+    { emoji: "📞", label: "Called – No Answer", description: "Attempted phone call" },
+    { emoji: "📩", label: "Left Voicemail", description: "Voicemail left" },
+    { emoji: "✉️", label: "Email Sent", description: "Email delivered" },
+    { emoji: "📠", label: "Fax Sent", description: "Fax transmitted" },
+    { emoji: "📲", label: "Text Sent", description: "SMS sent" },
+    { emoji: "🤝", label: "Spoke With Party", description: "Live communication occurred" },
+    { emoji: "📆", label: "Callback Scheduled", description: "Future follow-up set" },
+  ],
+  "Scheduling Status": [
+    { emoji: "🗓", label: "Scheduled", description: "Appointment booked" },
+    { emoji: "⏳", label: "Pending Availability", description: "Waiting for slot" },
+    { emoji: "🔄", label: "Rescheduled", description: "Date/time changed" },
+    { emoji: "❌", label: "Cancelled", description: "Appointment cancelled" },
+    { emoji: "🚷", label: "Patient No-Show", description: "Patient did not attend" },
+    { emoji: "🏥", label: "Facility Confirmed", description: "Facility accepted referral" },
+  ],
+  "Authorization / RFA Status": [
+    { emoji: "📤", label: "RFA Sent", description: "Submitted" },
+    { emoji: "📥", label: "Auth Received", description: "Approval received" },
+    { emoji: "🏷", label: "Auth Name Update Needed", description: "Authorization issued but provider/facility name must be added or corrected by adjuster before scheduling" },
+    { emoji: "❌", label: "Denied", description: "Denial received" },
+    { emoji: "🟠", label: "Partial Approval", description: "Some items approved" },
+    { emoji: "⏳", label: "Pending UR", description: "Awaiting decision" },
+    { emoji: "🧾", label: "Clarification Requested", description: "Payer requested more info" },
+    { emoji: "⚠️", label: "Appeal Needed", description: "Triggers physician review" },
+  ],
+  "Document Handling Status": [
+    { emoji: "📄", label: "Received", description: "Document uploaded" },
+    { emoji: "👀", label: "Reviewed", description: "Staff review completed" },
+    { emoji: "🏷", label: "Categorized", description: "Tagged correctly" },
+    { emoji: "📌", label: "Action Required", description: "Task generated" },
+    { emoji: "🔗", label: "Linked to Case", description: "Associated with patient" },
+    { emoji: "🗄", label: "Filed / Archived", description: "No further action" },
+  ],
+  "Patient Response Status": [
+    { emoji: "🙋", label: "Patient Reached", description: "Direct contact" },
+    { emoji: "⏰", label: "Awaiting Patient", description: "Waiting on response" },
+    { emoji: "📋", label: "Forms Sent", description: "Intake/forms delivered" },
+    { emoji: "🖊", label: "Forms Completed", description: "Patient completed" },
+    { emoji: "🚫", label: "Declined", description: "Patient declined service" },
+    { emoji: "🔁", label: "Needs Follow-Up", description: "Additional contact required" },
+  ],
+  "External Party Status": [
+    { emoji: "⚖️", label: "Attorney Notified", description: "Attorney contacted" },
+    { emoji: "🧑‍💼", label: "Adjuster Contacted", description: "Adjuster outreach" },
+    { emoji: "🩺", label: "NCM Contacted", description: "Nurse case manager" },
+    { emoji: "🏥", label: "Facility Contacted", description: "Imaging/therapy facility" },
+    { emoji: "📨", label: "Response Received", description: "Reply logged" },
+    { emoji: "⛔", label: "No Response", description: "No reply after attempts" },
+  ],
+  "Physician-Dependent Status": [
+    { emoji: "🩺", label: "Physician Review Needed", description: "Escalation" },
+    { emoji: "✍️", label: "Signature Required", description: "Awaiting MD" },
+    { emoji: "📑", label: "Addendum Requested", description: "MD input needed" },
+    { emoji: "🔍", label: "Clinical Decision Pending", description: "Blocks workflow" },
+    { emoji: "✅", label: "Physician Verified", description: "MD completed" },
+  ],
+  "Exception & Priority Flags": [
+    { emoji: "⚠️", label: "Time-Sensitive", description: "Deadline approaching" },
+    { emoji: "⏰", label: "Overdue", description: "SLA missed" },
+    { emoji: "🔥", label: "High Priority", description: "Escalated" },
+    { emoji: "🧯", label: "Resolved After Escalation", description: "Closed post-issue" },
+  ],
 };
 
 export default function QuickNoteModal({
@@ -154,52 +111,93 @@ export default function QuickNoteModal({
   onClose,
   onSave,
 }: QuickNoteModalProps) {
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedSubcategory, setSelectedSubcategory] = useState("");
-  const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
-  const [additionalDetails, setAdditionalDetails] = useState("");
+  const [selectedChips, setSelectedChips] = useState<ChipData[]>([]);
   const [saving, setSaving] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Reset form when modal opens with new task
   useEffect(() => {
     if (task && isOpen) {
-      setSelectedCategory("");
-      setSelectedSubcategory("");
-      setSelectedNotes([]);
-      setAdditionalDetails(task.quickNotes?.details || "");
+      // Get existing options if available
+      if (task.quickNotes?.options && Array.isArray(task.quickNotes.options)) {
+        setSelectedChips(task.quickNotes.options);
+      } else {
+        setSelectedChips([]);
+      }
     }
   }, [task, isOpen]);
 
+  // Handle click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || !task) return null;
 
-  const categories = Object.keys(QUICK_NOTE_OPTIONS);
-  const subcategories = selectedCategory
-    ? Object.keys(
-        QUICK_NOTE_OPTIONS[selectedCategory as keyof typeof QUICK_NOTE_OPTIONS]
-      )
-    : [];
-  const noteOptions =
-    selectedCategory && selectedSubcategory
-      ? QUICK_NOTE_OPTIONS[selectedCategory as keyof typeof QUICK_NOTE_OPTIONS][
-          selectedSubcategory as any
-        ]
-      : [];
+  const handleChipToggle = (chipLabel: string, chipCategory: string) => {
+    // Find the chip data from STATUS_CHIPS
+    let chipData: ChipData | null = null;
+    
+    const chips = STATUS_CHIPS[chipCategory as keyof typeof STATUS_CHIPS];
+    const chip = chips?.find(c => c.label === chipLabel);
+    
+    if (chip) {
+      chipData = { 
+        label: chip.label, 
+        description: chip.description,
+        category: chipCategory // Include category
+      };
+    }
 
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
-    setSelectedSubcategory("");
-    setSelectedNotes([]);
+    if (!chipData) return;
+
+    setSelectedChips((prev) => {
+      const exists = prev.find(chip => 
+        chip.label === chipLabel && chip.category === chipCategory
+      );
+      if (exists) {
+        return prev.filter(chip => 
+          !(chip.label === chipLabel && chip.category === chipCategory)
+        );
+      } else {
+        return [...prev, chipData!];
+      }
+    });
   };
 
-  const handleSubcategoryChange = (subcategory: string) => {
-    setSelectedSubcategory(subcategory);
-    setSelectedNotes([]);
-  };
+  const saveQuickNote = async (taskId: string, options: ChipData[]) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ options }), // Only send options array
+      });
 
-  const handleNoteToggle = (note: string) => {
-    setSelectedNotes((prev) =>
-      prev.includes(note) ? prev.filter((n) => n !== note) : [...prev, note]
-    );
+      if (!response.ok) {
+        throw new Error(`Failed to save task: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error saving quick note:', error);
+      throw error;
+    }
   };
 
   const handleSave = async () => {
@@ -207,180 +205,171 @@ export default function QuickNoteModal({
 
     setSaving(true);
     try {
-      const statusUpdate =
-        selectedCategory && selectedSubcategory
-          ? `${selectedCategory} > ${selectedSubcategory}`
-          : "";
+      // Prepare quickNotes object with only options (array of objects)
+      const quickNotes = {
+        options: selectedChips // Array of objects with label, description, and category
+      };
 
-      const oneLineNote = selectedNotes.length > 0 ? selectedNotes[0] : "";
-
-      const details =
-        selectedNotes.length > 0
-          ? selectedNotes.join("\n") +
-            (additionalDetails
-              ? "\n\nAdditional Notes:\n" + additionalDetails
-              : "")
-          : additionalDetails;
-
-      await onSave(task.id, {
-        status_update: statusUpdate,
-        details: details,
-        one_line_note: oneLineNote,
-      });
+      // Use the API directly if onSave is not provided
+      if (onSave) {
+        await onSave(task.id, quickNotes);
+      } else {
+        await saveQuickNote(task.id, selectedChips);
+      }
+      
       onClose();
     } catch (error) {
       console.error("Error saving quick note:", error);
+      alert("Failed to save note. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
-  const canSave =
-    selectedNotes.length > 0 || additionalDetails.trim().length > 0;
+  const canSave = selectedChips.length > 0;
+
+  // Check if a chip is selected
+  const isChipSelected = (chipLabel: string, chipCategory: string) => {
+    return selectedChips.some(chip => 
+      chip.label === chipLabel && chip.category === chipCategory
+    );
+  };
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]"
-      onClick={onClose}
+      ref={dropdownRef}
+      className="absolute right-0 top-full mt-2 z-[1000] w-[450px] bg-white border border-gray-200 rounded-lg shadow-xl flex flex-col max-h-[60vh] overflow-hidden"
+      onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] max-w-[700px] w-[90%] max-h-[85vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
-          <h3 className="m-0 text-base font-bold">
-            Quick Note: {task.description}
-          </h3>
-          <button
-            className="bg-transparent border-none text-2xl cursor-pointer p-0 w-6 h-6 flex items-center justify-center text-gray-500 transition-colors hover:text-slate-900"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
+      <div className="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 flex-shrink-0">
+        <h3 className="m-0 text-sm font-bold text-slate-800">
+          Quick Note
+        </h3>
+        <button
+          className="bg-transparent border-none text-xl cursor-pointer p-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-slate-900"
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
 
-        <div className="p-4 overflow-y-auto flex-1">
-          {/* Category Selection */}
-          <div className="mb-4">
-            <label className="block mb-1.5 text-sm font-semibold text-slate-900">
-              Category
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              className="w-full p-2 border border-gray-200 rounded-md text-sm font-[inherit] focus:outline-none focus:border-blue-600 focus:shadow-[0_0_0_2px_rgba(37,99,235,0.1)] bg-white"
-            >
-              <option value="">Select a category...</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Subcategory Selection */}
-          {selectedCategory && (
-            <div className="mb-4">
-              <label className="block mb-1.5 text-sm font-semibold text-slate-900">
-                Type
-              </label>
-              <select
-                value={selectedSubcategory}
-                onChange={(e) => handleSubcategoryChange(e.target.value)}
-                className="w-full p-2 border border-gray-200 rounded-md text-sm font-[inherit] focus:outline-none focus:border-blue-600 focus:shadow-[0_0_0_2px_rgba(37,99,235,0.1)] bg-white"
-              >
-                <option value="">Select a type...</option>
-                {subcategories.map((subcategory) => (
-                  <option key={subcategory} value={subcategory}>
-                    {subcategory}
-                  </option>
-                ))}
-              </select>
+      <div className="p-3 overflow-y-auto flex-1">
+        {/* Selected Chips Preview */}
+        {selectedChips.length > 0 && (
+          <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
+            <div className="text-xs font-medium text-slate-700 mb-1">
+              Selected Status Updates ({selectedChips.length}):
             </div>
-          )}
-
-          {/* Note Options (Checkboxes) */}
-          {selectedSubcategory && noteOptions.length > 0 && (
-            <div className="mb-4">
-              <label className="block mb-2 text-sm font-semibold text-slate-900">
-                Select Note(s)
-              </label>
-              <div className="border border-gray-200 rounded-md max-h-[250px] overflow-y-auto p-3 bg-gray-50">
-                {noteOptions.map((note: string, index: number) => (
-                  <label
+            <div className="space-y-1">
+              {selectedChips.map((chip, index) => {
+                // Find emoji for the chip
+                let emoji = "";
+                const chips = STATUS_CHIPS[chip.category as keyof typeof STATUS_CHIPS];
+                const chipData = chips?.find(c => c.label === chip.label);
+                if (chipData) {
+                  emoji = chipData.emoji;
+                }
+                
+                return (
+                  <div
                     key={index}
-                    className="flex items-start gap-2 mb-2 cursor-pointer hover:bg-white p-2 rounded transition-colors"
+                    className="flex items-start justify-between p-2 bg-white border border-blue-200 rounded text-xs"
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedNotes.includes(note)}
-                      onChange={() => handleNoteToggle(note)}
-                      className="mt-0.5 cursor-pointer"
-                    />
-                    <span className="text-sm text-slate-700">{note}</span>
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-1.5 italic">
-                Select one or more options. Multiple selections will be combined
-                in the details.
-              </p>
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm mt-0.5">{emoji}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium text-slate-800">
+                              {chip.label}
+                            </div>
+                            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                              {chip.category}
+                            </span>
+                          </div>
+                          <div className="text-gray-500 mt-1">
+                            {chip.description}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleChipToggle(chip.label, chip.category)}
+                      className="ml-2 text-gray-500 hover:text-red-500 flex-shrink-0"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          )}
-
-          {/* Additional Details */}
-          <div className="mb-4">
-            <label className="block mb-1.5 text-sm font-semibold text-slate-900">
-              Additional Details (Optional)
-            </label>
-            <textarea
-              value={additionalDetails}
-              onChange={(e) => setAdditionalDetails(e.target.value)}
-              placeholder="Add any additional context or notes here..."
-              rows={4}
-              className="w-full p-2 border border-gray-200 rounded-md text-sm font-[inherit] resize-y min-h-[80px] focus:outline-none focus:border-blue-600 focus:shadow-[0_0_0_2px_rgba(37,99,235,0.1)]"
-            />
           </div>
+        )}
 
-          {/* Preview Selected Notes */}
-          {selectedNotes.length > 0 && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-xs font-semibold text-blue-900 mb-1">
-                Selected Notes:
-              </p>
-              <ul className="list-disc list-inside text-xs text-blue-800 space-y-0.5 m-0 pl-2">
-                {selectedNotes.map((note, idx) => (
-                  <li key={idx}>{note}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {task.quickNotes?.timestamp && (
-            <p className="text-xs text-gray-500 mt-2 italic m-0">
-              Last updated:{" "}
-              {new Date(task.quickNotes.timestamp).toLocaleString()}
-            </p>
-          )}
+        {/* All Categories and Chips */}
+        <div className="mb-3">
+          <div className="space-y-3">
+            {Object.entries(STATUS_CHIPS).map(([category, chips]) => (
+              <div key={category} className="border border-gray-100 rounded-md p-2 bg-white">
+                <h4 className="text-xs font-bold text-slate-700 mb-2 pb-1 border-b border-gray-100">
+                  {category}
+                </h4>
+                <div className="grid grid-cols-1 gap-1">
+                  {chips.map((chip, index) => (
+                    <label
+                      key={index}
+                      className={`flex items-center gap-2 p-1.5 rounded transition-colors cursor-pointer hover:bg-gray-50 border ${
+                        isChipSelected(chip.label, category)
+                          ? 'bg-blue-50 border-blue-200'
+                          : 'border-transparent'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChipSelected(chip.label, category)}
+                        onChange={() => handleChipToggle(chip.label, category)}
+                        className="cursor-pointer w-3.5 h-3.5"
+                      />
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="text-sm">{chip.emoji}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs font-medium text-slate-800 truncate">
+                              {chip.label}
+                            </div>
+                            <span className="text-[10px] px-1 py-0.5 bg-gray-100 text-gray-600 rounded truncate max-w-[100px]">
+                              {category}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 truncate">
+                            {chip.description}
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
 
-        <div className="p-4 border-t border-gray-200 flex gap-2.5 justify-end flex-shrink-0">
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="border border-gray-200 bg-white rounded-md px-4 py-2 font-semibold text-xs cursor-pointer transition-all duration-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            className="border border-blue-600 bg-blue-600 text-white rounded-md px-4 py-2 font-semibold text-xs cursor-pointer transition-all duration-200 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleSave}
-            disabled={saving || !canSave}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-        </div>
+      <div className="p-3 border-t border-gray-200 flex gap-2 justify-end bg-gray-50 flex-shrink-0">
+        <button
+          onClick={onClose}
+          disabled={saving}
+          className="bg-white border border-gray-300 text-gray-700 rounded px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          className="bg-blue-600 text-white border border-blue-600 rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+          onClick={handleSave}
+          disabled={saving || !canSave}
+        >
+          {saving ? "Saving..." : "Save Note"}
+        </button>
       </div>
     </div>
   );

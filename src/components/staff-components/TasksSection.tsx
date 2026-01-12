@@ -1,5 +1,6 @@
 import TasksTable from "@/components/staff-components/TasksTable";
 import PatientContent from "@/components/staff-components/PatientContent";
+import TaskManager from "./TaskManager";
 
 interface RecentPatient {
   patientName: string;
@@ -78,6 +79,7 @@ interface TasksSectionProps {
   onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => void;
   onTaskClick: (task: Task) => void;
+  onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
   onFailedDocumentDeleted: (docId: string) => void;
   onFailedDocumentRowClick: (doc: FailedDocument) => void;
 }
@@ -110,6 +112,7 @@ export default function TasksSection({
   onStatusClick,
   onAssigneeClick,
   onTaskClick,
+  onSaveQuickNote,
   onFailedDocumentDeleted,
   onFailedDocumentRowClick,
 }: TasksSectionProps) {
@@ -166,6 +169,7 @@ export default function TasksSection({
       </div>
 
       {/* Show TasksTable - only one instance, handle both cases */}
+      <TaskManager  tasks={displayedTasks} />
       <TasksTable
         tasks={
           selectedPatient && displayedTasks.length > 0 ? displayedTasks : []
@@ -179,6 +183,7 @@ export default function TasksSection({
         onStatusClick={onStatusClick}
         onAssigneeClick={onAssigneeClick}
         onTaskClick={onTaskClick}
+        onSaveQuickNote={onSaveQuickNote}
         getStatusOptions={getStatusOptions}
         getAssigneeOptions={getAssigneeOptions}
         // ALWAYS pass failed documents (they show in ALL cases)
