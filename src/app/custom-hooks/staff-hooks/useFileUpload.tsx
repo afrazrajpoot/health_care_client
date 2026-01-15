@@ -11,7 +11,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const snapInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
-  const { setActiveTask, startTwoPhaseTracking } = useSocket();
+  const { setActiveTask, startTwoPhaseTracking, clearProgress } = useSocket();
 
   const formatSize = useCallback((bytes: number) => {
     if (bytes < 1024) return bytes + " B";
@@ -51,7 +51,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
             : user?.physicianId || ""; // otherwise, send assigned physician’s ID
 
         const apiUrl = `${
-          process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
+          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
         }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
           user?.id || ""
         }`;
@@ -93,19 +93,53 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         }
 
         const data = await response.json();
-        // Check if there are ignored files
+
+        // Handle the case where all files were ignored/skipped (no task_id returned)
+        // This happens when files are duplicates or already processed
         if (data.ignored && data.ignored.length > 0) {
+          // Clear any existing progress tracking since there's nothing to process
+          clearProgress();
+
           setIgnoredFiles(data.ignored);
-          setPaymentError(
-            `${data.ignored_count} file${
-              data.ignored_count > 1 ? "s" : ""
-            } could not be uploaded. See details below.`
-          );
+
+          // If no files were actually sent for processing (all ignored)
+          if (!data.task_id && data.payload_count === 0) {
+            setPaymentError(
+              `All ${data.ignored_count} file${
+                data.ignored_count > 1 ? "s were" : " was"
+              } skipped. See details below.`
+            );
+
+            // Show toast notification for immediate feedback
+            toast.warning(
+              `${data.ignored_count} file${
+                data.ignored_count > 1 ? "s" : ""
+              } skipped`,
+              {
+                description:
+                  data.ignored[0]?.reason ||
+                  "Files were already uploaded or invalid",
+                duration: 5000,
+              }
+            );
+          } else {
+            // Some files were processed, some were ignored
+            setPaymentError(
+              `${data.ignored_count} file${
+                data.ignored_count > 1 ? "s" : ""
+              } could not be uploaded. See details below.`
+            );
+          }
+
           setSelectedFiles([]);
           if (snapInputRef.current) {
             snapInputRef.current.value = "";
           }
-          return;
+
+          // If no task_id, don't proceed with progress tracking
+          if (!data.task_id) {
+            return;
+          }
         }
 
         // Check if we have both upload_task_id and task_id for two-phase tracking
@@ -116,7 +150,12 @@ export const useFileUpload = (mode: "wc" | "gm") => {
           // Fallback to single-phase tracking
           setActiveTask(data.task_id, data.payload_count);
         } else {
-          throw new Error("No task_id returned from server");
+          // No task_id means nothing to process - this is already handled above
+          // But if we get here without ignored files, it's an unexpected state
+          if (!data.ignored || data.ignored.length === 0) {
+            throw new Error("No files were processed. Please try again.");
+          }
+          return;
         }
 
         setSelectedFiles([]);
@@ -131,17 +170,19 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         } else if (error.message.includes("Failed to fetch")) {
           setUploadError(
             "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-              (process.env.NEXT_PUBLIC_API_BASE_URL ||
-                "https://api.doclatch.com")
+              (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
           );
         } else {
           setUploadError(`Upload failed: ${error.message}`);
         }
+
+        // Clear any progress tracking on error
+        clearProgress();
       } finally {
         setUploading(false);
       }
     },
-    [session?.user, setActiveTask, mode, startTwoPhaseTracking]
+    [session?.user, setActiveTask, mode, startTwoPhaseTracking, clearProgress]
   );
 
   const handleSubmit = useCallback(async () => {

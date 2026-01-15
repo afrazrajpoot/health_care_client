@@ -170,7 +170,7 @@ export default function PhysicianCard() {
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
@@ -191,6 +191,36 @@ export default function PhysicianCard() {
 
       const data = await response.json();
 
+      // Handle ignored files - show toast with details
+      if (data.ignored && data.ignored.length > 0) {
+        // If all files were ignored (no task created)
+        if (!data.task_id && data.payload_count === 0) {
+          toast.warning(
+            `All ${data.ignored_count} file${
+              data.ignored_count > 1 ? "s were" : " was"
+            } skipped`,
+            {
+              description: data.ignored
+                .map((f: any) => `${f.filename}: ${f.reason}`)
+                .join("\n")
+                .slice(0, 200),
+              duration: 8000,
+            }
+          );
+        } else {
+          // Some files were processed, some ignored
+          toast.info(
+            `${data.ignored_count} file${
+              data.ignored_count > 1 ? "s" : ""
+            } skipped`,
+            {
+              description: "Some files were already uploaded",
+              duration: 5000,
+            }
+          );
+        }
+      }
+
       // Clear files after successful upload
       setPendingFiles([]);
       if (fileInputRef.current) {
@@ -198,9 +228,13 @@ export default function PhysicianCard() {
       }
     } catch (error) {
       console.error("❌ Upload failed:", error);
-      throw error; // Re-throw to handle in calling code if needed
+      toast.error("Upload failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+        duration: 5000,
+      });
     } finally {
       // ProgressTracker will automatically close when processing completes
+      setShowUploadToast(false);
     }
   }, [pendingFiles, mode, session]);
 

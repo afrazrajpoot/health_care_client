@@ -3,15 +3,46 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { io, Socket } from "socket.io-client";
 
+// Item status for successful/failed files
+interface SuccessfulItem {
+  filename: string;
+  status: "success";
+  message: string;
+}
+
+interface FailedItem {
+  filename: string;
+  status: "failed";
+  message: string;
+}
+
 interface ProgressData {
   task_id: string;
   progress: number;
   current_file: string;
-  status: "processing" | "completed" | "failed";
+  status: "processing" | "completed" | "completed_with_errors" | "failed";
   processed_count: number;
   total_files: number;
   failed_files: string[];
   current_step: number;
+  // New: Real-time list of files that succeeded with details
+  successful_items?: SuccessfulItem[];
+  // New: Real-time list of files that failed with error messages
+  failed_items?: FailedItem[];
+}
+
+// Task completion event from WebSocket
+interface TaskCompleteEvent {
+  task_id: string;
+  status: "completed";
+  summary: {
+    total_files: number;
+    processed: number;
+    successful: number;
+    failed: number;
+    successful_list?: SuccessfulItem[];
+    failed_list?: FailedItem[];
+  };
 }
 
 interface UseProgressProps {
@@ -44,7 +75,7 @@ export const useProgress = ({
 
     // Initialize socket connection
     const newSocket = io(
-      process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com",
+      process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000",
       {
         transports: ["websocket", "polling"],
         auth: {
@@ -139,7 +170,7 @@ export const useProgress = ({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com"
+          process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:8000"
         }/api/agent/progress/${taskId}`,
         {
           headers: {

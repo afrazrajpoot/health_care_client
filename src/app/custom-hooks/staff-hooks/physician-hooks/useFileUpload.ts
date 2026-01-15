@@ -1,15 +1,37 @@
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
+
+// Response type for upload API
+interface IgnoredFile {
+  filename: string;
+  reason: string;
+  existing_file?: string;
+  document_id?: string;
+}
+
+interface UploadResponse {
+  upload_task_id?: string;
+  task_id?: string | null;
+  payload_count: number;
+  ignored?: IgnoredFile[];
+  ignored_count?: number;
+  remaining_parses?: number;
+}
 
 export const useFileUpload = (
   session: any,
   mode: "wc" | "gm" = "wc"
 ) => {
   const [files, setFiles] = useState<File[]>([]);
+  const [ignoredFiles, setIgnoredFiles] = useState<IgnoredFile[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(Array.from(e.target.files));
+      setIgnoredFiles([]);
+      setUploadError(null);
     }
   }, []);
 
@@ -23,7 +45,8 @@ export const useFileUpload = (
     formData.append("mode", mode);
 
     try {
-
+      setUploadError(null);
+      setIgnoredFiles([]);
 
       // ✅ Determine physician ID based on role (same as staff dashboard)
       const user = session?.user;
@@ -33,12 +56,10 @@ export const useFileUpload = (
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
-
-
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -48,17 +69,40 @@ export const useFileUpload = (
         body: formData,
       });
 
-
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error("❌ Upload failed:", errorText);
+        setUploadError(`Upload failed: ${errorText}`);
+        toast.error("Upload failed", {
+          description: errorText.slice(0, 200),
+          duration: 5000,
+        });
         return;
       }
 
-      const data = await response.json();
-   
-
+      const data: UploadResponse = await response.json();
+      
+      // Handle ignored files
+      if (data.ignored && data.ignored.length > 0) {
+        setIgnoredFiles(data.ignored);
+        
+        // If all files were ignored (no processing task created)
+        if (!data.task_id && data.payload_count === 0) {
+          const errorMsg = `All ${data.ignored_count} file${data.ignored_count !== 1 ? "s were" : " was"} skipped`;
+          setUploadError(errorMsg);
+          
+          toast.warning(errorMsg, {
+            description: data.ignored[0]?.reason || "Files were already uploaded",
+            duration: 6000,
+          });
+        } else {
+          // Some files processed, some ignored
+          toast.info(`${data.ignored_count} file${data.ignored_count !== 1 ? "s" : ""} skipped`, {
+            description: "Some files were already uploaded",
+            duration: 5000,
+          });
+        }
+      }
 
       setFiles([]);
       if (fileInputRef.current) {
@@ -66,13 +110,29 @@ export const useFileUpload = (
       }
     } catch (err: unknown) {
       console.error("❌ Network error uploading files:", err);
+      const errorMsg = err instanceof Error ? err.message : "Network error";
+      setUploadError(errorMsg);
+      toast.error("Upload failed", {
+        description: errorMsg,
+        duration: 5000,
+      });
     }
   }, [files, session, mode]);
 
   const resetFiles = useCallback(() => {
     setFiles([]);
+    setIgnoredFiles([]);
+    setUploadError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
-  return { files, fileInputRef, handleFileSelect, handleUpload, resetFiles };
+  return { 
+    files, 
+    fileInputRef, 
+    handleFileSelect, 
+    handleUpload, 
+    resetFiles,
+    ignoredFiles,
+    uploadError,
+  };
 };

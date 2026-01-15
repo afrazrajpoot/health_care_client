@@ -1,9 +1,24 @@
 // components/ProgressTracker.tsx
 import { useSocket } from "@/providers/SocketProvider";
-import React, { useEffect, useState } from "react";
-import { Check, X, Minimize2, Maximize2 } from "lucide-react";
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  Check,
+  X,
+  Minimize2,
+  Maximize2,
+  Loader2,
+  AlertCircle,
+  FileText,
+} from "lucide-react";
 import DocLatchAnimation from "./DocLatchAnimation";
 import { toast } from "sonner";
+
+// File item status types
+interface FileItemStatus {
+  filename: string;
+  status: "pending" | "processing" | "success" | "failed";
+  message?: string;
+}
 
 interface ProgressTrackerProps {
   onComplete?: () => void;
@@ -296,6 +311,87 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const toggleViewMode = () => {
     setViewMode(viewMode === "task" ? "queue" : "task");
   };
+
+  // Compute file items with real-time status from successful_items and failed_items
+  const fileItems = useMemo((): FileItemStatus[] => {
+    if (!progressData) return [];
+
+    const filenames = (progressData as any)?.filenames || [];
+    const successfulItems = progressData.successful_items || [];
+    const failedItems = progressData.failed_items || [];
+    const currentFile = progressData.current_file || "";
+
+    // Create a map of known statuses
+    const statusMap = new Map<string, FileItemStatus>();
+
+    // Add successful items
+    successfulItems.forEach((item) => {
+      statusMap.set(item.filename, {
+        filename: item.filename,
+        status: "success",
+        message: item.message,
+      });
+    });
+
+    // Add failed items
+    failedItems.forEach((item) => {
+      statusMap.set(item.filename, {
+        filename: item.filename,
+        status: "failed",
+        message: item.message,
+      });
+    });
+
+    // Build the final list from filenames array (or from status maps if filenames is empty)
+    if (filenames.length > 0) {
+      return filenames.map((filename: string): FileItemStatus => {
+        if (statusMap.has(filename)) {
+          return statusMap.get(filename)!;
+        }
+        // Check if this is the currently processing file
+        if (
+          currentFile &&
+          filename
+            .toLowerCase()
+            .includes(currentFile.toLowerCase().replace(" - Processing...", ""))
+        ) {
+          return {
+            filename,
+            status: "processing",
+            message: "Processing...",
+          };
+        }
+        return {
+          filename,
+          status: "pending",
+        };
+      });
+    }
+
+    // If no filenames array, build from successful and failed items
+    const allItems: FileItemStatus[] = [
+      ...successfulItems.map((item) => ({
+        filename: item.filename,
+        status: "success" as const,
+        message: item.message,
+      })),
+      ...failedItems.map((item) => ({
+        filename: item.filename,
+        status: "failed" as const,
+        message: item.message,
+      })),
+    ];
+
+    return allItems;
+  }, [progressData]);
+
+  // Calculate pending count
+  const pendingCount = useMemo(() => {
+    const successful = progressData?.successful_items?.length || 0;
+    const failed = progressData?.failed_items?.length || 0;
+    const total = progressData?.total_files || progressData?.total_steps || 0;
+    return Math.max(0, total - (successful + failed));
+  }, [progressData]);
 
   // Don't render if not visible OR if there's no active processing
   if (!isVisible || (!isProcessing && !progressData && !queueProgressData)) {
@@ -593,13 +689,13 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               </>
             ) : (
               <>
-                Processing {(progressData as any)?.filenames?.length || 1} file
-                {((progressData as any)?.filenames?.length || 1) !== 1
-                  ? "s"
+                {progressData?.successful_items?.length || 0} of{" "}
+                {progressData?.total_files || progressData?.total_steps || 1}{" "}
+                files completed
+                {progressData?.failed_items?.length
+                  ? ` • ${progressData.failed_items.length} failed`
                   : ""}
-                {progressData?.failed_files?.length
-                  ? ` (${progressData.failed_files.length} failed)`
-                  : ""}
+                {pendingCount > 0 ? ` • ${pendingCount} pending` : ""}
               </>
             )}
           </div>
@@ -632,33 +728,110 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
           )}
         </div>
 
-        {/* Processed Items */}
-        <div className="relative z-10 bg-gray-50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Check className="w-4 h-4 text-teal-500" />
-            <span className="text-sm font-semibold text-gray-700">
-              Processed Data
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            {["Lab Results", "Vitals", "Diagnoses", "Medications"].map(
-              (item, index) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
-                  style={{
-                    animation: `fadeInSlide 0.5s ease-out ${
-                      0.5 + index * 0.15
-                    }s forwards`,
-                  }}
-                >
-                  <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
-                  {item}
-                </div>
-              )
+        {/* File Processing Status List */}
+        <div className="relative z-10 bg-gray-50 rounded-xl p-4 max-h-60 overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-teal-500" />
+              <span className="text-sm font-semibold text-gray-700">
+                File Status
+              </span>
+            </div>
+            {fileItems.length > 0 && (
+              <span className="text-xs text-gray-500">
+                {progressData?.successful_items?.length || 0}/{fileItems.length}{" "}
+                done
+              </span>
             )}
           </div>
+
+          {fileItems.length > 0 ? (
+            <div className="space-y-2">
+              {fileItems.map((item, index) => (
+                <div
+                  key={`${item.filename}-${index}`}
+                  className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 transition-all duration-300"
+                  title={item.message || item.filename}
+                >
+                  {/* Status Icon */}
+                  <div className="flex-shrink-0">
+                    {item.status === "success" && (
+                      <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-green-600" />
+                      </div>
+                    )}
+                    {item.status === "failed" && (
+                      <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                        <AlertCircle className="w-3 h-3 text-red-600" />
+                      </div>
+                    )}
+                    {item.status === "processing" && (
+                      <div className="w-5 h-5 rounded-full bg-cyan-100 flex items-center justify-center">
+                        <Loader2 className="w-3 h-3 text-cyan-600 animate-spin" />
+                      </div>
+                    )}
+                    {item.status === "pending" && (
+                      <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Filename */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700 truncate">
+                      {item.filename}
+                    </p>
+                    {item.message && item.status === "failed" && (
+                      <p className="text-[10px] text-red-500 truncate">
+                        {item.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Status Label */}
+                  <span
+                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                      item.status === "success"
+                        ? "bg-green-100 text-green-700"
+                        : item.status === "failed"
+                        ? "bg-red-100 text-red-700"
+                        : item.status === "processing"
+                        ? "bg-cyan-100 text-cyan-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {item.status === "success"
+                      ? "Done"
+                      : item.status === "failed"
+                      ? "Error"
+                      : item.status === "processing"
+                      ? "Processing"
+                      : "Pending"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {["Lab Results", "Vitals", "Diagnoses", "Medications"].map(
+                (item, index) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
+                    style={{
+                      animation: `fadeInSlide 0.5s ease-out ${
+                        0.5 + index * 0.15
+                      }s forwards`,
+                    }}
+                  >
+                    <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
+                    {item}
+                  </div>
+                )
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom Actions */}

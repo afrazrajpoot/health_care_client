@@ -12,7 +12,20 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.doclatch.com";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
+
+// Item status for successful/failed files
+interface SuccessfulItem {
+  filename: string;
+  status: "success";
+  message: string;
+}
+
+interface FailedItem {
+  filename: string;
+  status: "failed";
+  message: string;
+}
 
 // Backend progress data interfaces
 interface BackendProgressData {
@@ -21,12 +34,16 @@ interface BackendProgressData {
   completed_steps: number;
   progress_percentage: number;
   current_file: string;
-  status: "processing" | "completed" | "failed";
+  status: "processing" | "completed" | "completed_with_errors" | "failed";
   processed_files: string[];
   failed_files: string[];
   current_step: number;
   current_file_progress?: number;
   queue_id?: string;
+  // New: Real-time list of files that succeeded
+  successful_items?: SuccessfulItem[];
+  // New: Real-time list of files that failed
+  failed_items?: FailedItem[];
 }
 
 // NEW: Queue progress data from backend
@@ -49,7 +66,12 @@ interface ProgressData {
   progress: number;
   progress_percentage?: number; // New field from API
   current_file: string;
-  status: "processing" | "completed" | "failed" | "upload_complete"; // Added upload_complete
+  status:
+    | "processing"
+    | "completed"
+    | "completed_with_errors"
+    | "failed"
+    | "upload_complete"; // Added completed_with_errors
   processed_count: number;
   total_files: number;
   successful_count: number;
@@ -59,6 +81,10 @@ interface ProgressData {
   completed_steps?: number; // New field from API
   filenames?: string[]; // Array of filenames being processed
   queue_id?: string;
+  // New: Real-time list of files that succeeded with details
+  successful_items?: SuccessfulItem[];
+  // New: Real-time list of files that failed with error messages
+  failed_items?: FailedItem[];
 }
 
 // NEW: Frontend Queue Progress Data
@@ -316,8 +342,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const mapToProgressData = (
     backendData: BackendProgressData
   ): ProgressData => {
-    const successful_count = backendData.processed_files?.length || 0;
-    const failed_count = backendData.failed_files?.length || 0;
+    const successful_count =
+      backendData.processed_files?.length ||
+      backendData.successful_items?.length ||
+      0;
+    const failed_count =
+      backendData.failed_files?.length || backendData.failed_items?.length || 0;
     const total_files = backendData.total_steps || 1;
     const completed_steps = backendData.completed_steps || 0;
 
@@ -328,9 +358,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     let mappedStatus = backendData.status as
       | "processing"
       | "completed"
+      | "completed_with_errors"
       | "failed";
 
-    const mapped = {
+    const mapped: ProgressData = {
       task_id: backendData.task_id,
       progress: Math.round(mappedProgress),
       current_file: backendData.current_file || "",
@@ -341,6 +372,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       failed_files: backendData.failed_files || [],
       current_step: backendData.current_step || 0,
       queue_id: backendData.queue_id,
+      // New: Include detailed item lists for real-time file status tracking
+      successful_items: backendData.successful_items || [],
+      failed_items: backendData.failed_items || [],
     };
 
     console.log("🔄 Mapped progress:", {
@@ -350,6 +384,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       total_files,
       mappedStatus: mapped.status,
       mappedProgress: mapped.progress,
+      successfulItems: mapped.successful_items?.length || 0,
+      failedItems: mapped.failed_items?.length || 0,
     });
 
     return mapped;
