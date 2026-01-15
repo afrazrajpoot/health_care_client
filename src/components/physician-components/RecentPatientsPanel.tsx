@@ -64,7 +64,7 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
     if (patient.documentCount && patient.documentCount > 0) {
       return `${patient.documentCount} document(s)`;
     }
-    return "Unknown";
+    return "";
   };
 
   // Filter recent patients based on search query
@@ -241,4 +241,3 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
     </>
   );
 };
-

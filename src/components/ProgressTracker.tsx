@@ -405,17 +405,25 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     ? displayQueueProgress
     : displayProgress;
 
-  // Get progress counts for display - use actual file count from filenames
+  // Get progress counts for display - avoid using filenames.length if it's empty
   const processedCount =
     viewMode === "queue"
       ? queueProgressData?.completed_tasks || 0
-      : progressData?.completed_steps || 0;
+      : progressData?.completed_steps || progressData?.processed_count || 0;
+
+  // Determine total files: prioritize total_files from API, fallback to filenames length or just 1
   const totalCount =
     viewMode === "queue"
       ? queueProgressData?.total_tasks || 0
-      : (progressData as any)?.filenames?.length ||
+      : progressData?.total_files ||
         progressData?.total_steps ||
+        (progressData as any)?.filenames?.length ||
         1;
+  // If we have specific files counted, ensure totalCount reflects that at minimum
+  const effectiveTotalCount = Math.max(
+    totalCount,
+    (progressData as any)?.filenames?.length || 0
+  );
 
   // Minimized floating view - shows in top-right corner
   if (isMinimized) {

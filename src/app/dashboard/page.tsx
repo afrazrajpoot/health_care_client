@@ -25,6 +25,7 @@ import { PhysicianCardLayout } from "@/components/physician-components/Physician
 import FileConfirmationModal from "@/components/physician-components/FileConfirmationModal";
 import UploadProgressManager from "@/components/physician-components/UploadProgressManager";
 import DocumentSuccessPopup from "@/components/staff-components/DocumentSuccessPopup";
+import PaymentErrorModal from "@/components/staff-components/PaymentErrorModal";
 // import { FloatingNewOrderButton } from "@/components/physician-components/FloatingNewOrderButton";
 
 import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch";
@@ -108,6 +109,8 @@ export default function PhysicianCard() {
   const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
     useState(false);
   const [showUploadToast, setShowUploadToast] = useState(false);
+  const [ignoredFiles, setIgnoredFiles] = useState<any[]>([]);
+  const [showIgnoredFilesModal, setShowIgnoredFilesModal] = useState(false);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   const { toasts, addToast } = useToasts();
@@ -124,6 +127,9 @@ export default function PhysicianCard() {
     closeOnboarding,
     startOnboarding,
   } = useOnboarding();
+
+  // Get socket methods for progress tracking
+  const { setActiveTask, startTwoPhaseTracking, clearProgress } = useSocket();
 
   const physicianId = useMemo(() => {
     if (!session?.user) return null;
@@ -170,7 +176,7 @@ export default function PhysicianCard() {
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
@@ -191,34 +197,28 @@ export default function PhysicianCard() {
 
       const data = await response.json();
 
-      // Handle ignored files - show toast with details
+      // Handle ignored files - show modal with details
       if (data.ignored && data.ignored.length > 0) {
-        // If all files were ignored (no task created)
-        if (!data.task_id && data.payload_count === 0) {
-          toast.warning(
-            `All ${data.ignored_count} file${
-              data.ignored_count > 1 ? "s were" : " was"
-            } skipped`,
-            {
-              description: data.ignored
-                .map((f: any) => `${f.filename}: ${f.reason}`)
-                .join("\n")
-                .slice(0, 200),
-              duration: 8000,
-            }
-          );
-        } else {
-          // Some files were processed, some ignored
-          toast.info(
-            `${data.ignored_count} file${
-              data.ignored_count > 1 ? "s" : ""
-            } skipped`,
-            {
-              description: "Some files were already uploaded",
-              duration: 5000,
-            }
-          );
+        setIgnoredFiles(data.ignored);
+        setShowIgnoredFilesModal(true);
+
+        // If no task_id (all ignored), clear progress
+        if (!data.task_id) {
+          clearProgress();
         }
+      }
+
+      // Start progress tracking if we have a task ID
+      if (data.upload_task_id && data.task_id) {
+        // Use two-phase tracking - pass payload_count as total files
+        startTwoPhaseTracking(
+          data.upload_task_id,
+          data.task_id,
+          data.payload_count
+        );
+      } else if (data.task_id) {
+        // Fallback to single-phase tracking
+        setActiveTask(data.task_id, data.payload_count);
       }
 
       // Clear files after successful upload
@@ -232,11 +232,19 @@ export default function PhysicianCard() {
         description: error instanceof Error ? error.message : "Unknown error",
         duration: 5000,
       });
+      clearProgress();
     } finally {
       // ProgressTracker will automatically close when processing completes
       setShowUploadToast(false);
     }
-  }, [pendingFiles, mode, session]);
+  }, [
+    pendingFiles,
+    mode,
+    session,
+    setActiveTask,
+    startTwoPhaseTracking,
+    clearProgress,
+  ]);
 
   const handleCancelUpload = useCallback(() => {
     setShowConfirmationModal(false);
@@ -820,6 +828,16 @@ export default function PhysicianCard() {
           setShowDocumentSuccessPopup(false);
           window.location.reload();
         }}
+      />
+
+      <PaymentErrorModal
+        isOpen={showIgnoredFilesModal}
+        onClose={() => {
+          setShowIgnoredFilesModal(false);
+          setIgnoredFiles([]);
+        }}
+        onUpgrade={() => router.push("/pricing")}
+        ignoredFiles={ignoredFiles}
       />
 
       {showUploadToast && <UploadToast />}

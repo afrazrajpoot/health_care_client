@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "https://api.doclatch.com";
 
 // Item status for successful/failed files
 interface SuccessfulItem {
@@ -136,7 +136,8 @@ type SocketContextType = {
   // Two-phase tracking
   startTwoPhaseTracking: (
     uploadTaskId: string,
-    processingTaskId: string
+    processingTaskId: string,
+    totalFiles?: number
   ) => void;
   currentPhase: "upload" | "processing" | null;
   combinedProgress: number;
@@ -827,15 +828,35 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   // Start two-phase tracking
   const startTwoPhaseTracking = (
     uploadTaskId: string,
-    processingTaskId: string
+    processingTaskId: string,
+    totalFiles?: number
   ) => {
     console.log("🚀 Starting two-phase tracking:", {
       uploadTaskId,
       processingTaskId,
+      totalFiles,
     });
 
     setActiveUploadTaskId(uploadTaskId);
     setActiveProcessingTaskId(processingTaskId);
+
+    // Also set active task ID so ProgressTracker picks it up
+    setActiveTaskId(processingTaskId);
+
+    // Initialize progress data with total files
+    const initialData = {
+      task_id: processingTaskId,
+      progress: 0,
+      current_file: "Starting upload...",
+      status: "processing" as const,
+      processed_count: 0,
+      total_files: totalFiles || 1,
+      successful_count: 0,
+      failed_files: [],
+      current_step: 0,
+    };
+    setProgressData(initialData);
+
     setCurrentPhase("upload");
     setUploadProgress(0);
     setProcessingProgress(0);

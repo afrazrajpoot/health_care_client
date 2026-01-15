@@ -168,7 +168,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {
@@ -216,7 +216,7 @@ const DocumentSummarySection: React.FC<DocumentSummarySectionProps> = ({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `http://localhost:8000/api/documents/preview/${encodeURIComponent(
+        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
           doc.blob_path
         )}`,
         {

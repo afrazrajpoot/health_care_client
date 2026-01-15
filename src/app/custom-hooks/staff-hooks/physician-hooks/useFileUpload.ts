@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from "react";
-import { toast } from "sonner";
 
 // Response type for upload API
 interface IgnoredFile {
@@ -56,7 +55,7 @@ export const useFileUpload = (
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;
@@ -73,34 +72,23 @@ export const useFileUpload = (
         const errorText = await response.text();
         console.error("❌ Upload failed:", errorText);
         setUploadError(`Upload failed: ${errorText}`);
-        toast.error("Upload failed", {
-          description: errorText.slice(0, 200),
-          duration: 5000,
-        });
         return;
       }
 
       const data: UploadResponse = await response.json();
       
-      // Handle ignored files
+      // Handle ignored files - set state for modal display
       if (data.ignored && data.ignored.length > 0) {
         setIgnoredFiles(data.ignored);
         
         // If all files were ignored (no processing task created)
         if (!data.task_id && data.payload_count === 0) {
-          const errorMsg = `All ${data.ignored_count} file${data.ignored_count !== 1 ? "s were" : " was"} skipped`;
+          const errorMsg = `All ${data.ignored_count} file${data.ignored_count !== 1 ? "s were" : " was"} skipped. See details below.`;
           setUploadError(errorMsg);
-          
-          toast.warning(errorMsg, {
-            description: data.ignored[0]?.reason || "Files were already uploaded",
-            duration: 6000,
-          });
         } else {
           // Some files processed, some ignored
-          toast.info(`${data.ignored_count} file${data.ignored_count !== 1 ? "s" : ""} skipped`, {
-            description: "Some files were already uploaded",
-            duration: 5000,
-          });
+          const errorMsg = `${data.ignored_count} file${data.ignored_count !== 1 ? "s" : ""} could not be uploaded. See details below.`;
+          setUploadError(errorMsg);
         }
       }
 
@@ -112,10 +100,6 @@ export const useFileUpload = (
       console.error("❌ Network error uploading files:", err);
       const errorMsg = err instanceof Error ? err.message : "Network error";
       setUploadError(errorMsg);
-      toast.error("Upload failed", {
-        description: errorMsg,
-        duration: 5000,
-      });
     }
   }, [files, session, mode]);
 

@@ -51,7 +51,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
             : user?.physicianId || ""; // otherwise, send assigned physician’s ID
 
         const apiUrl = `${
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+          process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
         }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
           user?.id || ""
         }`;
@@ -97,8 +97,10 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         // Handle the case where all files were ignored/skipped (no task_id returned)
         // This happens when files are duplicates or already processed
         if (data.ignored && data.ignored.length > 0) {
-          // Clear any existing progress tracking since there's nothing to process
-          clearProgress();
+          // Clear any existing progress tracking since there might be nothing to process
+          if (!data.task_id) {
+            clearProgress();
+          }
 
           setIgnoredFiles(data.ignored);
 
@@ -109,21 +111,8 @@ export const useFileUpload = (mode: "wc" | "gm") => {
                 data.ignored_count > 1 ? "s were" : " was"
               } skipped. See details below.`
             );
-
-            // Show toast notification for immediate feedback
-            toast.warning(
-              `${data.ignored_count} file${
-                data.ignored_count > 1 ? "s" : ""
-              } skipped`,
-              {
-                description:
-                  data.ignored[0]?.reason ||
-                  "Files were already uploaded or invalid",
-                duration: 5000,
-              }
-            );
           } else {
-            // Some files were processed, some were ignored
+            // Some files were processed, some were ignored - show modal with ignored files
             setPaymentError(
               `${data.ignored_count} file${
                 data.ignored_count > 1 ? "s" : ""
@@ -144,8 +133,12 @@ export const useFileUpload = (mode: "wc" | "gm") => {
 
         // Check if we have both upload_task_id and task_id for two-phase tracking
         if (data.upload_task_id && data.task_id) {
-          // Use two-phase tracking
-          startTwoPhaseTracking(data.upload_task_id, data.task_id);
+          // Use two-phase tracking - pass payload_count as total files
+          startTwoPhaseTracking(
+            data.upload_task_id,
+            data.task_id,
+            data.payload_count
+          );
         } else if (data.task_id) {
           // Fallback to single-phase tracking
           setActiveTask(data.task_id, data.payload_count);
@@ -170,7 +163,8 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         } else if (error.message.includes("Failed to fetch")) {
           setUploadError(
             "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-              (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
+              (process.env.NEXT_PUBLIC_API_BASE_URL ||
+                "https://api.doclatch.com")
           );
         } else {
           setUploadError(`Upload failed: ${error.message}`);
