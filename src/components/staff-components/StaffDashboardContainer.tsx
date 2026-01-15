@@ -52,7 +52,7 @@ interface FileDetails {
 
 const UploadToast: React.FC = () => {
   useEffect(() => {
-    toast("Upload in Progress 🚀", {
+    const toastId = toast("Upload in Progress 🚀", {
       description: (
         <div className="flex items-center gap-2">
           <span className="animate-spin">⏳</span>
@@ -70,6 +70,11 @@ const UploadToast: React.FC = () => {
       },
       icon: "📁",
     });
+
+    // Dismiss toast on unmount
+    return () => {
+      toast.dismiss(toastId);
+    };
   }, []);
 
   return null;
