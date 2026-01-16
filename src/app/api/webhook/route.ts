@@ -3,9 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
-});
+// Initialize Stripe lazily to allow build without env vars
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is missing");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2024-06-20",
+  });
+};
 
 export async function POST(req: Request) {
   console.log("🎯 WEBHOOK RECEIVED! Timestamp:", new Date().toISOString());
@@ -19,6 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No signature" }, { status: 400 });
     }
 
+    const stripe = getStripe();
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(

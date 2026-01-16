@@ -43,7 +43,7 @@ declare module "next-auth/jwt" {
   }
 }
 
-const FASTAPI_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.doclatch.com";
+const FASTAPI_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 const SYNC_SECRET = process.env.SYNC_SECRET;
 
 if (!SYNC_SECRET) {

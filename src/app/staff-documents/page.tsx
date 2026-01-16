@@ -112,7 +112,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath: any = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -148,7 +148,7 @@ export default function RecentDocumentsPage() {
     try {
       const filePath: any = doc.blobPath || doc.gcsFileLink;
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/preview/${encodeURIComponent(
           filePath
         )}`,
         {
@@ -203,7 +203,7 @@ export default function RecentDocumentsPage() {
         const filePath: any = doc.blobPath || doc.gcsFileLink;
 
         const response = await fetch(
-          `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/preview/${encodeURIComponent(
             filePath
           )}`,
           {

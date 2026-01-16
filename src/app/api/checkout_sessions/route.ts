@@ -5,9 +5,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/services/authSErvice";
 import { prisma } from "@/lib/prisma";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
-});
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is missing");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2024-06-20",
+  });
+};
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +22,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const stripe = getStripe();
     const physicianId = session.user.id;
+
     const { plan, price } = await req.json();
     
     // Validate plan

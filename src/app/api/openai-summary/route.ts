@@ -1,13 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: NextRequest) {
   try {
     const { context, maxWords } = await req.json();
+
+    // Initialize OpenAI client lazily to prevent build-time errors
+    // and support both Azure and standard OpenAI
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+    const baseURL = process.env.AZURE_OPENAI_ENDPOINT 
+      ? `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`
+      : undefined;
+      
+    if (!apiKey) {
+      console.error("❌ Missing OpenAI API Key");
+      return NextResponse.json(
+        { error: "Server misconfiguration: Missing API Key" },
+        { status: 500 }
+      );
+    }
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: baseURL,
+      defaultQuery: baseURL ? { "api-version": "2024-02-15-preview" } : undefined,
+      defaultHeaders: baseURL ? { "api-key": apiKey } : undefined,
+    });
 
     if (!context) {
       return NextResponse.json(

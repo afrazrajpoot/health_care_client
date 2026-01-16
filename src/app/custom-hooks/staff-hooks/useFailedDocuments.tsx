@@ -114,7 +114,7 @@ export const useFailedDocuments = () => {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/update-fail-document`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/update-fail-document`,
         {
           method: "POST",
           headers: {

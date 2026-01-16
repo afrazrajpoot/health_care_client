@@ -2,10 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { ChatCompletion } from "openai/resources/index.mjs";
 
 export async function GET(request: NextRequest) {
   try {
@@ -161,6 +158,26 @@ lifting heavy objects, overhead reaching, repetitive bending
 Output your 2 lines now:
     `;
 
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+    const baseURL = process.env.AZURE_OPENAI_ENDPOINT 
+      ? `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`
+      : undefined;
+
+    if (!apiKey) {
+      console.error("❌ Missing OpenAI API Key");
+      return NextResponse.json(
+        { error: "Server misconfiguration: Missing API Key" },
+        { status: 500 }
+      );
+    }
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: baseURL,
+      defaultQuery: baseURL ? { "api-version": "2024-02-15-preview" } : undefined,
+      defaultHeaders: baseURL ? { "api-key": apiKey } : undefined,
+    });
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -302,6 +319,10 @@ INTAKE PATIENT POINTS:
 - Point 3
 `;
 
+    // Re-initialize for safety if needed, or rely on the instance created at top of POST/GET
+    // Since we are inside the same function scope where 'openai' was defined, we can use it.
+    // However, if we didn't define it at top of function yet (we only did for one occurrence), we must ensure it's available.
+    
       const intakeCompletion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [

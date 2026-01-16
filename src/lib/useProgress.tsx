@@ -74,15 +74,12 @@ export const useProgress = ({
     hasCompletedRef.current = false;
 
     // Initialize socket connection
-    const newSocket = io(
-      process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com",
-      {
-        transports: ["websocket", "polling"],
-        auth: {
-          token: session?.user?.fastapi_token,
-        },
-      }
-    );
+    const newSocket = io(process.env.NEXT_PUBLIC_API_BASE_URL, {
+      transports: ["websocket", "polling"],
+      auth: {
+        token: session?.user?.fastapi_token,
+      },
+    });
 
     newSocket.on("connect", () => {
       setIsConnected(true);
@@ -169,9 +166,7 @@ export const useProgress = ({
 
     try {
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com"
-        }/api/agent/progress/${taskId}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/agent/progress/${taskId}`,
         {
           headers: {
             Authorization: `Bearer ${session.user.fastapi_token}`,

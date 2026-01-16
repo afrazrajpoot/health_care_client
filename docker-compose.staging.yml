@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  web:
+    image: health-care-client:latest
+    container_name: health-care-client-staging
+    restart: unless-stopped
+
+    # Allow reaching services running on the VM host (e.g., local Postgres)
+    # Works on modern Docker Engine (20.10+) on Linux.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Load runtime secrets/config at container start (safe; not baked into image)
+    env_file:
+      - .env
+
+    # App listens on 3000 inside container (Next.js default)
+    # Expose it on the VM at 127.0.0.1:3005 for Nginx to proxy
+    ports:
+      - "127.0.0.1:3005:3000"
+
+    # Optional healthcheck (requires curl). If you want it, we can add curl in Dockerfile.
+    # healthcheck:
+    #   test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(()=>process.exit(0)).catch(()=>process.exit(1))" ]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 5
+
+    # Keep node memory stable on smaller VPS
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      # NODE_OPTIONS: "--max-old-space-size=512"

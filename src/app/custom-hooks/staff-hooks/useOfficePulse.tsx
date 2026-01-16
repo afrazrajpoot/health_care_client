@@ -29,7 +29,7 @@ export const useOfficePulse = () => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/office-pulse?physicianId=${physicianId}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/office-pulse?physicianId=${physicianId}`,
         {
           headers: {
             Authorization: `Bearer ${session.user.fastapi_token}`,
@@ -57,7 +57,7 @@ export const useOfficePulse = () => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_PYTHON_API_URL}/api/documents/workflow-stats`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/workflow-stats`,
         {
           headers: {
             Authorization: `Bearer ${session.user.fastapi_token}`,

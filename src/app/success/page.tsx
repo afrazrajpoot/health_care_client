@@ -5,9 +5,16 @@ import { authOptions } from "@/services/authSErvice";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
-});
+export const dynamic = "force-dynamic";
+
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is missing");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2024-06-20",
+  });
+};
 
 interface SuccessPageProps {
   searchParams: {
@@ -80,6 +87,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     }
 
     // Fetch full Stripe session for details
+    const stripe = getStripe();
     const stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (stripeSession.payment_status !== "paid") {

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build the Python API URL with query parameters
-    const pythonApiUrl = process.env.NEXT_PUBLIC_PYTHON_API_URL;
+    const pythonApiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
     if (!pythonApiUrl) {
       return NextResponse.json(
         { error: 'Python API URL not configured' },

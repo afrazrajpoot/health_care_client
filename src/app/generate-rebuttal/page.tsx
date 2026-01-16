@@ -282,15 +282,18 @@ export default function RebuttalFormPage() {
     setResponse(null);
     setIsModalOpen(false);
     try {
-      const res = await fetch("https://api.doclatch.com/api/agent/rebuttal", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.fastapi_token}`,
-        },
-        credentials: "include", // For auth session
-        body: JSON.stringify(formData),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/agent/rebuttal`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.fastapi_token}`,
+          },
+          credentials: "include", // For auth session
+          body: JSON.stringify(formData),
+        }
+      );
       if (!res.ok) throw new Error("Failed to generate rebuttal");
       const data = await res.json();
       setResponse(data.rebuttal);

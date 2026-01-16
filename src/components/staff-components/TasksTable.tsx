@@ -149,9 +149,9 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
-          task.document.blobPath
-        )}`,
+        `${
+          process.env.NEXT_PUBLIC_API_BASE_URL
+        }/api/documents/preview/${encodeURIComponent(task.document.blobPath)}`,
         {
           headers: {
             Authorization: `Bearer ${session?.user?.fastapi_token}`,
@@ -193,9 +193,9 @@ export default function TasksTable({
 
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
-          doc.blobPath
-        )}`,
+        `${
+          process.env.NEXT_PUBLIC_API_BASE_URL
+        }/api/documents/preview/${encodeURIComponent(doc.blobPath)}`,
         {
           headers: {
             Authorization: `Bearer ${session?.user?.fastapi_token}`,
@@ -303,7 +303,8 @@ export default function TasksTable({
     try {
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_PYTHON_API_URL || "https://api.doclatch.com"
+          process.env.NEXT_PUBLIC_API_BASE_URL ||
+          "${process.env.NEXT_PUBLIC_API_BASE_URL}"
         }/api/documents/split-and-process-document`,
         {
           method: "POST",

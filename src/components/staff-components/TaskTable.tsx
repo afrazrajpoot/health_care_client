@@ -46,9 +46,9 @@ export default function TaskTable({
     setLoadingIndexes((prev) => new Set([...prev, index]));
     try {
       const response = await fetch(
-        `https://api.doclatch.com/api/documents/preview/${encodeURIComponent(
-          doc.blobPath
-        )}`,
+        `${
+          process.env.NEXT_PUBLIC_API_BASE_URL
+        }/api/documents/preview/${encodeURIComponent(doc.blobPath)}`,
         {
           headers: {
             Authorization: `Bearer ${session?.user?.fastapi_token}`,

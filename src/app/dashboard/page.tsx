@@ -181,7 +181,7 @@ export default function PhysicianCard() {
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
       const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
+        process.env.NEXT_PUBLIC_API_BASE_URL
       }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
         user?.id || ""
       }`;

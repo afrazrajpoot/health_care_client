@@ -51,7 +51,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
             : user?.physicianId || ""; // otherwise, send assigned physician’s ID
 
         const apiUrl = `${
-          process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.doclatch.com"
+          process.env.NEXT_PUBLIC_API_BASE_URL
         }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
           user?.id || ""
         }`;
@@ -163,8 +163,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         } else if (error.message.includes("Failed to fetch")) {
           setUploadError(
             "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-              (process.env.NEXT_PUBLIC_API_BASE_URL ||
-                "https://api.doclatch.com")
+              (process.env.NEXT_PUBLIC_API_BASE_URL)
           );
         } else {
           setUploadError(`Upload failed: ${error.message}`);
