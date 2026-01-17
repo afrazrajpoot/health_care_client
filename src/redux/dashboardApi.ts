@@ -17,6 +17,11 @@ export const dashboardApi = createApi({
     reducerPath: "dashboardApi",
     baseQuery: baseQueryWithDecryption,
     tagTypes: ["Tasks", "Patients", "Intakes"],
+    // Global cache configuration
+    keepUnusedDataFor: 300, // Keep cached data for 5 minutes (increased from 60s)
+    refetchOnMountOrArgChange: false, // Don't refetch on component mount if data exists
+    refetchOnFocus: false, // Don't refetch when window regains focus
+    refetchOnReconnect: true, // Only refetch on reconnect
     endpoints: (builder) => ({
         getRecentPatients: builder.query({
             query: (mode = "wc") => ({
@@ -24,6 +29,7 @@ export const dashboardApi = createApi({
                 params: { mode },
             }),
             providesTags: ["Patients"],
+            keepUnusedDataFor: 120, // Keep recent patients cached for 2 minutes
         }),
         getTasks: builder.query({
             query: ({ patientName, claim, documentIds, page = 1, pageSize = 10, status, type, mode = "wc" }) => {
@@ -44,6 +50,7 @@ export const dashboardApi = createApi({
                 return { url: `/tasks?${params.toString()}` };
             },
             providesTags: ["Tasks"],
+            keepUnusedDataFor: 90, // Keep tasks cached for 90 seconds
         }),
         getPatientIntakes: builder.query({
             query: ({ patientName, dob, claimNumber }) => {
@@ -55,6 +62,7 @@ export const dashboardApi = createApi({
                 return { url: `/patient-intakes?${params.toString()}` };
             },
             providesTags: ["Intakes"],
+            keepUnusedDataFor: 120, // Keep intake data cached for 2 minutes
         }),
         getPatientIntakeUpdate: builder.query({
             query: ({ patientName, dob, claimNumber }) => {
@@ -66,6 +74,7 @@ export const dashboardApi = createApi({
                 return { url: `/patient-intake-update?${params.toString()}` };
             },
             providesTags: ["Intakes"],
+            keepUnusedDataFor: 120, // Keep intake update data cached for 2 minutes
         }),
         getPatientRecommendations: builder.query({
             query: ({ patientName, claimNumber, dob, physicianId, mode }) => {
@@ -77,6 +86,7 @@ export const dashboardApi = createApi({
                 if (mode) params.append("mode", mode);
                 return `/dashboard/recommendation?${params.toString()}`;
             },
+            keepUnusedDataFor: 60, // Keep recommendations cached for 60 seconds
         }),
         getDocument: builder.query({
             query: (params) => ({
@@ -84,6 +94,7 @@ export const dashboardApi = createApi({
                 params,
             }),
             providesTags: ["Patients"],
+            keepUnusedDataFor: 120, // Keep document data cached for 2 minutes
         }),
         verifyDocument: builder.mutation({
             query: (params) => ({

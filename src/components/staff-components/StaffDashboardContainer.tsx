@@ -118,26 +118,68 @@ export default function StaffDashboardContainer() {
   >("all");
   const [showUploadToast, setShowUploadToast] = useState(false);
   // RTK Query Hooks
-  const { data: recentPatientsData, isLoading: isPatientsLoading, refetch: refetchPatients } = useGetRecentPatientsQuery(patientSearchQuery);
-  const { data: tasksData, isLoading: isTasksLoading, refetch: refetchTasks } = useGetTasksQuery({
-    patientName: selectedPatient?.patientName || "",
-    claim: selectedPatient?.claimNumber,
-    documentIds: selectedPatient?.documentIds,
-    page: taskPage,
-    pageSize: taskPageSize,
-    status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
-    type: taskTypeFilter
-  }, { skip: !selectedPatient });
-  const { data: quizData, isLoading: isQuizLoading } = useGetPatientIntakesQuery({
-    patientName: selectedPatient?.patientName || "",
-    dob: selectedPatient?.dob,
-    claimNumber: selectedPatient?.claimNumber
-  }, { skip: !selectedPatient });
-  const { data: intakeUpdateData, isLoading: isIntakeUpdateLoading } = useGetPatientIntakeUpdateQuery({
-    patientName: selectedPatient?.patientName || "",
-    dob: selectedPatient?.dob,
-    claimNumber: selectedPatient?.claimNumber
-  }, { skip: !selectedPatient });
+  const { data: recentPatientsData, isLoading: isPatientsLoading, refetch: refetchPatients } = useGetRecentPatientsQuery(patientSearchQuery, {
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
+  });
+  
+  // Memoize task query params to prevent unnecessary re-renders and API calls
+  const taskQueryParams = useMemo(() => {
+    if (!selectedPatient) return null;
+    return {
+      patientName: selectedPatient.patientName || "",
+      claim: selectedPatient.claimNumber,
+      documentIds: selectedPatient.documentIds,
+      page: taskPage,
+      pageSize: taskPageSize,
+      status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
+      type: taskTypeFilter
+    };
+  }, [
+    selectedPatient?.patientName,
+    selectedPatient?.claimNumber,
+    selectedPatient?.documentIds,
+    taskPage,
+    taskPageSize,
+    viewMode,
+    taskTypeFilter
+  ]);
+
+  const { data: tasksData, isLoading: isTasksLoading, refetch: refetchTasks } = useGetTasksQuery(
+    taskQueryParams!,
+    { 
+      skip: !taskQueryParams,
+      refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+      pollingInterval: 0, // Disable automatic polling
+    }
+  );
+  // Memoize intake query params to prevent unnecessary re-renders and API calls
+  const intakeQueryParams = useMemo(() => {
+    if (!selectedPatient) return null;
+    return {
+      patientName: selectedPatient.patientName || "",
+      dob: selectedPatient.dob,
+      claimNumber: selectedPatient.claimNumber
+    };
+  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber]);
+
+  const { data: quizData, isLoading: isQuizLoading } = useGetPatientIntakesQuery(
+    intakeQueryParams!,
+    { 
+      skip: !intakeQueryParams,
+      refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+      pollingInterval: 0, // Disable automatic polling
+    }
+  );
+  
+  const { data: intakeUpdateData, isLoading: isIntakeUpdateLoading } = useGetPatientIntakeUpdateQuery(
+    intakeQueryParams!,
+    { 
+      skip: !intakeQueryParams,
+      refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+      pollingInterval: 0, // Disable automatic polling
+    }
+  );
 
   const [updateTaskMutation] = useUpdateTaskMutation();
 

@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { useGetDocumentQuery, useGetTasksQuery } from "@/redux/dashboardApi";
+import {
+  useGetDocumentQuery,
+  useGetTasksQuery,
+  useGetPatientIntakesQuery,
+  useGetPatientIntakeUpdateQuery
+} from "@/redux/dashboardApi";
 
 interface Patient {
   id?: string | number;
@@ -61,14 +66,24 @@ export const usePatientData = (
       physicianId: physicianId,
       mode: mode,
     };
-  }, [physicianId, patientInfo, mode]);
+  }, [
+    physicianId,
+    patientInfo?.patientName,
+    patientInfo?.name,
+    patientInfo?.dob,
+    patientInfo?.doi,
+    patientInfo?.claimNumber,
+    mode
+  ]);
 
   const {
     data: rawDocData,
     isFetching: docLoading,
     error: docError
   } = useGetDocumentQuery(docParams, {
-    skip: !docParams
+    skip: !docParams,
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
   });
 
   const latestDoc = useMemo(() => {
@@ -89,16 +104,46 @@ export const usePatientData = (
       params.patientName = latestDoc.patient_name || patientInfo.patientName || "";
     }
     return params;
-  }, [latestDoc, patientInfo, mode]);
+  }, [latestDoc?.mode, latestDoc?.claim_number, latestDoc?.patient_name, patientInfo?.patientName, mode]);
 
   const {
     data: rawTaskData,
     isFetching: taskLoading
   } = useGetTasksQuery(taskParams, {
-    skip: !taskParams
+    skip: !taskParams || !rawDocData, // Only fetch when we have document data
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
   });
 
-  // 3. Process Document Data
+  // 3. Fetch Patient Intake Data
+  const intakeParams = useMemo(() => {
+    if (!patientInfo) return null;
+    return {
+      patientName: patientInfo.patientName || patientInfo.name || "",
+      dob: patientInfo.dob,
+      claimNumber: patientInfo.claimNumber
+    };
+  }, [patientInfo?.patientName, patientInfo?.name, patientInfo?.dob, patientInfo?.claimNumber]);
+
+  const {
+    data: patientIntakeData,
+    isFetching: intakeLoading
+  } = useGetPatientIntakesQuery(intakeParams, {
+    skip: !intakeParams,
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
+  });
+
+  const {
+    data: patientIntakeUpdateData,
+    isFetching: intakeUpdateLoading
+  } = useGetPatientIntakeUpdateQuery(intakeParams, {
+    skip: !intakeParams,
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
+  });
+
+  // 4. Process Document Data
   const processedData = useMemo(() => {
     if (!rawDocData || !latestDoc) return null;
 
@@ -229,7 +274,7 @@ export const usePatientData = (
     return data;
   }, [rawDocData, latestDoc]);
 
-  // 4. Process Task Data
+  // 5. Process Task Data
   const processedTaskNotes = useMemo(() => {
     if (!rawTaskData || !latestDoc || !patientInfo || !rawDocData) return [];
 
@@ -277,10 +322,27 @@ export const usePatientData = (
       .slice(0, 5);
   }, [rawTaskData, latestDoc, patientInfo, rawDocData]);
 
+  // 6. Process Patient Intake Data
+  const patientQuiz = useMemo(() => {
+    if (patientIntakeData?.success && patientIntakeData?.data?.length > 0) {
+      return patientIntakeData.data[0];
+    }
+    return null;
+  }, [patientIntakeData]);
+
+  const patientIntakeUpdate = useMemo(() => {
+    if (patientIntakeUpdateData?.success) {
+      return patientIntakeUpdateData.data;
+    }
+    return null;
+  }, [patientIntakeUpdateData]);
+
   return {
     documentData: processedData,
     taskQuickNotes: processedTaskNotes,
-    loading: docLoading || taskLoading,
+    patientQuiz,
+    patientIntakeUpdate,
+    loading: docLoading || taskLoading || intakeLoading || intakeUpdateLoading,
     error: docError ? (docError as any).data?.error || "An error occurred" : null,
   };
 };

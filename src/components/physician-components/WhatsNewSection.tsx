@@ -598,7 +598,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     );
   };
 
-  const documentGroups = useMemo(() => {
+const documentGroups = useMemo(() => {
     if (!documentData || !(documentData as any)?.documents) return [];
 
     return (documentData as any).documents
@@ -651,6 +651,23 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           return group.docMode === mode;
         }
         return true;
+      })
+      .sort((a: any, b: any) => {
+        // Sort by reportDate, most recent first
+        // If no date, place at the end
+        if (!a.reportDate && !b.reportDate) return 0;
+        if (!a.reportDate) return 1;
+        if (!b.reportDate) return -1;
+
+        const dateA = new Date(a.reportDate).getTime();
+        const dateB = new Date(b.reportDate).getTime();
+
+        // Handle invalid dates same as missing dates
+        if (isNaN(dateA) && isNaN(dateB)) return 0;
+        if (isNaN(dateA)) return 1;
+        if (isNaN(dateB)) return -1;
+
+        return dateB - dateA; // Descending order
       });
   }, [documentData, mode]);
 

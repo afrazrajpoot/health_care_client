@@ -55,14 +55,7 @@ interface DashboardContentProps {
 
 export const DashboardContent = React.memo<DashboardContentProps>(
   ({
-    showOnboarding,
-    currentStep,
-    stepPositions,
-    showWelcomeModal,
-    onboardingSteps,
-    onCloseOnboarding,
-    onNextStep,
-    onPreviousStep,
+
     onStartOnboarding,
     files,
     onFileSelect,

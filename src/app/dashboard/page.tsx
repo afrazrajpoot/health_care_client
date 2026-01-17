@@ -123,6 +123,7 @@ export default function PhysicianCard() {
   const [ignoredFiles, setIgnoredFiles] = useState<any[]>([]);
   const [showIgnoredFilesModal, setShowIgnoredFilesModal] = useState(false);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const initialPatientSelectedRef = useRef(false); // Track if initial patient has been selected
 
   const [extractDocuments] = useExtractDocumentsMutation();
   const [verifyDocument] = useVerifyDocumentMutation();
@@ -130,6 +131,8 @@ export default function PhysicianCard() {
 
   const { data: recentPatientsData, isFetching: recentPatientsLoading } = useGetRecentPatientsQuery(mode, {
     skip: status !== "authenticated" || !session,
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
   });
 
   const { toasts, addToast } = useToasts();
@@ -600,7 +603,16 @@ export default function PhysicianCard() {
   useEffect(() => {
     if (recentPatientsData) {
       setRecentPatientsList(recentPatientsData || []);
-      if (recentPatientsData && Array.isArray(recentPatientsData) && recentPatientsData.length > 0 && session?.user) {
+      
+      // Only auto-select the first patient on initial load, not on every re-render
+      if (
+        !initialPatientSelectedRef.current &&
+        recentPatientsData &&
+        Array.isArray(recentPatientsData) &&
+        recentPatientsData.length > 0 &&
+        session?.user &&
+        !selectedPatient // Only if no patient is already selected
+      ) {
         const latestPatient = recentPatientsData[0];
 
         let dobString = "";
@@ -617,9 +629,10 @@ export default function PhysicianCard() {
           claimNumber: latestPatient.claimNumber || "",
           doi: "",
         });
+        initialPatientSelectedRef.current = true; // Mark as selected
       }
     }
-  }, [recentPatientsData, session, handlePatientSelect]);
+  }, [recentPatientsData, session]); // Removed handlePatientSelect and selectedPatient from dependencies
 
   if (status === "loading") {
     return <LoadingFallback />;
