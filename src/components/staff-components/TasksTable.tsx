@@ -14,44 +14,7 @@ import {
 } from "lucide-react";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 
-interface Task {
-  id: string;
-  description: string;
-  department: string;
-  status: string;
-  dueDate?: string;
-  patient: string;
-  priority?: string;
-  quickNotes?: any;
-  assignee?: string;
-  actions?: string[];
-  document?: {
-    id: string;
-    claimNumber: string;
-    status: string;
-    ur_denial_reason?: string;
-    blobPath?: string;
-    patientName: string;
-    gcsFileLink?: string;
-    fileName?: string;
-  };
-}
-
-interface FailedDocument {
-  id: string;
-  reason: string;
-  db?: string;
-  doi?: string;
-  claimNumber?: string;
-  patientName?: string;
-  documentText?: string;
-  physicianId?: string;
-  gcsFileLink?: string;
-  fileName: string;
-  fileHash?: string;
-  blobPath?: string;
-  summary?: string;
-}
+import { Task, FailedDocument } from "@/utils/staffDashboardUtils";
 
 interface TasksTableProps {
   tasks: Task[];
@@ -69,7 +32,11 @@ interface TasksTableProps {
   onFailedDocumentRowClick?: (doc: FailedDocument) => void;
   mode?: "wc" | "gm";
   physicianId?: string;
+  selectedTaskIds?: string[];
+  onToggleTaskSelection?: (taskIds: string[], selected: boolean) => void;
 }
+
+import { User } from "lucide-react";
 
 export default function TasksTable({
   tasks,
@@ -86,6 +53,8 @@ export default function TasksTable({
   onFailedDocumentRowClick,
   mode = "wc",
   physicianId,
+  selectedTaskIds = [],
+  onToggleTaskSelection,
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -239,7 +208,7 @@ export default function TasksTable({
       if (onFailedDocumentDeleted) {
         onFailedDocumentDeleted(documentToDelete.id);
       }
-      toast.success("Document deleted successfully");
+ 
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
     } catch (error) {
@@ -360,6 +329,41 @@ export default function TasksTable({
     })),
   ];
 
+  // Helper function to get ID for any row type
+  const getRowId = (row: UnifiedRow) => {
+    if (row.type === "task") {
+      return `task-${row.data.id}`;
+    } else {
+      return `doc-${row.data.id}`;
+    }
+  };
+
+  // Handle checkbox selection for any row type
+  const handleRowSelection = (row: UnifiedRow, checked: boolean) => {
+    if (row.type === "task") {
+      onToggleTaskSelection?.([row.data.id], checked);
+    } else {
+      // For failed documents, we can either handle them separately or include them
+      // For now, we'll include them in the selection if needed
+      onToggleTaskSelection?.([`doc-${row.data.id}`], checked);
+    }
+  };
+
+  // Check if a row is selected
+  const isRowSelected = (row: UnifiedRow) => {
+    if (row.type === "task") {
+      return selectedTaskIds?.includes(row.data.id) || false;
+    } else {
+      return selectedTaskIds?.includes(`doc-${row.data.id}`) || false;
+    }
+  };
+
+  // Check if all rows are selected
+  const isAllSelected = () => {
+    if (unifiedRows.length === 0) return false;
+    return unifiedRows.every(row => isRowSelected(row));
+  };
+
   if (unifiedRows.length === 0) {
     return (
       <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
@@ -413,15 +417,31 @@ export default function TasksTable({
           <table className="w-max min-w-full border-collapse table-auto text-base visible table box-border">
             <thead>
               <tr>
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 w-[40px]">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    onChange={(e) => {
+                        const allIds = unifiedRows.map(row => 
+                          row.type === 'task' ? row.data.id : `doc-${row.data.id}`
+                        );
+                        if (e.target.checked) {
+                            // Select all rows
+                            onToggleTaskSelection?.(allIds, true);
+                        } else {
+                            // Deselect all
+                            onToggleTaskSelection?.([], false);
+                        }
+                    }}
+                    checked={isAllSelected()}
+                  />
+                </th>
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[250px] w-[250px] whitespace-normal">
                   Item
                 </th>
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[50px] w-[50px] whitespace-nowrap">
                   Status
                 </th>
-                {/* <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[220px] w-[220px] whitespace-nowrap">
-                  Assignee
-                </th> */}
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[150px] w-[150px] whitespace-nowrap">
                   Type
                 </th>
@@ -445,11 +465,28 @@ export default function TasksTable({
                   const currentAssignee =
                     taskAssignees[task.id] || task.assignee || "Unclaimed";
                   const statusOptions = getStatusOptions(task);
+                  const isSelected = isRowSelected(row);
 
                   return (
-                    <tr key={`task-${task.id}`}>
+                    <tr key={`task-${task.id}`} className={isSelected ? "bg-blue-50/50" : ""}>
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px]">
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={isSelected}
+                            onChange={(e) => {
+                                handleRowSelection(row, e.target.checked);
+                            }}
+                        />
+                      </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
                         {task.description}
+                        {task.assignee && task.assignee !== 'Unclaimed' && (
+                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                Assigned to: {task.assignee}
+                            </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[50px] w-[50px] whitespace-nowrap relative">
                         <div
@@ -466,13 +503,10 @@ export default function TasksTable({
                               )
                             }
                           >
-                            {updatingStatuses.has(task.id) ||
-                            currentStatus.toLowerCase() === "pending" ? (
+                            {updatingStatuses.has(task.id) ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin" />
-                                {updatingStatuses.has(task.id)
-                                  ? "Updating..."
-                                  : currentStatus}
+                                Updating...
                               </>
                             ) : (
                               <>
@@ -623,12 +657,25 @@ export default function TasksTable({
                 } else {
                   // Failed document row
                   const doc = row.data;
+                  const isSelected = isRowSelected(row);
+
                   return (
                     <tr
                       key={`doc-${doc.id}`}
-                      className="bg-red-50/30 hover:bg-red-50 transition-colors"
+                      className={`${isSelected ? "bg-blue-50/50" : "bg-red-50/30"} hover:bg-red-50 transition-colors`}
                       onClick={() => onFailedDocumentRowClick?.(doc)}
                     >
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px]">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleRowSelection(row, e.target.checked);
+                          }}
+                        />
+                      </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -636,6 +683,11 @@ export default function TasksTable({
                             <p className="text-sm font-medium text-gray-800">
                               {doc.reason}
                             </p>
+                            {doc.fileName && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                File: {doc.fileName}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -651,8 +703,8 @@ export default function TasksTable({
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          {/* Preview File - already exists for failed documents */}
-                          {doc.gcsFileLink && (
+                          {/* Preview File - ONLY ONE PREVIEW BUTTON HERE */}
+                          {doc.blobPath && (
                             <button
                               onClick={(e) => handlePreviewFile(e, doc)}
                               disabled={loadingPreview === doc.id}
@@ -681,22 +733,7 @@ export default function TasksTable({
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {/* Preview File */}
-                          {doc.blobPath && (
-                            <button
-                              onClick={(e) => handlePreviewFile(e, doc)}
-                              disabled={loadingPreview === doc.id}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                              title="Preview File"
-                            >
-                              {loadingPreview === doc.id ? (
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <FileText className="w-4 h-4" />
-                              )}
-                            </button>
-                          )}
-
+                          {/* Preview File - REMOVED DUPLICATE PREVIEW BUTTON FROM HERE */}
                           {/* Delete */}
                           <button
                             onClick={(e) => handleDeleteClick(e, doc)}

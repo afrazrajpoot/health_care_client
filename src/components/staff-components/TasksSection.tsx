@@ -2,38 +2,7 @@ import TasksTable from "@/components/staff-components/TasksTable";
 import PatientContent from "@/components/staff-components/PatientContent";
 import TaskManager from "./TaskManager";
 
-interface RecentPatient {
-  patientName: string;
-  dob: string;
-  claimNumber: string;
-  createdAt: string;
-  documentType?: string;
-  documentIds?: string[];
-}
-
-interface Task {
-  id: string;
-  description: string;
-  department: string;
-  status: string;
-  dueDate?: string;
-  patient: string;
-  priority?: string;
-  quickNotes?: any;
-  assignee?: string;
-  actions?: string[];
-  type?: string;
-  document?: {
-    id: string;
-    claimNumber: string;
-    status: string;
-    ur_denial_reason?: string;
-    blobPath?: string;
-    patientName: string;
-    gcsFileLink?: string;
-    fileName?: string;
-  };
-}
+import { Task, RecentPatient, FailedDocument } from "@/utils/staffDashboardUtils";
 
 interface FailedDocument {
   id: string;
@@ -60,7 +29,7 @@ interface TasksSectionProps {
   totalPages: number;
   hasNextPage: boolean;
   hasPrevPage: boolean;
-  showCompletedTasks: boolean;
+  viewMode: "open" | "completed" | "all";
   taskStatuses: { [taskId: string]: string };
   taskAssignees: { [taskId: string]: string };
   failedDocuments: FailedDocument[];
@@ -74,7 +43,7 @@ interface TasksSectionProps {
   getAssigneeOptions: (task: Task) => string[];
   formatDOB: (dob: string) => string;
   formatClaimNumber: (claim: string) => string;
-  onShowCompletedTasksChange: (show: boolean) => void;
+  onViewModeChange: (mode: "open" | "completed" | "all") => void;
   onTaskPageChange: (page: number) => void;
   onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => void;
@@ -82,7 +51,12 @@ interface TasksSectionProps {
   onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
   onFailedDocumentDeleted: (docId: string) => void;
   onFailedDocumentRowClick: (doc: FailedDocument) => void;
+  userRole?: string;
+  onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
 }
+
+import { useState, useCallback } from "react";
+import StaffAssignmentSection from "./StaffAssignmentSection";
 
 export default function TasksSection({
   selectedPatient,
@@ -93,7 +67,7 @@ export default function TasksSection({
   totalPages,
   hasNextPage,
   hasPrevPage,
-  showCompletedTasks,
+  viewMode,
   taskStatuses,
   taskAssignees,
   failedDocuments,
@@ -107,7 +81,7 @@ export default function TasksSection({
   getAssigneeOptions,
   formatDOB,
   formatClaimNumber,
-  onShowCompletedTasksChange,
+  onViewModeChange,
   onTaskPageChange,
   onStatusClick,
   onAssigneeClick,
@@ -115,7 +89,90 @@ export default function TasksSection({
   onSaveQuickNote,
   onFailedDocumentDeleted,
   onFailedDocumentRowClick,
+  userRole,
+  onBulkAssign,
 }: TasksSectionProps) {
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+
+  const handleToggleTaskSelection = useCallback((taskIds: string[], selected: boolean) => {
+    setSelectedTaskIds(prev => {
+        if (selected) {
+            // Add unique IDs
+            const newIds = taskIds.filter(id => !prev.includes(id));
+            return [...prev, ...newIds];
+        } else {
+            // Remove IDs
+            if (taskIds.length === 0) return []; // Clear all
+            return prev.filter(id => !taskIds.includes(id));
+        }
+    });
+  }, []);
+
+  const handleAssignTasks = async (staffId: string, staffName: string) => {
+    // If bulk assign handler is provided, use it
+    if (onBulkAssign) {
+      await onBulkAssign(selectedTaskIds, staffName);
+      setSelectedTaskIds([]);
+      return;
+    }
+
+    // Fallback to individual assignment (legacy behavior)
+    for (const taskId of selectedTaskIds) {
+        await onAssigneeClick(taskId, staffName);
+    }
+    // Clear selection
+    setSelectedTaskIds([]);
+  };
+
+  // Handle view mode toggle
+  const handleViewModeToggle = () => {
+    if (viewMode === "open") {
+      onViewModeChange("completed");
+    } else if (viewMode === "completed") {
+      onViewModeChange("all");
+    } else {
+      onViewModeChange("completed");
+    }
+  };
+
+  // Get button text based on current view mode
+  const getViewModeButtonText = () => {
+    if (viewMode === "open") {
+      return "Show Completed Tasks";
+    } else if (viewMode === "completed") {
+      return "Show All Tasks";
+    } else {
+      return "Show Completed Tasks";
+    }
+  };
+
+  // Get button class based on current view mode
+  const getViewModeButtonClass = () => {
+    const baseClass = "px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200";
+    
+    // Show green when in "completed" or "all" mode (indicating a filter is active or changed)
+    if (viewMode === "completed" || viewMode === "all") {
+      return `${baseClass} bg-green-700 text-white`;
+    } else {
+      return `${baseClass} bg-white text-slate-900 hover:bg-gray-50`;
+    }
+  };
+
+  // Get section title based on view mode
+  const getSectionTitle = () => {
+    if (!selectedPatient) {
+      return "";
+    }
+    
+    if (viewMode === "completed") {
+      return `Completed Tasks (${taskTotalCount})`;
+    } else if (viewMode === "all") {
+      return `All Tasks (${taskTotalCount})`;
+    } else {
+      return `Open Tasks & Required Actions (${taskTotalCount})`;
+    }
+  };
+
   return (
     <div>
       {/* Patient Content Section */}
@@ -140,33 +197,30 @@ export default function TasksSection({
       )}
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-base font-bold text-slate-900 m-0">
-          {selectedPatient && displayedTasks.length > 0 ? (
-            showCompletedTasks ? (
-              `Completed Tasks (${taskTotalCount})`
-            ) : (
-              `Open Tasks & Required Actions (${taskTotalCount})`
-            )
-          ) : (
-            <span className="text-red-700"></span>
-          )}
+          {getSectionTitle()}
         </h3>
 
-        {/* Show task filters only when patient is selected AND has tasks */}
-        {selectedPatient && displayedTasks.length > 0 && (
+        {/* Show task filters when patient is selected */}
+        {selectedPatient && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => onShowCompletedTasksChange(!showCompletedTasks)}
-              className={`px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200 ${
-                showCompletedTasks
-                  ? "bg-green-700 text-white"
-                  : "bg-white text-slate-900 hover:bg-gray-50"
-              }`}
+              onClick={handleViewModeToggle}
+              className={getViewModeButtonClass()}
             >
-              {showCompletedTasks ? "Show Open Tasks" : "Show Completed Tasks"}
+              {getViewModeButtonText()}
             </button>
           </div>
         )}
       </div>
+
+      {/* Staff Assignment Section - Only visible to Physicians */}
+      {userRole === "Physician" && (
+        <StaffAssignmentSection 
+            selectedTaskIds={selectedTaskIds}
+            taskAssignees={taskAssignees}
+            onAssign={handleAssignTasks}
+        />
+      )}
 
       {/* Show TasksTable - only one instance, handle both cases */}
       <TaskManager  tasks={displayedTasks} />
@@ -192,6 +246,8 @@ export default function TasksSection({
         onFailedDocumentRowClick={onFailedDocumentRowClick}
         mode="wc"
         physicianId={physicianId || undefined}
+        selectedTaskIds={selectedTaskIds}
+        onToggleTaskSelection={handleToggleTaskSelection}
       />
 
       {/* Pagination Controls - only show when patient is selected, has tasks, and has pagination */}

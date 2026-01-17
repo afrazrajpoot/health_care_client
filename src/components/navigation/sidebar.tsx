@@ -15,6 +15,7 @@ import {
   X,
   Activity,
   LogOut, // ✅ Add LogOut icon
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -73,11 +74,18 @@ const navigationItems: NavigationItem[] = [
     roles: ["Staff"], // ✅ Staff only
   },
   {
+    name: "My Staff",
+    href: "/manage-staff",
+    icon: Users,
+    description: "View and manage staff",
+    roles: ["Physician"], // ✅ Physician only
+  },
+  {
     name: "Add Staff",
     href: "/add-staff",
-    icon: Upload,
+    icon: UserPlus,
     description: "Add new staff members",
-    roles: ["Physician"], // ✅ Staff only
+    roles: ["Physician"], // ✅ Physician only
   },
   {
     name: "Attorney Dashboard",
@@ -104,7 +112,7 @@ export function Sidebar({ className }: SidebarProps) {
   const filteredItems = useMemo(() => {
     const role = session?.user?.role;
     return navigationItems.filter(
-      (item) => !item.roles || item.roles.includes(role)
+      (item) => !item.roles || (role && item.roles.includes(role))
     );
   }, [session]);
 

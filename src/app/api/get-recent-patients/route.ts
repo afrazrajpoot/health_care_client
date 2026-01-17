@@ -234,6 +234,22 @@ export async function GET(request: Request) {
       },
     };
 
+    // 🔒 Enforce staff visibility rule: "show patient ... only that his physcian assign"
+    if (session.user.role === "Staff") {
+      // Filter documents that have tasks assigned to this staff member
+      // We match against ID, firstName, or Full Name to be safe as assignee storage format varies
+      whereClause.tasks = {
+        some: {
+          OR: [
+            { assignee: session.user.id },
+            { assignee: session.user.firstName },
+            { assignee: `${session.user.firstName} ${session.user.lastName}` }
+          ]
+        }
+      };
+      console.log('🔒 Enforcing staff patient visibility for:', session.user.firstName);
+    }
+
     if (mode) whereClause.mode = mode;
 
     // Add search filter if provided
@@ -419,14 +435,14 @@ export async function GET(request: Request) {
     /* ---------------------------------------------
      * ENCRYPT THE RESPONSE
      * --------------------------------------------- */
-    
+
     // Get encryption secret from environment variables
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
-    
+
     if (!ENCRYPTION_SECRET) {
       console.error('❌ Encryption secret not configured');
       return NextResponse.json(
-        { 
+        {
           encrypted: false,
           error: 'Server configuration error',
           data: recent,
@@ -440,7 +456,7 @@ export async function GET(request: Request) {
       // Encrypt the response data
       const dataString = JSON.stringify(recent);
       const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-      
+
       console.log('🔐 Recent documents response encrypted successfully', {
         patientsCount: recent.length,
         encryptedDataLength: encryptedData.length
@@ -460,7 +476,7 @@ export async function GET(request: Request) {
 
     } catch (encryptionError) {
       console.error('❌ Failed to encrypt recent documents response:', encryptionError);
-      
+
       // Fallback: Return unencrypted response with warning
       return NextResponse.json({
         encrypted: false,
@@ -473,19 +489,19 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("Error fetching recent documents:", error);
-    
+
     // Even for errors, we can encrypt the error response
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
-    
+
     if (ENCRYPTION_SECRET) {
       try {
-        const errorData = { 
+        const errorData = {
           error: "Failed to fetch recent documents",
           details: error instanceof Error ? error.message : 'Unknown error'
         };
         const dataString = JSON.stringify(errorData);
         const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-        
+
         return NextResponse.json({
           encrypted: true,
           data: encryptedData,

@@ -53,13 +53,13 @@ export async function GET(request: Request) {
     const assignedTo = searchParams.get('assignedTo') || '';
     const sortBy = searchParams.get('sortBy') || 'dueDate';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
-    
+
     // NEW: Get documentId parameter
     const documentId = searchParams.get('documentId');
-    
+
     // NEW: Check for extension parameter
     const extension = searchParams.get('extension') === 'true';
-    
+
     // NEW: Get patient name and DOB for matching
     const patientName = searchParams.get('patient_name') || '';
     const patientDob = searchParams.get('dob') || '';
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
 
     // Base conditions - ALWAYS filter by physicianId
     andConditions.push({ physicianId });
-    
+
     console.log('🔍 Filtering tasks by physicianId:', physicianId, 'for user role:', user.role);
 
     // NEW: Create array to hold all patient matching conditions
@@ -84,10 +84,10 @@ export async function GET(request: Request) {
         patientDob,
         claimNumber: claimNumber || 'Not provided'
       });
-      
+
       // Normalize the DOB format
       let normalizedDob = patientDob;
-      
+
       try {
         const dobDate = new Date(patientDob);
         if (!isNaN(dobDate.getTime())) {
@@ -97,14 +97,14 @@ export async function GET(request: Request) {
       } catch (error) {
         console.log('⚠️ Could not parse DOB date, using as-is:', patientDob);
       }
-      
+
       console.log('📊 Patient search criteria:', {
         originalDob: patientDob,
         normalizedDob,
         patientName,
         claimNumber
       });
-      
+
       // Option 1: Look for tasks where patient field contains the name
       if (patientName) {
         patientMatchingConditions.push({
@@ -114,7 +114,7 @@ export async function GET(request: Request) {
           }
         });
       }
-      
+
       // Option 2: Look for tasks where description contains both name and DOB
       const combinedSearch = `${patientName} ${normalizedDob}`;
       patientMatchingConditions.push({
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
           mode: 'insensitive' as const
         }
       });
-      
+
       // Option 3: If there's a document relation, we can filter through it
       // Check if document has patient info
       patientMatchingConditions.push({
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
           }
         }
       });
-      
+
       console.log('✅ Patient matching conditions added:', {
         conditionsCount: patientMatchingConditions.length
       });
@@ -149,9 +149,9 @@ export async function GET(request: Request) {
     // NEW: Add claim number matching if provided
     if (claimNumber) {
       console.log('🔢 Claim number matching enabled:', { claimNumber });
-      
+
       const claimMatchingConditions: any[] = [];
-      
+
       // Option 1: Direct claim number match in task description or patient field
       claimMatchingConditions.push({
         OR: [
@@ -169,7 +169,7 @@ export async function GET(request: Request) {
           }
         ]
       });
-      
+
       // Option 2: Match through document relation
       claimMatchingConditions.push({
         document: {
@@ -179,7 +179,7 @@ export async function GET(request: Request) {
           }
         }
       });
-      
+
       // Option 3: If claim number has a specific format (like WC-), look for partial matches
       if (claimNumber.includes('-')) {
         // Try to match just the numeric part or different formats
@@ -212,11 +212,11 @@ export async function GET(request: Request) {
           });
         }
       }
-      
+
       console.log('✅ Claim number matching conditions added:', {
         conditionsCount: claimMatchingConditions.length
       });
-      
+
       // Add claim matching conditions to patient matching conditions if we have both
       // This creates an OR relationship between patient matching and claim matching
       if (patientMatchingConditions.length > 0) {
@@ -241,7 +241,7 @@ export async function GET(request: Request) {
       andConditions.push({
         OR: patientMatchingConditions
       });
-      
+
       console.log('🎯 Combined patient/claim matching conditions:', {
         totalConditions: patientMatchingConditions.length,
         hasPatientInfo: !!(patientName && patientDob),
@@ -253,14 +253,14 @@ export async function GET(request: Request) {
     if (dept) {
       // Remove "Department" from the search term for better matching
       const cleanDept = dept.replace(/Department/gi, '').trim();
-      
-      andConditions.push({ 
-        department: { 
-          contains: cleanDept, 
-          mode: 'insensitive' 
-        } 
+
+      andConditions.push({
+        department: {
+          contains: cleanDept,
+          mode: 'insensitive'
+        }
       });
-      
+
       console.log('Original dept:', dept, 'Cleaned dept:', cleanDept);
     }
 
@@ -268,7 +268,7 @@ export async function GET(request: Request) {
     const statusMap: { [key: string]: string } = {
       pending: "Pending",
       done: "Done",
-      completed: "Completed", 
+      completed: "Completed",
       closed: "Closed",
     };
     let effectiveStatus = status;
@@ -280,10 +280,10 @@ export async function GET(request: Request) {
     if (overdueOnly || status === 'overdue') {
       andConditions.push(
         { dueDate: { lt: now } },
-        { 
-          status: { 
-            notIn: ["Done", "Completed", "Closed"] 
-          } 
+        {
+          status: {
+            notIn: ["Done", "Completed", "Closed"]
+          }
         }
       );
       effectiveStatus = '';
@@ -291,15 +291,15 @@ export async function GET(request: Request) {
 
     // 🆕 EXCLUDE COMPLETED/CLOSED TASKS BY DEFAULT
     // Only include them when explicitly filtered by status
-    if (effectiveStatus) {
+    if (effectiveStatus && effectiveStatus !== 'all') {
       // User is explicitly filtering by status - show what they asked for
       andConditions.push({ status: effectiveStatus });
-    } else if (!overdueOnly && status !== 'overdue') {
+    } else if (!overdueOnly && status !== 'overdue' && effectiveStatus !== 'all') {
       // Default behavior: exclude completed/closed tasks
-      andConditions.push({ 
-        status: { 
-          notIn: ["Done", "Completed", "Closed"] 
-        } 
+      andConditions.push({
+        status: {
+          notIn: ["Done", "Completed", "Closed"]
+        }
       });
     }
 
@@ -308,11 +308,45 @@ export async function GET(request: Request) {
       andConditions.push({ type: taskTypeFilter });
     }
 
-    // Assigned to filter using actions array
-    if (assignedTo === 'me') {
-      andConditions.push({ actions: { has: "Claimed" } });
-    } else if (assignedTo === 'unassigned') {
-      andConditions.push({ actions: { not: { has: "Claimed" } } });
+    // Assigned to filter
+    if (assignedTo) {
+      if (assignedTo === 'me') {
+        // For 'me', we try to match the user's name or ID if possible, 
+        // but since we don't know exactly how it's stored, we might need to rely on the frontend sending the specific name/ID.
+        // However, preserving existing behavior for 'me' which seems to check 'Claimed' action.
+        // But we also want to check the assignee field.
+        andConditions.push({
+          OR: [
+            { actions: { has: "Claimed" } },
+            { assignee: user.firstName ? { contains: user.firstName } : undefined } // Fallback attempt
+          ]
+        });
+      } else if (assignedTo === 'unassigned') {
+        andConditions.push({
+          OR: [
+            { assignee: "Unclaimed" },
+            { assignee: null }
+          ]
+        });
+      } else {
+        // Specific assignee filter
+        andConditions.push({ assignee: assignedTo });
+      }
+    } else if (user.role === 'Staff') {
+      // 🔒 Enforce staff visibility rule: "show patient and task only that his physcian assign"
+      // If no specific filter is requested, staff should only see tasks assigned to them OR unclaimed tasks (if that's the workflow).
+      // User request: "show patient and task only that his physcian assign". 
+      // This implies strict filtering to tasks assigned to THIS staff member.
+      // We assume the assignee field stores the staff's ID or Name. 
+      // Let's try to match both to be safe.
+      andConditions.push({
+        OR: [
+          { assignee: user.id },
+          { assignee: user.firstName }, // Assuming firstName might be used
+          { assignee: `${user.firstName} ${user.lastName}` }
+        ]
+      });
+      console.log('🔒 Enforcing staff task visibility for:', user.firstName);
     }
 
     // Search filter - OR between description and patient
@@ -531,7 +565,7 @@ export async function GET(request: Request) {
     // NEW: Check if request is from extension
     if (extension) {
       console.log('🔄 Extension request detected - returning unencrypted data');
-      
+
       // Return unencrypted response for extension
       return NextResponse.json({
         tasks: tasksWithURAndPriority,
@@ -565,10 +599,10 @@ export async function GET(request: Request) {
     /* ---------------------------------------------
      * ENCRYPT THE RESPONSE (Only for non-extension requests)
      * --------------------------------------------- */
-    
+
     // Get encryption secret from environment variables
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
-    
+
     if (!ENCRYPTION_SECRET) {
       console.error('❌ Encryption secret not configured in tasks API');
       return NextResponse.json({
@@ -610,7 +644,7 @@ export async function GET(request: Request) {
       // Encrypt the response data
       const dataString = JSON.stringify(responseData);
       const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-      
+
       console.log('🔐 Tasks response encrypted successfully', {
         taskCount: tasksWithURAndPriority.length,
         encryptedDataLength: encryptedData.length,
@@ -639,7 +673,7 @@ export async function GET(request: Request) {
 
     } catch (encryptionError) {
       console.error('❌ Failed to encrypt tasks response:', encryptionError);
-      
+
       // Fallback: Return unencrypted response with warning
       return NextResponse.json({
         encrypted: false,
@@ -653,21 +687,21 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("Error fetching tasks:", error);
-    
+
     // Get encryption secret for error response
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
-    
+
     // Check if request is from extension
     const { searchParams } = new URL(request.url);
     const extension = searchParams.get('extension') === 'true';
     const patientName = searchParams.get('patient_name');
     const patientDob = searchParams.get('dob');
     const claimNumber = searchParams.get('claimNumber') || searchParams.get('claim');
-    
+
     if (extension) {
       // Return unencrypted error for extension
       return NextResponse.json(
-        { 
+        {
           error: "Failed to fetch tasks",
           details: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date().toISOString(),
@@ -678,10 +712,10 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-    
+
     if (ENCRYPTION_SECRET) {
       try {
-        const errorData = { 
+        const errorData = {
           error: "Failed to fetch tasks",
           details: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date().toISOString(),
@@ -690,7 +724,7 @@ export async function GET(request: Request) {
         };
         const dataString = JSON.stringify(errorData);
         const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-        
+
         return NextResponse.json({
           encrypted: true,
           data: encryptedData,

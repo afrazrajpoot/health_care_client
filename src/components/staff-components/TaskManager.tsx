@@ -200,7 +200,7 @@ const TaskManager = ({ tasks }: TaskManagerProps) => {
 
   return (
     <div className="font-sans bg-[#f5f7fb] p-5 text-[#1f2937]">
-      <h1 className="text-2xl mb-3">DocLatch – Staff Dashboard</h1>
+
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* LEFT: Active Tasks - ALL YELLOW CHIPS */}

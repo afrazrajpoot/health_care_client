@@ -38,7 +38,12 @@ export const useTasks = (initialMode: "wc" | "gm") => {
 
       // Derive assignee and actions based on status for consistency
       const isClaimed = apiTask.status === "in progress";
-      const assignee = isClaimed ? "You" : "Unclaimed";
+      
+      // Use DB assignee if available and specific, otherwise fallback to legacy logic
+      let assignee = apiTask.assignee;
+      if (!assignee || assignee === "Unclaimed") {
+          assignee = isClaimed ? "You" : "Unclaimed";
+      }
       const actions = isClaimed ? ["Complete"] : ["Claimed", "Complete"];
 
       const month = String(dueDate.getMonth() + 1).padStart(2, "0");

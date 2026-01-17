@@ -3,7 +3,7 @@ import { AlertCircle, X } from "lucide-react";
 
 interface PaymentErrorModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: () => void; // This will close AND refresh
   onUpgrade: () => void;
   errorMessage?: string;
   ignoredFiles?: any[];
@@ -11,7 +11,7 @@ interface PaymentErrorModalProps {
 
 const PaymentErrorModal: React.FC<PaymentErrorModalProps> = ({
   isOpen,
-  onClose,
+  onClose, // This should handle both closing and refreshing
   onUpgrade,
   errorMessage,
   ignoredFiles,
@@ -108,9 +108,9 @@ const PaymentErrorModal: React.FC<PaymentErrorModalProps> = ({
         <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-white transition-colors font-medium text-gray-700"
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            Close
+            Close 
           </button>
         </div>
       </div>

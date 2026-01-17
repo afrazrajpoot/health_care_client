@@ -61,6 +61,22 @@ export interface TaskStats {
   completed: number;
 }
 
+export interface FailedDocument {
+  id: string;
+  reason: string;
+  db?: string;
+  doi?: string;
+  claimNumber?: string;
+  patientName?: string;
+  documentText?: string;
+  physicianId?: string;
+  gcsFileLink?: string;
+  fileName: string;
+  fileHash?: string;
+  blobPath?: string;
+  summary?: string;
+}
+
 // API Functions
 export const fetchRecentPatients = async (searchQuery: string = "") => {
   try {
@@ -83,12 +99,19 @@ export const fetchPatientTasks = async (
   patient: RecentPatient,
   page: number = 1,
   pageSize: number = 10,
-  showCompletedTasks: boolean = false,
+  viewMode: "open" | "completed" | "all" = "open",
   taskTypeFilter?: "all" | "internal" | "external"
 ) => {
   try {
-    // Fetch tasks based on current view (open or completed)
-    const statusFilter = showCompletedTasks ? "completed" : undefined;
+    // Fetch tasks based on current view (open or completed or all)
+    let statusFilter: string | undefined;
+    if (viewMode === "completed") {
+      statusFilter = "completed";
+    } else if (viewMode === "all") {
+      statusFilter = "all";
+    } else {
+      statusFilter = undefined;
+    }
 
     const taskParams = new URLSearchParams({
       mode: "wc",
@@ -508,8 +531,8 @@ export const getQuestionnaireChips = (
         const therapyArray = Array.isArray(therapies)
           ? therapies
           : typeof therapies === "object"
-          ? Object.values(therapies)
-          : [];
+            ? Object.values(therapies)
+            : [];
         if (
           therapyArray.some(
             (t: any) =>
@@ -530,8 +553,8 @@ export const getQuestionnaireChips = (
         const appsArray = Array.isArray(newApps)
           ? newApps
           : typeof newApps === "object"
-          ? Object.values(newApps)
-          : [];
+            ? Object.values(newApps)
+            : [];
         if (appsArray.length > 0) {
           chips.push({ text: "New appointment scheduled", type: "blue" });
         }
@@ -541,10 +564,10 @@ export const getQuestionnaireChips = (
         const adls = Array.isArray(patientQuiz.adl)
           ? patientQuiz.adl
           : typeof patientQuiz.adl === "string"
-          ? JSON.parse(patientQuiz.adl)
-          : typeof patientQuiz.adl === "object"
-          ? Object.values(patientQuiz.adl)
-          : [];
+            ? JSON.parse(patientQuiz.adl)
+            : typeof patientQuiz.adl === "object"
+              ? Object.values(patientQuiz.adl)
+              : [];
 
         if (
           adls.length === 0 ||

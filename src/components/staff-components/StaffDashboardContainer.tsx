@@ -97,7 +97,7 @@ export default function StaffDashboardContainer() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [loadingPatientData, setLoadingPatientData] = useState(false);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [viewMode, setViewMode] = useState<"open" | "completed" | "all">("open");
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
@@ -113,6 +113,10 @@ export default function StaffDashboardContainer() {
     "all" | "internal" | "external"
   >("all");
   const [showUploadToast, setShowUploadToast] = useState(false);
+  // Add refresh trigger state
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Add a ref to track if refresh is already in progress
+  const isRefreshingRef = useRef(false);
 
   // Task status and assignee management
   const [taskStatuses, setTaskStatuses] = useState<{
@@ -121,6 +125,20 @@ export default function StaffDashboardContainer() {
   const [taskAssignees, setTaskAssignees] = useState<{
     [taskId: string]: string;
   }>({});
+  const [reassignConfirmData, setReassignConfirmData] = useState<{
+    isOpen: boolean;
+    taskId: string;
+    currentAssignee: string;
+    newAssignee: string;
+  } | null>(null);
+  const [bulkReassignConfirmData, setBulkReassignConfirmData] = useState<{
+    isOpen: boolean;
+    taskIds: string[];
+    newAssignee: string;
+    conflictingDetails: { taskId: string; currentAssignee: string }[];
+  } | null>(null);
+
+  const [reassignLoading, setReassignLoading] = useState(false);
 
   // Hooks
   const { isProcessing } = useSocket();
@@ -175,10 +193,28 @@ export default function StaffDashboardContainer() {
 
   const handleAssigneeChipClick = useCallback(
     async (taskId: string, assignee: string) => {
+      const task = patientTasks.find((t) => t.id === taskId);
+      const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
+
+      // Check if task is already assigned to someone else (not Unclaimed)
+      // and we are trying to assign to a different person
+      if (
+        currentAssignee !== "Unclaimed" &&
+        currentAssignee !== assignee &&
+        assignee !== "Unclaimed"
+      ) {
+        setReassignConfirmData({
+          isOpen: true,
+          taskId,
+          currentAssignee,
+          newAssignee: assignee,
+        });
+        return;
+      }
+
       setTaskAssignees((prev) => ({ ...prev, [taskId]: assignee }));
       const result = await updateTaskAssignee(taskId, assignee, patientTasks);
       if (!result.success) {
-        const task = patientTasks.find((t) => t.id === taskId);
         if (task)
           setTaskAssignees((prev) => ({
             ...prev,
@@ -186,8 +222,113 @@ export default function StaffDashboardContainer() {
           }));
       }
     },
-    [patientTasks]
+    [patientTasks, taskAssignees]
   );
+
+  const handleConfirmReassign = useCallback(async () => {
+    if (!reassignConfirmData) return;
+
+    const { taskId, newAssignee } = reassignConfirmData;
+    
+    setReassignLoading(true);
+
+    try {
+      // Proceed with assignment
+      setTaskAssignees((prev) => ({ ...prev, [taskId]: newAssignee }));
+      const result = await updateTaskAssignee(taskId, newAssignee, patientTasks);
+      
+      if (!result.success) {
+        const task = patientTasks.find((t) => t.id === taskId);
+        if (task)
+          setTaskAssignees((prev) => ({
+            ...prev,
+            [taskId]: task.assignee || "Unclaimed",
+          }));
+        toast.error("Failed to reassign task");
+      } else {
+        toast.success(`Task reassigned to ${newAssignee}`);
+        // Close modal only on success
+        setReassignConfirmData(null);
+      }
+    } catch (error) {
+      console.error("Reassign error:", error);
+      toast.error("An error occurred while reassigning");
+    } finally {
+      setReassignLoading(false);
+    }
+  }, [reassignConfirmData, patientTasks]);
+
+  const handleCancelReassign = useCallback(() => {
+    setReassignConfirmData(null);
+  }, []);
+
+  const handleBulkAssign = useCallback(async (taskIds: string[], assignee: string) => {
+    // Filter out tasks that are ALREADY assigned to the target assignee
+    const tasksToAssign = taskIds.filter(taskId => {
+      const task = patientTasks.find(t => t.id === taskId);
+      const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
+      return currentAssignee !== assignee;
+    });
+
+    if (tasksToAssign.length === 0) {
+      toast.info(`Selected tasks are already assigned to ${assignee}`);
+      return;
+    }
+
+    // Check for conflicting assignments (assigned to someone else)
+    const conflictingDetails: { taskId: string; currentAssignee: string }[] = [];
+    
+    tasksToAssign.forEach(taskId => {
+      const task = patientTasks.find(t => t.id === taskId);
+      const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
+      
+      if (currentAssignee !== "Unclaimed" && currentAssignee !== assignee) {
+        conflictingDetails.push({ taskId, currentAssignee });
+      }
+    });
+
+    if (conflictingDetails.length > 0) {
+      setBulkReassignConfirmData({
+        isOpen: true,
+        taskIds: tasksToAssign, // Only reassign the ones that need it
+        newAssignee: assignee,
+        conflictingDetails
+      });
+      return;
+    }
+
+    // If no conflicts, proceed with assignment
+    for (const taskId of tasksToAssign) {
+      setTaskAssignees((prev) => ({ ...prev, [taskId]: assignee }));
+      await updateTaskAssignee(taskId, assignee, patientTasks);
+    }
+    toast.success(`Assigned ${tasksToAssign.length} tasks to ${assignee}`);
+  }, [patientTasks, taskAssignees]);
+
+  const handleConfirmBulkReassign = useCallback(async () => {
+    if (!bulkReassignConfirmData) return;
+    const { taskIds, newAssignee } = bulkReassignConfirmData;
+    
+    setReassignLoading(true);
+
+    try {
+      for (const taskId of taskIds) {
+        setTaskAssignees((prev) => ({ ...prev, [taskId]: newAssignee }));
+        await updateTaskAssignee(taskId, newAssignee, patientTasks);
+      }
+      toast.success(`Reassigned ${taskIds.length} tasks to ${newAssignee}`);
+      setBulkReassignConfirmData(null);
+    } catch (error) {
+      console.error("Bulk reassign error:", error);
+      toast.error("Failed to reassign some tasks");
+    } finally {
+      setReassignLoading(false);
+    }
+  }, [bulkReassignConfirmData, patientTasks]);
+
+  const handleCancelBulkReassign = useCallback(() => {
+    setBulkReassignConfirmData(null);
+  }, []);
 
   const getStatusOptions = useCallback(
     (task: Task): string[] => getStatusOptionsUtil(task),
@@ -281,6 +422,92 @@ export default function StaffDashboardContainer() {
     [searchParams]
   );
 
+  // Fetch patient tasks
+  const fetchPatientTasks = useCallback(
+    async (patient: RecentPatient, page: number = 1, pageSize: number = 10) => {
+      try {
+        const { tasks, totalCount } = await fetchPatientTasksUtil(
+          patient,
+          page,
+          pageSize,
+          viewMode,
+          taskTypeFilter
+        );
+        setPatientTasks(tasks);
+        setTaskTotalCount(totalCount);
+      } catch (error) {
+        console.error("Error fetching patient tasks:", error);
+        setPatientTasks([]);
+        setTaskTotalCount(0);
+      }
+    },
+    [viewMode, taskTypeFilter]
+  );
+
+  // Function to refresh all data - MOVE THIS AFTER fetchPatientTasks declaration
+  const refreshAllData = useCallback(async () => {
+    // Prevent multiple simultaneous refreshes
+    if (isRefreshingRef.current) {
+      console.log("Refresh already in progress, skipping...");
+      return;
+    }
+
+    try {
+      isRefreshingRef.current = true;
+      
+      console.log("🔄 Refreshing data...");
+      
+      if (selectedPatient) {
+        await fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
+      }
+      
+      // Use the utility function directly instead of the state updater
+      const recentPatientsData = await fetchRecentPatientsUtil(patientSearchQuery);
+      setRecentPatients(recentPatientsData);
+      
+      // Call the hook function directly
+      await fetchFailedDocuments();
+      
+      // Clear errors
+      clearPaymentError();
+      clearUploadError();
+      
+      // Close all modals after successful refresh
+      setShowModal(false);
+      setShowTaskModal(false);
+      setShowQuickNoteModal(false);
+      setShowDocumentSuccessPopup(false);
+      setShowFilePopup(false);
+      setIsUpdateModalOpen(false);
+      
+      // toast.success("Data refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast.error("Failed to refresh data");
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [
+    selectedPatient,
+    taskPage,
+    taskPageSize,
+    patientSearchQuery,
+    // Remove fetchPatientTasks from dependencies to prevent loops
+    // fetchPatientTasks,
+    // fetchRecentPatients,
+    fetchFailedDocuments,
+    clearPaymentError,
+    clearUploadError,
+  ]);
+
+  // Use effect to trigger data refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      console.log("🔄 Triggering refresh, count:", refreshTrigger);
+      refreshAllData();
+    }
+  }, [refreshTrigger]); // Remove refreshAllData from dependencies
+
   useEffect(() => {
     fetchRecentPatients(patientSearchQuery);
   }, [patientSearchQuery, fetchRecentPatients]);
@@ -318,28 +545,6 @@ export default function StaffDashboardContainer() {
     };
     initializePage();
   }, []);
-
-  // Fetch patient tasks
-  const fetchPatientTasks = useCallback(
-    async (patient: RecentPatient, page: number = 1, pageSize: number = 10) => {
-      try {
-        const { tasks, totalCount } = await fetchPatientTasksUtil(
-          patient,
-          page,
-          pageSize,
-          showCompletedTasks,
-          taskTypeFilter
-        );
-        setPatientTasks(tasks);
-        setTaskTotalCount(totalCount);
-      } catch (error) {
-        console.error("Error fetching patient tasks:", error);
-        setPatientTasks([]);
-        setTaskTotalCount(0);
-      }
-    },
-    [showCompletedTasks, taskTypeFilter]
-  );
 
   // Fetch patient data on selection
   useEffect(() => {
@@ -398,7 +603,7 @@ export default function StaffDashboardContainer() {
     }
   }, [
     taskPage,
-    showCompletedTasks,
+    viewMode,
     fetchPatientTasks,
     selectedPatient,
     taskPageSize,
@@ -537,17 +742,10 @@ export default function StaffDashboardContainer() {
     router.push("/packages");
   }, [clearPaymentError, router]);
 
-  const handleCloseErrorModal = useCallback(() => {
-    clearPaymentError();
-    clearUploadError();
-    // Close all modals when error modal is closed
-    setShowModal(false);
-    setShowTaskModal(false);
-    setShowQuickNoteModal(false);
-    setShowDocumentSuccessPopup(false);
-    setShowFilePopup(false);
-    setIsUpdateModalOpen(false);
-  }, [clearPaymentError, clearUploadError]);
+  // Function to trigger refresh manually (without causing infinite loop)
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   return (
     <>
@@ -669,7 +867,7 @@ export default function StaffDashboardContainer() {
                 totalPages={totalPages}
                 hasNextPage={hasNextPage}
                 hasPrevPage={hasPrevPage}
-                showCompletedTasks={showCompletedTasks}
+                viewMode={viewMode}
                 taskStatuses={taskStatuses}
                 taskAssignees={taskAssignees}
                 failedDocuments={
@@ -685,14 +883,16 @@ export default function StaffDashboardContainer() {
                 getAssigneeOptions={getAssigneeOptions}
                 formatDOB={formatDOB}
                 formatClaimNumber={formatClaimNumber}
-                onShowCompletedTasksChange={setShowCompletedTasks}
+                onViewModeChange={setViewMode}
                 onTaskPageChange={setTaskPage}
                 onStatusClick={handleStatusChipClick}
                 onAssigneeClick={handleAssigneeChipClick}
+                onBulkAssign={handleBulkAssign}
                 onTaskClick={handleTaskClick}
                 onSaveQuickNote={handleSaveQuickNote}
                 onFailedDocumentDeleted={removeFailedDocument}
                 onFailedDocumentRowClick={handleRowClick}
+                userRole={session?.user?.role}
               />
             </section>
           </main>
@@ -728,7 +928,7 @@ export default function StaffDashboardContainer() {
         onCloseTaskModal={() => setShowTaskModal(false)}
         onCloseQuickNoteModal={() => setShowQuickNoteModal(false)}
         onCloseDocumentSuccessPopup={() => window.location.reload()}
-        onClearPaymentError={handleCloseErrorModal}
+        onClearPaymentError={triggerRefresh} // Use triggerRefresh instead
         onClearUploadError={clearUploadError}
         onUpgrade={handleUpgrade}
         onManualTaskSubmit={handleManualTaskSubmit}
@@ -741,15 +941,21 @@ export default function StaffDashboardContainer() {
           handleUpdateInputChange(syntheticEvent);
         }}
         onUpdateSubmit={handleUpdateSubmit}
+        reassignConfirmData={reassignConfirmData}
+        onConfirmReassign={handleConfirmReassign}
+        onCancelReassign={handleCancelReassign}
+        bulkReassignConfirmData={bulkReassignConfirmData}
+        onConfirmBulkReassign={handleConfirmBulkReassign}
+        onCancelBulkReassign={handleCancelBulkReassign}
+        reassignLoading={reassignLoading}
       />
 
-      <PaymentErrorModal
-        isOpen={!!paymentError || !!(ignoredFiles && ignoredFiles.length > 0)}
-        onClose={handleCloseErrorModal}
-        onUpgrade={handleUpgrade}
-        // errorMessage={paymentError}
-        ignoredFiles={ignoredFiles}
-      />
+  <PaymentErrorModal
+  isOpen={!!paymentError || !!(ignoredFiles && ignoredFiles.length > 0)}
+  onClose={triggerRefresh} // This will trigger refresh when close button is clicked
+  onUpgrade={handleUpgrade}
+  ignoredFiles={ignoredFiles}
+/>
 
       {showUploadToast && <UploadToast />}
 

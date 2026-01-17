@@ -3,6 +3,7 @@ import ManualTaskModal from "@/components/ManualTaskModal";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 import UpdateDocumentModal from "@/components/staff-components/UpdateDocumentModal";
 import { AlertCircle } from "lucide-react";
+import PaymentErrorModal from "./PaymentErrorModal";
 
 interface RecentPatient {
   patientName: string;
@@ -54,6 +55,23 @@ interface StaffDashboardModalsProps {
   onCloseUpdateModal: () => void;
   onUpdateInputChange: (field: string, value: string) => void;
   onUpdateSubmit: () => Promise<void>;
+  reassignConfirmData: {
+    isOpen: boolean;
+    taskId: string;
+    currentAssignee: string;
+    newAssignee: string;
+  } | null;
+  onConfirmReassign: () => void;
+  onCancelReassign: () => void;
+  bulkReassignConfirmData: {
+    isOpen: boolean;
+    taskIds: string[];
+    newAssignee: string;
+    conflictingDetails: { taskId: string; currentAssignee: string }[];
+  } | null;
+  onConfirmBulkReassign: () => void;
+  onCancelBulkReassign: () => void;
+  reassignLoading: boolean;
 }
 
 export default function StaffDashboardModals({
@@ -83,11 +101,29 @@ export default function StaffDashboardModals({
   onCloseUpdateModal,
   onUpdateInputChange: updateInputChange,
   onUpdateSubmit,
+  reassignConfirmData,
+  onConfirmReassign,
+  onCancelReassign,
+  bulkReassignConfirmData,
+  onConfirmBulkReassign,
+  onCancelBulkReassign,
+  reassignLoading,
 }: StaffDashboardModalsProps) {
   // Wrapper function to convert ChangeEvent to (field, value) format
   const handleUpdateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     updateInputChange(name, value);
+  };
+
+  // Handle close with reload for error modals
+  const handleClosePaymentError = () => {
+    onClearPaymentError();
+    window.location.reload();
+  };
+
+  const handleCloseUploadError = () => {
+    onClearUploadError();
+    window.location.reload();
   };
 
   return (
@@ -160,7 +196,7 @@ export default function StaffDashboardModals({
       {/* Payment Error Modal */}
       <PaymentErrorModal
         isOpen={!!paymentError}
-        onClose={onClearPaymentError}
+        onClose={handleClosePaymentError}
         onUpgrade={onUpgrade}
         errorMessage={paymentError || undefined}
         ignoredFiles={ignoredFiles}
@@ -169,7 +205,7 @@ export default function StaffDashboardModals({
       {/* Upload Error Modal */}
       <UploadErrorModal
         isOpen={!!uploadError}
-        onClose={onClearUploadError}
+        onClose={handleCloseUploadError}
         errorMessage={uploadError || undefined}
       />
 
@@ -189,125 +225,179 @@ export default function StaffDashboardModals({
         onSubmit={onUpdateSubmit}
         isLoading={updateLoading}
       />
+
+      {/* Reassign Confirmation Modal */}
+      {reassignConfirmData && reassignConfirmData.isOpen && (
+        <ReassignConfirmationModal
+          isOpen={reassignConfirmData.isOpen}
+          currentAssignee={reassignConfirmData.currentAssignee}
+          newAssignee={reassignConfirmData.newAssignee}
+          onConfirm={onConfirmReassign}
+          onCancel={onCancelReassign}
+          isLoading={reassignLoading}
+        />
+      )}
+
+      {/* Bulk Reassign Confirmation Modal */}
+      {bulkReassignConfirmData && bulkReassignConfirmData.isOpen && (
+        <BulkReassignConfirmationModal
+          isOpen={bulkReassignConfirmData.isOpen}
+          conflictingDetails={bulkReassignConfirmData.conflictingDetails}
+          newAssignee={bulkReassignConfirmData.newAssignee}
+          onConfirm={onConfirmBulkReassign}
+          onCancel={onCancelBulkReassign}
+          isLoading={reassignLoading}
+        />
+      )}
     </>
   );
 }
 
-// PaymentErrorModal component
-const PaymentErrorModal = ({
+// ReassignConfirmationModal component
+const ReassignConfirmationModal = ({
   isOpen,
-  onClose,
-  onUpgrade,
-  errorMessage,
-  ignoredFiles,
+  currentAssignee,
+  newAssignee,
+  onConfirm,
+  onCancel,
+  isLoading,
 }: {
   isOpen: boolean;
-  onClose: () => void;
-  onUpgrade: () => void;
-  errorMessage?: string;
-  ignoredFiles?: any[];
+  currentAssignee: string;
+  newAssignee: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
 }) => {
   if (!isOpen) return null;
 
-  const hasIgnoredFiles = ignoredFiles && ignoredFiles.length > 0;
-
-  if (!hasIgnoredFiles && !errorMessage) return null;
-
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
-        <div
-          className={`relative p-6 pb-8 flex-shrink-0 ${
-            hasIgnoredFiles
-              ? "bg-gradient-to-r from-orange-600 to-red-600"
-              : "bg-gradient-to-r from-red-600 to-red-700"
-          }`}
-        >
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
-          >
-            <AlertCircle className="text-white" size={20} />
-          </button>
-
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 pb-8">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 rounded-full p-3">
               <AlertCircle className="text-white" size={24} />
             </div>
-            <h2 className="text-xl font-bold text-white">
-              {hasIgnoredFiles ? "Files Not Uploaded" : "Upload Error"}
-            </h2>
+            <h2 className="text-xl font-bold text-white">Reassign Task?</h2>
           </div>
         </div>
 
-        <div className="p-6 space-y-4 overflow-y-auto flex-1">
-          {hasIgnoredFiles ? (
-            <>
-              <p className="text-gray-700 leading-relaxed">
-                {errorMessage ||
-                  `${ignoredFiles.length} file${
-                    ignoredFiles.length > 1 ? "s" : ""
-                  } could not be uploaded:`}
-              </p>
-
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {ignoredFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="bg-red-50 border border-red-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="bg-red-100 rounded-full p-2 flex-shrink-0">
-                        <AlertCircle className="text-red-600" size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-red-900 break-words">
-                          {file.filename}
-                        </p>
-                        <p className="text-sm text-red-700 mt-1">
-                          {file.reason}
-                        </p>
-                        {file.existing_file && (
-                          <p className="text-xs text-red-600 mt-1">
-                            Already uploaded as:{" "}
-                            <span className="font-medium">
-                              {file.existing_file}
-                            </span>
-                          </p>
-                        )}
-                        {file.document_id && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Document ID: {file.document_id}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-gray-700 leading-relaxed">
-                {errorMessage ||
-                  "An error occurred during upload. Please try again."}
-              </p>
-            </>
-          )}
+        <div className="p-6 space-y-4">
+          <p className="text-gray-700 leading-relaxed">
+            This task is already assigned to <span className="font-bold">{currentAssignee}</span>.
+          </p>
+          <p className="text-gray-700 leading-relaxed">
+            Do you want to reassign it to <span className="font-bold">{newAssignee}</span>?
+          </p>
+          <p className="text-sm text-gray-500">
+            This will remove the task from {currentAssignee}'s list and add it to {newAssignee}'s list.
+          </p>
         </div>
 
-        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end flex-shrink-0">
+        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end">
           <button
-            onClick={onClose}
+            onClick={onCancel}
             className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-white transition-colors font-medium text-gray-700"
           >
-            Close
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isLoading && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
+            {isLoading ? "Reassigning..." : "Confirm Reassignment"}
           </button>
         </div>
       </div>
     </div>
   );
 };
+
+// BulkReassignConfirmationModal component
+const BulkReassignConfirmationModal = ({
+  isOpen,
+  conflictingDetails,
+  newAssignee,
+  onConfirm,
+  onCancel,
+  isLoading,
+}: {
+  isOpen: boolean;
+  conflictingDetails: { taskId: string; currentAssignee: string }[];
+  newAssignee: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 pb-8">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 rounded-full p-3">
+              <AlertCircle className="text-white" size={24} />
+            </div>
+            <h2 className="text-xl font-bold text-white">Reassign Tasks?</h2>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <p className="text-gray-700 leading-relaxed">
+            The following tasks are already assigned to other staff members:
+          </p>
+          
+          <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto border border-gray-200">
+            <ul className="space-y-2">
+              {conflictingDetails.map((detail) => (
+                <li key={detail.taskId} className="text-sm text-gray-700 flex items-start gap-2">
+                  <span className="text-red-500 font-bold">•</span>
+                  <span>
+                    Task is currently assigned to <span className="font-bold text-gray-900">{detail.currentAssignee}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="text-gray-700 leading-relaxed mt-2">
+            Do you want to reassign these tasks to <span className="font-bold text-blue-700">{newAssignee}</span>?
+          </p>
+          <p className="text-sm text-gray-500">
+            This will remove the tasks from the previous staff members and add them to {newAssignee}'s list.
+          </p>
+        </div>
+
+        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-white transition-colors font-medium text-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isLoading && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
+            {isLoading ? "Reassigning..." : "Confirm Reassignment"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 
 // UploadErrorModal component
 const UploadErrorModal = ({
