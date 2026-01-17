@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/providers/SocketProvider";
 import { toast } from "sonner";
+import { useExtractDocumentsMutation } from "@/redux/staffApi";
 
 export const useFileUpload = (mode: "wc" | "gm") => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -12,6 +13,7 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const snapInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
   const { setActiveTask, startTwoPhaseTracking, clearProgress } = useSocket();
+  const [extractDocumentsMutation] = useExtractDocumentsMutation();
 
   const formatSize = useCallback((bytes: number) => {
     if (bytes < 1024) return bytes + " B";
@@ -43,79 +45,35 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       formDataUpload.append("mode", mode);
 
       try {
-        // ✅ Determine physician ID based on role
         const user = session?.user;
         const physicianId =
           user?.role === "Physician"
-            ? user?.id // if Physician, send their own ID
-            : user?.physicianId || ""; // otherwise, send assigned physician’s ID
+            ? user?.id
+            : user?.physicianId || "";
 
-        const apiUrl = `${
-          process.env.NEXT_PUBLIC_API_BASE_URL
-        }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
-          user?.id || ""
-        }`;
+        const result = await extractDocumentsMutation({
+          physicianId,
+          userId: user?.id || "",
+          formData: formDataUpload
+        }).unwrap();
 
-        // Create AbortController but DON'T set a timeout
-        // The upload endpoint returns immediately with task IDs
-        // Progress tracking happens separately via polling
-        const controller = new AbortController();
-
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            // ✅ Add Authorization header using fastapi_token from session
-            Authorization: `Bearer ${user?.fastapi_token}`,
-          },
-          body: formDataUpload,
-          signal: controller.signal,
-        });
-
-        // No timeout to clear since we removed it
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          const errorMessage = `HTTP error! status: ${response.status}, details: ${errorText}`;
-          console.error(errorMessage);
-
-          // Don't show modal for document limit errors - skip these errors
-          if (
-            (response.status === 400 || response.status === 402) &&
-            (errorText.toLowerCase().includes("limit exceeded") ||
-              errorText.toLowerCase().includes("subscription inactive") ||
-              errorText.toLowerCase().includes("upgrade your plan") ||
-              errorText.toLowerCase().includes("no active subscription"))
-          ) {
-            return;
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        const data = await response.json();
-
-        // Handle the case where all files were ignored/skipped (no task_id returned)
-        // This happens when files are duplicates or already processed
-        if (data.ignored && data.ignored.length > 0) {
-          // Clear any existing progress tracking since there might be nothing to process
-          if (!data.task_id) {
+        if (result.ignored && result.ignored.length > 0) {
+          if (!result.task_id) {
             clearProgress();
           }
 
-          setIgnoredFiles(data.ignored);
+          setIgnoredFiles(result.ignored);
 
-          // If no files were actually sent for processing (all ignored)
-          if (!data.task_id && data.payload_count === 0) {
+          if (!result.task_id && result.payload_count === 0) {
             setPaymentError(
-              `All ${data.ignored_count} file${
-                data.ignored_count > 1 ? "s were" : " was"
+              `All ${result.ignored_count} file${
+                result.ignored_count > 1 ? "s were" : " was"
               } skipped. See details below.`
             );
           } else {
-            // Some files were processed, some were ignored - show modal with ignored files
             setPaymentError(
-              `${data.ignored_count} file${
-                data.ignored_count > 1 ? "s" : ""
+              `${result.ignored_count} file${
+                result.ignored_count > 1 ? "s" : ""
               } could not be uploaded. See details below.`
             );
           }
@@ -125,27 +83,21 @@ export const useFileUpload = (mode: "wc" | "gm") => {
             snapInputRef.current.value = "";
           }
 
-          // If no task_id, don't proceed with progress tracking
-          if (!data.task_id) {
+          if (!result.task_id) {
             return;
           }
         }
 
-        // Check if we have both upload_task_id and task_id for two-phase tracking
-        if (data.upload_task_id && data.task_id) {
-          // Use two-phase tracking - pass payload_count as total files
+        if (result.upload_task_id && result.task_id) {
           startTwoPhaseTracking(
-            data.upload_task_id,
-            data.task_id,
-            data.payload_count
+            result.upload_task_id,
+            result.task_id,
+            result.payload_count
           );
-        } else if (data.task_id) {
-          // Fallback to single-phase tracking
-          setActiveTask(data.task_id, data.payload_count);
+        } else if (result.task_id) {
+          setActiveTask(result.task_id, result.payload_count);
         } else {
-          // No task_id means nothing to process - this is already handled above
-          // But if we get here without ignored files, it's an unexpected state
-          if (!data.ignored || data.ignored.length === 0) {
+          if (!result.ignored || result.ignored.length === 0) {
             throw new Error("No files were processed. Please try again.");
           }
           return;
@@ -157,25 +109,13 @@ export const useFileUpload = (mode: "wc" | "gm") => {
         }
       } catch (error: any) {
         console.error("❌ Upload error:", error);
-
-        if (error.name === "AbortError") {
-          setUploadError("Request timeout. Please try again.");
-        } else if (error.message.includes("Failed to fetch")) {
-          setUploadError(
-            "Unable to connect to server. Please check:\n• Your internet connection\n• If the server is running\n• API URL: " +
-              (process.env.NEXT_PUBLIC_API_BASE_URL)
-          );
-        } else {
-          setUploadError(`Upload failed: ${error.message}`);
-        }
-
-        // Clear any progress tracking on error
+        setUploadError(`Upload failed: ${error.message || "Unknown error"}`);
         clearProgress();
       } finally {
         setUploading(false);
       }
     },
-    [session?.user, setActiveTask, mode, startTwoPhaseTracking, clearProgress]
+    [session?.user, setActiveTask, mode, startTwoPhaseTracking, clearProgress, extractDocumentsMutation]
   );
 
   const handleSubmit = useCallback(async () => {

@@ -1,10 +1,13 @@
+
 // app/dashboard/components/IntakeModal.tsx
 "use client";
 
+import * as React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useGenerateIntakeLinkMutation, useGetPatientRecommendationsQuery } from "@/redux/staffApi";
 
 interface ModalField {
   id: string;
@@ -115,21 +118,6 @@ interface Patient {
   claimNumber: string;
 }
 
-interface RecommendationsResponse {
-  success: boolean;
-  data: {
-    patientNames?: string[];
-    allMatchingDocuments?: Array<{
-      id: string;
-      patientName: string;
-      claimNumber: string | null;
-      dob: Date | string | null;
-      doi: Date | string | null;
-    }>;
-    totalCount?: number;
-  };
-}
-
 interface IntakeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -170,11 +158,9 @@ export default function IntakeModal({
       }));
     }
   }, [selectedPatient, isOpen]);
+
   const [outputLink, setOutputLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [patientSuggestions, setPatientSuggestions] = useState<Patient[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle"
   );
@@ -182,76 +168,40 @@ export default function IntakeModal({
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  const [generateIntakeLinkMutation] = useGenerateIntakeLinkMutation();
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const { data: recommendationsData, isFetching: isLoadingSuggestions } = useGetPatientRecommendationsQuery(patientSearchQuery, {
+    skip: !patientSearchQuery.trim(),
+  });
+
+  const patientSuggestions = React.useMemo(() => {
+    if (recommendationsData?.success && recommendationsData.data.allMatchingDocuments) {
+      return recommendationsData.data.allMatchingDocuments.map((doc: any) => ({
+        id: doc.id,
+        patientName: doc.patientName,
+        dob: formatDateForInput(doc.dob),
+        claimNumber: doc.claimNumber || "Not specified",
+      }));
+    }
+    return [];
+  }, [recommendationsData]);
+
+  const showSuggestions = patientSearchQuery.trim().length > 0 && (isLoadingSuggestions || patientSuggestions.length > 0);
+
   const handleChange = (id: string, value: string) => {
     setFormData((prev) => ({ ...prev, [id]: value }));
 
     // Trigger patient search when typing in patient name field
     if (id === "lkPatient") {
-      debouncedFetchPatients(value);
-    }
-  };
-
-  // Debounce function to avoid too many API calls
-  const debounce = <T extends (...args: never[]) => void>(
-    func: T,
-    delay: number
-  ) => {
-    let timeoutId: NodeJS.Timeout;
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func(...args), delay);
-    };
-  };
-
-  // Fetch patient recommendations from API
-  const fetchPatientRecommendations = async (query: string) => {
-    if (!query.trim()) {
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    try {
-      setIsLoadingSuggestions(true);
-      const response = await fetch(
-        `/api/dashboard/recommendation?patientName=${encodeURIComponent(query)}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch patient recommendations");
-      }
-
-      const data: RecommendationsResponse = await response.json();
-
-      if (data.success && data.data.allMatchingDocuments) {
-        const patients: Patient[] = data.data.allMatchingDocuments.map(
-          (doc) => ({
-            id: doc.id,
-            patientName: doc.patientName,
-            dob: formatDateForInput(doc.dob),
-            claimNumber: doc.claimNumber || "Not specified",
-          })
-        );
-        setPatientSuggestions(patients);
-        setShowSuggestions(true);
-      } else {
-        setPatientSuggestions([]);
-        setShowSuggestions(false);
-      }
-    } catch (err: unknown) {
-      console.error("Error fetching patient recommendations:", err);
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
-    } finally {
-      setIsLoadingSuggestions(false);
+      setPatientSearchQuery(value);
     }
   };
 
   // Helper function to format date for input field (MM-DD-YYYY)
   // Avoids timezone issues by extracting date string directly or using local time methods
-  const formatDateForInput = (
+  function formatDateForInput(
     date: Date | string | null | undefined
-  ): string => {
+  ): string {
     if (!date) return "";
 
     // If it's already a string, extract the date part directly
@@ -272,15 +222,7 @@ export default function IntakeModal({
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     return `${month}-${day}-${year}`;
-  };
-
-  // Debounced version of fetchPatientRecommendations
-  const debouncedFetchPatients = useCallback(
-    debounce((query: string) => {
-      fetchPatientRecommendations(query);
-    }, 300),
-    []
-  );
+  }
 
   // Handle patient selection from suggestions
   const handlePatientSelect = (patient: Patient) => {
@@ -290,7 +232,7 @@ export default function IntakeModal({
       lkDob: patient.dob,
       lkClaimNumber: (patient as any).claimNumber || prev.lkClaimNumber || "",
     }));
-    setShowSuggestions(false);
+    setPatientSearchQuery("");
   };
 
   // Close suggestions when clicking outside
@@ -302,7 +244,7 @@ export default function IntakeModal({
         patientInputRef.current &&
         !patientInputRef.current.contains(event.target as Node)
       ) {
-        setShowSuggestions(false);
+        setPatientSearchQuery("");
       }
     };
 
@@ -372,8 +314,7 @@ export default function IntakeModal({
   // Reset suggestions and copy status when modal is opened/closed
   useEffect(() => {
     if (!isOpen) {
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
+      setPatientSearchQuery("");
       setCopyStatus("idle");
     }
   }, [isOpen]);
@@ -405,17 +346,7 @@ export default function IntakeModal({
         auth: formData.lkAuth || "yes",
       };
 
-      const response = await fetch("/api/generate-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(metadata),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate token");
-      }
-
-      const { token } = await response.json();
+      const { token } = await generateIntakeLinkMutation(metadata).unwrap();
       const form_url = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
       const link = `${form_url}/intake-form?token=${encodeURIComponent(token)}`;
       setOutputLink(link);
@@ -615,7 +546,7 @@ Thank you.`);
                           formData[field.id] &&
                           patientSuggestions.length > 0
                         ) {
-                          setShowSuggestions(true);
+                          setPatientSearchQuery(formData[field.id]);
                         }
                       }}
                       placeholder={field.placeholder}
@@ -658,7 +589,7 @@ Thank you.`);
                           Loading...
                         </div>
                       ) : patientSuggestions.length > 0 ? (
-                        patientSuggestions.map((patient, index) => (
+                        patientSuggestions.map((patient: Patient, index: number) => (
                           <div
                             key={patient.id || index}
                             onClick={(e) => {
@@ -803,30 +734,30 @@ Thank you.`);
             onClick={copyLink}
             disabled={!outputLink}
             style={{
-              backgroundColor:
-                copyStatus === "copied"
-                  ? "#22c55e"
-                  : copyStatus === "error"
-                  ? "#ef4444"
-                  : "",
-              color:
-                copyStatus === "copied" || copyStatus === "error"
-                  ? "white"
-                  : "",
-              transition: "all 0.2s ease",
+              padding: "8px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
             }}
           >
-            {copyStatus === "copied"
-              ? "Copied!"
-              : copyStatus === "error"
-              ? "Error"
-              : "Copy"}
+            {copyStatus === "copied" ? "Copied!" : "Copy"}
           </button>
-        </div>
-        <div className="muted" style={{ marginTop: "6px" }}>
-          Link embeds encrypted token with patient + DOB + body parts +
-          language. Patient sees bilingual, 1–2 minute intake (appointments,
-          meds/refill pain 0–10, ADLs multi‑select, therapy feedback).
+          <button
+            className="btn light"
+            onClick={emailLink}
+            disabled={!outputLink}
+            style={{ padding: "8px 12px" }}
+          >
+            Email
+          </button>
+          <button
+            className="btn light"
+            onClick={previewLink}
+            disabled={!outputLink}
+            style={{ padding: "8px 12px" }}
+          >
+            Preview
+          </button>
         </div>
       </div>
     </div>

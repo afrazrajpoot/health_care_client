@@ -3,12 +3,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 import { useFileUpload } from "../../app/custom-hooks/staff-hooks/useFileUpload";
 import { useRouter } from "next/navigation";
-import { useTasks } from "../../app/custom-hooks/staff-hooks/useTasks";
-import { useFailedDocuments } from "../../app/custom-hooks/staff-hooks/useFailedDocuments";
-import {
-  fetchRecentPatients as fetchRecentPatientsUtil,
-  fetchPatientTasks as fetchPatientTasksUtil,
-} from "@/utils/staffDashboardUtils";
+
 
 interface UploadProgressManagerProps {
   selectedPatient: any | null;
@@ -33,8 +28,7 @@ export default function UploadProgressManager({
     useSocket();
   const { paymentError, ignoredFiles, clearPaymentError } = useFileUpload("wc");
   const router = useRouter();
-  const { fetchTasks } = useTasks("wc" as const);
-  const { fetchFailedDocuments } = useFailedDocuments();
+
 
   const progressPopupShownRef = useRef(false);
   const progressCompleteHandledRef = useRef(false);

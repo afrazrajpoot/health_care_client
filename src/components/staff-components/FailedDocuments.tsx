@@ -15,6 +15,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import { useDeleteFailedDocumentMutation, useSplitAndProcessDocumentMutation } from "@/redux/staffApi";
 
 interface FailedDocument {
   id: string;
@@ -132,22 +133,15 @@ export default function FailedDocuments({
     setDeleteModalOpen(true);
   };
 
+  const [deleteFailedDocument] = useDeleteFailedDocumentMutation();
+  const [splitAndProcessDocument] = useSplitAndProcessDocumentMutation();
+
   const handleConfirmDelete = async () => {
     if (!documentToDelete) return;
 
     setIsDeleting(true);
     try {
-      const response = await fetch(
-        `/api/get-failed-document/${documentToDelete.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete document");
-      }
+      await deleteFailedDocument(documentToDelete.id).unwrap();
 
       // Notify parent component about the deletion
       if (onDocumentDeleted) {
@@ -156,11 +150,10 @@ export default function FailedDocuments({
 
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
-    } catch (error) {
+      toast.success("Document deleted successfully");
+    } catch (error: any) {
       console.error("Error deleting document:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to delete document"
-      );
+      toast.error(error.data?.error || error.message || "Failed to delete document");
     } finally {
       setIsDeleting(false);
     }
@@ -237,30 +230,15 @@ export default function FailedDocuments({
     setSplitResults(null);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/split-and-process-document`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            mode: mode,
-            physician_id: physicianId,
-            original_filename: documentToSplit.fileName || "split_document",
-            fail_doc_id: documentToSplit.id,
-            blob_path: documentToSplit.blobPath, // GCS blob path to extract pages from
-            page_ranges: validRanges, // Staff-provided page ranges
-          }),
-        }
-      );
+      const data = await splitAndProcessDocument({
+        mode: mode,
+        physician_id: physicianId,
+        original_filename: documentToSplit.fileName || "split_document",
+        fail_doc_id: documentToSplit.id,
+        blob_path: documentToSplit.blobPath, // GCS blob path to extract pages from
+        page_ranges: validRanges, // Staff-provided page ranges
+      }).unwrap();
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to split document");
-      }
-
-      const data = await response.json();
       setSplitResults(data);
       // Show success message
       if (data.saved_documents && data.saved_documents > 0) {
@@ -284,12 +262,10 @@ export default function FailedDocuments({
           duration: 5000,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error splitting document:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to split and process document",
+        error.data?.detail || error.message || "Failed to split and process document",
         {
           duration: 5000,
         }

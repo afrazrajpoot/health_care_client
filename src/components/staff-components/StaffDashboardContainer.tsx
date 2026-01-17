@@ -19,12 +19,15 @@ import { useTasks } from "../../app/custom-hooks/staff-hooks/useTasks";
 import { useFileUpload } from "../../app/custom-hooks/staff-hooks/useFileUpload";
 import { useFailedDocuments } from "../../app/custom-hooks/staff-hooks/useFailedDocuments";
 import {
-  fetchRecentPatients as fetchRecentPatientsUtil,
-  fetchPatientTasks as fetchPatientTasksUtil,
-  fetchPatientData as fetchPatientDataUtil,
-  updateTaskStatus,
-  updateTaskAssignee,
-  saveQuickNote,
+  useGetRecentPatientsQuery,
+  useGetTasksQuery,
+  useGetPatientIntakesQuery,
+  useGetPatientIntakeUpdateQuery,
+  useGetFailedDocumentsQuery,
+  useUpdateTaskMutation,
+  useUpdateFailedDocumentMutation,
+} from "@/redux/staffApi";
+import {
   formatDOB as formatDOBUtil,
   formatClaimNumber as formatClaimNumberUtil,
   getPhysicianId as getPhysicianIdUtil,
@@ -83,19 +86,13 @@ const UploadToast: React.FC = () => {
 export default function StaffDashboardContainer() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
-  const [recentPatients, setRecentPatients] = useState<RecentPatient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(
     null
   );
-  const [patientTasks, setPatientTasks] = useState<Task[]>([]);
-  const [patientQuiz, setPatientQuiz] = useState<PatientQuiz | null>(null);
-  const [patientIntakeUpdate, setPatientIntakeUpdate] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(true);
   const [showFilePopup, setShowFilePopup] = useState(false);
   const [fileDetailsPopup, setFileDetailsPopup] = useState<FileDetails[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [loadingPatientData, setLoadingPatientData] = useState(false);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<"open" | "completed" | "all">("open");
   const [showModal, setShowModal] = useState(false);
@@ -108,7 +105,6 @@ export default function StaffDashboardContainer() {
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [taskPage, setTaskPage] = useState(1);
   const taskPageSize = TASK_PAGE_SIZE;
-  const [taskTotalCount, setTaskTotalCount] = useState(0);
   const [taskTypeFilter, setTaskTypeFilter] = useState<
     "all" | "internal" | "external"
   >("all");
@@ -117,6 +113,50 @@ export default function StaffDashboardContainer() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   // Add a ref to track if refresh is already in progress
   const isRefreshingRef = useRef(false);
+
+  // RTK Query Hooks
+  const { data: recentPatientsData, isLoading: isPatientsLoading, refetch: refetchPatients } = useGetRecentPatientsQuery(patientSearchQuery);
+  const { data: tasksData, isLoading: isTasksLoading, refetch: refetchTasks } = useGetTasksQuery({
+    patientName: selectedPatient?.patientName || "",
+    claim: selectedPatient?.claimNumber,
+    documentIds: selectedPatient?.documentIds,
+    page: taskPage,
+    pageSize: taskPageSize,
+    status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
+    type: taskTypeFilter
+  }, { skip: !selectedPatient });
+  const { data: quizData, isLoading: isQuizLoading } = useGetPatientIntakesQuery({
+    patientName: selectedPatient?.patientName || "",
+    dob: selectedPatient?.dob,
+    claimNumber: selectedPatient?.claimNumber
+  }, { skip: !selectedPatient });
+  const { data: intakeUpdateData, isLoading: isIntakeUpdateLoading } = useGetPatientIntakeUpdateQuery({
+    patientName: selectedPatient?.patientName || "",
+    dob: selectedPatient?.dob,
+    claimNumber: selectedPatient?.claimNumber
+  }, { skip: !selectedPatient });
+
+  const [updateTaskMutation] = useUpdateTaskMutation();
+
+  // Derived state
+  const recentPatients = recentPatientsData || [];
+  const patientTasks = useMemo(() => {
+    const tasks = tasksData?.tasks || [];
+    if (!selectedPatient) return [];
+    return tasks.filter((task: Task) => {
+      const taskPatientName = task.patient?.toLowerCase() || "";
+      const selectedPatientName = selectedPatient.patientName.toLowerCase();
+      return (
+        taskPatientName.includes(selectedPatientName) ||
+        selectedPatientName.includes(taskPatientName)
+      );
+    });
+  }, [tasksData, selectedPatient]);
+  const taskTotalCount = tasksData?.totalCount || 0;
+  const patientQuiz = quizData?.success && quizData?.data?.length > 0 ? quizData.data[0] : null;
+  const patientIntakeUpdate = intakeUpdateData?.success ? intakeUpdateData.data : null;
+  const loading = isPatientsLoading;
+  const loadingPatientDataState = isTasksLoading || isQuizLoading || isIntakeUpdateLoading;
 
   // Task status and assignee management
   const [taskStatuses, setTaskStatuses] = useState<{
@@ -180,24 +220,21 @@ export default function StaffDashboardContainer() {
   // Memoized callbacks and memos
   const handleStatusChipClick = useCallback(
     async (taskId: string, status: string) => {
-      setTaskStatuses((prev) => ({ ...prev, [taskId]: status }));
-      const result = await updateTaskStatus(taskId, status, patientTasks);
-      if (!result.success) {
-        const task = patientTasks.find((t) => t.id === taskId);
-        if (task)
-          setTaskStatuses((prev) => ({ ...prev, [taskId]: task.status }));
+      try {
+        await updateTaskMutation({ taskId, status }).unwrap();
+      } catch (error) {
+        console.error("Failed to update status:", error);
+        toast.error("Failed to update task status");
       }
     },
-    [patientTasks]
+    [updateTaskMutation]
   );
 
   const handleAssigneeChipClick = useCallback(
     async (taskId: string, assignee: string) => {
-      const task = patientTasks.find((t) => t.id === taskId);
+      const task = patientTasks.find((t: Task) => t.id === taskId);
       const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
 
-      // Check if task is already assigned to someone else (not Unclaimed)
-      // and we are trying to assign to a different person
       if (
         currentAssignee !== "Unclaimed" &&
         currentAssignee !== assignee &&
@@ -212,17 +249,14 @@ export default function StaffDashboardContainer() {
         return;
       }
 
-      setTaskAssignees((prev) => ({ ...prev, [taskId]: assignee }));
-      const result = await updateTaskAssignee(taskId, assignee, patientTasks);
-      if (!result.success) {
-        if (task)
-          setTaskAssignees((prev) => ({
-            ...prev,
-            [taskId]: task.assignee || "Unclaimed",
-          }));
+      try {
+        await updateTaskMutation({ taskId, assignee }).unwrap();
+      } catch (error) {
+        console.error("Failed to update assignee:", error);
+        toast.error("Failed to update task assignee");
       }
     },
-    [patientTasks, taskAssignees]
+    [patientTasks, taskAssignees, updateTaskMutation]
   );
 
   const handleConfirmReassign = useCallback(async () => {
@@ -233,30 +267,16 @@ export default function StaffDashboardContainer() {
     setReassignLoading(true);
 
     try {
-      // Proceed with assignment
-      setTaskAssignees((prev) => ({ ...prev, [taskId]: newAssignee }));
-      const result = await updateTaskAssignee(taskId, newAssignee, patientTasks);
-      
-      if (!result.success) {
-        const task = patientTasks.find((t) => t.id === taskId);
-        if (task)
-          setTaskAssignees((prev) => ({
-            ...prev,
-            [taskId]: task.assignee || "Unclaimed",
-          }));
-        toast.error("Failed to reassign task");
-      } else {
-        toast.success(`Task reassigned to ${newAssignee}`);
-        // Close modal only on success
-        setReassignConfirmData(null);
-      }
+      await updateTaskMutation({ taskId, assignee: newAssignee }).unwrap();
+      toast.success(`Task reassigned to ${newAssignee}`);
+      setReassignConfirmData(null);
     } catch (error) {
       console.error("Reassign error:", error);
       toast.error("An error occurred while reassigning");
     } finally {
       setReassignLoading(false);
     }
-  }, [reassignConfirmData, patientTasks]);
+  }, [reassignConfirmData, updateTaskMutation]);
 
   const handleCancelReassign = useCallback(() => {
     setReassignConfirmData(null);
@@ -265,7 +285,7 @@ export default function StaffDashboardContainer() {
   const handleBulkAssign = useCallback(async (taskIds: string[], assignee: string) => {
     // Filter out tasks that are ALREADY assigned to the target assignee
     const tasksToAssign = taskIds.filter(taskId => {
-      const task = patientTasks.find(t => t.id === taskId);
+      const task = patientTasks.find((t: Task) => t.id === taskId);
       const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
       return currentAssignee !== assignee;
     });
@@ -279,7 +299,7 @@ export default function StaffDashboardContainer() {
     const conflictingDetails: { taskId: string; currentAssignee: string }[] = [];
     
     tasksToAssign.forEach(taskId => {
-      const task = patientTasks.find(t => t.id === taskId);
+      const task = patientTasks.find((t: Task) => t.id === taskId);
       const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
       
       if (currentAssignee !== "Unclaimed" && currentAssignee !== assignee) {
@@ -298,12 +318,18 @@ export default function StaffDashboardContainer() {
     }
 
     // If no conflicts, proceed with assignment
-    for (const taskId of tasksToAssign) {
-      setTaskAssignees((prev) => ({ ...prev, [taskId]: assignee }));
-      await updateTaskAssignee(taskId, assignee, patientTasks);
+    try {
+      await Promise.all(
+        tasksToAssign.map(taskId => 
+          updateTaskMutation({ taskId, assignee }).unwrap()
+        )
+      );
+      toast.success(`Assigned ${tasksToAssign.length} tasks to ${assignee}`);
+    } catch (error) {
+      console.error("Bulk assign error:", error);
+      toast.error("Failed to assign some tasks");
     }
-    toast.success(`Assigned ${tasksToAssign.length} tasks to ${assignee}`);
-  }, [patientTasks, taskAssignees]);
+  }, [patientTasks, taskAssignees, updateTaskMutation]);
 
   const handleConfirmBulkReassign = useCallback(async () => {
     if (!bulkReassignConfirmData) return;
@@ -312,10 +338,11 @@ export default function StaffDashboardContainer() {
     setReassignLoading(true);
 
     try {
-      for (const taskId of taskIds) {
-        setTaskAssignees((prev) => ({ ...prev, [taskId]: newAssignee }));
-        await updateTaskAssignee(taskId, newAssignee, patientTasks);
-      }
+      await Promise.all(
+        taskIds.map(taskId => 
+          updateTaskMutation({ taskId, assignee: newAssignee }).unwrap()
+        )
+      );
       toast.success(`Reassigned ${taskIds.length} tasks to ${newAssignee}`);
       setBulkReassignConfirmData(null);
     } catch (error) {
@@ -324,7 +351,7 @@ export default function StaffDashboardContainer() {
     } finally {
       setReassignLoading(false);
     }
-  }, [bulkReassignConfirmData, patientTasks]);
+  }, [bulkReassignConfirmData, updateTaskMutation]);
 
   const handleCancelBulkReassign = useCallback(() => {
     setBulkReassignConfirmData(null);
@@ -360,145 +387,52 @@ export default function StaffDashboardContainer() {
   const hasPrevPage = useMemo(() => taskPage > 1, [taskPage]);
   const displayedTasks = useMemo(() => patientTasks, [patientTasks]);
 
-  // Fetch recent patients
-  const fetchRecentPatients = useCallback(
-    async (searchQuery: string = "") => {
-      try {
-        setLoading(true);
-        const data = await fetchRecentPatientsUtil(searchQuery);
-        setRecentPatients(data);
+  // Initialize selected patient from URL or first patient
+  useEffect(() => {
+    if (recentPatientsData && recentPatientsData.length > 0 && !selectedPatient) {
+      const patientNameFromUrl = searchParams.get("patient_name");
+      const dobFromUrl = searchParams.get("dob");
+      const claimFromUrl = searchParams.get("claim");
 
-        // Check for patient_name in URL params
-        const patientNameFromUrl = searchParams.get("patient_name");
-        const dobFromUrl = searchParams.get("dob");
-        const claimFromUrl = searchParams.get("claim");
-
-        setSelectedPatient((currentSelected) => {
-          if (data.length > 0) {
-            // If URL has patient_name, try to find and select that patient
-            if (patientNameFromUrl) {
-              const urlPatient = data.find((p: RecentPatient) => {
-                const nameMatch =
-                  p.patientName.toLowerCase() ===
-                  patientNameFromUrl.toLowerCase();
-                // Also match by DOB or claim if provided for better accuracy
-                if (dobFromUrl) {
-                  return nameMatch && p.dob === dobFromUrl;
-                }
-                if (claimFromUrl) {
-                  return nameMatch && p.claimNumber === claimFromUrl;
-                }
-                return nameMatch;
-              });
-
-              if (urlPatient) {
-                console.log(
-                  "🔗 Auto-selecting patient from URL:",
-                  urlPatient.patientName
-                );
-                return urlPatient;
-              }
-            }
-
-            // Otherwise, maintain current selection or select first patient
-            if (currentSelected) {
-              const updatedPatient = data.find(
-                (p: RecentPatient) =>
-                  p.patientName === currentSelected.patientName &&
-                  p.claimNumber === currentSelected.claimNumber
-              );
-              if (updatedPatient) return updatedPatient;
-            }
-            if (!currentSelected) return data[0];
-          }
-          return currentSelected;
+      if (patientNameFromUrl) {
+        const urlPatient = recentPatientsData.find((p: RecentPatient) => {
+          const nameMatch = p.patientName.toLowerCase() === patientNameFromUrl.toLowerCase();
+          if (dobFromUrl) return nameMatch && p.dob === dobFromUrl;
+          if (claimFromUrl) return nameMatch && p.claimNumber === claimFromUrl;
+          return nameMatch;
         });
-      } catch (error) {
-        console.error("Error fetching recent patients:", error);
-      } finally {
-        setLoading(false);
+        if (urlPatient) {
+          setSelectedPatient(urlPatient);
+          return;
+        }
       }
-    },
-    [searchParams]
-  );
-
-  // Fetch patient tasks
-  const fetchPatientTasks = useCallback(
-    async (patient: RecentPatient, page: number = 1, pageSize: number = 10) => {
-      try {
-        const { tasks, totalCount } = await fetchPatientTasksUtil(
-          patient,
-          page,
-          pageSize,
-          viewMode,
-          taskTypeFilter
-        );
-        setPatientTasks(tasks);
-        setTaskTotalCount(totalCount);
-      } catch (error) {
-        console.error("Error fetching patient tasks:", error);
-        setPatientTasks([]);
-        setTaskTotalCount(0);
-      }
-    },
-    [viewMode, taskTypeFilter]
-  );
-
-  // Function to refresh all data - MOVE THIS AFTER fetchPatientTasks declaration
-  const refreshAllData = useCallback(async () => {
-    // Prevent multiple simultaneous refreshes
-    if (isRefreshingRef.current) {
-      console.log("Refresh already in progress, skipping...");
-      return;
+      setSelectedPatient(recentPatientsData[0]);
     }
+  }, [recentPatientsData, selectedPatient, searchParams]);
 
+  // Function to refresh all data
+  const refreshAllData = useCallback(async () => {
+    if (isRefreshingRef.current) return;
     try {
       isRefreshingRef.current = true;
-      
-      console.log("🔄 Refreshing data...");
-      
-      if (selectedPatient) {
-        await fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
-      }
-      
-      // Use the utility function directly instead of the state updater
-      const recentPatientsData = await fetchRecentPatientsUtil(patientSearchQuery);
-      setRecentPatients(recentPatientsData);
-      
-      // Call the hook function directly
-      await fetchFailedDocuments();
-      
-      // Clear errors
-      clearPaymentError();
-      clearUploadError();
-      
-      // Close all modals after successful refresh
+      await Promise.all([
+        refetchPatients(),
+        refetchTasks(),
+        fetchFailedDocuments()
+      ]);
       setShowModal(false);
       setShowTaskModal(false);
       setShowQuickNoteModal(false);
       setShowDocumentSuccessPopup(false);
       setShowFilePopup(false);
       setIsUpdateModalOpen(false);
-      
-      // toast.success("Data refreshed successfully");
     } catch (error) {
       console.error("Error refreshing data:", error);
       toast.error("Failed to refresh data");
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [
-    selectedPatient,
-    taskPage,
-    taskPageSize,
-    patientSearchQuery,
-    // Remove fetchPatientTasks from dependencies to prevent loops
-    // fetchPatientTasks,
-    // fetchRecentPatients,
-    fetchFailedDocuments,
-    clearPaymentError,
-    clearUploadError,
-  ]);
+  }, [refetchPatients, refetchTasks, fetchFailedDocuments, setIsUpdateModalOpen]);
 
   // Use effect to trigger data refresh when refreshTrigger changes
   useEffect(() => {
@@ -508,13 +442,7 @@ export default function StaffDashboardContainer() {
     }
   }, [refreshTrigger]); // Remove refreshAllData from dependencies
 
-  useEffect(() => {
-    fetchRecentPatients(patientSearchQuery);
-  }, [patientSearchQuery, fetchRecentPatients]);
-
-  useEffect(() => {
-    fetchFailedDocuments();
-  }, [fetchFailedDocuments]);
+  // Close all modals when error modals are shown
 
   // Close all modals when error modals are shown
   useEffect(() => {
@@ -545,69 +473,6 @@ export default function StaffDashboardContainer() {
     };
     initializePage();
   }, []);
-
-  // Fetch patient data on selection
-  useEffect(() => {
-    if (!selectedPatient) {
-      setPatientTasks([]);
-      setPatientQuiz(null);
-      setPatientIntakeUpdate(null);
-      setLoadingPatientData(false);
-      return;
-    }
-
-    setPatientTasks([]);
-    setPatientQuiz(null);
-    setPatientIntakeUpdate(null);
-    setLoadingPatientData(true);
-
-    let isCancelled = false;
-
-    const fetchPatientData = async () => {
-      try {
-        setTaskPage(1);
-        await fetchPatientTasks(selectedPatient, 1, taskPageSize);
-        if (isCancelled) return;
-
-        const { patientQuiz: quiz, patientIntakeUpdate: intakeUpdate } =
-          await fetchPatientDataUtil(selectedPatient);
-
-        if (!isCancelled) {
-          setPatientQuiz(quiz);
-          setPatientIntakeUpdate(intakeUpdate);
-        }
-      } catch (error) {
-        if (!isCancelled) console.error("Error fetching patient data:", error);
-      } finally {
-        if (!isCancelled) setLoadingPatientData(false);
-      }
-    };
-
-    fetchPatientData();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [selectedPatient, fetchPatientTasks, taskPageSize]);
-
-  useEffect(() => {
-    if (selectedPatient) {
-      setTaskPage(1);
-      fetchPatientTasks(selectedPatient, 1, taskPageSize);
-    }
-  }, [taskTypeFilter, fetchPatientTasks, selectedPatient, taskPageSize]);
-
-  useEffect(() => {
-    if (selectedPatient) {
-      fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
-    }
-  }, [
-    taskPage,
-    viewMode,
-    fetchPatientTasks,
-    selectedPatient,
-    taskPageSize,
-  ]);
 
   const formatDOB = useCallback((dob: string) => formatDOBUtil(dob), []);
   const formatClaimNumber = useCallback(
@@ -648,16 +513,12 @@ export default function StaffDashboardContainer() {
           initialMode,
           selectedPatient?.claimNumber || ""
         );
-
-        if (selectedPatient) {
-          await fetchPatientTasks(selectedPatient);
-        }
       } catch (error) {
         console.error("Error creating manual task:", error);
         throw error;
       }
     },
-    [selectedPatient, handleCreateManualTask, initialMode, fetchPatientTasks]
+    [selectedPatient, handleCreateManualTask, initialMode, refetchTasks]
   );
 
   const handleTaskClick = (task: Task) => {
@@ -673,38 +534,32 @@ export default function StaffDashboardContainer() {
       one_line_note: string;
     }
   ) => {
-    const result = await saveQuickNote(taskId, quickNotes);
-    if (result.success && selectedPatient) {
-      await fetchPatientTasks(selectedPatient, taskPage, taskPageSize);
-    } else if (!result.success) {
-      throw result.error;
+    try {
+      await updateTaskMutation({
+        taskId,
+        quickNotes: {
+          ...quickNotes,
+          timestamp: new Date().toISOString(),
+        }
+      }).unwrap();
+    } catch (error) {
+      console.error("Error saving quick note:", error);
+      throw error;
     }
   };
 
   // Data refresh function for progress manager
   const handleRefreshData = useCallback(async () => {
-    const fetchPromises: Promise<void>[] = [];
-    if (selectedPatient) {
-      fetchPromises.push(
-        fetchPatientTasks(selectedPatient, taskPage, taskPageSize)
-      );
-      fetchPromises.push(fetchRecentPatients(patientSearchQuery));
-    }
-    fetchPromises.push(fetchFailedDocuments());
     try {
-      await Promise.all(fetchPromises);
+      await Promise.all([
+        refetchPatients(),
+        refetchTasks(),
+        fetchFailedDocuments()
+      ]);
     } catch (error) {
       console.error("❌ Error refreshing data after upload:", error);
     }
-  }, [
-    selectedPatient,
-    fetchPatientTasks,
-    taskPage,
-    taskPageSize,
-    fetchRecentPatients,
-    patientSearchQuery,
-    fetchFailedDocuments,
-  ]);
+  }, [refetchPatients, refetchTasks, fetchFailedDocuments]);
 
   // File upload handlers
   const handleFileUpload = useCallback(() => {
@@ -873,7 +728,7 @@ export default function StaffDashboardContainer() {
                 failedDocuments={
                   Array.isArray(failedDocuments) ? failedDocuments : []
                 }
-                loadingPatientData={loadingPatientData}
+                loadingPatientData={loadingPatientDataState}
                 patientIntakeUpdate={patientIntakeUpdate}
                 patientQuiz={patientQuiz}
                 taskStats={taskStats}

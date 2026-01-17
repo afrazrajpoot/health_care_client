@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { employeeApi } from './api';
+import { staffApi } from './staffApi';
 // import { employeePythonApi } from './employee-python-api/employee-python-api';
 
 import counterReducer from './reducerState/globalState';
@@ -11,6 +12,7 @@ export const store = configureStore({
   reducer: {
     counter: counterReducer,
     [employeeApi.reducerPath]: employeeApi.reducer,
+    [staffApi.reducerPath]: staffApi.reducer,
     // [hrApi.reducerPath]: hrApi.reducer,
     // [employeePythonApi.reducerPath]: employeePythonApi.reducer,
     // [retentionApi.reducerPath]: retentionApi.reducer,
@@ -20,10 +22,11 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
       .concat(employeeApi.middleware)
-    //   .concat(hrApi.middleware)// ✅ add this line
-    //   .concat(employeePythonApi.middleware)
-    //   .concat(retentionApi.middleware)
-    //   .concat(adminApi.middleware)
+      .concat(staffApi.middleware)
+  //   .concat(hrApi.middleware)// ✅ add this line
+  //   .concat(employeePythonApi.middleware)
+  //   .concat(retentionApi.middleware)
+  //   .concat(adminApi.middleware)
 
 });
 

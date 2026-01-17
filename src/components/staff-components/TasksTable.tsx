@@ -37,6 +37,7 @@ interface TasksTableProps {
 }
 
 import { User } from "lucide-react";
+import { useLazyGetDocumentPreviewQuery, useDeleteFailedDocumentMutation, useSplitAndProcessDocumentMutation } from "@/redux/staffApi";
 
 export default function TasksTable({
   tasks,
@@ -101,6 +102,8 @@ export default function TasksTable({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const [triggerGetDocumentPreview] = useLazyGetDocumentPreviewQuery();
+
   // Task document preview handler (using physician dashboard approach)
   const handleTaskDocumentPreview = async (e: React.MouseEvent, task: Task) => {
     e.stopPropagation();
@@ -117,22 +120,7 @@ export default function TasksTable({
     setLoadingTaskPreview(taskId);
 
     try {
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL
-        }/api/documents/preview/${encodeURIComponent(task.document.blobPath)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch preview: ${response.status}`);
-      }
-
-      const blob = await response.blob();
+      const blob = await triggerGetDocumentPreview(task.document.blobPath).unwrap();
       const blobUrl = window.URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (error) {
@@ -161,22 +149,7 @@ export default function TasksTable({
     setLoadingPreview(doc.id);
 
     try {
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL
-        }/api/documents/preview/${encodeURIComponent(doc.blobPath)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch preview: ${response.status}`);
-      }
-
-      const blob = await response.blob();
+      const blob = await triggerGetDocumentPreview(doc.blobPath).unwrap();
       const blobUrl = window.URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (error) {
@@ -193,28 +166,25 @@ export default function TasksTable({
     setDeleteModalOpen(true);
   };
 
+  const [deleteFailedDocument] = useDeleteFailedDocumentMutation();
+  const [splitAndProcessDocument] = useSplitAndProcessDocumentMutation();
+
   const handleConfirmDelete = async () => {
     if (!documentToDelete) return;
     setIsDeleting(true);
     try {
-      const response = await fetch(
-        `/api/get-failed-document/${documentToDelete.id}`,
-        { method: "DELETE" }
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete document");
-      }
+      await deleteFailedDocument(documentToDelete.id).unwrap();
       if (onFailedDocumentDeleted) {
         onFailedDocumentDeleted(documentToDelete.id);
       }
  
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
-    } catch (error) {
+      toast.success("Document deleted successfully");
+    } catch (error: any) {
       console.error("Error deleting document:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete document"
+        error.data?.error || error.message || "Failed to delete document"
       );
     } finally {
       setIsDeleting(false);
@@ -270,29 +240,15 @@ export default function TasksTable({
     setIsSplitting(true);
     setSplitResults(null);
     try {
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL ||
-          "${process.env.NEXT_PUBLIC_API_BASE_URL}"
-        }/api/documents/split-and-process-document`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: mode,
-            physician_id: physicianId,
-            original_filename: documentToSplit.fileName || "split_document",
-            fail_doc_id: documentToSplit.id,
-            blob_path: documentToSplit.blobPath,
-            page_ranges: validRanges,
-          }),
-        }
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to split document");
-      }
-      const data = await response.json();
+      const data = await splitAndProcessDocument({
+        mode: mode,
+        physician_id: physicianId,
+        original_filename: documentToSplit.fileName || "split_document",
+        fail_doc_id: documentToSplit.id,
+        blob_path: documentToSplit.blobPath,
+        page_ranges: validRanges,
+      }).unwrap();
+
       setSplitResults(data);
       if (data.saved_documents && data.saved_documents > 0) {
         toast.success(
@@ -304,12 +260,10 @@ export default function TasksTable({
       } else {
         toast.warning("Documents processed but not all were saved");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error splitting document:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to split and process document"
+        error.data?.detail || error.message || "Failed to split and process document"
       );
     } finally {
       setIsSplitting(false);

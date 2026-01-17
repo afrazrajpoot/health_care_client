@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { User, Check } from "lucide-react";
+import { useGetStaffQuery } from "@/redux/staffApi";
 
 interface StaffMember {
   id: string;
@@ -23,28 +24,10 @@ export default function StaffAssignmentSection({
   taskAssignees,
   onAssign,
 }: StaffAssignmentSectionProps) {
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: staffData, isLoading: loading } = useGetStaffQuery(undefined);
+  const staffMembers = staffData?.staff || [];
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
-
-  useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const response = await fetch("/api/staff");
-        if (response.ok) {
-          const data = await response.json();
-          setStaffMembers(data.staff || []);
-        }
-      } catch (error) {
-        console.error("Error fetching staff:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStaff();
-  }, []);
 
   const handleAssignClick = async () => {
     if (!selectedStaffId) {
@@ -60,7 +43,7 @@ export default function StaffAssignmentSection({
     // The parent component (TasksSection -> StaffDashboardContainer) will handle the confirmation modal.
 
 
-    const staff = staffMembers.find(s => s.id === selectedStaffId);
+    const staff = staffMembers.find((s: StaffMember) => s.id === selectedStaffId);
     if (!staff) return;
 
     setAssigning(true);
@@ -92,7 +75,7 @@ export default function StaffAssignmentSection({
       </h3>
       
       <div className="flex flex-wrap items-center gap-3">
-        {staffMembers.map((staff) => (
+        {staffMembers.map((staff: StaffMember) => (
           <div
             key={staff.id}
             onClick={() => setSelectedStaffId(staff.id)}

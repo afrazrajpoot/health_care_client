@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { DEPARTMENTS } from "@/utils/staffDashboardUtils";
+import { useAddManualTaskMutation, useGetPatientRecommendationsQuery } from "@/redux/staffApi";
 
 interface AssignTaskToStaffModalProps {
   open: boolean;
@@ -35,16 +36,17 @@ export default function AssignTaskToStaffModal({
     description: "",
     department: "",
     claim: "",
-    documentId: "", // Added documentId
+    documentId: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Patient Recommendation State
-  const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const patientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  const [addManualTask] = useAddManualTaskMutation();
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const { data: recommendationsData, isFetching: isLoadingSuggestions } = useGetPatientRecommendationsQuery(patientSearchQuery, {
+    skip: !patientSearchQuery.trim(),
+  });
 
   // Reset form when modal opens
   useEffect(() => {
@@ -57,89 +59,9 @@ export default function AssignTaskToStaffModal({
         claim: "",
         documentId: "",
       });
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
+      setPatientSearchQuery("");
     }
   }, [open]);
-
-  // Debounce function
-  const debounce = <F extends (...args: any[]) => any>(
-    func: F,
-    delay: number
-  ): ((...args: Parameters<F>) => void) => {
-    let timeoutId: NodeJS.Timeout;
-    return (...args: Parameters<F>) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func(...args), delay);
-    };
-  };
-
-  // Fetch patient recommendations
-  const fetchPatientRecommendations = async (query: string) => {
-    if (!query.trim()) {
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    setShowSuggestions(true);
-    setIsLoadingSuggestions(true);
-    setPatientSuggestions([]);
-
-    try {
-      const response = await fetch(
-        `/api/dashboard/recommendation?patientName=${encodeURIComponent(query)}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch patient recommendations");
-      }
-
-      const data: any = await response.json();
-
-      if (data.success && data.data.allMatchingDocuments) {
-        const patients = data.data.allMatchingDocuments.map((doc: any) => ({
-          id: doc.id,
-          patientName: doc.patientName,
-          dob:
-            doc.dob && doc.dob !== "Not specified"
-              ? new Date(doc.dob).toISOString().split("T")[0]
-              : "Not specified",
-          claimNumber: doc.claimNumber || "Not specified",
-        }));
-        setPatientSuggestions(patients);
-      } else {
-        setPatientSuggestions([]);
-      }
-    } catch (err: unknown) {
-      console.error("Error fetching patient recommendations:", err);
-      setPatientSuggestions([]);
-    } finally {
-      setIsLoadingSuggestions(false);
-    }
-  };
-
-  // Debounced fetch
-  const debouncedFetchPatients = useCallback(
-    debounce((query: string) => {
-      fetchPatientRecommendations(query);
-    }, 300),
-    []
-  );
-
-  // Handle patient select
-  const handlePatientSelect = (patient: any) => {
-    setTaskFormData((prev) => ({
-      ...prev,
-      patientName: patient.patientName,
-      documentId: patient.id,
-      claim:
-        patient.claimNumber !== "Not specified"
-          ? patient.claimNumber
-          : prev.claim,
-    }));
-    setShowSuggestions(false);
-  };
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -150,7 +72,7 @@ export default function AssignTaskToStaffModal({
         patientInputRef.current &&
         !patientInputRef.current.contains(event.target as Node)
       ) {
-        setShowSuggestions(false);
+        setPatientSearchQuery("");
       }
     };
 
@@ -163,6 +85,37 @@ export default function AssignTaskToStaffModal({
     };
   }, [open]);
 
+  const patientSuggestions = React.useMemo(() => {
+    if (recommendationsData?.success && recommendationsData.data.allMatchingDocuments) {
+      return recommendationsData.data.allMatchingDocuments.map((doc: any) => ({
+        id: doc.id,
+        patientName: doc.patientName,
+        dob:
+          doc.dob && doc.dob !== "Not specified"
+            ? new Date(doc.dob).toISOString().split("T")[0]
+            : "Not specified",
+        claimNumber: doc.claimNumber || "Not specified",
+      }));
+    }
+    return [];
+  }, [recommendationsData]);
+
+  const showSuggestions = patientSearchQuery.trim().length > 0 && (isLoadingSuggestions || patientSuggestions.length > 0);
+
+  // Handle patient select
+  const handlePatientSelect = (patient: any) => {
+    setTaskFormData((prev) => ({
+      ...prev,
+      patientName: patient.patientName,
+      documentId: patient.id,
+      claim:
+        patient.claimNumber !== "Not specified"
+          ? patient.claimNumber
+          : prev.claim,
+    }));
+    setPatientSearchQuery("");
+  };
+
   const handleTaskFormChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -172,7 +125,7 @@ export default function AssignTaskToStaffModal({
     setTaskFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "patientName") {
-      debouncedFetchPatients(value);
+      setPatientSearchQuery(value);
     }
   };
 
@@ -190,38 +143,26 @@ export default function AssignTaskToStaffModal({
 
     setIsSubmitting(true);
     try {
-      // Create the task
-      const response = await fetch("/api/add-manual-task", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          patient: taskFormData.patientName, // Map patientName to patient
-          description: taskFormData.description,
-          department: taskFormData.department,
-          dueDate: taskFormData.dueDate,
-          claim: taskFormData.claim,
-          documentId: taskFormData.documentId,
-          assignee: staffName,
-          status: "Open",
-          priority: "medium",
-          type: "internal",
-          mode: "wc"
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create task");
-      }
+      await addManualTask({
+        patient: taskFormData.patientName,
+        description: taskFormData.description,
+        department: taskFormData.department,
+        dueDate: taskFormData.dueDate,
+        claim: taskFormData.claim,
+        documentId: taskFormData.documentId,
+        assignee: staffName,
+        status: "Open",
+        priority: "medium",
+        type: "internal",
+        mode: "wc"
+      }).unwrap();
 
       toast.success(`Task assigned to ${staffName}`);
       onOpenChange(false);
       if (onTaskCreated) onTaskCreated();
     } catch (error: any) {
       console.error("Error creating task:", error);
-      toast.error(error.message || "Failed to assign task");
+      toast.error(error.data?.error || error.message || "Failed to assign task");
     } finally {
       setIsSubmitting(false);
     }
@@ -254,8 +195,8 @@ export default function AssignTaskToStaffModal({
               disabled={isSubmitting}
               autoComplete="off"
               onFocus={() => {
-                if (taskFormData.patientName && patientSuggestions.length > 0) {
-                  setShowSuggestions(true);
+                if (taskFormData.patientName) {
+                  setPatientSearchQuery(taskFormData.patientName);
                 }
               }}
             />
@@ -270,7 +211,7 @@ export default function AssignTaskToStaffModal({
                     Loading...
                   </div>
                 ) : patientSuggestions.length > 0 ? (
-                  patientSuggestions.map((patient, index) => (
+                  patientSuggestions.map((patient: any, index: number) => (
                     <div
                       key={patient.id || index}
                       onClick={() => handlePatientSelect(patient)}
