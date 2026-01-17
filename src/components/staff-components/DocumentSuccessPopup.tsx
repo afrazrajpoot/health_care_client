@@ -40,7 +40,6 @@ const DocumentSuccessPopup: React.FC<DocumentSuccessPopupProps> = ({
         <button
           onClick={() => {
             onConfirm();
-            window.location.reload();
           }}
           className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors duration-200"
         >

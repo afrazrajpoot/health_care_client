@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/providers/SocketProvider";
 import { toast } from "sonner";
-import { useExtractDocumentsMutation } from "@/redux/staffApi";
+import { useExtractDocumentsMutation } from "@/redux/pythonApi";
 
 export const useFileUpload = (mode: "wc" | "gm") => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);

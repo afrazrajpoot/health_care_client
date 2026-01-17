@@ -15,7 +15,8 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
-import { useDeleteFailedDocumentMutation, useSplitAndProcessDocumentMutation } from "@/redux/staffApi";
+import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
+import { useSplitAndProcessDocumentMutation } from "@/redux/pythonApi";
 
 interface FailedDocument {
   id: string;

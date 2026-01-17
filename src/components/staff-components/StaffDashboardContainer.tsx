@@ -46,6 +46,9 @@ import {
 } from "@/utils/staffDashboardUtils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { staffApi } from "@/redux/staffApi";
+import { pythonApi } from "@/redux/pythonApi";
 
 interface FileDetails {
   name: string;
@@ -85,6 +88,7 @@ const UploadToast: React.FC = () => {
 
 export default function StaffDashboardContainer() {
   const { data: session } = useSession();
+  const dispatch = useDispatch();
   const searchParams = useSearchParams();
   const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(
     null
@@ -109,11 +113,6 @@ export default function StaffDashboardContainer() {
     "all" | "internal" | "external"
   >("all");
   const [showUploadToast, setShowUploadToast] = useState(false);
-  // Add refresh trigger state
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  // Add a ref to track if refresh is already in progress
-  const isRefreshingRef = useRef(false);
-
   // RTK Query Hooks
   const { data: recentPatientsData, isLoading: isPatientsLoading, refetch: refetchPatients } = useGetRecentPatientsQuery(patientSearchQuery);
   const { data: tasksData, isLoading: isTasksLoading, refetch: refetchTasks } = useGetTasksQuery({
@@ -410,37 +409,11 @@ export default function StaffDashboardContainer() {
     }
   }, [recentPatientsData, selectedPatient, searchParams]);
 
-  // Function to refresh all data
-  const refreshAllData = useCallback(async () => {
-    if (isRefreshingRef.current) return;
-    try {
-      isRefreshingRef.current = true;
-      await Promise.all([
-        refetchPatients(),
-        refetchTasks(),
-        fetchFailedDocuments()
-      ]);
-      setShowModal(false);
-      setShowTaskModal(false);
-      setShowQuickNoteModal(false);
-      setShowDocumentSuccessPopup(false);
-      setShowFilePopup(false);
-      setIsUpdateModalOpen(false);
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      toast.error("Failed to refresh data");
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  }, [refetchPatients, refetchTasks, fetchFailedDocuments, setIsUpdateModalOpen]);
-
-  // Use effect to trigger data refresh when refreshTrigger changes
-  useEffect(() => {
-    if (refreshTrigger > 0) {
-      console.log("🔄 Triggering refresh, count:", refreshTrigger);
-      refreshAllData();
-    }
-  }, [refreshTrigger]); // Remove refreshAllData from dependencies
+  // Function to refresh all data using tag invalidation
+  const refreshAllData = useCallback(() => {
+    dispatch(staffApi.util.invalidateTags(["Tasks", "Patients", "Intakes", "FailedDocuments"]));
+    dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
+  }, [dispatch]);
 
   // Close all modals when error modals are shown
 
@@ -549,17 +522,9 @@ export default function StaffDashboardContainer() {
   };
 
   // Data refresh function for progress manager
-  const handleRefreshData = useCallback(async () => {
-    try {
-      await Promise.all([
-        refetchPatients(),
-        refetchTasks(),
-        fetchFailedDocuments()
-      ]);
-    } catch (error) {
-      console.error("❌ Error refreshing data after upload:", error);
-    }
-  }, [refetchPatients, refetchTasks, fetchFailedDocuments]);
+  const handleRefreshData = useCallback(() => {
+    refreshAllData();
+  }, [refreshAllData]);
 
   // File upload handlers
   const handleFileUpload = useCallback(() => {
@@ -597,10 +562,24 @@ export default function StaffDashboardContainer() {
     router.push("/packages");
   }, [clearPaymentError, router]);
 
-  // Function to trigger refresh manually (without causing infinite loop)
+  // Function to trigger refresh manually using tag invalidation
   const triggerRefresh = useCallback(() => {
-    setRefreshTrigger(prev => prev + 1);
-  }, []);
+    // Invalidate all relevant tags to trigger automatic refetching
+    dispatch(staffApi.util.invalidateTags(["Tasks", "Patients", "Intakes", "FailedDocuments"]));
+    dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
+    
+    // Also clear any upload errors/states
+    clearPaymentError();
+    clearUploadError();
+    
+    // Close modals
+    setShowModal(false);
+    setShowTaskModal(false);
+    setShowQuickNoteModal(false);
+    setShowDocumentSuccessPopup(false);
+    setShowFilePopup(false);
+    setIsUpdateModalOpen(false);
+  }, [dispatch, clearPaymentError, clearUploadError, setIsUpdateModalOpen]);
 
   return (
     <>
@@ -782,7 +761,7 @@ export default function StaffDashboardContainer() {
         onCloseModal={() => setShowModal(false)}
         onCloseTaskModal={() => setShowTaskModal(false)}
         onCloseQuickNoteModal={() => setShowQuickNoteModal(false)}
-        onCloseDocumentSuccessPopup={() => window.location.reload()}
+        onCloseDocumentSuccessPopup={triggerRefresh}
         onClearPaymentError={triggerRefresh} // Use triggerRefresh instead
         onClearUploadError={clearUploadError}
         onUpgrade={handleUpgrade}
@@ -802,15 +781,9 @@ export default function StaffDashboardContainer() {
         bulkReassignConfirmData={bulkReassignConfirmData}
         onConfirmBulkReassign={handleConfirmBulkReassign}
         onCancelBulkReassign={handleCancelBulkReassign}
+        onBulkAssign={handleBulkAssign}
         reassignLoading={reassignLoading}
       />
-
-  <PaymentErrorModal
-  isOpen={!!paymentError || !!(ignoredFiles && ignoredFiles.length > 0)}
-  onClose={triggerRefresh} // This will trigger refresh when close button is clicked
-  onUpgrade={handleUpgrade}
-  ignoredFiles={ignoredFiles}
-/>
 
       {showUploadToast && <UploadToast />}
 

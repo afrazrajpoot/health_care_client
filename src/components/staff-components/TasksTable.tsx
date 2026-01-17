@@ -37,7 +37,8 @@ interface TasksTableProps {
 }
 
 import { User } from "lucide-react";
-import { useLazyGetDocumentPreviewQuery, useDeleteFailedDocumentMutation, useSplitAndProcessDocumentMutation } from "@/redux/staffApi";
+import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
+import { useLazyGetDocumentPreviewQuery, useSplitAndProcessDocumentMutation } from "@/redux/pythonApi";
 
 export default function TasksTable({
   tasks,

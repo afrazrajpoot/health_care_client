@@ -72,6 +72,7 @@ interface StaffDashboardModalsProps {
   onConfirmBulkReassign: () => void;
   onCancelBulkReassign: () => void;
   reassignLoading: boolean;
+  onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
 }
 
 export default function StaffDashboardModals({
@@ -108,6 +109,7 @@ export default function StaffDashboardModals({
   onConfirmBulkReassign,
   onCancelBulkReassign,
   reassignLoading,
+  onBulkAssign,
 }: StaffDashboardModalsProps) {
   // Wrapper function to convert ChangeEvent to (field, value) format
   const handleUpdateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,15 +117,13 @@ export default function StaffDashboardModals({
     updateInputChange(name, value);
   };
 
-  // Handle close with reload for error modals
+  // Handle close for error modals
   const handleClosePaymentError = () => {
     onClearPaymentError();
-    window.location.reload();
   };
 
   const handleCloseUploadError = () => {
     onClearUploadError();
-    window.location.reload();
   };
 
   return (
@@ -183,7 +183,6 @@ export default function StaffDashboardModals({
             <button
               onClick={() => {
                 onCloseDocumentSuccessPopup();
-                window.location.reload();
               }}
               className="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors duration-200"
             >

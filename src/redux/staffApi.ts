@@ -88,14 +88,6 @@ export const staffApi = createApi({
             }),
             invalidatesTags: ["Tasks"],
         }),
-        updateFailedDocument: builder.mutation({
-            query: (data) => ({
-                url: "/documents/update-fail-document",
-                method: "POST",
-                body: data,
-            }),
-            invalidatesTags: ["FailedDocuments"],
-        }),
         addManualTask: builder.mutation({
             query: (data) => ({
                 url: "/add-manual-task",
@@ -103,13 +95,6 @@ export const staffApi = createApi({
                 body: data,
             }),
             invalidatesTags: ["Tasks"],
-        }),
-        extractDocuments: builder.mutation({
-            query: ({ physicianId, userId, formData }) => ({
-                url: `/documents/extract-documents?physicianId=${physicianId}&userId=${userId}`,
-                method: "POST",
-                body: formData,
-            }),
         }),
         getStaff: builder.query({
             query: () => "/staff",
@@ -125,25 +110,11 @@ export const staffApi = createApi({
             }),
             invalidatesTags: ["FailedDocuments"],
         }),
-        splitAndProcessDocument: builder.mutation({
-            query: (data) => ({
-                url: "/documents/split-and-process-document",
-                method: "POST",
-                body: data,
-            }),
-            invalidatesTags: ["Tasks", "FailedDocuments"],
-        }),
         generateIntakeLink: builder.mutation({
             query: (data) => ({
                 url: "/generate-link",
                 method: "POST",
                 body: data,
-            }),
-        }),
-        getDocumentPreview: builder.query({
-            query: (blobPath) => ({
-                url: `/documents/preview/${encodeURIComponent(blobPath)}`,
-                responseHandler: (response: Response) => response.blob(),
             }),
         }),
     }),
@@ -156,13 +127,9 @@ export const {
     useGetPatientIntakeUpdateQuery,
     useGetFailedDocumentsQuery,
     useUpdateTaskMutation,
-    useUpdateFailedDocumentMutation,
     useAddManualTaskMutation,
-    useExtractDocumentsMutation,
     useGetStaffQuery,
     useGetPatientRecommendationsQuery,
     useDeleteFailedDocumentMutation,
-    useSplitAndProcessDocumentMutation,
     useGenerateIntakeLinkMutation,
-    useLazyGetDocumentPreviewQuery,
 } = staffApi;

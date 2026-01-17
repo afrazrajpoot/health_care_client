@@ -2,7 +2,8 @@
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { useGetFailedDocumentsQuery, useUpdateFailedDocumentMutation } from "@/redux/staffApi";
+import { useGetFailedDocumentsQuery } from "@/redux/staffApi";
+import { useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 
 export const useFailedDocuments = () => {
   const { data: failedDocsData, refetch: fetchFailedDocuments } = useGetFailedDocumentsQuery(undefined);

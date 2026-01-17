@@ -12,7 +12,7 @@ interface UploadProgressManagerProps {
   taskPageSize: number;
   showDocumentSuccessPopup: boolean;
   setShowDocumentSuccessPopup: (open: boolean) => void;
-  onRefreshData: () => Promise<void>;
+  onRefreshData: () => void;
 }
 
 export default function UploadProgressManager({
@@ -38,8 +38,8 @@ export default function UploadProgressManager({
     router.push("/packages");
   }, [clearPaymentError, router]);
 
-  const handleProgressComplete = useCallback(async () => {
-    await onRefreshData();
+  const handleProgressComplete = useCallback(() => {
+    onRefreshData();
     setShowDocumentSuccessPopup(true);
   }, [onRefreshData, setShowDocumentSuccessPopup]);
 
