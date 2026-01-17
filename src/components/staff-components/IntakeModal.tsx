@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { useGenerateIntakeLinkMutation, useGetPatientRecommendationsQuery } from "@/redux/staffApi";
+import { useGenerateIntakeLinkMutation, useGetPatientRecommendationsQuery } from "@/redux/dashboardApi";
 
 interface ModalField {
   id: string;

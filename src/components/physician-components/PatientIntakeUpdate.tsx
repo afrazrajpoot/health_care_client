@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useGetPatientIntakeUpdateQuery } from "@/redux/dashboardApi";
 
 interface PatientIntakeUpdateProps {
   documentData?: {
@@ -30,63 +31,25 @@ const PatientIntakeUpdate: React.FC<PatientIntakeUpdateProps> = ({
   const [intakeUpdate, setIntakeUpdate] = useState<IntakeUpdateData | null>(
     null
   );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const { data: intakeData, isFetching: loading } = useGetPatientIntakeUpdateQuery(
+    {
+      patientName: documentData?.patient_name || "",
+      dob: documentData?.dob || "",
+      claimNumber: documentData?.claim_number || "",
+    },
+    {
+      skip: !documentData?.patient_name,
+    }
+  );
 
   useEffect(() => {
-    const fetchIntakeUpdate = async () => {
-      if (!documentData?.patient_name) {
-        setIntakeUpdate(null);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const params = new URLSearchParams({
-          patientName: documentData.patient_name,
-        });
-
-        if (documentData.dob) {
-          params.append("dob", documentData.dob.split("T")[0]);
-        }
-
-        if (
-          documentData.claim_number &&
-          documentData.claim_number !== "Not specified"
-        ) {
-          params.append("claimNumber", documentData.claim_number);
-        }
-
-        const response = await fetch(`/api/patient-intake-update?${params}`);
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch intake update");
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          setIntakeUpdate(result.data);
-        } else {
-          setIntakeUpdate(null);
-        }
-      } catch (err) {
-        console.error("Error fetching patient intake update:", err);
-        setError("Failed to load intake update");
-        setIntakeUpdate(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchIntakeUpdate();
-  }, [
-    documentData?.patient_name,
-    documentData?.dob,
-    documentData?.claim_number,
-  ]);
+    if (intakeData?.success && intakeData?.data) {
+      setIntakeUpdate(intakeData.data);
+    } else if (intakeData && !intakeData.success) {
+      setIntakeUpdate(null);
+    }
+  }, [intakeData]);
 
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);

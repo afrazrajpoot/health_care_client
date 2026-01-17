@@ -16,92 +16,15 @@ const baseQueryWithDecryption = async (args: any, api: any, extraOptions: any) =
 export const staffApi = createApi({
     reducerPath: "staffApi",
     baseQuery: baseQueryWithDecryption,
-    tagTypes: ["Tasks", "Patients", "Intakes", "FailedDocuments"],
+    tagTypes: ["FailedDocuments", "Staff"],
     endpoints: (builder) => ({
-        getRecentPatients: builder.query({
-            query: (search = "") => ({
-                url: "/get-recent-patients",
-                params: { mode: "wc", search: search.trim() },
-            }),
-            providesTags: ["Patients"],
-        }),
-        getTasks: builder.query({
-            query: ({ patientName, claim, documentIds, page = 1, pageSize = 10, status, type }) => {
-                const params = new URLSearchParams({
-                    mode: "wc",
-                    page: page.toString(),
-                    pageSize: pageSize.toString(),
-                    search: patientName,
-                });
-
-                if (claim && claim !== "Not specified") {
-                    params.append("claim", claim);
-                }
-
-                if (documentIds && Array.isArray(documentIds)) {
-                    documentIds.forEach((id) => params.append("documentId", id));
-                }
-
-                if (status) {
-                    params.append("status", status);
-                }
-
-                if (type && type !== "all") {
-                    params.append("type", type);
-                }
-
-                return { url: `/tasks?${params.toString()}` };
-            },
-            providesTags: ["Tasks"],
-        }),
-        getPatientIntakes: builder.query({
-            query: ({ patientName, dob, claimNumber }) => {
-                const params = new URLSearchParams({ patientName });
-                if (dob) params.append("dob", dob.split("T")[0]);
-                if (claimNumber && claimNumber !== "Not specified") {
-                    params.append("claimNumber", claimNumber);
-                }
-                return { url: `/patient-intakes?${params.toString()}` };
-            },
-            providesTags: ["Intakes"],
-        }),
-        getPatientIntakeUpdate: builder.query({
-            query: ({ patientName, dob, claimNumber }) => {
-                const params = new URLSearchParams({ patientName });
-                if (dob) params.append("dob", dob.split("T")[0]);
-                if (claimNumber && claimNumber !== "Not specified") {
-                    params.append("claimNumber", claimNumber);
-                }
-                return { url: `/patient-intake-update?${params.toString()}` };
-            },
-            providesTags: ["Intakes"],
-        }),
         getFailedDocuments: builder.query({
             query: () => "/get-failed-document",
             providesTags: ["FailedDocuments"],
         }),
-        updateTask: builder.mutation({
-            query: ({ taskId, ...patch }) => ({
-                url: `/tasks/${taskId}`,
-                method: "PATCH",
-                body: patch,
-            }),
-            invalidatesTags: ["Tasks"],
-        }),
-        addManualTask: builder.mutation({
-            query: (data) => ({
-                url: "/add-manual-task",
-                method: "POST",
-                body: data,
-            }),
-            invalidatesTags: ["Tasks"],
-        }),
         getStaff: builder.query({
             query: () => "/staff",
-            providesTags: ["Staff" as any],
-        }),
-        getPatientRecommendations: builder.query({
-            query: (patientName) => `/dashboard/recommendation?patientName=${encodeURIComponent(patientName)}`,
+            providesTags: ["Staff"],
         }),
         deleteFailedDocument: builder.mutation({
             query: (docId) => ({
@@ -110,26 +33,11 @@ export const staffApi = createApi({
             }),
             invalidatesTags: ["FailedDocuments"],
         }),
-        generateIntakeLink: builder.mutation({
-            query: (data) => ({
-                url: "/generate-link",
-                method: "POST",
-                body: data,
-            }),
-        }),
     }),
 });
 
 export const {
-    useGetRecentPatientsQuery,
-    useGetTasksQuery,
-    useGetPatientIntakesQuery,
-    useGetPatientIntakeUpdateQuery,
     useGetFailedDocumentsQuery,
-    useUpdateTaskMutation,
-    useAddManualTaskMutation,
     useGetStaffQuery,
-    useGetPatientRecommendationsQuery,
     useDeleteFailedDocumentMutation,
-    useGenerateIntakeLinkMutation,
 } = staffApi;

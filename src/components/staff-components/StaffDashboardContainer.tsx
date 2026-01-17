@@ -23,10 +23,13 @@ import {
   useGetTasksQuery,
   useGetPatientIntakesQuery,
   useGetPatientIntakeUpdateQuery,
-  useGetFailedDocumentsQuery,
   useUpdateTaskMutation,
-  useUpdateFailedDocumentMutation,
+  useAddManualTaskMutation,
+} from "@/redux/dashboardApi";
+import {
+  useGetFailedDocumentsQuery,
 } from "@/redux/staffApi";
+import { useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 import {
   formatDOB as formatDOBUtil,
   formatClaimNumber as formatClaimNumberUtil,
@@ -48,6 +51,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { staffApi } from "@/redux/staffApi";
+import { dashboardApi } from "@/redux/dashboardApi";
 import { pythonApi } from "@/redux/pythonApi";
 
 interface FileDetails {
@@ -411,7 +415,8 @@ export default function StaffDashboardContainer() {
 
   // Function to refresh all data using tag invalidation
   const refreshAllData = useCallback(() => {
-    dispatch(staffApi.util.invalidateTags(["Tasks", "Patients", "Intakes", "FailedDocuments"]));
+    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients", "Intakes"]));
+    dispatch(staffApi.util.invalidateTags(["FailedDocuments"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
   }, [dispatch]);
 
@@ -565,7 +570,8 @@ export default function StaffDashboardContainer() {
   // Function to trigger refresh manually using tag invalidation
   const triggerRefresh = useCallback(() => {
     // Invalidate all relevant tags to trigger automatic refetching
-    dispatch(staffApi.util.invalidateTags(["Tasks", "Patients", "Intakes", "FailedDocuments"]));
+    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients", "Intakes"]));
+    dispatch(staffApi.util.invalidateTags(["FailedDocuments"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
     
     // Also clear any upload errors/states

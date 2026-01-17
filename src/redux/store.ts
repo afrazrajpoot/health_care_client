@@ -3,6 +3,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { employeeApi } from './api';
 import { staffApi } from './staffApi';
 import { pythonApi } from './pythonApi';
+import { dashboardApi } from './dashboardApi';
 import counterReducer from './reducerState/globalState';
 
 export const store = configureStore({
@@ -11,12 +12,14 @@ export const store = configureStore({
     [employeeApi.reducerPath]: employeeApi.reducer,
     [staffApi.reducerPath]: staffApi.reducer,
     [pythonApi.reducerPath]: pythonApi.reducer,
+    [dashboardApi.reducerPath]: dashboardApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
       .concat(employeeApi.middleware)
       .concat(staffApi.middleware)
       .concat(pythonApi.middleware)
+      .concat(dashboardApi.middleware)
 });
 
 // Enable refetchOnFocus/refetchOnReconnect behaviors

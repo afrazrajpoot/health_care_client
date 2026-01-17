@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { DEPARTMENTS } from "@/utils/staffDashboardUtils";
-import { useAddManualTaskMutation, useGetPatientRecommendationsQuery } from "@/redux/staffApi";
+import { useAddManualTaskMutation, useGetPatientRecommendationsQuery } from "@/redux/dashboardApi";
 
 interface AssignTaskToStaffModalProps {
   open: boolean;

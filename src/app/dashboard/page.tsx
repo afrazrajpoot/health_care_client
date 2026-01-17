@@ -31,6 +31,12 @@ import PaymentErrorModal from "@/components/staff-components/PaymentErrorModal";
 import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch";
 import { useOnboarding } from "../custom-hooks/staff-hooks/physician-hooks/useOnboarding";
 import { useToasts } from "../custom-hooks/staff-hooks/physician-hooks/useToasts";
+import { 
+  useGetRecentPatientsQuery, 
+  useVerifyDocumentMutation, 
+  useAddManualTaskMutation 
+} from "@/redux/dashboardApi";
+import { useExtractDocumentsMutation } from "@/redux/pythonApi";
 
 // Define TypeScript interfaces for data structures
 interface Patient {
@@ -118,6 +124,14 @@ export default function PhysicianCard() {
   const [showIgnoredFilesModal, setShowIgnoredFilesModal] = useState(false);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
+  const [extractDocuments] = useExtractDocumentsMutation();
+  const [verifyDocument] = useVerifyDocumentMutation();
+  const [addManualTask] = useAddManualTaskMutation();
+
+  const { data: recentPatientsData, isFetching: recentPatientsLoading } = useGetRecentPatientsQuery(mode, {
+    skip: status !== "authenticated" || !session,
+  });
+
   const { toasts, addToast } = useToasts();
   const {
     showOnboarding,
@@ -148,9 +162,7 @@ export default function PhysicianCard() {
     taskQuickNotes,
     loading,
     error,
-    fetchDocumentData,
-    setDocumentData,
-  } = usePatientData(physicianId);
+  } = usePatientData(physicianId, selectedPatient, mode);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -173,34 +185,17 @@ export default function PhysicianCard() {
       });
       formData.append("mode", mode);
 
-      // Determine physician ID based on role
       const user = session?.user;
       const physicianId =
         user?.role === "Physician"
           ? user?.id // if Physician, send their own ID
           : user?.physicianId || ""; // otherwise, send assigned physician's ID
 
-      const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL
-      }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
-        user?.id || ""
-      }`;
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user?.fastapi_token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Upload failed:", errorText);
-        throw new Error(`Upload failed: ${errorText}`);
-      }
-
-      const data = await response.json();
+      const data = await extractDocuments({
+        physicianId,
+        userId: user?.id || "",
+        formData,
+      }).unwrap();
 
       // Handle ignored files - show modal with details
       if (data.ignored && data.ignored.length > 0) {
@@ -270,23 +265,9 @@ export default function PhysicianCard() {
 
   // Callback to refresh data after upload completion
   const handleRefreshData = useCallback(async () => {
-    if (selectedPatient) {
-      try {
-        // Fetch latest document data for the patient
-        await fetchDocumentData(
-          {
-            patientName: selectedPatient.patientName,
-            dob: selectedPatient.dob,
-            claimNumber: selectedPatient.claimNumber || "",
-            doi: selectedPatient.doi || "",
-          },
-          mode
-        );
-      } catch (error) {
-        console.error("❌ Error refreshing patient data:", error);
-      }
-    }
-  }, [selectedPatient, fetchDocumentData, mode]);
+    // RTK Query will automatically refetch due to tag invalidation
+    // or we can manually trigger if needed, but usually not necessary
+  }, []);
 
   const handleUploadClick = useCallback(() => {
     // Directly trigger file input without drag drop zone
@@ -416,9 +397,8 @@ export default function PhysicianCard() {
   const handlePatientSelect = useCallback(
     (patient: Patient) => {
       setSelectedPatient(patient);
-      fetchDocumentData(patient, mode);
     },
-    [fetchDocumentData, mode]
+    []
   );
 
   // Handle mode switch
@@ -438,25 +418,16 @@ export default function PhysicianCard() {
       }
       try {
         setVerifyLoading(true);
-        const verifyParams = new URLSearchParams({
+        const params = {
           patient_name:
             selectedPatient.patientName || selectedPatient.name || "",
           dob: selectedPatient.dob,
           doi: selectedPatient.doi,
           claim_number: selectedPatient.claimNumber,
-        });
-        const response = await fetch(`/api/verify-document?${verifyParams}`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to verify document: ${response.status}`);
-        }
-        const verifyData = await response.json();
+        };
+        
+        await verifyDocument(params).unwrap();
 
-        await fetchDocumentData(selectedPatient, mode);
         const d = new Date();
         const opts: Intl.DateTimeFormatOptions = {
           year: "numeric",
@@ -481,9 +452,7 @@ export default function PhysicianCard() {
     documentData,
     isVerified,
     selectedPatient,
-    session,
-    fetchDocumentData,
-    mode,
+    verifyDocument,
     addToast,
   ]);
 
@@ -616,10 +585,9 @@ export default function PhysicianCard() {
 
   // Retry fetch
   const handleRetry = useCallback(() => {
-    if (selectedPatient) {
-      fetchDocumentData(selectedPatient, mode);
-    }
-  }, [selectedPatient, fetchDocumentData, mode]);
+    // RTK Query handles retry via refetch if needed, 
+    // but here we just let it refetch automatically when state is correct
+  }, []);
 
   // Auto-set verified
   useEffect(() => {
@@ -628,60 +596,30 @@ export default function PhysicianCard() {
     }
   }, [documentData?.allVerified]);
 
-  // Fetch recent patients
+  // Update recent patients list when data changes
   useEffect(() => {
-    if (status === "loading" || !session) {
-      return;
-    }
-    const fetchRecentPatientsForPopup = async () => {
-      try {
-        const url = `/api/get-recent-patients?mode=${mode}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch recent patients: ${response.status}`
-          );
-        }
-        const result = await response.json();
-        let data: any;
-        try {
-          data = handleEncryptedResponse(result);
-        } catch (decryptError) {
-          console.error("❌ Failed to decrypt recent patients:", decryptError);
-          if (result.data && Array.isArray(result.data)) {
-            data = result.data;
-          } else if (Array.isArray(result)) {
-            data = result;
-          } else {
-            throw decryptError;
-          }
-        }
-        setRecentPatientsList(data || []);
-        if (data && Array.isArray(data) && data.length > 0 && session?.user) {
-          const latestPatient = data[0];
+    if (recentPatientsData) {
+      setRecentPatientsList(recentPatientsData || []);
+      if (recentPatientsData && Array.isArray(recentPatientsData) && recentPatientsData.length > 0 && session?.user) {
+        const latestPatient = recentPatientsData[0];
 
-          let dobString = "";
-          if (latestPatient.dob) {
-            if (latestPatient.dob instanceof Date) {
-              dobString = latestPatient.dob.toISOString().split("T")[0];
-            } else {
-              dobString = String(latestPatient.dob);
-            }
+        let dobString = "";
+        if (latestPatient.dob) {
+          if (latestPatient.dob instanceof Date) {
+            dobString = latestPatient.dob.toISOString().split("T")[0];
+          } else {
+            dobString = String(latestPatient.dob);
           }
-          handlePatientSelect({
-            patientName: latestPatient.patientName,
-            dob: dobString,
-            claimNumber: latestPatient.claimNumber || "",
-            doi: "",
-          });
         }
-      } catch (err) {
-        console.error("Error fetching recent patients for popup:", err);
-        setRecentPatientsList([]);
+        handlePatientSelect({
+          patientName: latestPatient.patientName,
+          dob: dobString,
+          claimNumber: latestPatient.claimNumber || "",
+          doi: "",
+        });
       }
-    };
-    fetchRecentPatientsForPopup();
-  }, [mode, status, session, handlePatientSelect]);
+    }
+  }, [recentPatientsData, session, handlePatientSelect]);
 
   if (status === "loading") {
     return <LoadingFallback />;
@@ -693,19 +631,10 @@ export default function PhysicianCard() {
 
   const handleManualTaskSubmit = async (data: any) => {
     try {
-      const response = await fetch("/api/add-manual-task", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...data,
-          physicianId: (session?.user as any)?.physicianId || null,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to create task");
-      }
+      await addManualTask({
+        ...data,
+        physicianId: (session?.user as any)?.physicianId || null,
+      }).unwrap();
       addToast("Task created successfully", "success");
     } catch (error) {
       console.error("Error creating task:", error);

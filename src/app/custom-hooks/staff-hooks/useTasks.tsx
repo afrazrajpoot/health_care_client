@@ -3,7 +3,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Task } from "@/components/staff-components/types";
 import { useSocket } from "@/providers/SocketProvider";
-import { useUpdateTaskMutation, useAddManualTaskMutation, useGetTasksQuery } from "@/redux/staffApi";
+import { useUpdateTaskMutation, useAddManualTaskMutation, useGetTasksQuery } from "@/redux/dashboardApi";
 
 export const useTasks = (initialMode: "wc" | "gm") => {
   const { data: session } = useSession();
