@@ -1,317 +1,423 @@
 import React, { useState } from "react";
+import { 
+  Activity, 
+  Calendar, 
+  ChevronDown, 
+  ChevronRight, 
+  ClipboardList, 
+  Stethoscope,
+  User,
+  FileText
+} from "lucide-react";
 
-const TreatmentHistory = ({ documentData }) => {
-  const [expandedSystems, setExpandedSystems] = useState({});
-  const [expandedTimelineEntries, setExpandedTimelineEntries] = useState({});
-  const [expandedArchives, setExpandedArchives] = useState({});
+// Define interfaces for the new data structure
+interface ContentItem {
+  field: string;
+  collapsed: string;
+  expanded: string;
+}
+
+interface ReportEntry {
+  report_date: string;
+  physician: string;
+  content: ContentItem[];
+}
+
+interface TreatmentHistoryData {
+  [key: string]: ReportEntry[];
+}
+
+interface DocumentData {
+  treatment_history?: TreatmentHistoryData;
+  [key: string]: any;
+}
+
+interface TreatmentHistoryProps {
+  documentData: DocumentData | null;
+}
+
+interface SystemConfigItem {
+  name: string;
+  color: string;
+  id: string;
+  icon: React.ReactNode;
+}
+
+const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({ documentData }) => {
+  const [expandedSystems, setExpandedSystems] = useState<Record<string, boolean>>({});
+  const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
+  const [expandedContentItems, setExpandedContentItems] = useState<Record<string, boolean>>({});
 
   // Toggle body system expansion
-  const toggleSystem = (systemId) => {
+  const toggleSystem = (systemId: string) => {
     setExpandedSystems((prev) => ({
       ...prev,
       [systemId]: !prev[systemId],
     }));
   };
 
-  // Toggle timeline entry expansion
-  const toggleTimelineEntry = (systemId, entryId) => {
-    const key = `${systemId}-${entryId}`;
-    setExpandedTimelineEntries((prev) => ({
+  // Toggle report expansion
+  const toggleReport = (systemId: string, reportIndex: number) => {
+    const key = `${systemId}-${reportIndex}`;
+    setExpandedReports((prev) => ({
       ...prev,
       [key]: !prev[key],
     }));
   };
 
-  // Toggle archive expansion
-  const toggleArchive = (systemId) => {
-    setExpandedArchives((prev) => ({
+  // Toggle content item expansion
+  const toggleContentItem = (systemId: string, reportIndex: number, itemIndex: number) => {
+    const key = `${systemId}-${reportIndex}-${itemIndex}`;
+    setExpandedContentItems((prev) => ({
       ...prev,
-      [systemId]: !prev[systemId],
+      [key]: !prev[key],
     }));
   };
 
+  // Helper function to render expanded text with bullet points
+  const renderExpandedText = (text: string) => {
+    if (!text) return null;
+
+    // Check if text contains bullet points
+    const hasBullets = text.includes("•") || /^\s*[-*]\s/m.test(text);
+
+    if (hasBullets) {
+      // Split by newlines and render as list
+      const lines = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      return (
+        <ul className="space-y-1.5 mt-2 pt-2 border-t border-gray-100">
+          {lines.map((line, idx) => {
+            // Remove bullet character if present
+            const cleanLine = line.replace(/^[•\-*]\s*/, "");
+            return (
+              <li
+                key={idx}
+                className="text-sm text-gray-700 leading-relaxed flex items-start gap-2"
+              >
+                <span className="text-blue-500 mt-0.5">•</span>
+                <span>{cleanLine}</span>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+
+    // Render as normal text if no bullets
+    return (
+      <p className="text-sm text-gray-700 leading-relaxed mt-2 pt-2 border-t border-gray-100">
+        {text}
+      </p>
+    );
+  };
+
   // Color mapping for systems
-  const systemColors = {
-    orange: "bg-orange-50",
-    green: "bg-green-50",
-    blue: "bg-blue-50",
-    purple: "bg-purple-50",
-    teal: "bg-teal-50",
-    yellow: "bg-yellow-50",
-    indigo: "bg-indigo-50",
-    gray: "bg-gray-50",
-    red: "bg-red-50",
-    pink: "bg-pink-50",
+  const systemColors: Record<string, string> = {
+    orange: "bg-orange-50 border-orange-100 text-orange-800",
+    green: "bg-green-50 border-green-100 text-green-800",
+    blue: "bg-blue-50 border-blue-100 text-blue-800",
+    purple: "bg-purple-50 border-purple-100 text-purple-800",
+    teal: "bg-teal-50 border-teal-100 text-teal-800",
+    yellow: "bg-yellow-50 border-yellow-100 text-yellow-800",
+    indigo: "bg-indigo-50 border-indigo-100 text-indigo-800",
+    gray: "bg-gray-50 border-gray-100 text-gray-800",
+    red: "bg-red-50 border-red-100 text-red-800",
+    pink: "bg-pink-50 border-pink-100 text-pink-800",
+  };
+
+  const systemIconColors: Record<string, string> = {
+    orange: "text-orange-500",
+    green: "text-green-500",
+    blue: "text-blue-500",
+    purple: "text-purple-500",
+    teal: "text-teal-500",
+    yellow: "text-yellow-500",
+    indigo: "text-indigo-500",
+    gray: "text-gray-500",
+    red: "text-red-500",
+    pink: "text-pink-500",
   };
 
   // Map your system keys to the UI format
-  const systemConfig = {
+  const systemConfig: Record<string, SystemConfigItem> = {
     musculoskeletal_system: {
-      name: "🦴 Musculoskeletal System",
+      name: "Musculoskeletal System",
       color: "orange",
       id: "musculoskeletal_system",
+      icon: <Activity size={20} />,
     },
     cardiovascular_system: {
-      name: "❤️ Cardiovascular System",
+      name: "Cardiovascular System",
       color: "blue",
       id: "cardiovascular_system",
+      icon: <Activity size={20} />,
     },
     pulmonary_respiratory: {
-      name: "🫁 Pulmonary / Respiratory",
+      name: "Pulmonary / Respiratory",
       color: "green",
       id: "pulmonary_respiratory",
+      icon: <Activity size={20} />,
     },
     neurological: {
-      name: "🧠 Neurological",
+      name: "Neurological",
       color: "purple",
       id: "neurological",
+      icon: <Activity size={20} />,
     },
     gastrointestinal: {
-      name: "🧬 Gastrointestinal",
+      name: "Gastrointestinal",
       color: "teal",
       id: "gastrointestinal",
+      icon: <Activity size={20} />,
     },
     metabolic_endocrine: {
-      name: "⚖️ Metabolic / Endocrine",
+      name: "Metabolic / Endocrine",
       color: "yellow",
       id: "metabolic_endocrine",
+      icon: <Activity size={20} />,
     },
     general_treatments: {
-      name: "💊 General Treatments",
+      name: "General Treatments",
       color: "indigo",
       id: "general_treatments",
+      icon: <Stethoscope size={20} />,
     },
     other_systems: {
-      name: "📋 Other Systems",
+      name: "Other Systems",
       color: "gray",
       id: "other_systems",
+      icon: <ClipboardList size={20} />,
     },
     psychiatric_mental_health: {
-      name: "🧠 Psychiatric / Mental Health",
+      name: "Psychiatric / Mental Health",
       color: "purple",
       id: "psychiatric_mental_health",
+      icon: <Activity size={20} />,
     },
     dental_oral: {
-      name: "🦷 Dental / Oral",
+      name: "Dental / Oral",
       color: "blue",
       id: "dental_oral",
+      icon: <Activity size={20} />,
     },
     dermatological: {
-      name: "🩹 Dermatological",
+      name: "Dermatological",
       color: "orange",
       id: "dermatological",
+      icon: <Activity size={20} />,
     },
     ent_head_neck: {
-      name: "👂 ENT / Head & Neck",
+      name: "ENT / Head & Neck",
       color: "teal",
       id: "ent_head_neck",
+      icon: <Activity size={20} />,
     },
     genitourinary_renal: {
-      name: "🫘 Genitourinary / Renal",
+      name: "Genitourinary / Renal",
       color: "yellow",
       id: "genitourinary_renal",
+      icon: <Activity size={20} />,
     },
     hematologic_lymphatic: {
-      name: "🩸 Hematologic / Lymphatic",
+      name: "Hematologic / Lymphatic",
       color: "red",
       id: "hematologic_lymphatic",
+      icon: <Activity size={20} />,
     },
     immune_allergy: {
-      name: "🛡️ Immune / Allergy",
+      name: "Immune / Allergy",
       color: "green",
       id: "immune_allergy",
+      icon: <Activity size={20} />,
     },
     ophthalmologic: {
-      name: "👁️ Ophthalmologic",
+      name: "Ophthalmologic",
       color: "blue",
       id: "ophthalmologic",
+      icon: <Activity size={20} />,
     },
     reproductive_obstetric_gynecologic: {
-      name: "🩺 Reproductive / OB-GYN",
+      name: "Reproductive / OB-GYN",
       color: "pink",
       id: "reproductive_obstetric_gynecologic",
+      icon: <Activity size={20} />,
     },
     sleep_disorders: {
-      name: "😴 Sleep Disorders",
+      name: "Sleep Disorders",
       color: "indigo",
       id: "sleep_disorders",
+      icon: <Activity size={20} />,
     },
   };
 
-  // Transform your dynamic data into the format the UI expects
-  const transformData = () => {
-    const treatmentHistory = documentData?.treatment_history || {};
-    const systems = [];
-
-    // Process each system from your data
-    Object.entries(treatmentHistory).forEach(([systemKey, systemData]) => {
-      const config = systemConfig[systemKey];
-
-      // Only add systems that have data
-      if (
-        config &&
-        (systemData?.current?.length > 0 || systemData?.archive?.length > 0)
-      ) {
-        // Transform current entries to timeline format
-        const timeline = (systemData.current || []).map((entry, index) => ({
-          id: `${systemKey}-current-${index}`,
-          date: entry.date || "No date",
-          title: entry.event || entry?.event_type || "Treatment Event",
-          detail: entry.details || "No details available",
-          isArchive: false,
-        }));
-
-        // Transform archive entries to timeline format
-        const archive = (systemData.archive || []).map((entry, index) => ({
-          id: `${systemKey}-archive-${index}`,
-          date: entry.date || "No date",
-          title: entry.event
-            ? `${entry.event} (archive)`
-            : entry?.event_type
-            ? `${entry.event_type} (archive)`
-            : "Treatment Event (archive)",
-          detail: entry.details || "No details available",
-          isArchive: true,
-        }));
-
-        systems.push({
-          id: config.id,
-          name: config.name,
-          color: config.color,
-          timeline,
-          archive,
-        });
-      }
-    });
-
-    // Return systems or fallback to empty array
-    return systems.length > 0 ? systems : [];
+  // Field Labels Mapping (similar to WhatsNewSection)
+  const FIELD_LABELS: Record<string, string> = {
+    findings: "Key Findings",
+    diagnosis: "Diagnosis",
+    recommendations: "Recommendations",
+    work_status: "Work Status",
+    mmi_status: "MMI Status",
+    // Add more mappings as needed
   };
 
-  // Use transformed data
-  const systems = transformData();
+  const getFieldLabel = (field: string) => FIELD_LABELS[field.toLowerCase()] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const getFieldColor = (field: string) => {
+    const f = field.toLowerCase();
+    if (f.includes('finding')) return 'text-red-600 bg-red-50 border-red-100';
+    if (f.includes('recommendation')) return 'text-blue-600 bg-blue-50 border-blue-100';
+    if (f.includes('diagnosis')) return 'text-purple-600 bg-purple-50 border-purple-100';
+    return 'text-gray-700 bg-gray-50 border-gray-100';
+  };
+
+  const treatmentHistory = documentData?.treatment_history || {};
+
+  // Filter systems that have data
+  const activeSystems = Object.entries(treatmentHistory).filter(([key, reports]) => {
+    return Array.isArray(reports) && reports.length > 0 && systemConfig[key];
+  });
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 p-6">
-      <div className="border-b border-gray-200 pb-3 mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">
-          📋 Treatment History by System
+      <div className="border-b border-gray-200 pb-3 mb-4 flex items-center gap-2">
+        <ClipboardList className="text-blue-600" size={24} />
+        <h3 className="text-lg font-bold text-gray-800">
+          Comprehensive Treatment History
         </h3>
       </div>
 
-      {systems.length > 0 ? (
-        systems.map((system) => (
-          <div key={system.id} className="mb-4">
-            {/* System Header */}
-            <div
-              className={`${
-                systemColors[system.color]
-              } p-4 rounded-lg cursor-pointer transition-all duration-200 hover:opacity-90 flex justify-between items-center font-semibold select-none mt-3`}
-              onClick={() => toggleSystem(system.id)}
-            >
-              <span className="text-gray-800">{system.name}</span>
-              <span className="text-gray-500 font-bold transition-transform duration-200">
-                {expandedSystems[system.id] ? "▾" : "▸"}
-              </span>
-            </div>
+      {activeSystems.length > 0 ? (
+        <div className="space-y-4">
+          {activeSystems.map(([systemKey, reports]) => {
+            const config = systemConfig[systemKey];
+            const isSystemExpanded = expandedSystems[config.id];
 
-            {/* System Content */}
-            {expandedSystems[system.id] && (
-              <div className="mt-4 animate-fadeIn">
-                {system.timeline.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className={`mb-3 p-4 bg-gray-50 rounded-lg cursor-pointer border border-gray-200 transition-all duration-200 hover:bg-gray-100 select-none ${
-                      expandedTimelineEntries[`${system.id}-${entry.id}`]
-                        ? "bg-gray-100"
-                        : ""
-                    }`}
-                    onClick={() => toggleTimelineEntry(system.id, entry.id)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-semibold text-gray-900">
-                        {entry.date} — {entry.title}
-                      </span>
-                      <span className="text-gray-400 font-bold transition-transform duration-200">
-                        {expandedTimelineEntries[`${system.id}-${entry.id}`]
-                          ? "▾"
-                          : "▸"}
-                      </span>
+            return (
+              <div 
+                  key={config.id} 
+                  className={`border rounded-xl overflow-hidden transition-all duration-200 ${isSystemExpanded ? 'shadow-md ring-1 ring-blue-100' : 'hover:border-blue-200'}`}
+              >
+                {/* System Header */}
+                <div
+                  className={`p-4 cursor-pointer flex justify-between items-center select-none ${
+                      isSystemExpanded ? 'bg-gray-50' : 'bg-white'
+                  }`}
+                  onClick={() => toggleSystem(config.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${systemColors[config.color].split(' ')[0]} ${systemIconColors[config.color]}`}>
+                      {config.icon}
                     </div>
-                    {expandedTimelineEntries[`${system.id}-${entry.id}`] && (
-                      <div className="mt-3 text-sm text-gray-700 leading-relaxed animate-slideDown">
-                        {entry.detail}
-                      </div>
-                    )}
+                    <span className="font-semibold text-gray-800 text-base">{config.name}</span>
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium text-xs border border-gray-200">
+                        {reports.length} Reports
+                    </span>
                   </div>
-                ))}
+                  <div className={`transform transition-transform duration-200 ${isSystemExpanded ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="text-gray-400" size={20} />
+                  </div>
+                </div>
 
-                {/* Archive Section */}
-                {system.archive.length > 0 && (
-                  <>
-                    <div
-                      className="mt-4 p-3 bg-gray-100 rounded-lg cursor-pointer text-sm text-gray-700 flex justify-between items-center hover:bg-gray-200 transition-colors duration-200"
-                      onClick={() => toggleArchive(system.id)}
-                    >
-                      <span>📁 Archive — Older Medical History</span>
-                      <span className="text-gray-500 font-bold">
-                        {expandedArchives[system.id] ? "▾" : "▸"}
-                      </span>
-                    </div>
+                {/* System Content (List of Reports) */}
+                {isSystemExpanded && (
+                  <div className="p-4 bg-white border-t border-gray-100 animate-fadeIn space-y-3">
+                    {reports.map((report, reportIndex) => {
+                        const isReportExpanded = expandedReports[`${config.id}-${reportIndex}`];
+                        
+                        return (
+                            <div key={reportIndex} className="border border-gray-100 rounded-lg overflow-hidden">
+                                {/* Report Header */}
+                                <div 
+                                    className={`p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors ${isReportExpanded ? 'bg-gray-50 border-b border-gray-100' : ''}`}
+                                    onClick={() => toggleReport(config.id, reportIndex)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                            <Calendar size={14} className="text-gray-400" />
+                                            {report.report_date}
+                                        </div>
+                                        <div className="w-px h-4 bg-gray-300"></div>
+                                        <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
+                                            <User size={14} className="text-blue-400" />
+                                            {report.physician}
+                                        </div>
+                                    </div>
+                                    <ChevronRight 
+                                        size={16} 
+                                        className={`text-gray-400 transition-transform duration-200 ${isReportExpanded ? 'rotate-90' : ''}`} 
+                                    />
+                                </div>
 
-                    {expandedArchives[system.id] && (
-                      <div className="mt-3 animate-fadeIn">
-                        {system.archive.map((archiveEntry) => (
-                          <div
-                            key={archiveEntry.id}
-                            className={`mb-2 p-3 bg-gray-50 rounded-lg cursor-pointer border border-gray-200 transition-all duration-200 hover:bg-gray-100 select-none ${
-                              expandedTimelineEntries[
-                                `${system.id}-${archiveEntry.id}`
-                              ]
-                                ? "bg-gray-100"
-                                : ""
-                            }`}
-                            onClick={() =>
-                              toggleTimelineEntry(system.id, archiveEntry.id)
-                            }
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-semibold text-gray-900">
-                                {archiveEntry.date} — {archiveEntry.title}
-                              </span>
-                              <span className="text-gray-400 font-bold transition-transform duration-200">
-                                {expandedTimelineEntries[
-                                  `${system.id}-${archiveEntry.id}`
-                                ]
-                                  ? "▾"
-                                  : "▸"}
-                              </span>
+                                {/* Report Content (Key-Value Items) */}
+                                {isReportExpanded && (
+                                    <div className="p-3 bg-gray-50/50 space-y-2">
+                                        {report.content.map((item, itemIndex) => {
+                                            const isItemExpanded = expandedContentItems[`${config.id}-${reportIndex}-${itemIndex}`];
+                                            const colorClass = getFieldColor(item.field);
+
+                                            return (
+                                                <div key={itemIndex} className="bg-white border border-gray-100 rounded-md shadow-sm overflow-hidden">
+                                                    <div 
+                                                        className="p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                                                        onClick={() => toggleContentItem(config.id, reportIndex, itemIndex)}
+                                                    >
+                                                        <div className="flex justify-between items-start gap-3">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ${colorClass}`}>
+                                                                        {getFieldLabel(item.field)}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-sm text-gray-700 leading-relaxed">
+                                                                    {item.collapsed}
+                                                                </p>
+                                                            </div>
+                                                            {item.expanded && item.expanded !== item.collapsed && (
+                                                                <ChevronDown 
+                                                                    size={16} 
+                                                                    className={`text-gray-400 mt-1 transition-transform duration-200 ${isItemExpanded ? 'rotate-180' : ''}`} 
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Expanded Details */}
+                                                    {isItemExpanded && item.expanded && item.expanded !== item.collapsed && (
+                                                        <div className="px-3 pb-3 pt-0 text-sm text-gray-600 bg-gray-50/30">
+                                                            {renderExpandedText(item.expanded)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                        {report.content.length === 0 && (
+                                            <div className="text-center py-2 text-gray-400 text-xs italic">No details available.</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            {expandedTimelineEntries[
-                              `${system.id}-${archiveEntry.id}`
-                            ] && (
-                              <div className="mt-2 text-sm text-gray-600 leading-relaxed">
-                                {archiveEntry.detail}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
+                        );
+                    })}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        ))
+            );
+          })}
+        </div>
       ) : (
-        <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-3">📋</div>
-          <p className="text-lg font-medium">
-            No treatment history data available
+        <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <div className="bg-white p-4 rounded-full inline-block shadow-sm mb-3">
+            <ClipboardList className="text-gray-300" size={32} />
+          </div>
+          <p className="text-lg font-medium text-gray-900">
+            No treatment history available
           </p>
-          <p className="text-sm mt-1">
-            Treatment records will appear here when available
+          <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">
+            Treatment records will appear here once documents are processed and verified.
           </p>
         </div>
       )}
@@ -320,3 +426,5 @@ const TreatmentHistory = ({ documentData }) => {
 };
 
 export default TreatmentHistory;
+
+

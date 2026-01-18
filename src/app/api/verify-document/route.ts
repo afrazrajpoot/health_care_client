@@ -44,9 +44,59 @@ export async function POST(request: NextRequest) {
       data: { status: "verified" },
     });
 
-    // 3. Generate Treatment History using OpenAI
-    const documentContent = document.aiSummarizerText || document.briefSummary || "";
-    if (documentContent) {
+    // 3. Generate Comprehensive Treatment History using OpenAI
+    // Fetch ALL verified documents for this patient to build a complete history
+    const patientDocuments = await prisma.document.findMany({
+      where: {
+        patientName: document.patientName,
+        dob: document.dob,
+        // We can optionally filter by claimNumber if strict matching is desired, 
+        // but usually patientName + DOB is enough for history.
+        // claimNumber: document.claimNumber 
+        status: "verified"
+      },
+      orderBy: { reportDate: "desc" }, // Newest first
+      take: 20, // Limit to last 20 documents to fit in context
+      select: {
+        reportDate: true,
+        briefSummary: true,
+        aiSummarizerText: true,
+        physicianId: true, // Added
+        bodyPartSnapshots: {
+          select: {
+            bodyPart: true,
+            keyFindings: true,
+            recommended: true,
+            dx: true,
+            consultingDoctor: true // Added
+          }
+        },
+        documentSummary: {
+          select: {
+            summary: true
+          }
+        }
+      }
+    });
+
+    // Construct a comprehensive context from all documents
+    let allDocsContext = "";
+    patientDocuments.forEach((doc, index) => {
+      const date = doc.reportDate ? new Date(doc.reportDate).toISOString().split('T')[0] : "Unknown Date";
+      const physician = doc.bodyPartSnapshots?.[0]?.consultingDoctor || doc.physicianId || "Unknown Physician";
+
+      allDocsContext += `\n--- Document ${index + 1} (${date}) - Physician: ${physician} ---\n`;
+      allDocsContext += `Summary: ${doc.briefSummary || doc.aiSummarizerText || doc.documentSummary?.summary || "No summary"}\n`;
+
+      if (doc.bodyPartSnapshots && doc.bodyPartSnapshots.length > 0) {
+        allDocsContext += "Clinical Details:\n";
+        doc.bodyPartSnapshots.forEach(bp => {
+          allDocsContext += `- ${bp.bodyPart || "General"}: ${bp.dx || ""} \n  Findings: ${bp.keyFindings || ""} \n  Recommendations: ${bp.recommended || ""}\n`;
+        });
+      }
+    });
+
+    if (allDocsContext) {
       try {
         const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
@@ -75,47 +125,68 @@ export async function POST(request: NextRequest) {
         }
 
         const prompt = `
-You are a medical data extractor. Extract treatment history from the following medical document summary and format it into a specific JSON structure.
+You are a medical data expert. Your task is to MAP the provided medical documents into a structured JSON format organized by Body System.
 
-Document Content:
-${documentContent}
+Input Documents (Newest to Oldest):
+${allDocsContext}
 
-JSON Structure to follow:
+For each Body System, you must create a list of entries corresponding to the documents that contain information about that system.
+Do NOT synthesize or merge information across documents. Keep each document's data separate under the relevant system.
+
+JSON Structure:
 {
-  "musculoskeletal_system": { "current": [], "archive": [] },
-  "cardiovascular_system": { "current": [], "archive": [] },
-  "pulmonary_respiratory": { "current": [], "archive": [] },
-  "neurological": { "current": [], "archive": [] },
-  "gastrointestinal": { "current": [], "archive": [] },
-  "metabolic_endocrine": { "current": [], "archive": [] },
-  "general_treatments": { "current": [], "archive": [] },
-  "other_systems": { "current": [], "archive": [] },
-  "psychiatric_mental_health": { "current": [], "archive": [] },
-  "dental_oral": { "current": [], "archive": [] },
-  "dermatological": { "current": [], "archive": [] },
-  "ent_head_neck": { "current": [], "archive": [] },
-  "genitourinary_renal": { "current": [], "archive": [] },
-  "hematologic_lymphatic": { "current": [], "archive": [] },
-  "immune_allergy": { "current": [], "archive": [] },
-  "ophthalmologic": { "current": [], "archive": [] },
-  "reproductive_obstetric_gynecologic": { "current": [], "archive": [] },
-  "sleep_disorders": { "current": [], "archive": [] }
+  "musculoskeletal_system": [
+    {
+      "report_date": "YYYY-MM-DD",
+      "physician": "Dr. Name",
+      "content": [
+        { 
+          "field": "findings", 
+          "collapsed": "Short summary of finding", 
+          "expanded": "Detailed description. Use bullet points starting with '- ' for lists." 
+        },
+        { 
+          "field": "recommendations", 
+          "collapsed": "Short summary of recommendation", 
+          "expanded": "Detailed plan. Use bullet points starting with '- ' for lists." 
+        }
+      ]
+    }
+  ],
+  "cardiovascular_system": [],
+  "pulmonary_respiratory": [],
+  "neurological": [],
+  "gastrointestinal": [],
+  "metabolic_endocrine": [],
+  "general_treatments": [],
+  "other_systems": [],
+  "psychiatric_mental_health": [],
+  "dental_oral": [],
+  "dermatological": [],
+  "ent_head_neck": [],
+  "genitourinary_renal": [],
+  "hematologic_lymphatic": [],
+  "immune_allergy": [],
+  "ophthalmologic": [],
+  "reproductive_obstetric_gynecologic": [],
+  "sleep_disorders": []
 }
 
 Rules:
-1. Only include information found in the document.
-2. If a system has no information, leave "current" and "archive" as empty arrays.
-3. "current" should contain the most recent treatments/events mentioned.
-4. "event" should be a short title (e.g., "Physical Therapy", "MRI Scan", "Medication Change").
-5. "details" should be a concise description of the event.
-6. Use YYYY-MM-DD format for dates if available, otherwise use what is provided.
-7. Return ONLY the JSON object.
+1. **Map Data Only**: Do not generate new insights. Extract exactly what is in the documents.
+2. **Order**: Maintain the chronological order of reports (Newest first).
+3. **Fields**: Use standard keys for "field" like: "findings", "diagnosis", "recommendations", "work_status", "mmi_status".
+4. **Content**: 
+   - "collapsed": A concise 1-line summary.
+   - "expanded": The full details. **IMPORTANT**: If there are multiple points, format them as a list where each line starts with "- ".
+5. If a document has no relevant info for a system, do not create an entry for it in that system.
+6. Return ONLY the JSON object.
 `;
 
         const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: "gpt-4o", // Use a capable model for synthesis
           messages: [
-            { role: "system", content: "You are a medical data extraction expert." },
+            { role: "system", content: "You are a medical data extraction and synthesis expert." },
             { role: "user", content: prompt },
           ],
           response_format: { type: "json_object" },
@@ -123,14 +194,9 @@ Rules:
 
         const newHistoryData = JSON.parse(completion.choices[0].message.content || "{}");
 
-        // Determine if the document is older than 6 months
-        const reportDate = document.reportDate;
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const isOld = reportDate ? new Date(reportDate) < sixMonthsAgo : false;
-
-        // 4. Update or Create TreatmentHistory in DB
-        const existingHistory = await prisma.treatmentHistory.findUnique({
+        // 4. Update or Create TreatmentHistory in DB (Overwrite with new comprehensive history)
+        // We use upsert to either create or update the single history record for this patient/physician
+        await prisma.treatmentHistory.upsert({
           where: {
             patientName_dob_claimNumber_physicianId: {
               patientName: document.patientName as string,
@@ -139,76 +205,20 @@ Rules:
               physicianId: document.physicianId || null,
             },
           },
+          update: {
+            historyData: newHistoryData,
+            documentId: document.id, // Link to the latest document that triggered this update
+          },
+          create: {
+            patientName: document.patientName as string,
+            dob: document.dob || null,
+            claimNumber: document.claimNumber || null,
+            physicianId: document.physicianId || null,
+            historyData: newHistoryData,
+            documentId: document.id,
+          },
         });
 
-        if (existingHistory) {
-          const mergedData = { ...(existingHistory.historyData as any) };
-
-          Object.keys(newHistoryData).forEach((system) => {
-            if (!mergedData[system]) {
-              mergedData[system] = { current: [], archive: [] };
-            }
-
-            const newCurrent = newHistoryData[system].current || [];
-            const newArchive = newHistoryData[system].archive || [];
-
-            if (isOld) {
-              // If document is old, add everything to archive, don't touch current
-              mergedData[system].archive = [
-                ...newCurrent,
-                ...newArchive,
-                ...(mergedData[system].archive || []),
-              ].slice(0, 100);
-            } else {
-              // If document is recent, move old current to archive and set new current
-              if (newCurrent.length > 0) {
-                const oldCurrent = mergedData[system].current || [];
-                mergedData[system].archive = [
-                  ...oldCurrent,
-                  ...newArchive,
-                  ...(mergedData[system].archive || []),
-                ].slice(0, 100);
-                mergedData[system].current = newCurrent;
-              } else {
-                // Just add new archive entries if no new current
-                mergedData[system].archive = [
-                  ...newArchive,
-                  ...(mergedData[system].archive || []),
-                ].slice(0, 100);
-              }
-            }
-          });
-
-          await prisma.treatmentHistory.update({
-            where: { id: existingHistory.id },
-            data: {
-              historyData: mergedData,
-              documentId: document.id,
-            },
-          });
-        } else {
-          // If creating new history, respect the 6-month rule
-          const initialData = { ...newHistoryData };
-          if (isOld) {
-            Object.keys(initialData).forEach((system) => {
-              const current = initialData[system].current || [];
-              const archive = initialData[system].archive || [];
-              initialData[system].archive = [...current, ...archive];
-              initialData[system].current = [];
-            });
-          }
-
-          await prisma.treatmentHistory.create({
-            data: {
-              patientName: document.patientName as string,
-              dob: document.dob || null,
-              claimNumber: document.claimNumber || null,
-              physicianId: document.physicianId || null,
-              historyData: initialData,
-              documentId: document.id,
-            },
-          });
-        }
       } catch (openaiError) {
         console.error("Error generating treatment history with OpenAI:", openaiError);
         // Continue without failing the verification if OpenAI fails
@@ -217,7 +227,7 @@ Rules:
 
     return NextResponse.json({
       success: true,
-      message: "Document verified and treatment history updated successfully.",
+      message: "Document verified and comprehensive treatment history generated.",
     });
   } catch (error) {
     console.error("Error verifying document:", error);
