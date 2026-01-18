@@ -31,7 +31,9 @@ import PaymentErrorModal from "@/components/staff-components/PaymentErrorModal";
 import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch";
 import { useOnboarding } from "../custom-hooks/staff-hooks/physician-hooks/useOnboarding";
 import { useToasts } from "../custom-hooks/staff-hooks/physician-hooks/useToasts";
+import { useDispatch } from "react-redux";
 import { 
+  dashboardApi,
   useGetRecentPatientsQuery, 
   useVerifyDocumentMutation, 
   useAddManualTaskMutation 
@@ -125,6 +127,7 @@ export default function PhysicianCard() {
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const initialPatientSelectedRef = useRef(false); // Track if initial patient has been selected
 
+  const dispatch = useDispatch();
   const [extractDocuments] = useExtractDocumentsMutation();
   const [verifyDocument] = useVerifyDocumentMutation();
   const [addManualTask] = useAddManualTaskMutation();
@@ -165,6 +168,7 @@ export default function PhysicianCard() {
     taskQuickNotes,
     loading,
     error,
+    refetchTreatmentHistory,
   } = usePatientData(physicianId, selectedPatient, mode);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -269,8 +273,8 @@ export default function PhysicianCard() {
   // Callback to refresh data after upload completion
   const handleRefreshData = useCallback(async () => {
     // RTK Query will automatically refetch due to tag invalidation
-    // or we can manually trigger if needed, but usually not necessary
-  }, []);
+    dispatch(dashboardApi.util.invalidateTags(["Patients", "Tasks", "Intakes"]));
+  }, [dispatch]);
 
   const handleUploadClick = useCallback(() => {
     // Directly trigger file input without drag drop zone
@@ -427,9 +431,14 @@ export default function PhysicianCard() {
           dob: selectedPatient.dob,
           doi: selectedPatient.doi,
           claim_number: selectedPatient.claimNumber,
+          document_id: documentId,
         };
         
         await verifyDocument(params).unwrap();
+        
+        // Force immediate refetch of treatment history
+        dispatch(dashboardApi.util.invalidateTags(["TreatmentHistory"]));
+        refetchTreatmentHistory();
 
         const d = new Date();
         const opts: Intl.DateTimeFormatOptions = {
@@ -438,6 +447,7 @@ export default function PhysicianCard() {
           day: "2-digit",
           hour: "2-digit",
           minute: "2-digit",
+
         };
         setVerifyTime(d.toLocaleString(undefined, opts));
       } catch (err: unknown) {
@@ -457,6 +467,9 @@ export default function PhysicianCard() {
     selectedPatient,
     verifyDocument,
     addToast,
+    refetchTreatmentHistory,
+    dispatch,
+    documentId,
   ]);
 
   // Handle copy text
@@ -773,7 +786,7 @@ export default function PhysicianCard() {
         isOpen={showDocumentSuccessPopup}
         onConfirm={() => {
           setShowDocumentSuccessPopup(false);
-          window.location.reload();
+          handleRefreshData();
         }}
       />
 

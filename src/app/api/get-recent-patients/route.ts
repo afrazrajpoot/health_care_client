@@ -271,26 +271,59 @@ export async function GET(request: Request) {
     }
 
     // Fetch documents with their documentSummary relation
-    const documents = await prisma.document.findMany({
-      select: {
-        id: true,
-        patientName: true,
-        dob: true,
-        claimNumber: true,
-        createdAt: true,
-        reportDate: true,
-        mode: true,
-        documentSummary: {
-          select: {
-            type: true,
-            date: true,
-            summary: true,
+    // Fetch documents with their documentSummary relation
+    let documents;
+    try {
+      documents = await prisma.document.findMany({
+        select: {
+          id: true,
+          patientName: true,
+          dob: true,
+          claimNumber: true,
+          createdAt: true,
+          reportDate: true,
+          mode: true,
+          documentSummary: {
+            select: {
+              type: true,
+              date: true,
+              summary: true,
+            },
           },
         },
-      },
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-    });
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (error: any) {
+      // Retry once if engine is not connected
+      if (error?.message?.includes("Engine is not yet connected") ||
+        error?.message?.includes("Client is not connected")) {
+        console.warn("⚠️ Prisma engine disconnected, attempting to reconnect and retry...");
+        await prisma.$connect();
+        documents = await prisma.document.findMany({
+          select: {
+            id: true,
+            patientName: true,
+            dob: true,
+            claimNumber: true,
+            createdAt: true,
+            reportDate: true,
+            mode: true,
+            documentSummary: {
+              select: {
+                type: true,
+                date: true,
+                summary: true,
+              },
+            },
+          },
+          where: whereClause,
+          orderBy: { createdAt: "desc" },
+        });
+      } else {
+        throw error;
+      }
+    }
 
     /* ---------------------------------------------
      * Cleanup invalid names

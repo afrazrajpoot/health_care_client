@@ -36,6 +36,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { useDispatch } from "react-redux";
+import { dashboardApi, useVerifyDocumentMutation } from "@/redux/dashboardApi";
 
 // Types for new structured short summary response
 interface SummaryItem {
@@ -121,6 +123,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const [isLongSummaryExpanded, setIsLongSummaryExpanded] = useState(false);
   const { data: session } = useSession();
   const { formatDate } = useWhatsNewData(documentData);
+  const dispatch = useDispatch();
+  const [verifyDocument] = useVerifyDocumentMutation();
 
   // Patient Intake Submissions state
   const [intakeSubmissions, setIntakeSubmissions] = useState<any[]>([]);
@@ -647,6 +651,10 @@ const documentGroups = useMemo(() => {
       })
       .filter((group: any) => {
         if (!group.shortSummary) return false;
+        
+        // Filter out verified documents
+        if (group.status === "verified") return false;
+
         if (mode && group.docMode) {
           return group.docMode === mode;
         }
@@ -814,14 +822,11 @@ const documentGroups = useMemo(() => {
 
     try {
       if (needsVerification) {
-        const response = await fetch(
-          `/api/verify-document?document_id=${encodeURIComponent(docId)}`,
-          { method: "POST" }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Verification failed");
-        }
+        await verifyDocument({ document_id: docId }).unwrap();
+        
+        // Force immediate refetch of treatment history
+        dispatch(dashboardApi.util.invalidateTags(["TreatmentHistory"]));
+
         toast.success("Successfully verified", {
           duration: 5000,
           position: "top-right",
@@ -1158,16 +1163,28 @@ const documentGroups = useMemo(() => {
                         </div>
                         <div className="flex gap-2 items-center flex-shrink-0">
                           <button
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors ${
+                              isPreviewLoading ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               handlePreviewClick(e, group.doc);
                             }}
+                            disabled={isPreviewLoading}
                             title="View Original Document"
                           >
-                            <ExternalLink size={12} />
-                            <span>View</span>
+                            {isPreviewLoading ? (
+                              <>
+                                <Clock size={12} className="animate-spin" />
+                                <span>Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink size={12} />
+                                <span>View</span>
+                              </>
+                            )}
                           </button>
                           <div className="flex items-center">
                             <ChevronDownIcon

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import OpenAI, { AzureOpenAI } from "openai";
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,25 +7,31 @@ export async function POST(req: NextRequest) {
 
     // Initialize OpenAI client lazily to prevent build-time errors
     // and support both Azure and standard OpenAI
-    const apiKey = process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY;
-    const baseURL = process.env.AZURE_OPENAI_ENDPOINT 
-      ? `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`
-      : undefined;
-      
-    if (!apiKey) {
-      console.error("❌ Missing OpenAI API Key");
+    const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const standardApiKey = process.env.OPENAI_API_KEY;
+
+    let openai: OpenAI | AzureOpenAI;
+
+    if (azureApiKey && azureEndpoint && azureDeployment) {
+      openai = new AzureOpenAI({
+        apiKey: azureApiKey,
+        endpoint: azureEndpoint,
+        deployment: azureDeployment,
+        apiVersion: "2024-02-15-preview",
+      });
+    } else if (standardApiKey) {
+      openai = new OpenAI({
+        apiKey: standardApiKey,
+      });
+    } else {
+      console.error("❌ Missing OpenAI/Azure API Key");
       return NextResponse.json(
         { error: "Server misconfiguration: Missing API Key" },
         { status: 500 }
       );
     }
-
-    const openai = new OpenAI({
-      apiKey: apiKey,
-      baseURL: baseURL,
-      defaultQuery: baseURL ? { "api-version": "2024-02-15-preview" } : undefined,
-      defaultHeaders: baseURL ? { "api-key": apiKey } : undefined,
-    });
 
     if (!context) {
       return NextResponse.json(
@@ -34,9 +40,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `You are a medical summarization assistant. Summarize the following treatment history information in a clear, concise manner. Keep the summary under ${
-      maxWords || 300
-    } words. Focus on the most important diagnoses, treatments, and clinical findings across all body parts. No self generated content—only summarize what is provided. No patient identifiers or personal information. No fabrication.
+    const prompt = `You are a medical summarization assistant. Summarize the following treatment history information in a clear, concise manner. Keep the summary under ${maxWords || 300
+      } words. Focus on the most important diagnoses, treatments, and clinical findings across all body parts. No self generated content—only summarize what is provided. No patient identifiers or personal information. No fabrication.
 
 Treatment History Data:
 ${context}

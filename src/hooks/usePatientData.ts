@@ -4,7 +4,8 @@ import {
   useGetDocumentQuery,
   useGetTasksQuery,
   useGetPatientIntakesQuery,
-  useGetPatientIntakeUpdateQuery
+  useGetPatientIntakeUpdateQuery,
+  useGetTreatmentHistoryQuery
 } from "@/redux/dashboardApi";
 
 interface Patient {
@@ -143,8 +144,48 @@ export const usePatientData = (
     pollingInterval: 0, // Disable automatic polling
   });
 
+  // 3.5 Fetch Treatment History
+  const treatmentHistoryParams = useMemo(() => {
+    if (!patientInfo || !physicianId) return null;
+    return {
+      patientName: patientInfo.patientName || patientInfo.name || "",
+      dob: patientInfo.dob,
+      claimNumber: patientInfo.claimNumber,
+      physicianId: physicianId
+    };
+  }, [patientInfo, physicianId]);
+
+  const {
+    data: treatmentHistoryData,
+    isFetching: treatmentHistoryLoading,
+    refetch: refetchTreatmentHistory
+  } = useGetTreatmentHistoryQuery(treatmentHistoryParams, {
+    skip: !treatmentHistoryParams,
+    refetchOnMountOrArgChange: false,
+  });
+
+  // 4. Process Document Data
   // 4. Process Document Data
   const processedData = useMemo(() => {
+    // If we have treatment history but no documents (e.g. all verified), return partial data
+    if ((!rawDocData || !latestDoc) && treatmentHistoryData?.success) {
+      return {
+        patient_name: patientInfo?.patientName || patientInfo?.name || "",
+        dob: patientInfo?.dob,
+        doi: patientInfo?.doi,
+        claim_number: patientInfo?.claimNumber,
+        documents: [],
+        treatment_history: treatmentHistoryData.data,
+        // Add other necessary empty fields to satisfy DocumentData interface
+        whats_new: {},
+        document_summaries: [],
+        previous_summaries: {},
+        body_part_snapshots: [],
+        quick_notes_snapshots: [],
+        summary_snapshots: [],
+      } as DocumentData;
+    }
+
     if (!rawDocData || !latestDoc) return null;
 
     // Process What's New
@@ -243,7 +284,7 @@ export const usePatientData = (
       document_summaries,
       previous_summaries,
       patient_quiz: rawDocData.patient_quiz,
-      treatment_history: latestDoc.treatment_history,
+      treatment_history: treatmentHistoryData?.success ? treatmentHistoryData.data : latestDoc.treatment_history,
       body_part_snapshots: allBodyPartSnapshots,
       quick_notes_snapshots: processedQuickNotes,
       gcs_file_link: latestDoc?.gcs_file_link,
@@ -272,7 +313,7 @@ export const usePatientData = (
     }
 
     return data;
-  }, [rawDocData, latestDoc]);
+  }, [rawDocData, latestDoc, treatmentHistoryData, patientInfo]);
 
   // 5. Process Task Data
   const processedTaskNotes = useMemo(() => {
@@ -342,7 +383,8 @@ export const usePatientData = (
     taskQuickNotes: processedTaskNotes,
     patientQuiz,
     patientIntakeUpdate,
-    loading: docLoading || taskLoading || intakeLoading || intakeUpdateLoading,
+    loading: docLoading || taskLoading || intakeLoading || intakeUpdateLoading || treatmentHistoryLoading,
     error: docError ? (docError as any).data?.error || "An error occurred" : null,
+    refetchTreatmentHistory,
   };
 };

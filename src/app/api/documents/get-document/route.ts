@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/services/authSErvice';
 import CryptoJS from 'crypto-js';
-// import { authOptions } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   console.log('🚀 API Route HIT: /api/documents/get-document');
@@ -31,7 +30,12 @@ export async function GET(request: NextRequest) {
     const mode = searchParams.get('mode');
 
     // Validate required parameters
-   
+    if (!patientName || !physicianId) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: patient_name and physicianId' },
+        { status: 400 }
+      );
+    }
 
     // Get encryption secret from environment variables
     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
@@ -100,58 +104,43 @@ export async function GET(request: NextRequest) {
       // Sort document_summaries if present
       if (Array.isArray(data.document_summaries)) {
         console.log('📋 Before sorting - document_summaries count:', data.document_summaries.length);
-        console.log('📋 Sample status:', data.document_summaries.slice(0, 3).map((d: any) => ({
-          type: d.type,
-          status: d.status
-        })));
 
         data.document_summaries = data.document_summaries.sort((a: any, b: any) => {
           // Check if status is "Reviewed" (case-insensitive)
           const aReviewed = (a.status || '').toLowerCase() === 'reviewed';
           const bReviewed = (b.status || '').toLowerCase() === 'reviewed';
-          
+
           // Unreviewed comes first, reviewed comes later
           if (aReviewed !== bReviewed) {
             return aReviewed ? 1 : -1; // false before true
           }
-          
+
           // If both have same review status, sort by date (newest first)
           const aDate = new Date(a.date || a.created_at || 0).getTime();
           const bDate = new Date(b.date || b.created_at || 0).getTime();
           return bDate - aDate;
         });
-        
-        console.log('📋 After sorting - first 3 docs:', data.document_summaries.slice(0, 3).map((d: any) => ({
-          type: d.type,
-          status: d.status,
-          date: d.date
-        })));
       }
 
       // Sort documents array if present
       if (Array.isArray(data.documents)) {
         console.log('📄 Before sorting - documents count:', data.documents.length);
-        
+
         data.documents = data.documents.sort((a: any, b: any) => {
           // Check if status is "Reviewed" (case-insensitive)
           const aReviewed = (a.status || '').toLowerCase() === 'reviewed';
           const bReviewed = (b.status || '').toLowerCase() === 'reviewed';
-          
+
           // Unreviewed comes first, reviewed comes later
           if (aReviewed !== bReviewed) {
             return aReviewed ? 1 : -1; // false before true
           }
-          
+
           // If both have same review status, sort by date (newest first)
           const aDate = new Date(a.date || a.created_at || a.createdAt || 0).getTime();
           const bDate = new Date(b.date || b.created_at || b.createdAt || 0).getTime();
           return bDate - aDate;
         });
-        
-        console.log('📄 After sorting - first 3 docs:', data.documents.slice(0, 3).map((d: any) => ({
-          id: d.id,
-          status: d.status
-        })));
       }
     }
 
@@ -159,7 +148,7 @@ export async function GET(request: NextRequest) {
     console.log('🔐 Encrypting response data...');
     const dataString = JSON.stringify(data);
     const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-    
+
     console.log('📦 Response encrypted. Data size:', {
       original: dataString.length,
       encrypted: encryptedData.length,
@@ -171,7 +160,8 @@ export async function GET(request: NextRequest) {
       encrypted: true,
       data: encryptedData,
       route_marker: 'nextjs-api-route-hit',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      filter_applied: 'verified_documents_removed'
     };
 
     console.log('📤 Sending encrypted response from Next.js API route');

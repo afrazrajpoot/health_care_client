@@ -16,7 +16,7 @@ const baseQueryWithDecryption = async (args: any, api: any, extraOptions: any) =
 export const dashboardApi = createApi({
     reducerPath: "dashboardApi",
     baseQuery: baseQueryWithDecryption,
-    tagTypes: ["Tasks", "Patients", "Intakes"],
+    tagTypes: ["Tasks", "Patients", "Intakes", "TreatmentHistory"],
     // Global cache configuration
     keepUnusedDataFor: 300, // Keep cached data for 5 minutes (increased from 60s)
     refetchOnMountOrArgChange: false, // Don't refetch on component mount if data exists
@@ -102,7 +102,7 @@ export const dashboardApi = createApi({
                 method: "POST",
                 params,
             }),
-            invalidatesTags: ["Patients"],
+            invalidatesTags: ["Patients", "TreatmentHistory"],
         }),
         updateTask: builder.mutation({
             query: ({ taskId, ...patch }) => ({
@@ -127,6 +127,21 @@ export const dashboardApi = createApi({
                 body: data,
             }),
         }),
+        getTreatmentHistory: builder.query({
+            query: ({ patientName, dob, claimNumber, physicianId }) => {
+                const params = new URLSearchParams({
+                    patient_name: patientName,
+                    physicianId: physicianId
+                });
+                if (dob) params.append("dob", dob);
+                if (claimNumber && claimNumber !== "Not specified") {
+                    params.append("claim_number", claimNumber);
+                }
+                return { url: `/treatment-history?${params.toString()}` };
+            },
+            providesTags: ["TreatmentHistory"],
+            keepUnusedDataFor: 120,
+        }),
     }),
 });
 
@@ -147,4 +162,6 @@ export const {
     useUpdateTaskMutation,
     useAddManualTaskMutation,
     useGenerateIntakeLinkMutation,
+    useGetTreatmentHistoryQuery,
+    useLazyGetTreatmentHistoryQuery,
 } = dashboardApi;
