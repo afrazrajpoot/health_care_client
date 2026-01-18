@@ -366,20 +366,20 @@ const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({ documentData }) => 
                                                         onClick={() => toggleContentItem(config.id, reportIndex, itemIndex)}
                                                     >
                                                         <div className="flex justify-between items-start gap-3">
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ${colorClass}`}>
+                                                            <div className="flex-1 flex items-start gap-3">
+                                                                <div className="min-w-[140px] flex-shrink-0 pt-0.5">
+                                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block ${colorClass}`}>
                                                                         {getFieldLabel(item.field)}
                                                                     </span>
                                                                 </div>
-                                                                <p className="text-sm text-gray-700 leading-relaxed">
+                                                                <p className="text-sm text-gray-700 leading-relaxed pt-0.5">
                                                                     {item.collapsed}
                                                                 </p>
                                                             </div>
                                                             {item.expanded && item.expanded !== item.collapsed && (
                                                                 <ChevronDown 
                                                                     size={16} 
-                                                                    className={`text-gray-400 mt-1 transition-transform duration-200 ${isItemExpanded ? 'rotate-180' : ''}`} 
+                                                                    className={`text-gray-400 mt-1 flex-shrink-0 transition-transform duration-200 ${isItemExpanded ? 'rotate-180' : ''}`} 
                                                                 />
                                                             )}
                                                         </div>
