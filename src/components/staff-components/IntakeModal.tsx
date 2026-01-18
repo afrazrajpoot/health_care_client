@@ -143,9 +143,7 @@ export default function IntakeModal({
   // Pre-fill form when selectedPatient changes
   useEffect(() => {
     if (selectedPatient && isOpen) {
-      const dobDate = selectedPatient.dob
-        ? new Date(selectedPatient.dob).toISOString().split("T")[0]
-        : "";
+      const dobDate = formatDateForInput(selectedPatient.dob);
       setFormData((prev) => ({
         ...prev,
         lkPatient: selectedPatient.patientName || prev.lkPatient,
@@ -272,11 +270,11 @@ export default function IntakeModal({
 
         if (dob) {
           try {
-            // Extract date part and validate format
-            const dateStr = dob.split("T")[0];
-            // Optional: validate it's a proper YYYY-MM-DD format
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-              updated.lkDob = dateStr;
+            // Use formatDateForInput to handle URL date param
+            // This ensures we get MM-DD-YYYY format regardless of input
+            const formattedDob = formatDateForInput(dob);
+            if (formattedDob) {
+              updated.lkDob = formattedDob;
             }
           } catch (e) {
             console.error("Error parsing date from URL:", e);

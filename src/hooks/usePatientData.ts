@@ -94,24 +94,25 @@ export const usePatientData = (
     return null;
   }, [rawDocData]);
 
-  // 2. Fetch Task Data (Dependent on Document Data)
+  // 2. Fetch Task Data (Parallel with Document Data)
   const taskParams = useMemo(() => {
-    if (!latestDoc || !patientInfo) return null;
+    if (!patientInfo) return null;
 
-    const params: any = { mode: latestDoc.mode || mode };
-    if (latestDoc.claim_number && latestDoc.claim_number !== "Not specified") {
-      params.claim = latestDoc.claim_number;
+    const params: any = { mode: mode };
+    if (patientInfo.claimNumber && patientInfo.claimNumber !== "Not specified") {
+      params.claim = patientInfo.claimNumber;
     } else {
-      params.patientName = latestDoc.patient_name || patientInfo.patientName || "";
+      params.patientName = patientInfo.patientName || patientInfo.name || "";
     }
     return params;
-  }, [latestDoc?.mode, latestDoc?.claim_number, latestDoc?.patient_name, patientInfo?.patientName, mode]);
+  }, [patientInfo?.patientName, patientInfo?.name, patientInfo?.claimNumber, mode]);
 
   const {
     data: rawTaskData,
-    isFetching: taskLoading
+    isFetching: taskLoading,
+    error: taskError
   } = useGetTasksQuery(taskParams, {
-    skip: !taskParams || !rawDocData, // Only fetch when we have document data
+    skip: !taskParams,
     refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
     pollingInterval: 0, // Disable automatic polling
   });
@@ -384,7 +385,7 @@ export const usePatientData = (
     patientQuiz,
     patientIntakeUpdate,
     loading: docLoading || taskLoading || intakeLoading || intakeUpdateLoading || treatmentHistoryLoading,
-    error: docError ? (docError as any).data?.error || "An error occurred" : null,
+    error: (docError as any)?.data?.error || (taskError as any)?.data?.error || null,
     refetchTreatmentHistory,
   };
 };
