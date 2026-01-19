@@ -28,7 +28,7 @@ const DashboardContent: React.FC = () => {
 
   const handleSectionCopy = async (
     sectionId: string,
-    snapshotIndex?: number
+    snapshotIndex?: number,
   ) => {
     let text = "";
     const doc = documentData;
@@ -82,7 +82,7 @@ const DashboardContent: React.FC = () => {
             text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
           });
           text += `Created: ${formatDate(q.createdAt)}\nUpdated: ${formatDate(
-            q.updatedAt
+            q.updatedAt,
           )}`;
         } else {
           text = "No patient quiz data available";
@@ -177,7 +177,7 @@ const DashboardContent: React.FC = () => {
                                 note.one_line_note.trim()) ||
                               (note.details && note.details.trim());
                             return hasContent;
-                          }
+                          },
                         ) || [];
 
                       // Limit document notes to 3 most recent
@@ -390,8 +390,8 @@ const DashboardContent: React.FC = () => {
                         What's New Since Last Visit
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        Scan-only cards • Click to expand • Expanded content
-                        scrolls inside the card
+                        Click to expand • Expanded content scrolls inside the
+                        card
                       </div>
                     </div>
                     <div className="text-xs text-gray-500">

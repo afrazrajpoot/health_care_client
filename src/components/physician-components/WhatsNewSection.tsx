@@ -40,10 +40,22 @@ import { useDispatch } from "react-redux";
 import { dashboardApi, useVerifyDocumentMutation } from "@/redux/dashboardApi";
 
 // Types for new structured short summary response
+interface Citation {
+  chunk_id: number;
+  statement: string;
+  confidence: number;
+  page_number: number;
+  source_text: string;
+  text_snippet: string;
+  paragraph_index: number;
+  confidence_level: string;
+}
+
 interface SummaryItem {
   field: string;
   collapsed: string;
   expanded: string;
+  citations?: Citation[];
 }
 
 interface SummaryHeader {
@@ -105,10 +117,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const [viewedWhatsNew, setViewedWhatsNew] = useState<Set<string>>(new Set());
   const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
   const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [expandedLongSummary, setExpandedLongSummary] = useState<string | null>(
-    null
+    null,
   );
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   const [briefSummaryModalOpen, setBriefSummaryModalOpen] = useState(false);
@@ -317,7 +329,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   // Helper function to render expanded text with bullet points
-  const renderExpandedText = (text: string) => {
+  const renderExpandedText = (text: string, citations?: Citation[]) => {
     if (!text) return null;
 
     // Check if text contains bullet points
@@ -331,17 +343,55 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         .filter((line) => line.length > 0);
 
       return (
-        <ul className="space-y-1.5 mt-2 pt-2 border-t border-gray-100">
+        <ul className="space-y-4 mt-2 pt-2 border-t border-gray-100">
           {lines.map((line, idx) => {
             // Remove bullet character if present
             const cleanLine = line.replace(/^[•\-*]\s*/, "");
+
+            // Find matching citation - normalize strings for comparison
+            const citation = citations?.find((c) => {
+              const normalizedStatement = c.statement
+                .trim()
+                .replace(/\s+/g, " ");
+              const normalizedLine = cleanLine.trim().replace(/\s+/g, " ");
+              return (
+                normalizedStatement === normalizedLine ||
+                normalizedLine.includes(normalizedStatement)
+              );
+            });
+
             return (
-              <li
-                key={idx}
-                className="text-sm text-gray-700 leading-relaxed flex items-start gap-2"
-              >
-                <span className="text-blue-500 mt-0.5">•</span>
-                <span>{cleanLine}</span>
+              <li key={idx} className="text-sm text-gray-700 leading-relaxed">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 mt-0.5">•</span>
+                  <span>{cleanLine}</span>
+                </div>
+                {citation && (
+                  <div className="mt-2 ml-6 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex -space-x-1 items-center">
+                        <span
+                          className="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full ring-2 ring-white"
+                          title={`Page ${citation.page_number}`}
+                        >
+                          {citation.page_number}
+                        </span>
+                        <span
+                          className="inline-flex items-center justify-center w-5 h-5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full ring-2 ring-white"
+                          title={`Paragraph ${citation.paragraph_index}`}
+                        >
+                          {citation.paragraph_index}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">
+                        Source Text
+                      </span>
+                    </div>
+                    <div className="italic text-gray-600 pl-1 border-l-2 border-blue-200">
+                      "{citation.source_text}"
+                    </div>
+                  </div>
+                )}
               </li>
             );
           })}
@@ -350,10 +400,42 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     }
 
     // Render as normal text if no bullets
+    const citation = citations?.find((c) => {
+      const normalizedStatement = c.statement.trim().replace(/\s+/g, " ");
+      const normalizedText = text.trim().replace(/\s+/g, " ");
+      return normalizedStatement === normalizedText;
+    });
+
     return (
-      <p className="text-sm text-gray-700 leading-relaxed mt-2 pt-2 border-t border-gray-100">
-        {text}
-      </p>
+      <div className="mt-2 pt-2 border-t border-gray-100">
+        <p className="text-sm text-gray-700 leading-relaxed">{text}</p>
+        {citation && (
+          <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex -space-x-1 items-center">
+                <span
+                  className="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full ring-2 ring-white"
+                  title={`Page ${citation.page_number}`}
+                >
+                  {citation.page_number}
+                </span>
+                <span
+                  className="inline-flex items-center justify-center w-5 h-5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full ring-2 ring-white"
+                  title={`Paragraph ${citation.paragraph_index}`}
+                >
+                  {citation.paragraph_index}
+                </span>
+              </div>
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">
+                Source Text
+              </span>
+            </div>
+            <div className="italic text-gray-600 pl-1 border-l-2 border-blue-200">
+              "{citation.source_text}"
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -381,20 +463,22 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   // Render structured short summary with collapsible items
   const renderStructuredShortSummary = (
     summary: StructuredShortSummary,
-    docId: string
+    docId: string,
   ) => {
     const { header, summary: summaryContent } = summary;
     const expandedItemsSet = expandedItems[docId] || new Set();
     const showDetails = showSourceDetails[docId] || false;
     const isQME = isQMEType(header.title, header.source_type);
     const defaultFields = getDefaultVisibleFields(isQME);
-
+    console.log("====================================");
+    console.log(summary, "summary");
+    console.log("====================================");
     // Filter items based on visibility
     const defaultItems = summaryContent.items.filter((item) =>
-      defaultFields.includes(item.field)
+      defaultFields.includes(item.field),
     );
     const additionalItems = summaryContent.items.filter(
-      (item) => !defaultFields.includes(item.field)
+      (item) => !defaultFields.includes(item.field),
     );
     const visibleItems = defaultItems; // Always show only default items in main container
 
@@ -432,7 +516,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </p>
                       {isExpanded &&
                         item.expanded &&
-                        renderExpandedText(item.expanded)}
+                        renderExpandedText(item.expanded, item.citations)}
                     </div>
                   </div>
 
@@ -473,7 +557,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 <div className="space-y-0">
                   {additionalItems.map((item, idx) => {
                     const isExpanded = expandedItemsSet.has(
-                      visibleItems.length + idx
+                      visibleItems.length + idx,
                     );
                     const label = FIELD_LABELS[item.field] || item.field;
                     const indicatorColor = getFieldIndicatorColor(item.field);
@@ -504,7 +588,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             </p>
                             {isExpanded && item.expanded && (
                               <div className="mt-2 pt-2 border-t border-blue-200">
-                                {renderExpandedText(item.expanded)}
+                                {renderExpandedText(
+                                  item.expanded,
+                                  item.citations,
+                                )}
                               </div>
                             )}
                           </div>
@@ -561,7 +648,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   // Helper function to parse short summary - handles both string and structured object
   const parseShortSummary = (
-    shortSummary: any
+    shortSummary: any,
   ): StructuredShortSummary | string | null => {
     if (!shortSummary) return null;
 
@@ -592,7 +679,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   // Helper to check if summary is structured
   const isStructuredSummary = (
-    summary: any
+    summary: any,
   ): summary is StructuredShortSummary => {
     return (
       summary &&
@@ -602,7 +689,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     );
   };
 
-const documentGroups = useMemo(() => {
+  const documentGroups = useMemo(() => {
     if (!documentData || !(documentData as any)?.documents) return [];
 
     return (documentData as any).documents
@@ -651,7 +738,7 @@ const documentGroups = useMemo(() => {
       })
       .filter((group: any) => {
         if (!group.shortSummary) return false;
-        
+
         // Filter out verified documents
         if (group.status === "verified") return false;
 
@@ -714,7 +801,7 @@ const documentGroups = useMemo(() => {
                 </strong>
               ) : (
                 <span key={partIndex}>{part}</span>
-              )
+              ),
             )}
           </div>
         );
@@ -766,7 +853,7 @@ const documentGroups = useMemo(() => {
       let parts: string[] = [];
       parts.push(`📋 ${header.title}`);
       parts.push(
-        `Source: ${header.source_type} • Author: ${header.author} • Date: ${header.date}`
+        `Source: ${header.source_type} • Author: ${header.author} • Date: ${header.date}`,
       );
       parts.push("");
 
@@ -823,7 +910,7 @@ const documentGroups = useMemo(() => {
     try {
       if (needsVerification) {
         await verifyDocument({ document_id: docId }).unwrap();
-        
+
         // Force immediate refetch of treatment history
         dispatch(dashboardApi.util.invalidateTags(["TreatmentHistory"]));
 
@@ -877,7 +964,7 @@ const documentGroups = useMemo(() => {
           headers: {
             Authorization: `Bearer ${session?.user?.fastapi_token}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -946,7 +1033,7 @@ const documentGroups = useMemo(() => {
   // Extract meaningful document title from short summary (text before first pipe or from structured header)
   const extractDocumentTitle = (
     shortSummary: string | StructuredShortSummary,
-    fallbackType: string
+    fallbackType: string,
   ): string => {
     if (!shortSummary) return fallbackType || "Document";
 
@@ -1023,7 +1110,7 @@ const documentGroups = useMemo(() => {
               // Get badges based on document type and summary items
               const getBadges = (
                 summary: string | StructuredShortSummary,
-                doc: any
+                doc: any,
               ) => {
                 const badges: Array<{ text: string; variant: string }> = [];
 
@@ -1037,7 +1124,7 @@ const documentGroups = useMemo(() => {
                   const hasTask = summary.summary.items?.some(
                     (item) =>
                       item.field === "recommendations" ||
-                      item.field === "rationale"
+                      item.field === "rationale",
                   );
                   if (hasTask) {
                     badges.push({ text: "Task", variant: "blue" });
@@ -1053,18 +1140,18 @@ const documentGroups = useMemo(() => {
 
               // Get indicator dot color based on document type or priority
               const getIndicatorDotColor = (
-                summary: string | StructuredShortSummary
+                summary: string | StructuredShortSummary,
               ) => {
                 if (isStructuredSummary(summary)) {
                   // Check if has critical findings
                   const hasFindings = summary.summary.items?.some(
                     (item) =>
-                      item.field === "findings" || item.field === "diagnosis"
+                      item.field === "findings" || item.field === "diagnosis",
                   );
                   const hasMMI = summary.summary.items?.some(
                     (item) =>
                       item.field === "mmi_status" ||
-                      item.field === "work_status"
+                      item.field === "work_status",
                   );
 
                   if (hasFindings) return "#ef4444"; // Red for findings
@@ -1075,7 +1162,7 @@ const documentGroups = useMemo(() => {
               };
 
               const indicatorColor = getIndicatorDotColor(
-                group.shortSummary || ""
+                group.shortSummary || "",
               );
 
               return (
@@ -1122,7 +1209,7 @@ const documentGroups = useMemo(() => {
                             <h3 className="text-base font-semibold text-gray-900">
                               {extractDocumentTitle(
                                 (group as any).shortSummary,
-                                (group as any).documentType
+                                (group as any).documentType,
                               )}
                             </h3>
                             {isViewed && (
@@ -1164,7 +1251,9 @@ const documentGroups = useMemo(() => {
                         <div className="flex gap-2 items-center flex-shrink-0">
                           <button
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors ${
-                              isPreviewLoading ? "opacity-50 cursor-not-allowed" : ""
+                              isPreviewLoading
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
                             }`}
                             onClick={(e) => {
                               e.preventDefault();
@@ -1207,8 +1296,8 @@ const documentGroups = useMemo(() => {
                               badge.variant === "success"
                                 ? "bg-green-100 text-green-700 border border-green-300"
                                 : badge.variant === "blue"
-                                ? "bg-blue-100 text-blue-700 border border-blue-300"
-                                : "bg-gray-100 text-gray-700 border border-gray-300"
+                                  ? "bg-blue-100 text-blue-700 border border-blue-300"
+                                  : "bg-gray-100 text-gray-700 border border-gray-300"
                             }`}
                           >
                             {badge.text}
@@ -1227,8 +1316,8 @@ const documentGroups = useMemo(() => {
                           <div className="text-sm leading-relaxed text-gray-900">
                             {renderFormattedSummary(
                               formatLongSummaryWithColors(
-                                group.longSummary || group.briefSummary || ""
-                              )
+                                group.longSummary || group.briefSummary || "",
+                              ),
                             )}
                           </div>
                         </div>
@@ -1238,13 +1327,13 @@ const documentGroups = useMemo(() => {
                             {isStructuredSummary(group.shortSummary)
                               ? renderStructuredShortSummary(
                                   group.shortSummary,
-                                  group.docId
+                                  group.docId,
                                 )
                               : renderSummaryWithHTML(
                                   typeof group.shortSummary === "string"
                                     ? group.shortSummary
                                     : "",
-                                  false
+                                  false,
                                 )}
                           </div>
                         </div>
