@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     // Ensure Prisma is connected before use
-    // await ensurePrismaConnection();
+    await ensurePrismaConnection();
     const { searchParams } = new URL(request.url);
 
     // Get all possible parameter names for flexibility
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
 
     // First, let's check what exists in the database for debugging
     // First, let's check what exists in the database for debugging
-    let allPatients;
+    let allPatients: any[] = [];
     let debugRetries = 3;
     while (debugRetries > 0) {
       try {
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Similar patients in database:', allPatients);
 
     // Now execute the actual query
-    let submissions;
+    let submissions: any[] = [];
     let retries = 3;
     while (retries > 0) {
       try {

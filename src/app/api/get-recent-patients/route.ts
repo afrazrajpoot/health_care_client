@@ -211,7 +211,7 @@ function isSamePatient(
 export async function GET(request: Request) {
   try {
     // Ensure Prisma is connected before use
-    // await ensurePrismaConnection();
+    await ensurePrismaConnection();
 
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");

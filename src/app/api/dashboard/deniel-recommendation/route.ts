@@ -51,8 +51,8 @@ export async function GET(request: Request) {
       // For multi-word (e.g., "Dummy Dummy"), this matches the full input as a substring
       // If you need OR for each word, uncomment the alternative below
       andConditions.push({
-        patientName: { 
-          contains: patientName, 
+        patientName: {
+          contains: patientName,
           mode: 'insensitive'  // Case-insensitive (works on supported DBs like PostgreSQL)
         },
       });
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
         grouped.get(key)!.push(doc);
       });
 
-   
+
 
       // For each group, create aggregated document with unique snapshots from all docs in group
       uniqueResults = Array.from(grouped.values()).map((group) => {
@@ -204,7 +204,5 @@ export async function GET(request: Request) {
       },
       error: "Internal server error",
     });
-  } finally {
-    await prisma.$disconnect();
   }
 }

@@ -120,11 +120,9 @@ export async function GET(request: Request) {
       data: {
         userId: session.user.id,
         email: session.user.email,
-        action: `Viewed documents and alerts for search: ${
-          patientName ? `patient: ${patientName}` : ""
-        }${patientName && claimNumber ? ", " : ""}${
-          claimNumber ? `claim: ${claimNumber}` : ""
-        }`,
+        action: `Viewed documents and alerts for search: ${patientName ? `patient: ${patientName}` : ""
+          }${patientName && claimNumber ? ", " : ""}${claimNumber ? `claim: ${claimNumber}` : ""
+          }`,
         path: "/api/documents",
         method: "GET",
       },
@@ -141,7 +139,5 @@ export async function GET(request: Request) {
       { error: "Internal server error" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

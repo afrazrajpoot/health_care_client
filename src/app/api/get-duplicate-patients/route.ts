@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/services/authSErvice";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 /* ---------------------------------------------
  * HELPER FUNCTIONS
@@ -319,7 +320,5 @@ export async function GET(request: Request) {
       { error: "Failed to fetch duplicate patients" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

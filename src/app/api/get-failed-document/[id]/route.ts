@@ -134,8 +134,8 @@ export async function PATCH(
       data: updateData,
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       document: {
         id: updatedDocument.id,
         patientName: updatedDocument.patientName,
@@ -144,7 +144,7 @@ export async function PATCH(
         doi: updatedDocument.doi,
         status: updatedDocument.status,
         updatedAt: updatedDocument.updatedAt,
-      } 
+      }
     });
 
   } catch (error) {
@@ -153,7 +153,5 @@ export async function PATCH(
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
