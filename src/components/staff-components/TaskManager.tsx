@@ -21,22 +21,22 @@ interface Task {
   description: string;
   patient: string;
   status: string;
-  priority: string;
+  priority?: string;
   quickNotes?: QuickNote;
-  actions: string[];
-  assignee: string;
-  department: string;
-  dueDate: string;
-  createdAt: string;
-  updatedAt: string;
-  documentId: string;
-  physicianId: string;
-  sourceDocument: string;
-  type: string;
-  claimNumber: string | null;
-  followUpTaskId: string | null;
-  reason: string | null;
-  ur_denial_reason: string | null;
+  actions?: string[];
+  assignee?: string;
+  department?: string;
+  dueDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  documentId?: string;
+  physicianId?: string;
+  sourceDocument?: string;
+  type?: string;
+  claimNumber?: string | null;
+  followUpTaskId?: string | null;
+  reason?: string | null;
+  ur_denial_reason?: string | null;
 }
 
 interface TaskManagerProps {
