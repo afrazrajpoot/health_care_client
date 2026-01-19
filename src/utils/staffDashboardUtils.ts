@@ -482,9 +482,6 @@ export const getQuestionnaireChips = (
         }
       });
 
-      // If we have generated points, we might want to skip the other legacy points to avoid duplication
-      // But for now, let's return early if we found generated points to keep it clean
-      if (chips.length > 0) return chips;
     }
 
     // Add ADL effect points
