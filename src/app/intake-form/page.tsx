@@ -260,10 +260,44 @@ function PatientIntakeContent() {
     }
 
     const expected = expectedPatientData;
-    const expectedDob = expected.dateOfBirth.split("T")[0];
+
+    // Helper to normalize any date string to YYYY-MM-DD
+    const normalize = (dateStr: string) => {
+      if (!dateStr) return "";
+
+      // 1. Try to match YYYY-MM-DD pattern directly (most common and safest)
+      const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+      }
+
+      // 2. Fallback to Date object parsing
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        // If parsing fails, try to just take the first 10 chars if they look like a date
+        return dateStr.substring(0, 10);
+      }
+
+      // If it's an ISO string with time (contains 'T'), use UTC to avoid timezone shifts
+      if (dateStr.includes("T")) {
+        return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(date.getUTCDate()).padStart(2, "0")}`;
+      }
+
+      // Otherwise use local components
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+        2,
+        "0"
+      )}-${String(date.getDate()).padStart(2, "0")}`;
+    };
+
+    const normalizedAuthDob = normalize(authDob);
+    const normalizedExpectedDob = normalize(expected.dateOfBirth);
 
     // Only verify DOB - patient name is already shown from token
-    if (authDob === expectedDob) {
+    if (normalizedAuthDob === normalizedExpectedDob) {
       setPatient(expected.patientName);
       setBodyAreas(expected.bodyParts || "Back, Neck");
       setLanguage((expected.language as "en" | "es") || "en");

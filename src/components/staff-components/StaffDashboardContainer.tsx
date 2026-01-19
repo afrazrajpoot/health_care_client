@@ -263,6 +263,35 @@ export default function StaffDashboardContainer() {
   }, [patientTasks]);
 
   // Memoized callbacks and memos
+  const handleSelectPatient = useCallback(
+    (patient: RecentPatient) => {
+      setSelectedPatient(patient);
+
+      // Update URL search params
+      const params = new URLSearchParams(searchParams.toString());
+      if (patient.patientName) {
+        params.set("patient_name", patient.patientName);
+      } else {
+        params.delete("patient_name");
+      }
+
+      if (patient.dob) {
+        params.set("dob", patient.dob);
+      } else {
+        params.delete("dob");
+      }
+
+      if (patient.claimNumber && patient.claimNumber !== "Not specified") {
+        params.set("claim", patient.claimNumber);
+      } else {
+        params.delete("claim");
+      }
+
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
   const handleStatusChipClick = useCallback(
     async (taskId: string, status: string) => {
       try {
@@ -436,7 +465,7 @@ export default function StaffDashboardContainer() {
       }
       setSelectedPatient(recentPatientsData[0]);
     }
-  }, [recentPatientsData, selectedPatient, searchParams]);
+  }, [recentPatientsData, selectedPatient, searchParams, router]);
 
   // Function to refresh all data using tag invalidation
   const refreshAllData = useCallback(() => {
@@ -717,7 +746,7 @@ export default function StaffDashboardContainer() {
               onToggle={() =>
                 setPatientDrawerCollapsed(!patientDrawerCollapsed)
               }
-              onSelectPatient={setSelectedPatient}
+              onSelectPatient={handleSelectPatient}
               formatDOB={formatDOB}
               formatClaimNumber={formatClaimNumber}
               onSearchChange={setPatientSearchQuery}
