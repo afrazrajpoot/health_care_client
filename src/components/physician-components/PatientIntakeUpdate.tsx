@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useGetPatientIntakeUpdateQuery } from "@/redux/dashboardApi";
+import { useGetPatientIntakeUpdateQuery } from "@/redux/staffApi";
 
 interface PatientIntakeUpdateProps {
   documentData?: {

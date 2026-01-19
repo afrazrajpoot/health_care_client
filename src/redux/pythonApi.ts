@@ -1,5 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { handleEncryptedResponse } from "@/lib/decrypt";
+import { staffApi } from "./staffApi";
+import { dashboardApi } from "./dashboardApi";
 
 const baseQuery = fetchBaseQuery({
     baseUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api`,
@@ -45,6 +47,16 @@ export const pythonApi = createApi({
                 method: "POST",
                 body: data,
             }),
+            async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+                    // Invalidate tags across different API slices
+                    dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
+                    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
+                } catch (error) {
+                    console.error("Failed to invalidate tags after document update:", error);
+                }
+            },
         }),
     }),
 });

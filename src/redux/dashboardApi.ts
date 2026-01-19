@@ -16,7 +16,7 @@ const baseQueryWithDecryption = async (args: any, api: any, extraOptions: any) =
 export const dashboardApi = createApi({
     reducerPath: "dashboardApi",
     baseQuery: baseQueryWithDecryption,
-    tagTypes: ["Tasks", "Patients", "Intakes", "TreatmentHistory"],
+    tagTypes: ["Tasks", "Patients", "TreatmentHistory"],
     // Global cache configuration
     keepUnusedDataFor: 300, // Keep cached data for 5 minutes (increased from 60s)
     refetchOnMountOrArgChange: false, // Don't refetch on component mount if data exists
@@ -52,30 +52,7 @@ export const dashboardApi = createApi({
             providesTags: ["Tasks"],
             keepUnusedDataFor: 90, // Keep tasks cached for 90 seconds
         }),
-        getPatientIntakes: builder.query({
-            query: ({ patientName, dob, claimNumber }) => {
-                const params = new URLSearchParams({ patientName });
-                if (dob) params.append("dob", dob.split("T")[0]);
-                if (claimNumber && claimNumber !== "Not specified") {
-                    params.append("claimNumber", claimNumber);
-                }
-                return { url: `/patient-intakes?${params.toString()}` };
-            },
-            providesTags: ["Intakes"],
-            keepUnusedDataFor: 120, // Keep intake data cached for 2 minutes
-        }),
-        getPatientIntakeUpdate: builder.query({
-            query: ({ patientName, dob, claimNumber }) => {
-                const params = new URLSearchParams({ patientName });
-                if (dob) params.append("dob", dob.split("T")[0]);
-                if (claimNumber && claimNumber !== "Not specified") {
-                    params.append("claimNumber", claimNumber);
-                }
-                return { url: `/patient-intake-update?${params.toString()}` };
-            },
-            providesTags: ["Intakes"],
-            keepUnusedDataFor: 120, // Keep intake update data cached for 2 minutes
-        }),
+
         getPatientRecommendations: builder.query({
             query: ({ patientName, claimNumber, dob, physicianId, mode }) => {
                 const params = new URLSearchParams();
@@ -150,10 +127,7 @@ export const {
     useLazyGetRecentPatientsQuery,
     useGetTasksQuery,
     useLazyGetTasksQuery,
-    useGetPatientIntakesQuery,
-    useLazyGetPatientIntakesQuery,
-    useGetPatientIntakeUpdateQuery,
-    useLazyGetPatientIntakeUpdateQuery,
+
     useGetPatientRecommendationsQuery,
     useLazyGetPatientRecommendationsQuery,
     useGetDocumentQuery,

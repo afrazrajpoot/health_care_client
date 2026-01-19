@@ -3,10 +3,12 @@ import { useSession } from "next-auth/react";
 import {
   useGetDocumentQuery,
   useGetTasksQuery,
-  useGetPatientIntakesQuery,
-  useGetPatientIntakeUpdateQuery,
   useGetTreatmentHistoryQuery
 } from "@/redux/dashboardApi";
+import {
+  useGetPatientIntakesQuery,
+  useGetPatientIntakeUpdateQuery,
+} from "@/redux/staffApi";
 
 interface Patient {
   id?: string | number;

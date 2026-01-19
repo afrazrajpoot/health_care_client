@@ -21,13 +21,13 @@ import { useFailedDocuments } from "../../app/custom-hooks/staff-hooks/useFailed
 import {
   useGetRecentPatientsQuery,
   useGetTasksQuery,
-  useGetPatientIntakesQuery,
-  useGetPatientIntakeUpdateQuery,
   useUpdateTaskMutation,
   useAddManualTaskMutation,
 } from "@/redux/dashboardApi";
 import {
   useGetFailedDocumentsQuery,
+  useGetPatientIntakesQuery,
+  useGetPatientIntakeUpdateQuery,
 } from "@/redux/staffApi";
 import { useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 import {
@@ -461,8 +461,8 @@ export default function StaffDashboardContainer() {
 
   // Function to refresh all data using tag invalidation
   const refreshAllData = useCallback(() => {
-    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients", "Intakes"]));
-    dispatch(staffApi.util.invalidateTags(["FailedDocuments"]));
+    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
+    dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
   }, [dispatch]);
 
@@ -616,8 +616,8 @@ export default function StaffDashboardContainer() {
   // Function to trigger refresh manually using tag invalidation
   const triggerRefresh = useCallback(() => {
     // Invalidate all relevant tags to trigger automatic refetching
-    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients", "Intakes"]));
-    dispatch(staffApi.util.invalidateTags(["FailedDocuments"]));
+    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
+    dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
     
     // Also clear any upload errors/states
