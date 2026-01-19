@@ -1,4 +1,3 @@
-
 // app/dashboard/components/IntakeModal.tsx
 "use client";
 
@@ -7,7 +6,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { useGenerateIntakeLinkMutation, useGetPatientRecommendationsQuery } from "@/redux/dashboardApi";
+import {
+  useGenerateIntakeLinkMutation,
+  useGetPatientRecommendationsQuery,
+} from "@/redux/dashboardApi";
 
 interface ModalField {
   id: string;
@@ -160,7 +162,7 @@ export default function IntakeModal({
   const [outputLink, setOutputLink] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
-    "idle"
+    "idle",
   );
   const patientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -168,12 +170,16 @@ export default function IntakeModal({
 
   const [generateIntakeLinkMutation] = useGenerateIntakeLinkMutation();
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
-  const { data: recommendationsData, isFetching: isLoadingSuggestions } = useGetPatientRecommendationsQuery(patientSearchQuery, {
-    skip: !patientSearchQuery.trim(),
-  });
+  const { data: recommendationsData, isFetching: isLoadingSuggestions } =
+    useGetPatientRecommendationsQuery(patientSearchQuery, {
+      skip: !patientSearchQuery.trim(),
+    });
 
   const patientSuggestions = React.useMemo(() => {
-    if (recommendationsData?.success && recommendationsData.data.allMatchingDocuments) {
+    if (
+      recommendationsData?.success &&
+      recommendationsData.data.allMatchingDocuments
+    ) {
       return recommendationsData.data.allMatchingDocuments.map((doc: any) => ({
         id: doc.id,
         patientName: doc.patientName,
@@ -184,7 +190,9 @@ export default function IntakeModal({
     return [];
   }, [recommendationsData]);
 
-  const showSuggestions = patientSearchQuery.trim().length > 0 && (isLoadingSuggestions || patientSuggestions.length > 0);
+  const showSuggestions =
+    patientSearchQuery.trim().length > 0 &&
+    (isLoadingSuggestions || patientSuggestions.length > 0);
 
   const handleChange = (id: string, value: string) => {
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -197,9 +205,7 @@ export default function IntakeModal({
 
   // Helper function to format date for input field (MM-DD-YYYY)
   // Avoids timezone issues by extracting date string directly or using local time methods
-  function formatDateForInput(
-    date: Date | string | null | undefined
-  ): string {
+  function formatDateForInput(date: Date | string | null | undefined): string {
     if (!date) return "";
 
     // If it's already a string, extract the date part directly
@@ -345,7 +351,7 @@ export default function IntakeModal({
       };
 
       const { token } = await generateIntakeLinkMutation(metadata).unwrap();
-      const form_url = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+      const form_url = process.env.NEXT_PUBLIC_APP_URL;
       const link = `${form_url}/intake-form?token=${encodeURIComponent(token)}`;
       setOutputLink(link);
       setCopyStatus("idle"); // Reset copy status when new link is generated
@@ -502,7 +508,7 @@ Thank you.`);
                           const year = date.getFullYear();
                           const month = String(date.getMonth() + 1).padStart(
                             2,
-                            "0"
+                            "0",
                           );
                           const day = String(date.getDate()).padStart(2, "0");
                           handleChange(field.id, `${month}-${day}-${year}`);
@@ -587,55 +593,57 @@ Thank you.`);
                           Loading...
                         </div>
                       ) : patientSuggestions.length > 0 ? (
-                        patientSuggestions.map((patient: Patient, index: number) => (
-                          <div
-                            key={patient.id || index}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handlePatientSelect(patient);
-                            }}
-                            style={{
-                              padding: "12px",
-                              cursor: "pointer",
-                              borderBottom:
-                                index < patientSuggestions.length - 1
-                                  ? "1px solid #eee"
-                                  : "none",
-                              fontSize: "14px",
-                            }}
-                            onMouseEnter={(e) => {
-                              (
-                                e.currentTarget as HTMLElement
-                              ).style.backgroundColor = "#f5f5f5";
-                            }}
-                            onMouseLeave={(e) => {
-                              (
-                                e.currentTarget as HTMLElement
-                              ).style.backgroundColor = "transparent";
-                            }}
-                          >
+                        patientSuggestions.map(
+                          (patient: Patient, index: number) => (
                             <div
+                              key={patient.id || index}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handlePatientSelect(patient);
+                              }}
                               style={{
-                                fontWeight: "500",
-                                marginBottom: "4px",
-                                pointerEvents: "none",
+                                padding: "12px",
+                                cursor: "pointer",
+                                borderBottom:
+                                  index < patientSuggestions.length - 1
+                                    ? "1px solid #eee"
+                                    : "none",
+                                fontSize: "14px",
+                              }}
+                              onMouseEnter={(e) => {
+                                (
+                                  e.currentTarget as HTMLElement
+                                ).style.backgroundColor = "#f5f5f5";
+                              }}
+                              onMouseLeave={(e) => {
+                                (
+                                  e.currentTarget as HTMLElement
+                                ).style.backgroundColor = "transparent";
                               }}
                             >
-                              {patient.patientName}
+                              <div
+                                style={{
+                                  fontWeight: "500",
+                                  marginBottom: "4px",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                {patient.patientName}
+                              </div>
+                              <div
+                                style={{
+                                  color: "#666",
+                                  fontSize: "12px",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                DOB: {patient.dob || "Not specified"} | Claim:{" "}
+                                {patient.claimNumber}
+                              </div>
                             </div>
-                            <div
-                              style={{
-                                color: "#666",
-                                fontSize: "12px",
-                                pointerEvents: "none",
-                              }}
-                            >
-                              DOB: {patient.dob || "Not specified"} | Claim:{" "}
-                              {patient.claimNumber}
-                            </div>
-                          </div>
-                        ))
+                          ),
+                        )
                       ) : (
                         <div
                           style={{
