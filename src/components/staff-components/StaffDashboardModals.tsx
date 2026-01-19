@@ -73,6 +73,7 @@ interface StaffDashboardModalsProps {
   onCancelBulkReassign: () => void;
   reassignLoading: boolean;
   onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
+  onAssignTask: (taskId: string, assignee: string) => Promise<void>;
 }
 
 export default function StaffDashboardModals({
@@ -110,6 +111,7 @@ export default function StaffDashboardModals({
   onCancelBulkReassign,
   reassignLoading,
   onBulkAssign,
+  onAssignTask,
 }: StaffDashboardModalsProps) {
   // Wrapper function to convert ChangeEvent to (field, value) format
   const handleUpdateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,6 +215,7 @@ export default function StaffDashboardModals({
         task={selectedTaskForQuickNote}
         onClose={onCloseQuickNoteModal}
         onSave={onSaveQuickNote}
+        onAssignTask={onAssignTask}
       />
 
       <UpdateDocumentModal
@@ -271,7 +274,7 @@ const ReassignConfirmationModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 pb-8">
           <div className="flex items-center gap-3">
@@ -336,7 +339,7 @@ const BulkReassignConfirmationModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1100] p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 pb-8">
           <div className="flex items-center gap-3">

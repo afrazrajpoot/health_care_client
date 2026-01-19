@@ -1,204 +1,3 @@
-// // app/api/patient-intakes/route.ts
-// import { prisma, ensurePrismaConnection } from "@/lib/prisma";
-// import { NextRequest, NextResponse } from "next/server";
-// import CryptoJS from "crypto-js";
-
-// export async function GET(request: NextRequest) {
-//   try {
-//     // Ensure Prisma is connected before use
-//     await ensurePrismaConnection();
-//     const { searchParams } = new URL(request.url);
-//     const patientName = searchParams.get("patientName") || searchParams.get("patient_name");
-//     const dob = searchParams.get("dob");
-//     const claimNumber = searchParams.get("claimNumber") || searchParams.get("claim_number");
-    
-//     // NEW: Check for extension parameter
-//     const extension = searchParams.get("extension") === 'true';
-
-//     if (!patientName) {
-//       // Check if request is from extension and return appropriate error
-//       if (extension) {
-//         return NextResponse.json(
-//           { error: "Patient Name is required", source: 'extension' },
-//           { status: 400 }
-//         );
-//       } else {
-//         return NextResponse.json(
-//           { error: "Patient Name is required" },
-//           { status: 400 }
-//         );
-//       }
-//     }
-
-//     const whereClause: any = {
-//       patientName: {
-//         equals: patientName,
-//         mode: "insensitive",
-//       },
-//     };
-
-//     if (dob) {
-//       // Handle DOB matching - extract date part only
-//       const dobDate = dob.split("T")[0];
-//       whereClause.dob = dobDate;
-//     }
-
-//     if (claimNumber && claimNumber !== "Not specified") {
-//       whereClause.claimNumber = claimNumber;
-//     }
-
-//     const submissions = await prisma.patientQuiz.findMany({
-//       where: whereClause,
-//       orderBy: { createdAt: "desc" },
-//     });
-
-//     // NEW: Check if request is from extension
-//     if (extension) {
-//       console.log('🔄 Extension request detected - returning unencrypted data for patient intakes');
-      
-//       // Return unencrypted response for extension
-//       return NextResponse.json({
-//         success: true,
-//         data: submissions,
-//         total: submissions.length,
-//         timestamp: new Date().toISOString(),
-//         query: {
-//           patientName,
-//           dob,
-//           claimNumber,
-//           matchCount: submissions.length,
-//           extension: true
-//         },
-//         source: 'extension'
-//       });
-//     }
-
-//     // Get encryption secret from environment (for non-extension requests)
-//     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
-
-//     if (!ENCRYPTION_SECRET) {
-//       console.warn('⚠️ Encryption secret not configured - returning unencrypted response');
-//       return NextResponse.json({
-//         success: true,
-//         data: submissions,
-//         total: submissions.length,
-//         timestamp: new Date().toISOString(),
-//         warning: 'Response not encrypted - server configuration issue'
-//       });
-//     }
-
-//     try {
-//       // Prepare data for encryption
-//       const responseData = {
-//         success: true,
-//         data: submissions,
-//         total: submissions.length,
-//         timestamp: new Date().toISOString(),
-//         query: {
-//           patientName,
-//           dob,
-//           claimNumber,
-//           matchCount: submissions.length
-//         }
-//       };
-
-//       // Encrypt the response
-//       const dataString = JSON.stringify(responseData);
-//       const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-
-//       console.log('🔐 Patient intakes response encrypted', {
-//         patientName,
-//         submissionCount: submissions.length,
-//         encryptedDataLength: encryptedData.length
-//       });
-
-//       // Return encrypted response
-//       return NextResponse.json({
-//         encrypted: true,
-//         data: encryptedData,
-//         timestamp: new Date().toISOString(),
-//         route_marker: 'patient-intakes-api-encrypted',
-//         metadata: {
-//           submissionCount: submissions.length,
-//           encryption: 'AES',
-//           query: { patientName, hasDob: !!dob, hasClaimNumber: !!claimNumber }
-//         }
-//       });
-
-//     } catch (encryptionError) {
-//       console.error('❌ Failed to encrypt patient intakes:', encryptionError);
-      
-//       // Fallback to unencrypted response
-//       return NextResponse.json({
-//         success: true,
-//         data: submissions,
-//         total: submissions.length,
-//         timestamp: new Date().toISOString(),
-//         warning: 'Encryption failed - returned unencrypted data',
-//         error: encryptionError instanceof Error ? encryptionError.message : 'Unknown encryption error'
-//       });
-//     }
-
-//   } catch (error) {
-//     console.error("Error fetching patient intakes:", error);
-    
-//     // Get encryption secret for error response
-//     const ENCRYPTION_SECRET = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET;
-    
-//     // Check if request is from extension
-//     const { searchParams } = new URL(request.url);
-//     const extension = searchParams.get("extension") === 'true';
-    
-//     if (extension) {
-//       // Return unencrypted error for extension
-//       return NextResponse.json(
-//         { 
-//           success: false,
-//           error: "Internal server error",
-//           details: error instanceof Error ? error.message : 'Unknown error',
-//           timestamp: new Date().toISOString(),
-//           source: 'extension'
-//         },
-//         { status: 500 }
-//       );
-//     }
-    
-//     if (ENCRYPTION_SECRET) {
-//       try {
-//         const errorData = {
-//           success: false,
-//           error: "Internal server error",
-//           details: error instanceof Error ? error.message : 'Unknown error',
-//           timestamp: new Date().toISOString()
-//         };
-//         const dataString = JSON.stringify(errorData);
-//         const encryptedData = CryptoJS.AES.encrypt(dataString, ENCRYPTION_SECRET).toString();
-        
-//         return NextResponse.json({
-//           encrypted: true,
-//           data: encryptedData,
-//           timestamp: new Date().toISOString(),
-//           isError: true
-//         }, { status: 500 });
-//       } catch {
-//         // If encryption fails for error, return plain error
-//         return NextResponse.json(
-//           { success: false, error: "Internal server error" },
-//           { status: 500 }
-//         );
-//       }
-//     } else {
-//       return NextResponse.json(
-//         { success: false, error: "Internal server error" },
-//         { status: 500 }
-//       );
-//     }
-//   }
-// }
-
-
-
-
 // app/api/patient-intakes/route.ts
 import { prisma, ensurePrismaConnection } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
@@ -206,22 +5,22 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     // Ensure Prisma is connected before use
-    await ensurePrismaConnection();
+    // await ensurePrismaConnection();
     const { searchParams } = new URL(request.url);
-    
+
     // Get all possible parameter names for flexibility
-    const patientName = searchParams.get("patientName") || 
-                       searchParams.get("patient_name") || 
-                       searchParams.get("name");
-    
-    const dob = searchParams.get("dob") || 
-                searchParams.get("dateOfBirth") || 
-                searchParams.get("date_of_birth");
-    
-    const claimNumber = searchParams.get("claimNumber") || 
-                       searchParams.get("claim_number") || 
-                       searchParams.get("claim");
-    
+    const patientName = searchParams.get("patientName") ||
+      searchParams.get("patient_name") ||
+      searchParams.get("name");
+
+    const dob = searchParams.get("dob") ||
+      searchParams.get("dateOfBirth") ||
+      searchParams.get("date_of_birth");
+
+    const claimNumber = searchParams.get("claimNumber") ||
+      searchParams.get("claim_number") ||
+      searchParams.get("claim");
+
     // Check for extension parameter
     const extension = searchParams.get("extension") === 'true';
 
@@ -236,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     if (!patientName) {
       return NextResponse.json(
-        { 
+        {
           success: false,
           error: "Patient Name is required",
           timestamp: new Date().toISOString()
@@ -302,45 +101,96 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Final database query:', JSON.stringify(whereClause, null, 2));
 
     // First, let's check what exists in the database for debugging
-    const allPatients = await prisma.patientQuiz.findMany({
-      where: {
-        patientName: {
-          contains: patientName.split(' ')[0], // Search by first name
-          mode: "insensitive"
+    // First, let's check what exists in the database for debugging
+    let allPatients;
+    let debugRetries = 3;
+    while (debugRetries > 0) {
+      try {
+        allPatients = await prisma.patientQuiz.findMany({
+          where: {
+            patientName: {
+              contains: patientName.split(' ')[0], // Search by first name
+              mode: "insensitive"
+            }
+          },
+          select: {
+            patientName: true,
+            dob: true,
+            claimNumber: true,
+            createdAt: true
+          },
+          take: 10 // Limit to 10 for debugging
+        });
+        break; // Success
+      } catch (dbError: any) {
+        debugRetries--;
+        const isConnectionError =
+          dbError?.message?.includes("Engine is not yet connected") ||
+          dbError?.message?.includes("Client is not connected") ||
+          dbError?.message?.includes("Can't reach database server");
+
+        if (isConnectionError && debugRetries > 0) {
+          console.warn(`⚠️ Prisma connection error (Debug Query). Retrying... (${debugRetries} attempts left)`);
+          // await new Promise(resolve => setTimeout(resolve, 500));
+          // try {
+          //   await prisma.$disconnect();
+          //   await prisma.$connect();
+          // } catch (e) { console.error(e); }
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          // For debug query, we can just ignore errors and continue if it fails
+          console.warn("⚠️ Initial DB check failed, continuing...", dbError.message);
+          allPatients = []; // Fallback to empty array
+          break;
         }
-      },
-      select: {
-        patientName: true,
-        dob: true,
-        claimNumber: true,
-        createdAt: true
-      },
-      take: 10 // Limit to 10 for debugging
-    });
+      }
+    }
 
     console.log('🔍 Similar patients in database:', allPatients);
 
     // Now execute the actual query
-    const submissions = await prisma.patientQuiz.findMany({
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-      // Include all fields for the response
-      select: {
-        id: true,
-        patientName: true,
-        dob: true,
-        doi: true,
-        lang: true,
-        bodyAreas: true,
-        newAppointments: true,
-        refill: true,
-        adl: true,
-        therapies: true,
-        claimNumber: true,
-        createdAt: true,
-        updatedAt: true
+    let submissions;
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        submissions = await prisma.patientQuiz.findMany({
+          where: whereClause,
+          orderBy: { createdAt: "desc" },
+          // Include all fields for the response
+          select: {
+            id: true,
+            patientName: true,
+            dob: true,
+            doi: true,
+            lang: true,
+            bodyAreas: true,
+            newAppointments: true,
+            refill: true,
+            adl: true,
+            therapies: true,
+            claimNumber: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        });
+        break; // Success
+      } catch (dbError: any) {
+        retries--;
+        const isConnectionError =
+          dbError?.message?.includes("Engine is not yet connected") ||
+          dbError?.message?.includes("Client is not connected") ||
+          dbError?.message?.includes("Can't reach database server");
+
+        if (isConnectionError && retries > 0) {
+          console.warn(`⚠️ Prisma connection error (Main Query). Retrying... (${retries} attempts left)`);
+
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          throw dbError;
+        }
       }
-    });
+    }
 
     console.log('✅ Found submissions:', submissions.length);
     if (submissions.length > 0) {
@@ -380,9 +230,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error("❌ Error fetching patient intakes:", error);
-    
+
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: "Internal server error",
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -397,9 +247,9 @@ export async function GET(request: NextRequest) {
 // Optional: Add a POST method if you need to create patient intakes
 export async function POST(request: NextRequest) {
   try {
-    await ensurePrismaConnection();
+    // await ensurePrismaConnection();
     const body = await request.json();
-    
+
     console.log('📝 Creating patient intake:', body);
 
     const submission = await prisma.patientQuiz.create({
@@ -426,9 +276,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error("Error creating patient intake:", error);
-    
+
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: "Failed to create patient intake",
         details: error instanceof Error ? error.message : 'Unknown error',

@@ -7,7 +7,7 @@ import { authOptions } from "@/services/authSErvice";
 export async function GET(request: NextRequest) {
   try {
     // Ensure Prisma is connected before use
-    await ensurePrismaConnection();
+    // await ensurePrismaConnection();
 
     const session = await getServerSession(authOptions);
     console.log("Full session:", session);

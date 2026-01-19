@@ -6,12 +6,14 @@ interface StaffDashboardHeaderProps {
   onCreateIntakeLink: () => void;
   onAddTask: () => void;
   onUploadDocument: () => void;
+  userRole?: string;
 }
 
 export default function StaffDashboardHeader({
   onCreateIntakeLink,
   onAddTask,
   onUploadDocument,
+  userRole,
 }: StaffDashboardHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0 h-[4vw]">
@@ -43,12 +45,14 @@ export default function StaffDashboardHeader({
           />{" "}
           Upload Document
         </button>
-        <button
-          className="border border-gray-200 bg-white rounded-lg px-2.5 py-1.5 font-semibold text-sm cursor-pointer hover:bg-gray-50 transition-colors"
-          onClick={onAddTask}
-        >
-          Add Task
-        </button>
+        {userRole !== "Staff" && (
+          <button
+            className="border border-gray-200 bg-white rounded-lg px-2.5 py-1.5 font-semibold text-sm cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={onAddTask}
+          >
+            Add Task
+          </button>
+        )}
       </div>
     </header>
   );

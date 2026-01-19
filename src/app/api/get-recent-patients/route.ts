@@ -211,7 +211,7 @@ function isSamePatient(
 export async function GET(request: Request) {
   try {
     // Ensure Prisma is connected before use
-    await ensurePrismaConnection();
+    // await ensurePrismaConnection();
 
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
@@ -271,35 +271,10 @@ export async function GET(request: Request) {
     }
 
     // Fetch documents with their documentSummary relation
-    // Fetch documents with their documentSummary relation
     let documents;
-    try {
-      documents = await prisma.document.findMany({
-        select: {
-          id: true,
-          patientName: true,
-          dob: true,
-          claimNumber: true,
-          createdAt: true,
-          reportDate: true,
-          mode: true,
-          documentSummary: {
-            select: {
-              type: true,
-              date: true,
-              summary: true,
-            },
-          },
-        },
-        where: whereClause,
-        orderBy: { createdAt: "desc" },
-      });
-    } catch (error: any) {
-      // Retry once if engine is not connected
-      if (error?.message?.includes("Engine is not yet connected") ||
-        error?.message?.includes("Client is not connected")) {
-        console.warn("⚠️ Prisma engine disconnected, attempting to reconnect and retry...");
-        await prisma.$connect();
+    let retries = 3;
+    while (retries > 0) {
+      try {
         documents = await prisma.document.findMany({
           select: {
             id: true,
@@ -320,8 +295,22 @@ export async function GET(request: Request) {
           where: whereClause,
           orderBy: { createdAt: "desc" },
         });
-      } else {
-        throw error;
+        break; // Success, exit loop
+      } catch (error: any) {
+        retries--;
+        const isConnectionError =
+          error?.message?.includes("Engine is not yet connected") ||
+          error?.message?.includes("Client is not connected") ||
+          error?.message?.includes("Can't reach database server");
+
+        if (isConnectionError && retries > 0) {
+          console.warn(`⚠️ Prisma connection error. Retrying... (${retries} attempts left)`);
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          // If it's not a connection error or we're out of retries, throw
+          throw error;
+        }
       }
     }
 

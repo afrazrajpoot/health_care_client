@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
+import AssignTaskModal from "@/components/staff-components/AssignTaskModal";
 
 import { Task, FailedDocument } from "@/utils/staffDashboardUtils";
 
@@ -21,7 +22,7 @@ interface TasksTableProps {
   taskStatuses: { [taskId: string]: string };
   taskAssignees: { [taskId: string]: string };
   onStatusClick: (taskId: string, status: string) => Promise<void>;
-  onAssigneeClick: (taskId: string, assignee: string) => void;
+  onAssigneeClick: (taskId: string, assignee: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
   onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
   getStatusOptions: (task: Task) => string[];
@@ -36,7 +37,7 @@ interface TasksTableProps {
   onToggleTaskSelection?: (taskIds: string[], selected: boolean) => void;
 }
 
-import { User } from "lucide-react";
+import { User, UserPlus } from "lucide-react";
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
 import { useLazyGetDocumentPreviewQuery, useSplitAndProcessDocumentMutation } from "@/redux/pythonApi";
 
@@ -61,6 +62,7 @@ export default function TasksTable({
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [openQuickNoteId, setOpenQuickNoteId] = useState<string | null>(null);
+  const [openAssignTaskId, setOpenAssignTaskId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(
     new Set()
@@ -372,25 +374,7 @@ export default function TasksTable({
           <table className="w-max min-w-full border-collapse table-auto text-base visible table box-border">
             <thead>
               <tr>
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 w-[40px]">
-                  <input 
-                    type="checkbox" 
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    onChange={(e) => {
-                        const allIds = unifiedRows.map(row => 
-                          row.type === 'task' ? row.data.id : `doc-${row.data.id}`
-                        );
-                        if (e.target.checked) {
-                            // Select all rows
-                            onToggleTaskSelection?.(allIds, true);
-                        } else {
-                            // Deselect all
-                            onToggleTaskSelection?.([], false);
-                        }
-                    }}
-                    checked={isAllSelected()}
-                  />
-                </th>
+
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[250px] w-[250px] whitespace-normal">
                   Item
                 </th>
@@ -406,6 +390,11 @@ export default function TasksTable({
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
                   Due
                 </th>
+                {session?.user?.role !== "Staff" && (
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
+                  Assign
+                </th>
+                )}
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[150px] w-[150px] whitespace-nowrap">
                   Actions
                 </th>
@@ -424,16 +413,7 @@ export default function TasksTable({
 
                   return (
                     <tr key={`task-${task.id}`} className={isSelected ? "bg-blue-50/50" : ""}>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px]">
-                        <input 
-                            type="checkbox" 
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            checked={isSelected}
-                            onChange={(e) => {
-                                handleRowSelection(row, e.target.checked);
-                            }}
-                        />
-                      </td>
+
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
                         {task.description}
                         {task.assignee && task.assignee !== 'Unclaimed' && (
@@ -574,6 +554,21 @@ export default function TasksTable({
                             })()
                           : "—"}
                       </td>
+                      {session?.user?.role !== "Staff" && (
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenAssignTaskId(task.id);
+                          }}
+                          className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
+                          title="Assign Task"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Assign
+                        </button>
+                      </td>
+                      )}
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap relative">
                         <div className="relative">
                           <span
@@ -603,6 +598,15 @@ export default function TasksTable({
                               task={task}
                               onClose={() => setOpenQuickNoteId(null)}
                               onSave={onSaveQuickNote}
+                              // onAssignTask removed to separate concerns
+                            />
+                          )}
+                          {openAssignTaskId === task.id && (
+                            <AssignTaskModal
+                              isOpen={true}
+                              task={task}
+                              onClose={() => setOpenAssignTaskId(null)}
+                              onAssign={onAssigneeClick}
                             />
                           )}
                         </div>
@@ -620,17 +624,7 @@ export default function TasksTable({
                       className={`${isSelected ? "bg-blue-50/50" : "bg-red-50/30"} hover:bg-red-50 transition-colors`}
                       onClick={() => onFailedDocumentRowClick?.(doc)}
                     >
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px]">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleRowSelection(row, e.target.checked);
-                          }}
-                        />
-                      </td>
+
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -678,6 +672,11 @@ export default function TasksTable({
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap text-gray-400">
                         —
                       </td>
+                      {session?.user?.role !== "Staff" && (
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap text-gray-400">
+                        —
+                      </td>
+                      )}
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
                         <div className="flex items-center gap-1">
                           {/* View Summary */}

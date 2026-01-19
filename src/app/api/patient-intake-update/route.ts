@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     // Ensure Prisma is connected before use
-    await ensurePrismaConnection();
+    // await ensurePrismaConnection();
 
     const { searchParams } = new URL(request.url);
     const patientName = searchParams.get("patientName") || searchParams.get("patient_name");

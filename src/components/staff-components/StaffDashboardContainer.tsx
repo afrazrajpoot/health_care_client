@@ -277,23 +277,6 @@ export default function StaffDashboardContainer() {
 
   const handleAssigneeChipClick = useCallback(
     async (taskId: string, assignee: string) => {
-      const task = patientTasks.find((t: Task) => t.id === taskId);
-      const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
-
-      if (
-        currentAssignee !== "Unclaimed" &&
-        currentAssignee !== assignee &&
-        assignee !== "Unclaimed"
-      ) {
-        setReassignConfirmData({
-          isOpen: true,
-          taskId,
-          currentAssignee,
-          newAssignee: assignee,
-        });
-        return;
-      }
-
       try {
         await updateTaskMutation({ taskId, assignee }).unwrap();
       } catch (error) {
@@ -301,7 +284,7 @@ export default function StaffDashboardContainer() {
         toast.error("Failed to update task assignee");
       }
     },
-    [patientTasks, taskAssignees, updateTaskMutation]
+    [updateTaskMutation]
   );
 
   const handleConfirmReassign = useCallback(async () => {
@@ -679,6 +662,7 @@ export default function StaffDashboardContainer() {
             onCreateIntakeLink={() => setShowModal(true)}
             onAddTask={() => setShowTaskModal(true)}
             onUploadDocument={() => snapInputRef.current?.click()}
+            userRole={session?.user?.role}
           />
 
           <input
@@ -831,6 +815,7 @@ export default function StaffDashboardContainer() {
         onCancelBulkReassign={handleCancelBulkReassign}
         onBulkAssign={handleBulkAssign}
         reassignLoading={reassignLoading}
+        onAssignTask={handleAssigneeChipClick}
       />
 
       {showUploadToast && <UploadToast />}

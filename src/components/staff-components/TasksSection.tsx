@@ -56,7 +56,7 @@ interface TasksSectionProps {
 }
 
 import { useState, useCallback } from "react";
-import StaffAssignmentSection from "./StaffAssignmentSection";
+
 
 export default function TasksSection({
   selectedPatient,
@@ -213,14 +213,7 @@ export default function TasksSection({
         )}
       </div>
 
-      {/* Staff Assignment Section - Only visible to Physicians */}
-      {userRole === "Physician" && (
-        <StaffAssignmentSection 
-            selectedTaskIds={selectedTaskIds}
-            taskAssignees={taskAssignees}
-            onAssign={handleAssignTasks}
-        />
-      )}
+
 
       {/* Show TasksTable - only one instance, handle both cases */}
       <TaskManager  tasks={displayedTasks} />

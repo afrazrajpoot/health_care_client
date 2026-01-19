@@ -19,9 +19,14 @@ export async function ensurePrismaConnection() {
     await prisma.$connect();
   } catch (error: any) {
     // Ignore "already connected" errors - this is expected
-    if (!error?.message?.includes("already connected") && !error?.message?.includes("Already connected")) {
-      // Only log unexpected connection errors
-      console.warn("Prisma connection warning:", error?.message || error);
+    const isConnectedError =
+      error?.message?.includes("already connected") ||
+      error?.message?.includes("Already connected");
+
+    if (!isConnectedError) {
+      console.error("❌ Prisma connection failed:", error);
+      // We should probably throw here so the API route knows it failed
+      throw error;
     }
   }
 }

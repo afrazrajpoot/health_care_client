@@ -40,13 +40,19 @@ export const Header = React.memo<HeaderProps>(
         <img src="/logo.png" alt="DocLatch Logo" className="h-16 w-auto" />
       </div>
       <div className="flex items-center gap-4">
-        {session.user.role === "Physician" && (
+        {/* {session.user.role === "Physician" && (
           <Link href={staffDashboardHref} ref={staffButtonRef}>
             <button className="font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 hover:shadow-md transition-all duration-200 active:scale-95 shadow-sm">
               Staff Dashboard
             </button>
           </Link>
-        )}
+        )} */}
+          <Link href={staffDashboardHref} ref={staffButtonRef}>
+            <button className="font-bold bg-gradient-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 hover:shadow-md transition-all duration-200 active:scale-95 shadow-sm">
+              Staff Dashboard
+            </button>
+          </Link>
+        
         {onUploadDocument && (
           <button
             className="flex items-center gap-2 border border-blue-200 bg-gradient-to-r from-blue-50 to-white text-blue-700 rounded-lg px-4 py-2.5 font-semibold cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200 active:scale-95"

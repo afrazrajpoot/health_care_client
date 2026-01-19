@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useGetStaffQuery } from "@/redux/staffApi";
+import { User, Check } from "lucide-react";
 
 interface ChipData {
   label: string;
@@ -15,6 +17,7 @@ interface Task {
     options?: ChipData[];
     timestamp?: string;
   };
+  assignee?: string;
 }
 
 interface QuickNoteModalProps {
@@ -27,6 +30,7 @@ interface QuickNoteModalProps {
       options: ChipData[];
     }
   ) => Promise<void>;
+  onAssignTask?: (taskId: string, assignee: string) => Promise<void>;
 }
 
 // Custom status chips organized by category
@@ -105,14 +109,44 @@ const STATUS_CHIPS = {
   ],
 };
 
+interface StaffMember {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  role: string | null;
+  image: string | null;
+}
+
 export default function QuickNoteModal({
   isOpen,
   task,
   onClose,
   onSave,
+  onAssignTask,
 }: QuickNoteModalProps) {
   const [selectedChips, setSelectedChips] = useState<ChipData[]>([]);
   const [saving, setSaving] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  
+  const { data: staffData, isLoading: loadingStaff, error: staffError, refetch: refetchStaff } = useGetStaffQuery(undefined);
+  
+  // Robust extraction of staff members
+  const staffMembers = Array.isArray(staffData) 
+    ? staffData 
+    : (staffData?.staff || []);
+
+  console.log("QuickNoteModal Debug:", { 
+    isOpen, 
+    hasTask: !!task, 
+    hasOnAssignTask: !!onAssignTask, 
+    staffData, 
+    staffMembers, 
+    loadingStaff, 
+    staffError 
+  });
+
   // Reset form when modal opens with new task
   useEffect(() => {
     if (task && isOpen) {
@@ -122,6 +156,8 @@ export default function QuickNoteModal({
       } else {
         setSelectedChips([]);
       }
+      // Reset selected staff
+      setSelectedStaffId(null);
     }
   }, [task, isOpen]);
 
@@ -205,6 +241,27 @@ export default function QuickNoteModal({
     }
   };
 
+  const handleAssign = async () => {
+    if (!task || !selectedStaffId || !onAssignTask) return;
+
+    const staff = staffMembers.find((s: StaffMember) => s.id === selectedStaffId);
+    if (!staff) return;
+
+    setAssigning(true);
+    try {
+      const assigneeName = staff.firstName || staff.email || "Staff";
+      await onAssignTask(task.id, assigneeName);
+      // We don't close the modal here, allowing the user to also add notes if they want
+      // Or we can close it. Let's keep it open but maybe show a success state?
+      // For now, let's just reset the selection
+      setSelectedStaffId(null);
+    } catch (error) {
+      console.error("Error assigning task:", error);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   const canSave = selectedChips.length > 0;
 
   // Check if a chip is selected
@@ -217,12 +274,12 @@ export default function QuickNoteModal({
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
       <div
-        className="w-full max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+        className="w-full max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
       <div className="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 flex-shrink-0">
         <h3 className="m-0 text-sm font-bold text-slate-800">
-          Quick Note
+          Task Management
         </h3>
         <button
           className="bg-transparent border-none text-xl cursor-pointer p-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-slate-900"
@@ -233,6 +290,89 @@ export default function QuickNoteModal({
       </div>
 
       <div className="p-3 overflow-y-auto flex-1">
+        {/* Assign Task Section */}
+        {onAssignTask && (
+          <div className="mb-4 border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                <User className="w-3.5 h-3.5" />
+                Assign Task
+              </h4>
+              <button 
+                onClick={() => refetchStaff()} 
+                className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                title="Refresh staff list"
+              >
+                Refresh
+              </button>
+            </div>
+            
+            {staffError && (
+              <div className="text-xs text-red-500 p-2 bg-red-50 rounded border border-red-100 mb-2">
+                Error loading staff.
+              </div>
+            )}
+            
+            {loadingStaff ? (
+              <div className="text-xs text-gray-500">Loading staff...</div>
+            ) : staffMembers.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {staffMembers.map((staff: StaffMember) => (
+                    <div
+                      key={staff.id}
+                      onClick={() => setSelectedStaffId(staff.id)}
+                      className={`
+                        cursor-pointer px-2 py-1.5 rounded border transition-all flex items-center gap-2
+                        ${selectedStaffId === staff.id 
+                          ? "bg-blue-50 border-blue-500 text-blue-700 shadow-sm" 
+                          : "bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-gray-50"}
+                      `}
+                    >
+                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                          {staff.image ? (
+                              <img src={staff.image} alt={staff.firstName || ""} className="w-full h-full object-cover" />
+                          ) : (
+                              (staff.firstName?.[0] || staff.email?.[0] || "?").toUpperCase()
+                          )}
+                      </div>
+                      <span className="text-xs font-medium">
+                        {staff.firstName} {staff.lastName}
+                      </span>
+                      {selectedStaffId === staff.id && <Check className="w-3 h-3" />}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleAssign}
+                    disabled={!selectedStaffId || assigning}
+                    className={`
+                      px-3 py-1.5 rounded text-xs font-semibold transition-colors
+                      ${!selectedStaffId 
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                          : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"}
+                    `}
+                  >
+                    {assigning ? "Assigning..." : "Assign Task"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500 italic p-2 text-center bg-gray-50 rounded border border-gray-100">
+                No staff members found.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="border-t border-gray-200 my-3"></div>
+
+        <h4 className="text-xs font-bold text-slate-700 mb-2">
+          Quick Notes & Status
+        </h4>
+
         {/* Selected Chips Preview */}
         {selectedChips.length > 0 && (
           <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
