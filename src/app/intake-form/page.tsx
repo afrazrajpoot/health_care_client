@@ -416,7 +416,7 @@ function PatientIntakeContent() {
     };
 
     try {
-      const response = await fetch("/api/submit-quiz", {
+      const response = await fetch("/api/patient-intake-update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

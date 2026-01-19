@@ -163,15 +163,6 @@ export default function StaffDashboardContainer() {
     };
   }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber]);
 
-  const { data: quizData, isLoading: isQuizLoading } = useGetPatientIntakesQuery(
-    intakeQueryParams!,
-    { 
-      skip: !intakeQueryParams,
-      refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-      pollingInterval: 0, // Disable automatic polling
-    }
-  );
-  
   const { data: intakeUpdateData, isLoading: isIntakeUpdateLoading } = useGetPatientIntakeUpdateQuery(
     intakeQueryParams!,
     { 
@@ -198,10 +189,11 @@ export default function StaffDashboardContainer() {
     });
   }, [tasksData, selectedPatient]);
   const taskTotalCount = tasksData?.totalCount || 0;
-  const patientQuiz = quizData?.success && quizData?.data?.length > 0 ? quizData.data[0] : null;
+  // Legacy patient quiz is no longer used directly, we rely on patientIntakeUpdate
+  const patientQuiz = null;
   const patientIntakeUpdate = intakeUpdateData?.success ? intakeUpdateData.data : null;
   const loading = isPatientsLoading;
-  const loadingPatientDataState = isTasksLoading || isQuizLoading || isIntakeUpdateLoading;
+  const loadingPatientDataState = isTasksLoading || isIntakeUpdateLoading;
 
   // Task status and assignee management
   const [taskStatuses, setTaskStatuses] = useState<{

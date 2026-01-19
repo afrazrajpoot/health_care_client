@@ -425,11 +425,68 @@ export const getQuestionnaireChips = (
   patientIntakeUpdate: any,
   patientQuiz: PatientQuiz | null
 ): QuestionnaireChip[] => {
-  console.log("Generating questionnaire chips with:", { patientIntakeUpdate, patientQuiz });
   const chips: QuestionnaireChip[] = [];
 
   // Use AI-generated points from PatientIntakeUpdate if available
   if (patientIntakeUpdate) {
+    // Add generated points (prioritized)
+    if (
+      patientIntakeUpdate.generatedPoints &&
+      Array.isArray(patientIntakeUpdate.generatedPoints)
+    ) {
+      patientIntakeUpdate.generatedPoints.forEach((point: string) => {
+        if (point && point.trim()) {
+          let text = point.trim();
+          let type: "blue" | "amber" | "red" | "green" = "blue";
+
+          // Check for explicit color in parentheses, brackets, or just at the end
+          const colorMatch = text.match(/[(\[]?(Red|Blue|Green|Amber)[)\]]?/i);
+          if (colorMatch) {
+            const color = colorMatch[1].toLowerCase();
+            if (color === "red") type = "red";
+            else if (color === "green") type = "green";
+            else if (color === "amber") type = "amber";
+            else type = "blue";
+
+            // Remove the color tag from text
+            text = text.replace(/\s*[(\[]?(Red|Blue|Green|Amber)[)\]]?/i, "").trim();
+          } else {
+            // Fallback to keyword matching
+            const lowerPoint = text.toLowerCase();
+            if (
+              lowerPoint.includes("worse") ||
+              lowerPoint.includes("decreased") ||
+              lowerPoint.includes("limited") ||
+              lowerPoint.includes("difficulty") ||
+              lowerPoint.includes("pain")
+            ) {
+              type = "red";
+            } else if (
+              lowerPoint.includes("improved") ||
+              lowerPoint.includes("better") ||
+              lowerPoint.includes("increased") ||
+              lowerPoint.includes("good")
+            ) {
+              type = "green";
+            } else if (
+              lowerPoint.includes("unchanged") ||
+              lowerPoint.includes("same") ||
+              lowerPoint.includes("stable")
+            ) {
+              type = "green";
+            } else {
+              type = "blue";
+            }
+          }
+          chips.push({ text, type });
+        }
+      });
+
+      // If we have generated points, we might want to skip the other legacy points to avoid duplication
+      // But for now, let's return early if we found generated points to keep it clean
+      if (chips.length > 0) return chips;
+    }
+
     // Add ADL effect points
     if (
       patientIntakeUpdate.adlEffectPoints &&
