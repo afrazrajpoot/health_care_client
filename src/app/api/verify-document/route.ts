@@ -135,7 +135,7 @@ Do NOT synthesize or merge information across documents. Keep each document's da
 
 JSON Structure:
 {
-  "musculoskeletal_system": [
+  "musculoskeletal_system": [ // 🦴 Musculoskeletal System
     {
       "report_date": "YYYY-MM-DD",
       "physician": "Dr. Name",
@@ -144,32 +144,27 @@ JSON Structure:
           "field": "findings", 
           "collapsed": "Short summary of finding", 
           "expanded": "Detailed description. Use bullet points starting with '- ' for lists." 
-        },
-        { 
-          "field": "recommendations", 
-          "collapsed": "Short summary of recommendation", 
-          "expanded": "Detailed plan. Use bullet points starting with '- ' for lists." 
         }
       ]
     }
   ],
-  "cardiovascular_system": [],
-  "pulmonary_respiratory": [],
-  "neurological": [],
-  "gastrointestinal": [],
-  "metabolic_endocrine": [],
-  "general_treatments": [],
-  "other_systems": [],
-  "psychiatric_mental_health": [],
-  "dental_oral": [],
-  "dermatological": [],
-  "ent_head_neck": [],
-  "genitourinary_renal": [],
-  "hematologic_lymphatic": [],
-  "immune_allergy": [],
-  "ophthalmologic": [],
-  "reproductive_obstetric_gynecologic": [],
-  "sleep_disorders": []
+  "cardiovascular_system": [], // ❤️ Cardiovascular System
+  "pulmonary_respiratory": [], // 🫁 Pulmonary / Respiratory
+  "neurological": [], // 🧠 Neurological
+  "gastrointestinal": [], // 🧬 Gastrointestinal
+  "metabolic_endocrine": [], // ⚖️ Metabolic / Endocrine
+  "general_treatments": [], // 💊 General Treatments
+  "other_systems": [], // 📋 Other Systems
+  "psychiatric_mental_health": [], // 🧠 Psychiatric / Mental Health
+  "dental_oral": [], // 🦷 Dental / Oral
+  "dermatological": [], // 🩹 Dermatological
+  "ent_head_neck": [], // 👂 ENT / Head & Neck
+  "genitourinary_renal": [], // 🫘 Genitourinary / Renal
+  "hematologic_lymphatic": [], // 🩸 Hematologic / Lymphatic
+  "immune_allergy": [], // 🛡️ Immune / Allergy
+  "ophthalmologic": [], // 👁️ Ophthalmologic
+  "reproductive_obstetric_gynecologic": [], // 🩺 Reproductive / OB-GYN
+  "sleep_disorders": [] // 😴 Sleep Disorders
 }
 
 Rules:

@@ -40,7 +40,6 @@ interface SystemConfigItem {
   name: string;
   color: string;
   id: string;
-  icon: React.ReactNode;
 }
 
 const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({ documentData }) => {
@@ -145,114 +144,97 @@ const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({ documentData }) => 
   // Map your system keys to the UI format
   const systemConfig: Record<string, SystemConfigItem> = {
     musculoskeletal_system: {
-      name: "Musculoskeletal System",
+      name: "🦴 Musculoskeletal System",
       color: "orange",
       id: "musculoskeletal_system",
-      icon: <Activity size={20} />,
     },
     cardiovascular_system: {
-      name: "Cardiovascular System",
+      name: "❤️ Cardiovascular System",
       color: "blue",
       id: "cardiovascular_system",
-      icon: <Activity size={20} />,
     },
     pulmonary_respiratory: {
-      name: "Pulmonary / Respiratory",
+      name: "🫁 Pulmonary / Respiratory",
       color: "green",
       id: "pulmonary_respiratory",
-      icon: <Activity size={20} />,
     },
     neurological: {
-      name: "Neurological",
+      name: "🧠 Neurological",
       color: "purple",
       id: "neurological",
-      icon: <Activity size={20} />,
     },
     gastrointestinal: {
-      name: "Gastrointestinal",
+      name: "🧬 Gastrointestinal",
       color: "teal",
       id: "gastrointestinal",
-      icon: <Activity size={20} />,
     },
     metabolic_endocrine: {
-      name: "Metabolic / Endocrine",
+      name: "⚖️ Metabolic / Endocrine",
       color: "yellow",
       id: "metabolic_endocrine",
-      icon: <Activity size={20} />,
     },
     general_treatments: {
-      name: "General Treatments",
+      name: "💊 General Treatments",
       color: "indigo",
       id: "general_treatments",
-      icon: <Stethoscope size={20} />,
     },
     other_systems: {
-      name: "Other Systems",
+      name: "📋 Other Systems",
       color: "gray",
       id: "other_systems",
-      icon: <ClipboardList size={20} />,
     },
     psychiatric_mental_health: {
-      name: "Psychiatric / Mental Health",
+      name: "🧠 Psychiatric / Mental Health",
       color: "purple",
       id: "psychiatric_mental_health",
-      icon: <Activity size={20} />,
     },
     dental_oral: {
-      name: "Dental / Oral",
+      name: "🦷 Dental / Oral",
       color: "blue",
       id: "dental_oral",
-      icon: <Activity size={20} />,
     },
     dermatological: {
-      name: "Dermatological",
+      name: "🩹 Dermatological",
       color: "orange",
       id: "dermatological",
-      icon: <Activity size={20} />,
     },
     ent_head_neck: {
-      name: "ENT / Head & Neck",
+      name: "👂 ENT / Head & Neck",
       color: "teal",
       id: "ent_head_neck",
-      icon: <Activity size={20} />,
     },
     genitourinary_renal: {
-      name: "Genitourinary / Renal",
+      name: "🫘 Genitourinary / Renal",
       color: "yellow",
       id: "genitourinary_renal",
-      icon: <Activity size={20} />,
     },
     hematologic_lymphatic: {
-      name: "Hematologic / Lymphatic",
+      name: "🩸 Hematologic / Lymphatic",
       color: "red",
       id: "hematologic_lymphatic",
-      icon: <Activity size={20} />,
     },
     immune_allergy: {
-      name: "Immune / Allergy",
+      name: "🛡️ Immune / Allergy",
       color: "green",
       id: "immune_allergy",
-      icon: <Activity size={20} />,
     },
     ophthalmologic: {
-      name: "Ophthalmologic",
+      name: "👁️ Ophthalmologic",
       color: "blue",
       id: "ophthalmologic",
-      icon: <Activity size={20} />,
     },
     reproductive_obstetric_gynecologic: {
-      name: "Reproductive / OB-GYN",
+      name: "🩺 Reproductive / OB-GYN",
       color: "pink",
       id: "reproductive_obstetric_gynecologic",
-      icon: <Activity size={20} />,
     },
     sleep_disorders: {
-      name: "Sleep Disorders",
+      name: "😴 Sleep Disorders",
       color: "indigo",
       id: "sleep_disorders",
-      icon: <Activity size={20} />,
     },
   };
+
 
   // Field Labels Mapping (similar to WhatsNewSection)
   const FIELD_LABELS: Record<string, string> = {
@@ -309,9 +291,6 @@ const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({ documentData }) => 
                   onClick={() => toggleSystem(config.id)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${systemColors[config.color].split(' ')[0]} ${systemIconColors[config.color]}`}>
-                      {config.icon}
-                    </div>
                     <span className="font-semibold text-gray-800 text-base">{config.name}</span>
                     <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium text-xs border border-gray-200">
                         {reports.length} Reports
