@@ -50,9 +50,6 @@ export async function POST(request: NextRequest) {
       where: {
         patientName: document.patientName,
         dob: document.dob,
-        // We can optionally filter by claimNumber if strict matching is desired, 
-        // but usually patientName + DOB is enough for history.
-        // claimNumber: document.claimNumber 
         status: "verified"
       },
       orderBy: { reportDate: "desc" }, // Newest first
@@ -61,14 +58,14 @@ export async function POST(request: NextRequest) {
         reportDate: true,
         briefSummary: true,
         aiSummarizerText: true,
-        physicianId: true, // Added
+        physicianId: true,
         bodyPartSnapshots: {
           select: {
             bodyPart: true,
             keyFindings: true,
             recommended: true,
             dx: true,
-            consultingDoctor: true // Added
+            consultingDoctor: true
           }
         },
         documentSummary: {
@@ -190,29 +187,42 @@ Rules:
         const newHistoryData = JSON.parse(completion.choices[0].message.content || "{}");
 
         // 4. Update or Create TreatmentHistory in DB (Overwrite with new comprehensive history)
-        // We use upsert to either create or update the single history record for this patient/physician
-        await prisma.treatmentHistory.upsert({
+        // Since your schema doesn't have a compound unique constraint, we use findFirst + update/create pattern
+
+        // First, try to find an existing treatment history for this patient/physician
+        const existingTreatmentHistory = await prisma.treatmentHistory.findFirst({
           where: {
-            patientName_dob_claimNumber_physicianId: {
-              patientName: document.patientName as string,
-              dob: document.dob || null,
-              claimNumber: document.claimNumber || null,
-              physicianId: document.physicianId || null,
-            },
-          },
-          update: {
-            historyData: newHistoryData,
-            documentId: document.id, // Link to the latest document that triggered this update
-          },
-          create: {
             patientName: document.patientName as string,
             dob: document.dob || null,
             claimNumber: document.claimNumber || null,
             physicianId: document.physicianId || null,
-            historyData: newHistoryData,
-            documentId: document.id,
           },
+          orderBy: { createdAt: 'desc' }, // Get the most recent one
         });
+
+        if (existingTreatmentHistory) {
+          // Update the existing record
+          await prisma.treatmentHistory.update({
+            where: { id: existingTreatmentHistory.id },
+            data: {
+              historyData: newHistoryData,
+              documentId: document.id,
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          // Create a new record
+          await prisma.treatmentHistory.create({
+            data: {
+              patientName: document.patientName as string,
+              dob: document.dob || null,
+              claimNumber: document.claimNumber || null,
+              physicianId: document.physicianId || null,
+              historyData: newHistoryData,
+              documentId: document.id,
+            },
+          });
+        }
 
       } catch (openaiError) {
         console.error("Error generating treatment history with OpenAI:", openaiError);
