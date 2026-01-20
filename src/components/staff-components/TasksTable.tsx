@@ -37,12 +37,12 @@ interface TasksTableProps {
   onToggleTaskSelection?: (taskIds: string[], selected: boolean) => void;
 }
 
-import { User, UserPlus } from "lucide-react";
+import { User, UserPlus, CheckSquare, Square } from "lucide-react";
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
-import { useLazyGetDocumentPreviewQuery, useSplitAndProcessDocumentMutation } from "@/redux/pythonApi";
+import { useLazyGetDocumentPreviewQuery, useSplitAndProcessDocumentMutation, useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 
 export default function TasksTable({
-  tasks,
+  tasks = [],
   taskStatuses,
   taskAssignees,
   onStatusClick,
@@ -67,6 +67,7 @@ export default function TasksTable({
   const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(
     new Set()
   );
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Document preview states
   const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(
@@ -171,6 +172,50 @@ export default function TasksTable({
 
   const [deleteFailedDocument] = useDeleteFailedDocumentMutation();
   const [splitAndProcessDocument] = useSplitAndProcessDocumentMutation();
+  const [updateFailedDocument] = useUpdateFailedDocumentMutation();
+
+  const isHardFail = (doc: FailedDocument) => {
+    return !doc.patientName && !doc.claimNumber && !doc.doi && !doc.db;
+  };
+
+  const handleBulkUpdateFailedDocs = async () => {
+    const selectedFailedDocs = failedDocuments.filter(doc => 
+      selectedTaskIds?.includes(`doc-${doc.id}`) && !isHardFail(doc)
+    );
+
+    if (selectedFailedDocs.length === 0) return;
+
+    setIsBulkUpdating(true);
+    try {
+      const updates = selectedFailedDocs.map(doc => ({
+        fail_doc_id: doc.id,
+        patient_name: doc.patientName || "Unknown Patient",
+        claim_number: doc.claimNumber || "Not specified",
+        doi: doc.doi || "Not specified",
+        db: doc.db || "Not specified"
+        ,
+        author: (doc as any).author || "Unknown Author",
+        document_text: doc.documentText || "",
+        user_id: session?.user?.id,
+      }));
+
+      // Send multiple updates. We'll send them one by one or as a bulk if the API supports it.
+      // Based on user request "send multiple data in update api", we'll try sending the array.
+      // If the backend expects single objects, we might need to loop, but usually bulk is preferred.
+      await updateFailedDocument(updates).unwrap();
+      
+      toast.success(`Successfully processed ${selectedFailedDocs.length} documents`);
+      
+      // Clear selection for these documents
+      const idsToRemove = selectedFailedDocs.map(doc => `doc-${doc.id}`);
+      onToggleTaskSelection?.(idsToRemove, false);
+    } catch (error: any) {
+      console.error("Error bulk updating documents:", error);
+      toast.error(error.data?.error || "Failed to process documents");
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     if (!documentToDelete) return;
@@ -317,8 +362,14 @@ export default function TasksTable({
 
   // Check if all rows are selected
   const isAllSelected = () => {
-    if (unifiedRows.length === 0) return false;
-    return unifiedRows.every(row => isRowSelected(row));
+    const selectableRows = unifiedRows.filter(row => {
+      if (row.type === "failedDoc") {
+        return !isHardFail(row.data);
+      }
+      return false;
+    });
+    if (selectableRows.length === 0) return false;
+    return selectableRows.every(row => isRowSelected(row));
   };
 
   if (unifiedRows.length === 0) {
@@ -366,15 +417,54 @@ export default function TasksTable({
 
   return (
     <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] flex flex-col min-h-0 flex-1 overflow-hidden">
-      <h3 className="m-0 px-3.5 py-3 text-base font-bold border-b border-gray-200">
-        Open Tasks & Required Actions
-      </h3>
+      <div className="flex justify-between items-center border-b border-gray-200 pr-4">
+        <h3 className="m-0 px-3.5 py-3 text-base font-bold">
+          Open Tasks & Required Actions
+        </h3>
+        {selectedTaskIds && selectedTaskIds.some(id => id.startsWith('doc-')) && (
+          <button
+            onClick={handleBulkUpdateFailedDocs}
+            disabled={isBulkUpdating}
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {isBulkUpdating ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CheckSquare className="w-3.5 h-3.5" />
+                Process Selected Failed Docs
+              </>
+            )}
+          </button>
+        )}
+      </div>
       <div className="min-h-0 max-h-full overflow-y-auto overflow-x-hidden flex-1 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:min-w-5 [&::-webkit-scrollbar-thumb]:min-h-5 [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
         <div className="overflow-x-auto overflow-y-visible pb-[8vw] w-full [-webkit-overflow-scrolling:touch] relative [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:min-w-5 [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
           <table className="w-max min-w-full border-collapse table-auto text-base visible table box-border">
             <thead>
               <tr>
 
+                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 w-[40px] min-w-[40px]">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected()}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      const selectableRows = unifiedRows.filter(row => {
+                        if (row.type === "failedDoc") {
+                          return !isHardFail(row.data);
+                        }
+                        return false;
+                      });
+                      const ids = selectableRows.map(row => `doc-${row.data.id}`);
+                      onToggleTaskSelection?.(ids, checked);
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[250px] w-[250px] whitespace-normal">
                   Item
                 </th>
@@ -413,7 +503,9 @@ export default function TasksTable({
 
                   return (
                     <tr key={`task-${task.id}`} className={isSelected ? "bg-blue-50/50" : ""}>
-
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px] min-w-[40px]">
+                        {/* Checkbox only for failed documents */}
+                      </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
                         {task.description}
                         {task.assignee && task.assignee !== 'Unclaimed' && (
@@ -621,10 +713,21 @@ export default function TasksTable({
                   return (
                     <tr
                       key={`doc-${doc.id}`}
-                      className={`${isSelected ? "bg-blue-50/50" : "bg-red-50/30"} hover:bg-red-50 transition-colors`}
-                      onClick={() => onFailedDocumentRowClick?.(doc)}
+                      className={`${isSelected ? "bg-blue-50/50" : "bg-red-50/30"} hover:bg-red-50 transition-colors ${isHardFail(doc) ? "opacity-75 cursor-pointer" : ""}`}
+                      onClick={() => isHardFail(doc) && onFailedDocumentRowClick?.(doc)}
                     >
-
+                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px] min-w-[40px]">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isHardFail(doc)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleRowSelection(row, e.target.checked);
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />

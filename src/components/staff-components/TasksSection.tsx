@@ -4,22 +4,6 @@ import TaskManager from "./TaskManager";
 
 import { Task, RecentPatient, FailedDocument } from "@/utils/staffDashboardUtils";
 
-interface FailedDocument {
-  id: string;
-  reason: string;
-  db?: string;
-  doi?: string;
-  claimNumber?: string;
-  patientName?: string;
-  documentText?: string;
-  physicianId?: string;
-  gcsFileLink?: string;
-  fileName: string;
-  fileHash?: string;
-  blobPath?: string;
-  summary?: string;
-}
-
 interface TasksSectionProps {
   selectedPatient: RecentPatient | null;
   displayedTasks: Task[];
@@ -46,7 +30,7 @@ interface TasksSectionProps {
   onViewModeChange: (mode: "open" | "completed" | "all") => void;
   onTaskPageChange: (page: number) => void;
   onStatusClick: (taskId: string, status: string) => Promise<void>;
-  onAssigneeClick: (taskId: string, assignee: string) => void;
+  onAssigneeClick: (taskId: string, assignee: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
   onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
   onFailedDocumentDeleted: (docId: string) => void;
@@ -55,7 +39,7 @@ interface TasksSectionProps {
   onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
 }
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 
 export default function TasksSection({
@@ -93,6 +77,11 @@ export default function TasksSection({
   onBulkAssign,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  
+  // Reset selection when patient changes
+  useEffect(() => {
+    setSelectedTaskIds([]);
+  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber]);
 
   const handleToggleTaskSelection = useCallback((taskIds: string[], selected: boolean) => {
     setSelectedTaskIds(prev => {
@@ -216,17 +205,11 @@ export default function TasksSection({
 
 
       {/* Show TasksTable - only one instance, handle both cases */}
-      <TaskManager  tasks={displayedTasks} />
+      <TaskManager  tasks={displayedTasks as any} />
       <TasksTable
-        tasks={
-          selectedPatient && displayedTasks.length > 0 ? displayedTasks : []
-        }
-        taskStatuses={
-          selectedPatient && displayedTasks.length > 0 ? taskStatuses : {}
-        }
-        taskAssignees={
-          selectedPatient && displayedTasks.length > 0 ? taskAssignees : {}
-        }
+        tasks={displayedTasks}
+        taskStatuses={taskStatuses}
+        taskAssignees={taskAssignees}
         onStatusClick={onStatusClick}
         onAssigneeClick={onAssigneeClick}
         onTaskClick={onTaskClick}

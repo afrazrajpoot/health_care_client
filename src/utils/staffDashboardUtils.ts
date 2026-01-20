@@ -152,18 +152,8 @@ export const fetchPatientTasks = async (
     const tasks = data.tasks || [];
     const totalCount = data.totalCount || 0;
 
-    if (Array.isArray(tasks) && tasks.length > 0) {
-      // Additional client-side filtering by patient name to ensure accuracy
-      const filteredTasks = tasks.filter((task: Task) => {
-        const taskPatientName = task.patient?.toLowerCase() || "";
-        const selectedPatientName = patient.patientName.toLowerCase();
-        return (
-          taskPatientName.includes(selectedPatientName) ||
-          selectedPatientName.includes(taskPatientName)
-        );
-      });
-
-      return { tasks: filteredTasks, totalCount };
+    if (Array.isArray(tasks)) {
+      return { tasks, totalCount };
     } else {
       return { tasks: [], totalCount: 0 };
     }
@@ -661,4 +651,4 @@ export const DEPARTMENTS = [
   "Authorizations & Denials",
 ];
 
-export const TASK_PAGE_SIZE = 10;
+export const TASK_PAGE_SIZE = 5;

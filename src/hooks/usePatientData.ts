@@ -101,13 +101,23 @@ export const usePatientData = (
     if (!patientInfo) return null;
 
     const params: any = { mode: mode };
+
+    // Collect all document IDs for this patient from the current unverified list
+    const docIds = rawDocData?.documents?.map((d: any) => d.id || d.document_id).filter(Boolean) || [];
+    if (docIds.length > 0) {
+      params.documentIds = docIds;
+    }
+
+    const patientName = patientInfo.patientName || patientInfo.name || "";
+    params.search = patientName; // Always send search for patient name matching
+
     if (patientInfo.claimNumber && patientInfo.claimNumber !== "Not specified") {
       params.claim = patientInfo.claimNumber;
-    } else {
-      params.patientName = patientInfo.patientName || patientInfo.name || "";
     }
+
+    params.patientName = patientName;
     return params;
-  }, [patientInfo?.patientName, patientInfo?.name, patientInfo?.claimNumber, mode]);
+  }, [patientInfo?.patientName, patientInfo?.name, patientInfo?.claimNumber, mode, rawDocData?.documents]);
 
   const {
     data: rawTaskData,
@@ -170,16 +180,15 @@ export const usePatientData = (
   // 4. Process Document Data
   // 4. Process Document Data
   const processedData = useMemo(() => {
-    // If we have treatment history but no documents (e.g. all verified), return partial data
-    if ((!rawDocData || !latestDoc) && treatmentHistoryData?.success) {
+    // If no documents found, return a base object with patient info so UI can still render
+    if (!rawDocData || !latestDoc) {
       return {
         patient_name: patientInfo?.patientName || patientInfo?.name || "",
         dob: patientInfo?.dob,
         doi: patientInfo?.doi,
         claim_number: patientInfo?.claimNumber,
         documents: [],
-        treatment_history: treatmentHistoryData.data,
-        // Add other necessary empty fields to satisfy DocumentData interface
+        treatment_history: treatmentHistoryData?.success ? treatmentHistoryData.data : null,
         whats_new: {},
         document_summaries: [],
         previous_summaries: {},
@@ -188,8 +197,6 @@ export const usePatientData = (
         summary_snapshots: [],
       } as DocumentData;
     }
-
-    if (!rawDocData || !latestDoc) return null;
 
     // Process What's New
     let processedWhatsNew: any = {};
@@ -320,42 +327,52 @@ export const usePatientData = (
 
   // 5. Process Task Data
   const processedTaskNotes = useMemo(() => {
-    if (!rawTaskData || !latestDoc || !patientInfo || !rawDocData) return [];
+    if (!rawTaskData || !patientInfo) return [];
 
-    const patientName = (latestDoc.patient_name || patientInfo.patientName || "").toLowerCase().trim();
-    const claimNumber = latestDoc.claim_number && latestDoc.claim_number !== "Not specified" ? latestDoc.claim_number.toUpperCase().trim() : null;
+    const patientName = (latestDoc?.patient_name || patientInfo.patientName || patientInfo.name || "").toLowerCase().trim();
+    const claimNumber = (latestDoc?.claim_number || patientInfo.claimNumber) && (latestDoc?.claim_number || patientInfo.claimNumber) !== "Not specified" ? (latestDoc?.claim_number || patientInfo.claimNumber).toUpperCase().trim() : null;
 
     const patientDocumentIds = new Set<string>();
-    rawDocData.documents.forEach((doc: any) => { if (doc.id) patientDocumentIds.add(doc.id); });
+    if (rawDocData?.documents) {
+      rawDocData.documents.forEach((doc: any) => { if (doc.id) patientDocumentIds.add(doc.id); });
+    }
 
     const allTaskQuickNotes: QuickNoteSnapshot[] = [];
     if (rawTaskData.tasks && Array.isArray(rawTaskData.tasks)) {
       rawTaskData.tasks.forEach((task: any) => {
-        const taskPatient = (task.patient || "").toLowerCase().trim();
-        const taskClaim = task.document?.claimNumber ? task.document.claimNumber.toUpperCase().trim() : null;
-        const taskDocumentId = task.documentId || task.document?.id || null;
+        if (task.quickNotes) {
+          let qn = task.quickNotes;
+          if (typeof qn === 'string') {
+            try { qn = JSON.parse(qn); } catch (e) { qn = null; }
+          }
 
-        let patientMatches = false;
-        if (taskDocumentId && patientDocumentIds.has(taskDocumentId)) {
-          patientMatches = true;
-        } else if (claimNumber && taskClaim) {
-          patientMatches = taskClaim === claimNumber;
-        } else if (patientName && taskPatient) {
-          patientMatches = taskPatient === patientName || taskPatient.includes(patientName) || patientName.includes(taskPatient);
-        }
+          if (qn) {
+            // Handle new chip-based options format
+            if (qn.options && Array.isArray(qn.options)) {
+              qn.options.forEach((option: any) => {
+                allTaskQuickNotes.push({
+                  details: option.description || "",
+                  timestamp: qn.timestamp || task.updatedAt || "",
+                  one_line_note: option.label || "",
+                  status_update: option.category || "Task Update",
+                });
+              });
+            }
+            // Handle legacy format (if any)
+            else {
+              const hasContent = (qn.status_update && qn.status_update.trim()) ||
+                (qn.one_line_note && qn.one_line_note.trim()) ||
+                (qn.details && qn.details.trim());
 
-        if (patientMatches && task.quickNotes) {
-          const hasContent = (task.quickNotes.status_update && task.quickNotes.status_update.trim()) ||
-            (task.quickNotes.one_line_note && task.quickNotes.one_line_note.trim()) ||
-            (task.quickNotes.details && task.quickNotes.details.trim());
-
-          if (hasContent) {
-            allTaskQuickNotes.push({
-              details: task.quickNotes.details || "",
-              timestamp: task.quickNotes.timestamp || task.updatedAt || "",
-              one_line_note: task.quickNotes.one_line_note || "",
-              status_update: task.quickNotes.status_update || "",
-            });
+              if (hasContent) {
+                allTaskQuickNotes.push({
+                  details: qn.details || "",
+                  timestamp: qn.timestamp || qn.updatedAt || task.updatedAt || "",
+                  one_line_note: qn.one_line_note || "",
+                  status_update: qn.status_update || "",
+                });
+              }
+            }
           }
         }
       });
@@ -363,7 +380,7 @@ export const usePatientData = (
 
     return allTaskQuickNotes
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
-      .slice(0, 5);
+      .slice(0, 10); // Show more chips if available
   }, [rawTaskData, latestDoc, patientInfo, rawDocData]);
 
   // 6. Process Patient Intake Data

@@ -128,6 +128,7 @@ export default function StaffDashboardContainer() {
     if (!selectedPatient) return null;
     return {
       patientName: selectedPatient.patientName || "",
+      dob: selectedPatient.dob,
       claim: selectedPatient.claimNumber,
       documentIds: selectedPatient.documentIds,
       page: taskPage,
@@ -137,6 +138,7 @@ export default function StaffDashboardContainer() {
     };
   }, [
     selectedPatient?.patientName,
+    selectedPatient?.dob,
     selectedPatient?.claimNumber,
     selectedPatient?.documentIds,
     taskPage,
@@ -177,17 +179,8 @@ export default function StaffDashboardContainer() {
   // Derived state
   const recentPatients = recentPatientsData || [];
   const patientTasks = useMemo(() => {
-    const tasks = tasksData?.tasks || [];
-    if (!selectedPatient) return [];
-    return tasks.filter((task: Task) => {
-      const taskPatientName = task.patient?.toLowerCase() || "";
-      const selectedPatientName = selectedPatient.patientName.toLowerCase();
-      return (
-        taskPatientName.includes(selectedPatientName) ||
-        selectedPatientName.includes(taskPatientName)
-      );
-    });
-  }, [tasksData, selectedPatient]);
+    return tasksData?.tasks || [];
+  }, [tasksData]);
   const taskTotalCount = tasksData?.totalCount || 0;
   // Legacy patient quiz is no longer used directly, we rely on patientIntakeUpdate
   const patientQuiz = null;
@@ -280,9 +273,17 @@ export default function StaffDashboardContainer() {
       }
 
       router.push(`?${params.toString()}`, { scroll: false });
+      
+      // Reset pagination when patient changes
+      setTaskPage(1);
     },
     [router, searchParams]
   );
+  
+  // Reset pagination when patient changes
+  useEffect(() => {
+    setTaskPage(1);
+  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber]);
 
   const handleStatusChipClick = useCallback(
     async (taskId: string, status: string) => {
