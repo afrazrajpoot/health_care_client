@@ -32,12 +32,15 @@ export const dashboardApi = createApi({
             keepUnusedDataFor: 120, // Keep recent patients cached for 2 minutes
         }),
         getTasks: builder.query({
-            query: ({ patientName, claim, dob, documentIds, page = 1, pageSize = 5, status, type, mode = "wc" }) => {
+            query: ({ patientName, search, claim, dob, documentIds, page = 1, pageSize = 5, status, type, mode = "wc" }) => {
                 const params = new URLSearchParams({
                     mode,
                     page: page.toString(),
                     pageSize: pageSize.toString(),
                 });
+
+                if (search) params.append("search", search);
+                else if (patientName) params.append("search", patientName); // Fallback to patientName as search
 
                 if (patientName) params.append("patient_name", patientName);
                 if (dob) params.append("dob", dob);

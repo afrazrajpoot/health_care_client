@@ -79,16 +79,30 @@ export async function GET(request: Request) {
 
     console.log('🔍 Filtering tasks by physicianId:', physicianId, 'for user role:', user.role);
 
-    // 🧠 Simplified Matching Logic as per user request:
-    // Just match the document id(s) from the query parameters
-    if (documentIds.length > 0) {
-      console.log('📄 Filtering tasks by documentId(s):', documentIds);
-      if (documentIds.length === 1) {
-        andConditions.push({ documentId: documentIds[0] });
-      } else {
-        andConditions.push({ documentId: { in: documentIds } });
+    // 🧠 Inclusive Matching Logic:
+    // Match either the document id(s) OR the search term (patient name)
+    if (documentIds.length > 0 || search) {
+      console.log('🔍 Filtering tasks by documentId(s):', documentIds, 'OR search:', search);
+
+      const orConditions: any[] = [];
+
+      if (documentIds.length > 0) {
+        if (documentIds.length === 1) {
+          orConditions.push({ documentId: documentIds[0] });
+        } else {
+          orConditions.push({ documentId: { in: documentIds } });
+        }
       }
-    } else if (!search) {
+
+      if (search) {
+        orConditions.push({ patient: { contains: search, mode: 'insensitive' } });
+        orConditions.push({ description: { contains: search, mode: 'insensitive' } });
+      }
+
+      if (orConditions.length > 0) {
+        andConditions.push({ OR: orConditions });
+      }
+    } else {
       // "if no any data then not get tasks"
       console.log('🔄 No documentId or search provided, returning empty');
       return NextResponse.json({
@@ -182,7 +196,7 @@ export async function GET(request: Request) {
         // Specific assignee filter
         andConditions.push({ assignee: assignedTo });
       }
-    } else if (user.role === 'Staff' && documentIds.length === 0) {
+    } else if (user.role === 'Staff' && documentIds.length === 0 && !search) {
       // 🔒 Enforce staff visibility rule ONLY if not filtering by specific documents
       // When viewing a specific patient/document, staff should see all tasks to be able to claim them
       andConditions.push({
@@ -199,14 +213,7 @@ export async function GET(request: Request) {
 
     // Search filter - OR between description and patient
     // Only apply if NOT filtering by specific documents, or if search is explicitly needed
-    if (search && documentIds.length === 0) {
-      andConditions.push({
-        OR: [
-          { description: { contains: search, mode: 'insensitive' } },
-          { patient: { contains: search, mode: 'insensitive' } },
-        ]
-      });
-    }
+
 
     // Due date conditions for dueDateFilter and priority
     let dueDateCondition: any = null;

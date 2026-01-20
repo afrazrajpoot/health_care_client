@@ -4,7 +4,7 @@ interface QuickNoteSnapshot {
   details: string;
   timestamp: string;
   one_line_note: string;
-  one_line_note: string;
+  status_update: string;
 }
 
 interface StaffStatusSectionProps {
@@ -18,7 +18,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
 }) => {
   // Determine status color based on content
   const getStatusColor = (note: QuickNoteSnapshot): string => {
-    const fullContent = `${note.one_line_note || ""} ${
+    const fullContent = `${note.status_update || ""} ${
       note.one_line_note || ""
     } ${note.details || ""}`.toLowerCase();
 
@@ -26,7 +26,12 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       fullContent.includes("urgent") ||
       fullContent.includes("critical") ||
       fullContent.includes("time-sensitive") ||
-      fullContent.includes("emergency")
+      fullContent.includes("emergency") ||
+      fullContent.includes("denied") ||
+      fullContent.includes("unable") ||
+      fullContent.includes("no response") ||
+      fullContent.includes("cancelled") ||
+      fullContent.includes("no-show")
     ) {
       return "red";
     }
@@ -35,7 +40,11 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       fullContent.includes("pending") ||
       fullContent.includes("waiting") ||
       fullContent.includes("follow-up") ||
-      fullContent.includes("follow up")
+      fullContent.includes("follow up") ||
+      fullContent.includes("sent") ||
+      fullContent.includes("outreach") ||
+      fullContent.includes("contacted") ||
+      fullContent.includes("notified")
     ) {
       return "amber";
     }
@@ -43,7 +52,11 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       fullContent.includes("completed") ||
       fullContent.includes("done") ||
       fullContent.includes("approved") ||
-      fullContent.includes("resolved")
+      fullContent.includes("resolved") ||
+      fullContent.includes("received") ||
+      fullContent.includes("verified") ||
+      fullContent.includes("spoke with") ||
+      fullContent.includes("reached")
     ) {
       return "green";
     }
@@ -53,7 +66,9 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       fullContent.includes("authorization") ||
       fullContent.includes("decision") ||
       fullContent.includes("mri") ||
-      fullContent.includes("findings")
+      fullContent.includes("findings") ||
+      fullContent.includes("categorized") ||
+      fullContent.includes("linked")
     ) {
       return "blue";
     }
@@ -62,32 +77,22 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
 
   // Build display text for note
   const getDisplayText = (note: QuickNoteSnapshot): string => {
-    let displayText = "";
-    if (note.one_line_note) {
-      displayText = note.one_line_note;
-      // Append one_line_note if available and different
-      if (note.one_line_note && note.one_line_note !== note.one_line_note) {
-        displayText += ` — ${note.one_line_note}`;
+    // If it's a chip-based note, status_update is the category
+    if (note.status_update && note.one_line_note && note.status_update !== "Task Update") {
+      // For very common categories, just show the label
+      if (note.status_update.includes("Status") || note.status_update.includes("Flag")) {
+        return note.one_line_note;
       }
-    } else if (note.one_line_note) {
-      displayText = note.one_line_note;
-    } else if (note.details) {
-      // Truncate details if too long
-      displayText =
-        note.details.length > 50
-          ? note.details.substring(0, 50) + "..."
-          : note.details;
-    } else {
-      displayText = "Quick Note";
+      return `${note.status_update}: ${note.one_line_note}`;
     }
-    return displayText;
+    return note.one_line_note || note.status_update || note.details?.substring(0, 50) || "Quick Note";
   };
 
   // Filter and limit document notes
   const filteredDocNotes = documentQuickNotes
     .filter((note) => {
       const hasContent =
-        (note.one_line_note && note.one_line_note.trim()) ||
+        (note.status_update && note.status_update.trim()) ||
         (note.one_line_note && note.one_line_note.trim()) ||
         (note.details && note.details.trim());
       return hasContent;
@@ -115,22 +120,20 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
             {/* Document Quick Notes */}
             {filteredDocNotes.map((note, index) => {
               const statusColor = getStatusColor(note);
-
               return (
                 <div key={`doc-note-${index}`} className="s-chip small">
                   <span className={`s-dot ${statusColor}`}></span>
-                  {note.one_line_note || note.one_line_note || "Quick Note"}
+                  {getDisplayText(note)}
                 </div>
               );
             })}
             {/* Task Quick Notes */}
             {taskQuickNotes.map((note, index) => {
               const statusColor = getStatusColor(note);
-
               return (
                 <div key={`task-note-${index}`} className="s-chip small">
                   <span className={`s-dot ${statusColor}`}></span>
-                  {note.one_line_note || note.one_line_note || "Quick Note"}
+                  {getDisplayText(note)}
                 </div>
               );
             })}

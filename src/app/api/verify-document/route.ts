@@ -233,6 +233,7 @@ Rules:
     return NextResponse.json({
       success: true,
       message: "Document verified and comprehensive treatment history generated.",
+      document_id: document_id,
     });
   } catch (error) {
     console.error("Error verifying document:", error);
