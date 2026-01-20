@@ -75,6 +75,17 @@ export const staffApi = createApi({
             providesTags: ["Intakes"],
             keepUnusedDataFor: 120,
         }),
+        getTreatmentHistory: builder.query({
+            query: ({ patientName, dob, claimNumber, physicianId }) => {
+                const params = new URLSearchParams();
+                if (patientName) params.append("patient_name", patientName);
+                if (dob) params.append("dob", dob);
+                if (claimNumber) params.append("claim_number", claimNumber);
+                if (physicianId) params.append("physicianId", physicianId);
+                return { url: `/treatment-history?${params.toString()}` };
+            },
+            keepUnusedDataFor: 300,
+        }),
     }),
 });
 
@@ -85,4 +96,5 @@ export const {
     useGetPatientIntakeUpdateQuery,
     useUpdatePatientIntakeMutation,
     useGetPatientIntakesQuery,
+    useGetTreatmentHistoryQuery,
 } = staffApi;

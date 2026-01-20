@@ -37,6 +37,8 @@ interface TasksSectionProps {
   onFailedDocumentRowClick: (doc: FailedDocument) => void;
   userRole?: string;
   onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
+  treatmentHistoryData?: any;
+  isTreatmentHistoryLoading?: boolean;
 }
 
 import { useState, useCallback, useEffect } from "react";
@@ -75,6 +77,8 @@ export default function TasksSection({
   onFailedDocumentRowClick,
   userRole,
   onBulkAssign,
+  treatmentHistoryData,
+  isTreatmentHistoryLoading,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   
@@ -174,6 +178,8 @@ export default function TasksSection({
         questionnaireChips={questionnaireChips}
         formatDOB={formatDOB}
         formatClaimNumber={formatClaimNumber}
+        treatmentHistoryData={treatmentHistoryData}
+        isTreatmentHistoryLoading={isTreatmentHistoryLoading}
       />
 
       {/* No Patient Selected Message */}
@@ -186,26 +192,18 @@ export default function TasksSection({
       )}
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-base font-bold text-slate-900 m-0">
-          {getSectionTitle()}
+          Active Tasks
         </h3>
-
-        {/* Show task filters when patient is selected */}
-        {selectedPatient && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleViewModeToggle}
-              className={getViewModeButtonClass()}
-            >
-              {getViewModeButtonText()}
-            </button>
-          </div>
-        )}
       </div>
 
 
 
       {/* Show TasksTable - only one instance, handle both cases */}
-      <TaskManager  tasks={displayedTasks as any} />
+      <TaskManager 
+        tasks={displayedTasks as any} 
+        treatmentHistoryData={treatmentHistoryData}
+        isTreatmentHistoryLoading={isTreatmentHistoryLoading}
+      />
       <TasksTable
         tasks={displayedTasks}
         taskStatuses={taskStatuses}

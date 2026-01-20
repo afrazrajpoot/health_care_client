@@ -28,6 +28,7 @@ import {
   useGetFailedDocumentsQuery,
   useGetPatientIntakesQuery,
   useGetPatientIntakeUpdateQuery,
+  useGetTreatmentHistoryQuery,
 } from "@/redux/staffApi";
 import { useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 import {
@@ -92,6 +93,7 @@ const UploadToast: React.FC = () => {
 
 export default function StaffDashboardContainer() {
   const { data: session } = useSession();
+  const physicianId = useMemo(() => getPhysicianIdUtil(session), [session]);
   const dispatch = useDispatch();
   const searchParams = useSearchParams();
   const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(
@@ -171,6 +173,25 @@ export default function StaffDashboardContainer() {
       skip: !intakeQueryParams,
       refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
       pollingInterval: 0, // Disable automatic polling
+    }
+  );
+
+  // Memoize treatment history query params
+  const treatmentHistoryQueryParams = useMemo(() => {
+    if (!selectedPatient || !physicianId) return null;
+    return {
+      patientName: selectedPatient.patientName || "",
+      dob: selectedPatient.dob,
+      claimNumber: selectedPatient.claimNumber,
+      physicianId: physicianId
+    };
+  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber, physicianId]);
+
+  const { data: treatmentHistoryData, isLoading: isTreatmentHistoryLoading } = useGetTreatmentHistoryQuery(
+    treatmentHistoryQueryParams!,
+    {
+      skip: !treatmentHistoryQueryParams,
+      refetchOnMountOrArgChange: false,
     }
   );
 
@@ -425,7 +446,6 @@ export default function StaffDashboardContainer() {
     [patientIntakeUpdate, patientQuiz]
   );
   const departments = useMemo(() => DEPARTMENTS, []);
-  const physicianId = useMemo(() => getPhysicianIdUtil(session), [session]);
   const totalPages = useMemo(
     () => Math.ceil(taskTotalCount / taskPageSize),
     [taskTotalCount, taskPageSize]
@@ -557,16 +577,21 @@ export default function StaffDashboardContainer() {
       status_update: string;
       details: string;
       one_line_note: string;
-    }
+    },
+    status?: string
   ) => {
     try {
-      await updateTaskMutation({
+      const payload: any = {
         taskId,
         quickNotes: {
           ...quickNotes,
           timestamp: new Date().toISOString(),
-        }
-      }).unwrap();
+        },
+      };
+      if (status) {
+        payload.status = status;
+      }
+      await updateTaskMutation(payload).unwrap();
     } catch (error) {
       console.error("Error saving quick note:", error);
       throw error;
@@ -781,6 +806,8 @@ export default function StaffDashboardContainer() {
                 onFailedDocumentDeleted={removeFailedDocument}
                 onFailedDocumentRowClick={handleRowClick}
                 userRole={session?.user?.role}
+                treatmentHistoryData={treatmentHistoryData?.data}
+                isTreatmentHistoryLoading={isTreatmentHistoryLoading}
               />
             </section>
           </main>

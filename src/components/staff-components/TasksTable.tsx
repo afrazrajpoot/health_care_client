@@ -24,7 +24,7 @@ interface TasksTableProps {
   onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
-  onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
+  onSaveQuickNote?: (taskId: string, quickNotes: any, status?: string) => Promise<void>;
   getStatusOptions: (task: Task) => string[];
   getAssigneeOptions: (task: Task) => string[];
   // New props for failed documents
@@ -418,9 +418,7 @@ export default function TasksTable({
   return (
     <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] flex flex-col min-h-0 flex-1 overflow-hidden">
       <div className="flex justify-between items-center border-b border-gray-200 pr-4">
-        <h3 className="m-0 px-3.5 py-3 text-base font-bold">
-          Open Tasks & Required Actions
-        </h3>
+        <div className="flex-1"></div>
         {selectedTaskIds && selectedTaskIds.some(id => id.startsWith('doc-')) && (
           <button
             onClick={handleBulkUpdateFailedDocs}
@@ -516,99 +514,14 @@ export default function TasksTable({
                         )}
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[50px] w-[50px] whitespace-nowrap relative">
-                        <div
-                          className="relative"
-                          ref={openDropdown === task.id ? dropdownRef : null}
-                        >
+                        <div className="relative">
                           <span
-                            className={`text-xs px-3 py-1.5 rounded-full border font-semibold whitespace-nowrap cursor-pointer inline-flex items-center gap-1 ${getStatusChipColor(
+                            className={`text-xs px-3 py-1.5 rounded-full border font-semibold whitespace-nowrap inline-flex items-center gap-1 ${getStatusChipColor(
                               currentStatus
                             )}`}
-                            onClick={() =>
-                              setOpenDropdown(
-                                openDropdown === task.id ? null : task.id
-                              )
-                            }
                           >
-                            {updatingStatuses.has(task.id) ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                Updating...
-                              </>
-                            ) : (
-                              <>
-                                {currentStatus}
-                                <svg
-                                  className="w-3 h-3"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 9l-7 7-7-7"
-                                  />
-                                </svg>
-                              </>
-                            )}
+                            {currentStatus}
                           </span>
-                          {openDropdown === task.id && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[10000] min-w-[140px] max-h-[300px] overflow-y-auto">
-                              {statusOptions.map((status) => (
-                                <div
-                                  key={status}
-                                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                                    currentStatus === status
-                                      ? "bg-blue-50 font-semibold"
-                                      : ""
-                                  }`}
-                                  onClick={async () => {
-                                    setUpdatingStatuses((prev) =>
-                                      new Set(prev).add(task.id)
-                                    );
-                                    setOpenDropdown(null);
-                                    try {
-                                      await onStatusClick(task.id, status);
-                                      toast.success(
-                                        `Status updated to "${status}"`
-                                      );
-                                    } catch (error) {
-                                      toast.error("Failed to update status");
-                                    } finally {
-                                      setUpdatingStatuses((prev) => {
-                                        const newSet = new Set(prev);
-                                        newSet.delete(task.id);
-                                        return newSet;
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <span
-                                    className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                                      status.toLowerCase().includes("completed")
-                                        ? "bg-green-500"
-                                        : status
-                                            .toLowerCase()
-                                            .includes("progress")
-                                        ? "bg-amber-500"
-                                        : status
-                                            .toLowerCase()
-                                            .includes("pending")
-                                        ? "bg-orange-500"
-                                        : status
-                                            .toLowerCase()
-                                            .includes("waiting")
-                                        ? "bg-purple-500"
-                                        : "bg-blue-500"
-                                    }`}
-                                  ></span>
-                                  {status}
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </td>
                       <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
@@ -690,6 +603,7 @@ export default function TasksTable({
                               task={task}
                               onClose={() => setOpenQuickNoteId(null)}
                               onSave={onSaveQuickNote}
+                              statusOptions={statusOptions}
                               // onAssignTask removed to separate concerns
                             />
                           )}
