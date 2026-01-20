@@ -894,8 +894,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
   const handleMarkViewed = async (e: React.MouseEvent, group: any) => {
     e.stopPropagation();
+
     const groupId = group.docId;
     const docId = group.doc?.document_id;
+    const summary_card = group.shortSummary;
     if (!docId) return;
 
     if (viewedWhatsNew.has(groupId)) return;
@@ -906,10 +908,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     if (needsVerification) {
       setLoadingDocs((prev) => new Set([...prev, docId]));
     }
-
     try {
       if (needsVerification) {
-        await verifyDocument({ document_id: docId }).unwrap();
+        await verifyDocument({
+          document_id: docId,
+          summary_card: summary_card,
+        }).unwrap();
 
         // Force immediate refetch of treatment history
         dispatch(dashboardApi.util.invalidateTags(["TreatmentHistory"]));

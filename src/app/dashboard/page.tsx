@@ -32,11 +32,10 @@ import { useSearch } from "../custom-hooks/staff-hooks/physician-hooks/useSearch
 import { useOnboarding } from "../custom-hooks/staff-hooks/physician-hooks/useOnboarding";
 import { useToasts } from "../custom-hooks/staff-hooks/physician-hooks/useToasts";
 import { useDispatch } from "react-redux";
-import { 
+import {
   dashboardApi,
-  useGetRecentPatientsQuery, 
-  useVerifyDocumentMutation, 
-  useAddManualTaskMutation 
+  useGetRecentPatientsQuery,
+  useAddManualTaskMutation,
 } from "@/redux/dashboardApi";
 import { useExtractDocumentsMutation } from "@/redux/pythonApi";
 
@@ -129,14 +128,14 @@ export default function PhysicianCard() {
 
   const dispatch = useDispatch();
   const [extractDocuments] = useExtractDocumentsMutation();
-  const [verifyDocument] = useVerifyDocumentMutation();
   const [addManualTask] = useAddManualTaskMutation();
 
-  const { data: recentPatientsData, isFetching: recentPatientsLoading } = useGetRecentPatientsQuery(mode, {
-    skip: status !== "authenticated" || !session,
-    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-    pollingInterval: 0, // Disable automatic polling
-  });
+  const { data: recentPatientsData, isFetching: recentPatientsLoading } =
+    useGetRecentPatientsQuery(mode, {
+      skip: status !== "authenticated" || !session,
+      refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+      pollingInterval: 0, // Disable automatic polling
+    });
 
   const { toasts, addToast } = useToasts();
   const {
@@ -221,7 +220,7 @@ export default function PhysicianCard() {
         startTwoPhaseTracking(
           data.upload_task_id,
           data.task_id,
-          data.payload_count
+          data.payload_count,
         );
       } else if (data.task_id) {
         // Fallback to single-phase tracking
@@ -273,7 +272,9 @@ export default function PhysicianCard() {
   // Callback to refresh data after upload completion
   const handleRefreshData = useCallback(async () => {
     // RTK Query will automatically refetch due to tag invalidation
-    dispatch(dashboardApi.util.invalidateTags(["Patients", "Tasks", "Intakes"]));
+    dispatch(
+      dashboardApi.util.invalidateTags(["Patients", "Tasks", "Intakes"]),
+    );
   }, [dispatch]);
 
   const handleUploadClick = useCallback(() => {
@@ -303,7 +304,7 @@ export default function PhysicianCard() {
         setShowConfirmationModal(true);
       }
     },
-    []
+    [],
   );
 
   // Dummy values for DashboardContent (not used in new upload flow)
@@ -354,24 +355,24 @@ export default function PhysicianCard() {
       documentData?.documents?.[0]?.id ||
       documentData?.documents?.[0]?.document_id ||
       "",
-    [documentData]
+    [documentData],
   );
 
   // Memoized staff dashboard href
   const staffDashboardHref = useMemo(() => {
     if (selectedPatient && documentData && documentId) {
       return `/staff-dashboard?patient_name=${encodeURIComponent(
-        currentPatient.patientName
+        currentPatient.patientName,
       )}&dob=${encodeURIComponent(
-        currentPatient.dob || ""
+        currentPatient.dob || "",
       )}&claim=${encodeURIComponent(
-        currentPatient.claimNumber
+        currentPatient.claimNumber,
       )}&document_id=${encodeURIComponent(documentId)}`;
     } else if (selectedPatient) {
       return `/staff-dashboard?patient_name=${encodeURIComponent(
-        currentPatient.patientName
+        currentPatient.patientName,
       )}&dob=${encodeURIComponent(
-        currentPatient.dob || ""
+        currentPatient.dob || "",
       )}&claim=${encodeURIComponent(currentPatient.claimNumber)}`;
     }
     return "/staff-dashboard";
@@ -380,7 +381,7 @@ export default function PhysicianCard() {
   // Memoized visit count
   const visitCount = useMemo(
     () => documentData?.document_summaries?.length || 0,
-    [documentData]
+    [documentData],
   );
 
   // Memoized formatDate (MM-DD-YYYY)
@@ -401,76 +402,14 @@ export default function PhysicianCard() {
   }, []);
 
   // Handle patient selection
-  const handlePatientSelect = useCallback(
-    (patient: Patient) => {
-      setSelectedPatient(patient);
-    },
-    []
-  );
+  const handlePatientSelect = useCallback((patient: Patient) => {
+    setSelectedPatient(patient);
+  }, []);
 
   // Handle mode switch
   const switchMode = useCallback((val: "wc" | "gm") => {
     setMode(val);
   }, []);
-
-  // Handle verify toggle
-  const handleVerifyToggle = useCallback(async () => {
-    if (documentData?.allVerified) return;
-    setIsVerified((prev) => !prev);
-    if (!isVerified) {
-      if (!selectedPatient || !documentData) {
-        addToast("No patient data available to verify.", "error");
-        setIsVerified(false);
-        return;
-      }
-      try {
-        setVerifyLoading(true);
-        const params = {
-          patient_name:
-            selectedPatient.patientName || selectedPatient.name || "",
-          dob: selectedPatient.dob,
-          doi: selectedPatient.doi,
-          claim_number: selectedPatient.claimNumber,
-          document_id: documentId,
-        };
-        
-        await verifyDocument(params).unwrap();
-        
-        // Force immediate refetch of treatment history
-        dispatch(dashboardApi.util.invalidateTags(["TreatmentHistory"]));
-        refetchTreatmentHistory();
-
-        const d = new Date();
-        const opts: Intl.DateTimeFormatOptions = {
-          year: "numeric",
-          month: "short",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-
-        };
-        setVerifyTime(d.toLocaleString(undefined, opts));
-      } catch (err: unknown) {
-        console.error("Error verifying document:", err);
-        addToast(
-          err instanceof Error ? err.message : "Verification failed",
-          "error"
-        );
-        setIsVerified(false);
-      } finally {
-        setVerifyLoading(false);
-      }
-    }
-  }, [
-    documentData,
-    isVerified,
-    selectedPatient,
-    verifyDocument,
-    addToast,
-    refetchTreatmentHistory,
-    dispatch,
-    documentId,
-  ]);
 
   // Handle copy text
   const handleCopy = useCallback(async (text: string, fieldName: string) => {
@@ -535,7 +474,7 @@ export default function PhysicianCard() {
               text += `- ${appt.date} - ${appt.type} (${appt.other})\n`;
             });
             text += `Created: ${formatDate(q.createdAt)}\nUpdated: ${formatDate(
-              q.updatedAt
+              q.updatedAt,
             )}`;
           } else {
             text = "No patient quiz data available";
@@ -569,7 +508,7 @@ export default function PhysicianCard() {
         delete timersRef.current[sectionId];
       }, 2000);
     },
-    [documentData, formatDate, handleCopy]
+    [documentData, formatDate, handleCopy],
   );
 
   // Handle show previous summary
@@ -582,7 +521,7 @@ export default function PhysicianCard() {
         setSelectedBriefSummary(""); // Clear brief summary
       }
     },
-    [documentData]
+    [documentData],
   );
 
   // Handle modal open
@@ -601,7 +540,7 @@ export default function PhysicianCard() {
 
   // Retry fetch
   const handleRetry = useCallback(() => {
-    // RTK Query handles retry via refetch if needed, 
+    // RTK Query handles retry via refetch if needed,
     // but here we just let it refetch automatically when state is correct
   }, []);
 
@@ -616,7 +555,7 @@ export default function PhysicianCard() {
   useEffect(() => {
     if (recentPatientsData) {
       setRecentPatientsList(recentPatientsData || []);
-      
+
       // Only auto-select the first patient on initial load, not on every re-render
       if (
         !initialPatientSelectedRef.current &&

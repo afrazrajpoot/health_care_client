@@ -4,8 +4,12 @@ import OpenAI, { AzureOpenAI } from "openai";
 
 export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    let document_id = searchParams.get("document_id");
+    const { document_id: bodyDocId, summary_card, patient_name: bodyName, dob: bodyDob, claim_number: bodyClaim } = await request.json();
+
+    let document_id = bodyDocId;
+    console.log("Verifying document with ID from body:", document_id);
+    console.log("Received summary_card:", summary_card ? "Yes" : "No");
+
     let document = null;
 
     if (document_id) {
@@ -14,9 +18,9 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Fallback: Find the latest document for this patient
-      const patient_name = searchParams.get("patient_name");
-      const dob = searchParams.get("dob");
-      const claim_number = searchParams.get("claim_number");
+      const patient_name = bodyName;
+      const dob = bodyDob;
+      const claim_number = bodyClaim;
 
       if (typeof patient_name === "string") {
         document = await prisma.document.findFirst({
@@ -45,55 +49,12 @@ export async function POST(request: NextRequest) {
     });
 
     // 3. Generate Comprehensive Treatment History using OpenAI
-    // Fetch ALL verified documents for this patient to build a complete history
-    const patientDocuments = await prisma.document.findMany({
-      where: {
-        patientName: document.patientName,
-        dob: document.dob,
-        status: "verified"
-      },
-      orderBy: { reportDate: "desc" }, // Newest first
-      take: 20, // Limit to last 20 documents to fit in context
-      select: {
-        reportDate: true,
-        briefSummary: true,
-        aiSummarizerText: true,
-        physicianId: true,
-        bodyPartSnapshots: {
-          select: {
-            bodyPart: true,
-            keyFindings: true,
-            recommended: true,
-            dx: true,
-            consultingDoctor: true
-          }
-        },
-        documentSummary: {
-          select: {
-            summary: true
-          }
-        }
-      }
-    });
+    // Use the provided summary_card as the main context
+    
+    // Construct context from summary_card
+    const docContext = summary_card ? JSON.stringify(summary_card, null, 2) : "No summary available";
 
-    // Construct a comprehensive context from all documents
-    let allDocsContext = "";
-    patientDocuments.forEach((doc, index) => {
-      const date = doc.reportDate ? new Date(doc.reportDate).toISOString().split('T')[0] : "Unknown Date";
-      const physician = doc.bodyPartSnapshots?.[0]?.consultingDoctor || doc.physicianId || "Unknown Physician";
-
-      allDocsContext += `\n--- Document ${index + 1} (${date}) - Physician: ${physician} ---\n`;
-      allDocsContext += `Summary: ${doc.briefSummary || doc.aiSummarizerText || doc.documentSummary?.summary || "No summary"}\n`;
-
-      if (doc.bodyPartSnapshots && doc.bodyPartSnapshots.length > 0) {
-        allDocsContext += "Clinical Details:\n";
-        doc.bodyPartSnapshots.forEach(bp => {
-          allDocsContext += `- ${bp.bodyPart || "General"}: ${bp.dx || ""} \n  Findings: ${bp.keyFindings || ""} \n  Recommendations: ${bp.recommended || ""}\n`;
-        });
-      }
-    });
-
-    if (allDocsContext) {
+    if (summary_card) {
       try {
         const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
@@ -122,13 +83,22 @@ export async function POST(request: NextRequest) {
         }
 
         const prompt = `
-You are a medical data expert. Your task is to MAP the provided medical documents into a structured JSON format organized by Body System.
+You are a medical data expert. Your task is to MAP the provided medical document summary into a structured JSON format organized by Body System.
 
-Input Documents (Newest to Oldest):
-${allDocsContext}
+CRITICAL RULES - VIOLATION WILL RESULT IN INVALID OUTPUT:
+1. Extract ONLY information explicitly present in the source document
+2. DO NOT infer, interpret, or generate any medical information
+3. DO NOT add clinical insights or explanations not in the source
+4. DO NOT rephrase medical terms - use exact terminology from source
+5. If information is unclear or absent, leave the field empty or omit it
+6. DO NOT assume body system classifications - only map if explicitly clear from context
 
-For each Body System, you must create a list of entries corresponding to the documents that contain information about that system.
-Do NOT synthesize or merge information across documents. Keep each document's data separate under the relevant system.
+
+Input Document Summary:
+${docContext}
+
+For each Body System, you must create a list of entries corresponding to the document information.
+Since there is only one document provided, you will likely create a single entry in one or more relevant body systems.
 
 JSON Structure:
 {
@@ -136,9 +106,10 @@ JSON Structure:
     {
       "report_date": "YYYY-MM-DD",
       "physician": "Dr. Name",
+      "title": "Document Title", // Extract from header.title
       "content": [
         { 
-          "field": "findings", 
+          "field": "findings",  
           "collapsed": "Short summary of finding", 
           "expanded": "Detailed description. Use bullet points starting with '- ' for lists." 
         }
@@ -164,14 +135,62 @@ JSON Structure:
   "sleep_disorders": [] // 😴 Sleep Disorders
 }
 
+
+  EXTRACTION PROTOCOL:
+1. **Document Identification**:
+   - "report_date": Extract ONLY if explicitly stated (format: YYYY-MM-DD)
+   - "physician": Extract ONLY the exact name as written
+   - "title": Extract ONLY from document header - use exact wording
+
+2. **Content Mapping**:
+   - "field": Use ONLY these exact values when applicable:
+     * "findings" - for diagnostic findings/observations
+     * "diagnosis" - for stated diagnoses
+     * "recommendations" - for treatment recommendations
+     * "work_status" - for work capacity assessments
+     * "mmi_status" - for maximum medical improvement status
+     * "other" - ONLY if none above apply, with exact label from source
+   
+   - "collapsed": Extract the most concise factual statement (max 100 chars)
+   - "expanded": Extract complete details AS WRITTEN. Preserve:
+     * Exact bullet point formatting (use '- ' prefix)
+     * Exact medical terminology
+     * Exact measurements/values
+     * Original sentence structure
+
+3. **Body System Classification**:
+   - Map to body system ONLY if document explicitly relates to that system
+   - If unclear, use "other_systems"
+   - DO NOT classify based on assumptions
+
+4. **Handling Missing Information**:
+   - If report_date is not stated: omit the field entirely
+   - If physician is not stated: omit the field entirely
+   - If a body system has no relevant data: keep array empty []
+
+VALIDATION CHECKLIST BEFORE RETURNING:
+□ Every extracted value exists verbatim in source document
+□ No medical interpretations or inferences added
+□ No reformulated medical language
+□ Bullet points preserved exactly as in source
+□ Empty arrays for non-applicable body systems
+□ No fields included that weren't in source
+
+OUTPUT REQUIREMENTS:
+- Return ONLY valid JSON
+- NO markdown code blocks
+- NO explanatory text
+- NO additional commentary
+
+
 Rules:
-1. **Map Data Only**: Do not generate new insights. Extract exactly what is in the documents.
-2. **Order**: Maintain the chronological order of reports (Newest first).
+1. **Map Data Only**: Do not generate new insights. Extract exactly what is in the document summary.
+2. **Title**: The "title" field MUST be extracted from the document header title.
 3. **Fields**: Use standard keys for "field" like: "findings", "diagnosis", "recommendations", "work_status", "mmi_status".
 4. **Content**: 
    - "collapsed": A concise 1-line summary.
-   - "expanded": The full details. **IMPORTANT**: If there are multiple points, format them as a list where each line starts with "- ".
-5. If a document has no relevant info for a system, do not create an entry for it in that system.
+   - "expanded": The full details. **IMPORTANT**: If the source has bullet points, preserve them.
+5. If the document has no relevant info for a system, keep that system's array empty.
 6. Return ONLY the JSON object.
 `;
 
@@ -184,41 +203,78 @@ Rules:
           response_format: { type: "json_object" },
         });
 
-        const newHistoryData = JSON.parse(completion.choices[0].message.content || "{}");
+        const newDocHistoryData = JSON.parse(completion.choices[0].message.content || "{}");
+        
+        // Add document_id to each entry for deduplication
+        Object.keys(newDocHistoryData).forEach(key => {
+            if (Array.isArray(newDocHistoryData[key])) {
+                newDocHistoryData[key] = newDocHistoryData[key].map((item: any) => ({
+                    ...item,
+                    document_id: document_id
+                }));
+            }
+        });
 
-        // 4. Update or Create TreatmentHistory in DB (Overwrite with new comprehensive history)
-        // Since your schema doesn't have a compound unique constraint, we use findFirst + update/create pattern
-
-        // First, try to find an existing treatment history for this patient/physician
+        // 4. Update TreatmentHistory in DB (Merge with existing)
+        
+        // First, try to find an existing treatment history for this patient
+        // Note: Using findFirst as there might not be a unique constraint on these fields together
         const existingTreatmentHistory = await prisma.treatmentHistory.findFirst({
           where: {
             patientName: document.patientName as string,
-            dob: document.dob || null,
-            claimNumber: document.claimNumber || null,
-            physicianId: document.physicianId || null,
+            // Only separate mainly by patientName as DOB/Claim might be missing sometimes
+            // If strictly needed, uncomment:
+            // dob: document.dob || null, 
+            // claimNumber: document.claimNumber || null,
           },
           orderBy: { createdAt: 'desc' }, // Get the most recent one
         });
 
         if (existingTreatmentHistory) {
+          const currentHistoryData = (existingTreatmentHistory.historyData as any) || {};
+          let mergedHistoryData = { ...currentHistoryData };
+
+          // Merge logic
+          for (const systemKey in newDocHistoryData) {
+             if (newDocHistoryData.hasOwnProperty(systemKey) && Array.isArray(newDocHistoryData[systemKey])) {
+                 const currentItems = Array.isArray(mergedHistoryData[systemKey]) ? mergedHistoryData[systemKey] : [];
+                 const newItems = newDocHistoryData[systemKey];
+                 
+                 // Filter out existing items for this document_id to avoid duplicates (if we are re-verifying)
+                 const filteredCurrentItems = currentItems.filter((item: any) => item.document_id !== document_id);
+                 
+                 // Combine and Sort
+                 const combined = [...newItems, ...filteredCurrentItems];
+                 
+                 // Sort by report_date descending
+                 combined.sort((a: any, b: any) => {
+                     const dateA = new Date(a.report_date || '1970-01-01').getTime();
+                     const dateB = new Date(b.report_date || '1970-01-01').getTime();
+                     return dateB - dateA;
+                 });
+                 
+                 mergedHistoryData[systemKey] = combined;
+             }
+          }
+
           // Update the existing record
           await prisma.treatmentHistory.update({
             where: { id: existingTreatmentHistory.id },
             data: {
-              historyData: newHistoryData,
-              documentId: document.id,
+              historyData: mergedHistoryData,
+              documentId: document.id, // Update to latest verified doc id reference
               updatedAt: new Date(),
             },
           });
         } else {
-          // Create a new record
+          // Create a new record with initial data
           await prisma.treatmentHistory.create({
             data: {
               patientName: document.patientName as string,
               dob: document.dob || null,
               claimNumber: document.claimNumber || null,
               physicianId: document.physicianId || null,
-              historyData: newHistoryData,
+              historyData: newDocHistoryData,
               documentId: document.id,
             },
           });
@@ -232,7 +288,7 @@ Rules:
 
     return NextResponse.json({
       success: true,
-      message: "Document verified and comprehensive treatment history generated.",
+      message: `Document verified successfully`,
     });
   } catch (error) {
     console.error("Error verifying document:", error);

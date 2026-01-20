@@ -74,10 +74,10 @@ export const dashboardApi = createApi({
             keepUnusedDataFor: 120, // Keep document data cached for 2 minutes
         }),
         verifyDocument: builder.mutation({
-            query: (params) => ({
+            query: (body) => ({
                 url: "/verify-document",
                 method: "POST",
-                params,
+                body,
             }),
             invalidatesTags: ["Patients", "TreatmentHistory"],
         }),

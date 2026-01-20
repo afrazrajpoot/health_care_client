@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
 
         // Merge historyData from all records
         const mergedHistory: any = {};
+        const documentIds = new Set<string>();
 
         historyRecords.forEach(record => {
             const data = record.historyData as any;
@@ -102,10 +103,40 @@ export async function GET(request: NextRequest) {
 
                     if (!isDuplicate) {
                         mergedHistory[system].push(newReport);
+                        if (newReport.document_id) {
+                            documentIds.add(newReport.document_id);
+                        }
                     }
                 });
             });
         });
+
+        // Fetch document details (links) for all collected IDs
+        if (documentIds.size > 0) {
+            const documents = await prisma.document.findMany({
+                where: {
+                    id: { in: Array.from(documentIds) }
+                },
+                select: {
+                    id: true,
+                    gcsFileLink: true,
+                    blobPath: true
+                }
+            });
+
+            const docMap = new Map(documents.map(d => [d.id, d]));
+
+            // Enrich mergedHistory with document links
+            Object.keys(mergedHistory).forEach(system => {
+                mergedHistory[system].forEach((report: any) => {
+                    if (report.document_id && docMap.has(report.document_id)) {
+                        const doc = docMap.get(report.document_id);
+                        report.gcs_file_link = doc?.gcsFileLink;
+                        report.blob_path = doc?.blobPath;
+                    }
+                });
+            });
+        }
 
         // Sort reports within each system by date (newest first)
         Object.keys(mergedHistory).forEach(system => {
