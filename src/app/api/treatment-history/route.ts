@@ -77,6 +77,20 @@ export async function GET(request: NextRequest) {
 
         console.log(`✅ Found ${historyRecords.length} treatment history records`);
 
+        // Format date function for API response
+        const formatDate = (dateString: string) => {
+            try {
+                const date = new Date(dateString);
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${month}/${day}/${year}`;
+            } catch (e) {
+                // If date is already in the correct format or invalid, return as is
+                return dateString;
+            }
+        };
+
         // Merge historyData from all records
         const mergedHistory: any = {};
         const documentIds = new Set<string>();
@@ -102,7 +116,13 @@ export async function GET(request: NextRequest) {
                     );
 
                     if (!isDuplicate) {
-                        mergedHistory[system].push(newReport);
+                        // Format the report_date before adding
+                        const processedReport = { ...newReport };
+                        if (processedReport.report_date) {
+                            processedReport.report_date = formatDate(processedReport.report_date);
+                        }
+
+                        mergedHistory[system].push(processedReport);
                         if (newReport.document_id) {
                             documentIds.add(newReport.document_id);
                         }
@@ -141,11 +161,24 @@ export async function GET(request: NextRequest) {
         // Sort reports within each system by date (newest first)
         Object.keys(mergedHistory).forEach(system => {
             mergedHistory[system].sort((a: any, b: any) => {
-                const dateA = new Date(a.report_date).getTime();
-                const dateB = new Date(b.report_date).getTime();
+                const parseDate = (dateStr: string) => {
+                    try {
+                        // Parse the MM/DD/YYYY format for sorting
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            return new Date(`${parts[2]}-${parts[0]}-${parts[1]}`).getTime();
+                        }
+                    } catch (e) {
+                        // fallback
+                    }
+                    return new Date(dateStr).getTime();
+                };
+
+                const dateA = parseDate(a.report_date);
+                const dateB = parseDate(b.report_date);
                 if (isNaN(dateA)) return 1;
                 if (isNaN(dateB)) return -1;
-                return dateB - dateA;
+                return dateB - dateA; // descending (newest first)
             });
         });
 
