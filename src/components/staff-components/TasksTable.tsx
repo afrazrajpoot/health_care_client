@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import {
@@ -11,6 +11,109 @@ import {
   FileText,
   AlertCircle,
   Loader2,
+  User,
+  UserPlus,
+  CheckSquare,
+  Square,
+  Clock,
+  Calendar,
+  Tag,
+  MoreVertical,
+  Download,
+  Filter,
+  Search,
+  ChevronDown,
+  AlertTriangle,
+  FileWarning,
+  CheckCircle,
+  XCircle,
+  Edit,
+  Send,
+  Users,
+  Settings,
+  ExternalLink,
+  BarChart3,
+  Shield,
+  HardDrive,
+  FolderOpen,
+  FilePlus,
+  Sparkles,
+  RotateCw,
+  Bell,
+  Star,
+  Target,
+  TrendingUp,
+  Grid,
+  List,
+  EyeOff,
+  Copy,
+  Share,
+  Archive,
+  BookOpen,
+  MessageSquare,
+  Paperclip,
+  Link,
+  FolderInput,
+  FolderTree,
+  Layers,
+  FileX,
+  FileCheck,
+  FileQuestion,
+  FileSearch,
+  FileClock,
+  FileSpreadsheet,
+  FileBarChart,
+  FileImage,
+  FileArchive,
+  FileCode,
+  FileDiff,
+  FileJson,
+  FileVideo,
+  FileAudio,
+  FilePieChart,
+  FileSignature,
+  FileDigit,
+  FileMinus,
+  FileUp,
+  FileDown,
+  FileAxis3d,
+  FileOutput,
+  FileInput,
+  FileSliders,
+  FileTerminal,
+  FileType,
+  FileKey,
+  FileLock,
+  FileHeart,
+  FileMusic,
+  FilePenLine,
+  FileStack,
+  FileSymlink,
+  FileUser,
+  FileVolume2,
+  FileWarning as FileWarningIcon,
+  File,
+  Folder,
+  FolderPlus,
+  FolderMinus,
+  FolderSearch,
+  FolderOutput,
+  FolderInput as FolderInputIcon,
+  FolderTree as FolderTreeIcon,
+  FolderOpenDot,
+  FolderKanban,
+  FolderSync,
+  FolderCheck,
+  FolderX,
+  FolderClock,
+  FolderKey,
+  FolderLock,
+  FolderGit2,
+  FolderGit,
+  FolderRoot,
+  FolderUp,
+  FolderDown,
+  FolderDot
 } from "lucide-react";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 import AssignTaskModal from "@/components/staff-components/AssignTaskModal";
@@ -24,7 +127,7 @@ interface TasksTableProps {
   onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
-  onSaveQuickNote?: (taskId: string, quickNotes: any) => Promise<void>;
+  onSaveQuickNote?: (taskId: string, quickNotes: any, status?: string) => Promise<void>;
   getStatusOptions: (task: Task) => string[];
   getAssigneeOptions: (task: Task) => string[];
   // New props for failed documents
@@ -35,9 +138,10 @@ interface TasksTableProps {
   physicianId?: string;
   selectedTaskIds?: string[];
   onToggleTaskSelection?: (taskIds: string[], selected: boolean) => void;
+  onSearch?: (query: string) => void;
+  isLoading?: boolean;
 }
 
-import { User, UserPlus, CheckSquare, Square } from "lucide-react";
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
 import { useLazyGetDocumentPreviewQuery, useSplitAndProcessDocumentMutation, useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 
@@ -58,6 +162,8 @@ export default function TasksTable({
   physicianId,
   selectedTaskIds = [],
   onToggleTaskSelection,
+  onSearch,
+  isLoading = false,
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -68,6 +174,27 @@ export default function TasksTable({
     new Set()
   );
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onSearch) {
+        onSearch(searchTerm);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, onSearch]);
+
+  // Dynamic Filter Options
+  const availableStatuses = ["all", ...Array.from(new Set(tasks.map(t => t.status || "Pending")))];
+  const availableTypes = ["all", ...Array.from(new Set(tasks.map(t => t.department || "General")))];
+  const availableAssignees = ["all", ...Array.from(new Set(tasks.map(t => taskAssignees[t.id] || t.assignee || "Unclaimed")))];
 
   // Document preview states
   const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(
@@ -179,7 +306,7 @@ export default function TasksTable({
   };
 
   const handleBulkUpdateFailedDocs = async () => {
-    const selectedFailedDocs = failedDocuments.filter(doc => 
+    const selectedFailedDocs = failedDocuments.filter(doc =>
       selectedTaskIds?.includes(`doc-${doc.id}`) && !isHardFail(doc)
     );
 
@@ -192,20 +319,16 @@ export default function TasksTable({
         patient_name: doc.patientName || "Unknown Patient",
         claim_number: doc.claimNumber || "Not specified",
         doi: doc.doi || "Not specified",
-        db: doc.db || "Not specified"
-        ,
+        db: doc.db || "Not specified",
         author: (doc as any).author || "Unknown Author",
         document_text: doc.documentText || "",
         user_id: session?.user?.id,
       }));
 
-      // Send multiple updates. We'll send them one by one or as a bulk if the API supports it.
-      // Based on user request "send multiple data in update api", we'll try sending the array.
-      // If the backend expects single objects, we might need to loop, but usually bulk is preferred.
       await updateFailedDocument(updates).unwrap();
-      
+
       toast.success(`Successfully processed ${selectedFailedDocs.length} documents`);
-      
+
       // Clear selection for these documents
       const idsToRemove = selectedFailedDocs.map(doc => `doc-${doc.id}`);
       onToggleTaskSelection?.(idsToRemove, false);
@@ -225,7 +348,7 @@ export default function TasksTable({
       if (onFailedDocumentDeleted) {
         onFailedDocumentDeleted(documentToDelete.id);
       }
- 
+
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
       toast.success("Document deleted successfully");
@@ -318,13 +441,37 @@ export default function TasksTable({
     }
   };
 
+  // Filter tasks based on role (Staff sees only assigned tasks)
+  const filteredTasks = useMemo(() => {
+    if (session?.user?.role?.toLowerCase() !== "staff") {
+      return tasks;
+    }
+
+    return tasks.filter(task => {
+      const currentAssignee = taskAssignees[task.id] || task.assignee;
+
+      if (!currentAssignee) return false;
+
+      const assigneeLower = currentAssignee.toLowerCase();
+      const userNameLower = session?.user?.name?.toLowerCase() || "";
+      const userEmailLower = session?.user?.email?.toLowerCase() || "";
+
+      return (
+        assigneeLower === userNameLower ||
+        (userNameLower && userNameLower.includes(assigneeLower)) ||
+        (assigneeLower && assigneeLower.includes(userNameLower)) ||
+        assigneeLower === userEmailLower
+      );
+    });
+  }, [tasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
+
   // Combine tasks and failed documents into unified rows
   type UnifiedRow =
     | { type: "task"; data: Task }
     | { type: "failedDoc"; data: FailedDocument };
 
   const unifiedRows: UnifiedRow[] = [
-    ...tasks.map((task) => ({ type: "task" as const, data: task })),
+    ...filteredTasks.map((task) => ({ type: "task" as const, data: task })),
     ...failedDocuments.map((doc) => ({
       type: "failedDoc" as const,
       data: doc,
@@ -345,8 +492,6 @@ export default function TasksTable({
     if (row.type === "task") {
       onToggleTaskSelection?.([row.data.id], checked);
     } else {
-      // For failed documents, we can either handle them separately or include them
-      // For now, we'll include them in the selection if needed
       onToggleTaskSelection?.([`doc-${row.data.id}`], checked);
     }
   };
@@ -372,11 +517,77 @@ export default function TasksTable({
     return selectableRows.every(row => isRowSelected(row));
   };
 
+  // Filter rows based on search and filters
+  const filteredRows = unifiedRows.filter(row => {
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      if (row.type === "failedDoc") {
+        // Always client-side filter failed docs
+        return (
+          row.data.fileName?.toLowerCase().includes(searchLower) ||
+          row.data.reason?.toLowerCase().includes(searchLower) ||
+          row.data.patientName?.toLowerCase().includes(searchLower) ||
+          row.data.claimNumber?.toLowerCase().includes(searchLower)
+        );
+      } else if (!onSearch) {
+        // Only client-side filter tasks if server search is not enabled
+        return (
+          row.data.description?.toLowerCase().includes(searchLower) ||
+          row.data.patient?.toLowerCase().includes(searchLower) ||
+          row.data.status?.toLowerCase().includes(searchLower) ||
+          row.data.department?.toLowerCase().includes(searchLower)
+        );
+      }
+    }
+
+    if (statusFilter !== "all") {
+      if (row.type === "task") {
+        return row.data.status?.toLowerCase() === statusFilter.toLowerCase();
+      } else {
+        return statusFilter === "failed";
+      }
+    }
+
+    if (typeFilter !== "all") {
+      if (row.type === "task") {
+        return row.data.department?.toLowerCase() === typeFilter.toLowerCase();
+      } else {
+        return typeFilter === "failed";
+      }
+    }
+
+    if (assigneeFilter !== "all") {
+      if (row.type === "task") {
+        const currentAssignee = taskAssignees[row.data.id] || row.data.assignee || "Unclaimed";
+        return currentAssignee === assigneeFilter;
+      } else {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
   if (unifiedRows.length === 0) {
     return (
-      <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
-        <div className="p-10 text-center text-gray-500">
-          <p className="text-sm m-0">No tasks found</p>
+      <section className="bg-gradient-to-br from-white to-gray-50/50 border border-gray-200 rounded-2xl shadow-lg shadow-gray-100/50 overflow-hidden mt-[1vw]">
+        <div className="p-12 text-center">
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-500 font-medium">Fetching tasks...</p>
+            </div>
+          ) : (
+            <>
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                <FileX className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Create new tasks or upload documents to get started with task management
+              </p>
+            </>
+          )}
         </div>
       </section>
     );
@@ -385,69 +596,247 @@ export default function TasksTable({
   const getStatusChipColor = (status: string) => {
     const s = status.toLowerCase();
     if (s.includes("signature") || s.includes("physician"))
-      return "border-red-400 bg-red-100 text-red-700";
+      return "border-red-300 bg-gradient-to-r from-red-50 to-red-100 text-red-800 shadow-sm shadow-red-100";
     if (s.includes("progress"))
-      return "border-amber-400 bg-amber-100 text-amber-700";
+      return "border-amber-300 bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 shadow-sm shadow-amber-100";
     if (s.includes("pending"))
-      return "border-orange-400 bg-orange-100 text-orange-700";
+      return "border-orange-300 bg-gradient-to-r from-orange-50 to-orange-100 text-orange-800 shadow-sm shadow-orange-100";
     if (s.includes("waiting") || s.includes("callback"))
-      return "border-purple-400 bg-purple-100 text-purple-700";
+      return "border-purple-300 bg-gradient-to-r from-purple-50 to-purple-100 text-purple-800 shadow-sm shadow-purple-100";
     if (s.includes("scheduling"))
-      return "border-blue-400 bg-blue-100 text-blue-700";
+      return "border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 shadow-sm shadow-blue-100";
     if (s.includes("completed") || s.includes("done"))
-      return "border-green-400 bg-green-100 text-green-700";
+      return "border-emerald-300 bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-800 shadow-sm shadow-emerald-100";
     if (s.includes("unclaimed"))
-      return "border-gray-400 bg-gray-100 text-gray-700";
-    return "border-blue-400 bg-blue-100 text-blue-700";
+      return "border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 shadow-sm shadow-gray-100";
+    if (s.includes("urgent") || s.includes("high"))
+      return "border-rose-300 bg-gradient-to-r from-rose-50 to-rose-100 text-rose-800 shadow-sm shadow-rose-100 animate-pulse";
+    return "border-indigo-300 bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-800 shadow-sm shadow-indigo-100";
   };
 
   const getAssigneeChipColor = (assignee: string) => {
     const a = assignee.toLowerCase();
     if (a.includes("unclaimed"))
-      return "border-gray-400 bg-gray-100 text-gray-700";
+      return "border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800";
     if (a.includes("physician"))
-      return "border-red-400 bg-red-100 text-red-700";
+      return "border-red-300 bg-gradient-to-r from-red-50 to-red-100 text-red-800";
     if (a.includes("admin"))
-      return "border-indigo-400 bg-indigo-100 text-indigo-700";
+      return "border-indigo-300 bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-800";
     if (a.includes("scheduler"))
-      return "border-teal-400 bg-teal-100 text-teal-700";
-    if (a.includes("ma")) return "border-cyan-400 bg-cyan-100 text-cyan-700";
-    return "border-blue-400 bg-blue-100 text-blue-700";
+      return "border-teal-300 bg-gradient-to-r from-teal-50 to-teal-100 text-teal-800";
+    if (a.includes("ma"))
+      return "border-cyan-300 bg-gradient-to-r from-cyan-50 to-cyan-100 text-cyan-800";
+    return "border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800";
+  };
+
+  const getTaskIcon = (department: string) => {
+    if (!department) return <FileText className="w-5 h-5" />;
+
+    const dept = department.toLowerCase();
+    if (dept.includes("clinical") || dept.includes("medical"))
+      return <FileHeart className="w-5 h-5" />;
+    if (dept.includes("admin"))
+      return <FileUser className="w-5 h-5" />;
+    if (dept.includes("scheduling"))
+      return <Calendar className="w-5 h-5" />;
+    if (dept.includes("billing") || dept.includes("finance"))
+      return <FileBarChart className="w-5 h-5" />;
+    if (dept.includes("document"))
+      return <FolderTree className="w-5 h-5" />;
+    if (dept.includes("review"))
+      return <FileSearch className="w-5 h-5" />;
+    if (dept.includes("legal"))
+      return <FileSignature className="w-5 h-5" />;
+    if (dept.includes("imaging"))
+      return <FileImage className="w-5 h-5" />;
+
+    return <File className="w-5 h-5" />;
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case 'high': return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      case 'medium': return <AlertCircle className="w-4 h-4 text-amber-500" />;
+      case 'low': return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+      default: return <Tag className="w-4 h-4 text-gray-500" />;
+    }
   };
 
   return (
-    <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] flex flex-col min-h-0 flex-1 overflow-hidden">
-      <div className="flex justify-between items-center border-b border-gray-200 pr-4">
-        <h3 className="m-0 px-3.5 py-3 text-base font-bold">
-          Open Tasks & Required Actions
-        </h3>
-        {selectedTaskIds && selectedTaskIds.some(id => id.startsWith('doc-')) && (
-          <button
-            onClick={handleBulkUpdateFailedDocs}
-            disabled={isBulkUpdating}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {isBulkUpdating ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <CheckSquare className="w-3.5 h-3.5" />
-                Process Selected Failed Docs
-              </>
-            )}
-          </button>
-        )}
-      </div>
-      <div className="min-h-0 max-h-full overflow-y-auto overflow-x-hidden flex-1 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:min-w-5 [&::-webkit-scrollbar-thumb]:min-h-5 [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
-        <div className="overflow-x-auto overflow-y-visible pb-[8vw] w-full [-webkit-overflow-scrolling:touch] relative [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:min-w-5 [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
-          <table className="w-max min-w-full border-collapse table-auto text-base visible table box-border">
-            <thead>
-              <tr>
+    <section className="bg-gradient-to-br from-white to-gray-50/50 border border-gray-200 rounded-2xl shadow-lg shadow-gray-100/50 overflow-hidden mt-[1vw]">
+      {/* Header with Controls */}
+      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-white to-blue-50/30">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600">
+                <FileStack className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Task Management
+              </h2>
+            </div>
+            <p className="text-gray-600 text-sm">
+              Manage and track tasks and documents across all workflows
+            </p>
+          </div>
 
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 w-[40px] min-w-[40px]">
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-md transition-all ${viewMode === "list" ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <List className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md transition-all ${viewMode === "grid" ? "bg-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <Grid className="w-5 h-5" />
+              </button>
+            </div>
+
+            {selectedTaskIds && selectedTaskIds.some(id => id.startsWith('doc-')) && (
+              <button
+                onClick={handleBulkUpdateFailedDocs}
+                disabled={isBulkUpdating}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBulkUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Process Selected ({selectedTaskIds.filter(id => id.startsWith('doc-')).length})
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filters and Search */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search tasks, documents, patients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
+            >
+              {availableStatuses.map(status => (
+                <option key={status} value={status}>
+                  {status === "all" ? "All Status" : status}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
+            >
+              {availableTypes.map(type => (
+                <option key={type} value={type}>
+                  {type === "all" ? "All Types" : type}
+                </option>
+              ))}
+            </select>
+
+            {session?.user?.role !== "Staff" && (
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
+              >
+                {availableAssignees.map(assignee => (
+                  <option key={assignee} value={assignee}>
+                    {assignee === "all" ? "All Assignees" : assignee}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-white to-blue-50 border border-blue-100 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <FileCheck className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Tasks</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredTasks.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-white to-amber-50 border border-amber-100 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Active Tasks</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredTasks.filter(t => t.quickNotes?.options && t.quickNotes.options.length > 0).length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-white to-red-50 border border-red-100 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <FileWarning className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Failed Docs</p>
+                <p className="text-2xl font-bold text-gray-900">{failedDocuments.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-white to-emerald-50 border border-emerald-100 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Completion Rate</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === "completed").length / filteredTasks.length) * 100) : 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Table Content */}
+      {viewMode === "list" ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-full divide-y divide-gray-200">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
+              <tr>
+                <th className="px-6 py-4 text-left">
                   <input
                     type="checkbox"
                     checked={isAllSelected()}
@@ -465,206 +854,166 @@ export default function TasksTable({
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                 </th>
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[250px] w-[250px] whitespace-normal">
-                  Item
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <File className="w-4 h-4" />
+                    Task / Document
+                  </div>
                 </th>
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[50px] w-[50px] whitespace-nowrap">
-                  Status
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    Status
+                  </div>
                 </th>
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[150px] w-[150px] whitespace-nowrap">
-                  Type
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <FolderTree className="w-4 h-4" />
+                    Type / Department
+                  </div>
                 </th>
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
-                  Preview
-                </th>
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
-                  Due
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Due Date
+                  </div>
                 </th>
                 {session?.user?.role !== "Staff" && (
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[100px] w-[100px] whitespace-nowrap">
-                  Assign
-                </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Assignee
+                    </div>
+                  </th>
                 )}
-                <th className="px-3 py-2.5 border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500 sticky top-0 bg-white z-10 min-w-[150px] w-[150px] whitespace-nowrap">
-                  Actions
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Actions
+                  </div>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {unifiedRows.map((row) => {
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredRows.map((row) => {
                 if (row.type === "task") {
                   const task = row.data;
-                  const currentStatus =
-                    taskStatuses[task.id] || task.status || "Pending";
-                  const currentAssignee =
-                    taskAssignees[task.id] || task.assignee || "Unclaimed";
+                  const currentStatus = taskStatuses[task.id] || task.status || "Pending";
+                  const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
                   const statusOptions = getStatusOptions(task);
                   const isSelected = isRowSelected(row);
+                  const priorityIcon = getPriorityIcon(task.priority || '');
+                  const taskIcon = getTaskIcon(task.department || '');
 
                   return (
-                    <tr key={`task-${task.id}`} className={isSelected ? "bg-blue-50/50" : ""}>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px] min-w-[40px]">
-                        {/* Checkbox only for failed documents */}
+                    <tr
+                      key={`task-${task.id}`}
+                      className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-blue-50 to-blue-25' : ''}`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center h-full">
+                          {/* Checkbox for selection */}
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
-                        {task.description}
-                        {task.assignee && task.assignee !== 'Unclaimed' && (
-                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                Assigned to: {task.assignee}
-                            </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[50px] w-[50px] whitespace-nowrap relative">
-                        <div
-                          className="relative"
-                          ref={openDropdown === task.id ? dropdownRef : null}
-                        >
-                          <span
-                            className={`text-xs px-3 py-1.5 rounded-full border font-semibold whitespace-nowrap cursor-pointer inline-flex items-center gap-1 ${getStatusChipColor(
-                              currentStatus
-                            )}`}
-                            onClick={() =>
-                              setOpenDropdown(
-                                openDropdown === task.id ? null : task.id
-                              )
-                            }
-                          >
-                            {updatingStatuses.has(task.id) ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                Updating...
-                              </>
-                            ) : (
-                              <>
-                                {currentStatus}
-                                <svg
-                                  className="w-3 h-3"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 9l-7 7-7-7"
-                                  />
-                                </svg>
-                              </>
-                            )}
-                          </span>
-                          {openDropdown === task.id && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[10000] min-w-[140px] max-h-[300px] overflow-y-auto">
-                              {statusOptions.map((status) => (
-                                <div
-                                  key={status}
-                                  className={`px-3 py-2 text-xs cursor-pointer hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                                    currentStatus === status
-                                      ? "bg-blue-50 font-semibold"
-                                      : ""
-                                  }`}
-                                  onClick={async () => {
-                                    setUpdatingStatuses((prev) =>
-                                      new Set(prev).add(task.id)
-                                    );
-                                    setOpenDropdown(null);
-                                    try {
-                                      await onStatusClick(task.id, status);
-                                      toast.success(
-                                        `Status updated to "${status}"`
-                                      );
-                                    } catch (error) {
-                                      toast.error("Failed to update status");
-                                    } finally {
-                                      setUpdatingStatuses((prev) => {
-                                        const newSet = new Set(prev);
-                                        newSet.delete(task.id);
-                                        return newSet;
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <span
-                                    className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                                      status.toLowerCase().includes("completed")
-                                        ? "bg-green-500"
-                                        : status
-                                            .toLowerCase()
-                                            .includes("progress")
-                                        ? "bg-amber-500"
-                                        : status
-                                            .toLowerCase()
-                                            .includes("pending")
-                                        ? "bg-orange-500"
-                                        : status
-                                            .toLowerCase()
-                                            .includes("waiting")
-                                        ? "bg-purple-500"
-                                        : "bg-blue-500"
-                                    }`}
-                                  ></span>
-                                  {status}
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
+                            {taskIcon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900">{task.description}</h4>
+                              {task.priority && (
+                                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs">
+                                  {priorityIcon}
+                                  <span>{task.priority}</span>
                                 </div>
-                              ))}
+                              )}
                             </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <User className="w-4 h-4" />
+                                {task.patient}
+                              </span>
+                              {task.assignee && task.assignee !== 'Unclaimed' && (
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200">
+                                  <UserPlus className="w-3 h-3" />
+                                  {task.assignee}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusChipColor(currentStatus)}`}>
+                          <span className="w-2 h-2 rounded-full bg-current opacity-70"></span>
+                          {currentStatus}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-gray-100 to-gray-50">
+                            {taskIcon}
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-900">{task.department}</span>
+                            <div className="text-xs text-gray-500 mt-1">{task.type || 'General Task'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className={`font-medium ${new Date(task.dueDate || '') < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
+                            {task.dueDate
+                              ? new Date(task.dueDate).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })
+                              : "—"}
+                          </span>
+                          {task.dueDate && new Date(task.dueDate) < new Date() && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">
+                              Overdue
+                            </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
-                        {task.department}
-                      </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
-                        {task.document?.blobPath ? (
-                          <button
-                            onClick={(e) => handleTaskDocumentPreview(e, task)}
-                            disabled={loadingTaskPreview === task.id}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
-                            title="Preview Document"
-                          >
-                            {loadingTaskPreview === task.id ? (
-                              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <FileText className="w-4 h-4" />
-                            )}
-                          </button>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
-                        {task.dueDate
-                          ? (() => {
-                              const d = new Date(task.dueDate);
-                              const month = String(d.getMonth() + 1).padStart(
-                                2,
-                                "0"
-                              );
-                              const day = String(d.getDate()).padStart(2, "0");
-                              const year = d.getFullYear();
-                              return `${month}-${day}-${year}`;
-                            })()
-                          : "—"}
-                      </td>
                       {session?.user?.role !== "Staff" && (
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenAssignTaskId(task.id);
-                          }}
-                          className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
-                          title="Assign Task"
-                        >
-                          <UserPlus className="w-3.5 h-3.5" />
-                          Assign
-                        </button>
-                      </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenAssignTaskId(task.id);
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 rounded-lg transition-all border border-blue-200 shadow-sm"
+                            title="Assign Task"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            {currentAssignee === "Unclaimed" ? "Assign" : "Reassign"}
+                          </button>
+                        </td>
                       )}
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap relative">
-                        <div className="relative">
-                          <span
-                            className="text-blue-600 font-semibold cursor-pointer"
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {task.document?.blobPath && (
+                            <button
+                              onClick={(e) => handleTaskDocumentPreview(e, task)}
+                              disabled={loadingTaskPreview === task.id}
+                              className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
+                              title="Preview Document"
+                            >
+                              {loadingTaskPreview === task.id ? (
+                                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4 text-gray-600" />
+                              )}
+                            </button>
+                          )}
+
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               if (onSaveQuickNote) {
@@ -675,32 +1024,17 @@ export default function TasksTable({
                                 onTaskClick(task);
                               }
                             }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-all shadow-sm shadow-blue-200"
                           >
-                            {task.department
-                              ?.toLowerCase()
-                              .includes("clinical") ||
-                            task.department?.toLowerCase().includes("medical")
-                              ? "Review"
-                              : "View"}
-                          </span>
+                            {task.department?.toLowerCase().includes("clinical") ||
+                              task.department?.toLowerCase().includes("medical")
+                              ? <><FileSearch className="w-4 h-4" /> Review</>
+                              : <><Eye className="w-4 h-4" /> View</>}
+                          </button>
 
-                          {openQuickNoteId === task.id && onSaveQuickNote && (
-                            <QuickNoteModal
-                              isOpen={true}
-                              task={task}
-                              onClose={() => setOpenQuickNoteId(null)}
-                              onSave={onSaveQuickNote}
-                              // onAssignTask removed to separate concerns
-                            />
-                          )}
-                          {openAssignTaskId === task.id && (
-                            <AssignTaskModal
-                              isOpen={true}
-                              task={task}
-                              onClose={() => setOpenAssignTaskId(null)}
-                              onAssign={onAssigneeClick}
-                            />
-                          )}
+                          <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <MoreVertical className="w-5 h-5 text-gray-400" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -709,95 +1043,116 @@ export default function TasksTable({
                   // Failed document row
                   const doc = row.data;
                   const isSelected = isRowSelected(row);
+                  const isHardFailDoc = isHardFail(doc);
 
                   return (
                     <tr
                       key={`doc-${doc.id}`}
-                      className={`${isSelected ? "bg-blue-50/50" : "bg-red-50/30"} hover:bg-red-50 transition-colors ${isHardFail(doc) ? "opacity-75 cursor-pointer" : ""}`}
-                      onClick={() => isHardFail(doc) && onFailedDocumentRowClick?.(doc)}
+                      className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-red-50 to-red-25' : ''} ${isHardFailDoc ? 'opacity-75' : ''}`}
+                      onClick={() => isHardFailDoc && onFailedDocumentRowClick?.(doc)}
                     >
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left w-[40px] min-w-[40px]">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          disabled={isHardFail(doc)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleRowSelection(row, e.target.checked);
-                          }}
-                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        />
+                      <td className="px-6 py-4">
+                        <div className="flex items-center h-full">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isHardFailDoc}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleRowSelection(row, e.target.checked);
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[250px] w-[250px] whitespace-normal">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gradient-to-br from-gray-100 to-gray-50' : 'bg-gradient-to-br from-red-100 to-red-50'} border ${isHardFailDoc ? 'border-gray-300' : 'border-red-200'}`}>
+                            {isHardFailDoc ? <FileX className="w-5 h-5 text-gray-600" /> : <FileWarning className="w-5 h-5 text-red-600" />}
+                          </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-800">
-                              {doc.reason}
-                            </p>
-                            {doc.fileName && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                File: {doc.fileName}
-                              </p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900">{doc.reason}</h4>
+                              {isHardFailDoc && (
+                                <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
+                                  Hard Fail
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600">{doc.fileName}</p>
+                            {doc.patientName && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <User className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm text-gray-700">{doc.patientName}</span>
+                                {doc.claimNumber && (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span className="text-sm text-gray-700">Claim: {doc.claimNumber}</span>
+                                  </>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[50px] w-[50px] whitespace-nowrap">
-                        <span className="text-xs px-3 py-1.5 rounded-full border font-semibold whitespace-nowrap border-red-400 bg-red-100 text-red-700">
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border border-red-300 bg-gradient-to-r from-red-50 to-red-100 text-red-800 shadow-sm shadow-red-100">
+                          <AlertTriangle className="w-4 h-4" />
                           Action Required
-                        </span>
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
-                        <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 font-medium">
-                          Failed Document
-                        </span>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gray-100' : 'bg-red-100'}`}>
+                            {isHardFailDoc ? <FileQuestion className="w-5 h-5" /> : <FileClock className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-900">Failed Document</span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {isHardFailDoc ? 'Missing critical data' : 'Needs processing'}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          {/* Preview File - ONLY ONE PREVIEW BUTTON HERE */}
+                      <td className="px-6 py-4">
+                        <span className="text-gray-400">—</span>
+                      </td>
+                      {session?.user?.role !== "Staff" && (
+                        <td className="px-6 py-4">
+                          <span className="text-gray-400">—</span>
+                        </td>
+                      )}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
                           {doc.blobPath && (
                             <button
                               onClick={(e) => handlePreviewFile(e, doc)}
                               disabled={loadingPreview === doc.id}
-                              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                              className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
                               title="Preview File"
                             >
                               {loadingPreview === doc.id ? (
                                 <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-4 h-4 text-gray-600" />
                               )}
                             </button>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap text-gray-400">
-                        —
-                      </td>
-                      {session?.user?.role !== "Staff" && (
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[100px] w-[100px] whitespace-nowrap text-gray-400">
-                        —
-                      </td>
-                      )}
-                      <td className="px-3 py-2.5 border-b border-gray-200 text-left min-w-[150px] w-[150px] whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          {/* View Summary */}
+
                           <button
                             onClick={(e) => handleViewSummary(e, doc)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 transition-all border border-blue-200"
                             title="View Details"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-4 h-4 text-blue-600" />
                           </button>
-                          {/* Preview File - REMOVED DUPLICATE PREVIEW BUTTON FROM HERE */}
-                          {/* Delete */}
+
                           <button
                             onClick={(e) => handleDeleteClick(e, doc)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-2 rounded-lg bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 transition-all border border-red-200"
                             title="Delete Document"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 text-red-600" />
                           </button>
                         </div>
                       </td>
@@ -808,7 +1163,185 @@ export default function TasksTable({
             </tbody>
           </table>
         </div>
-      </div>
+      ) : (
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredRows.map((row) => {
+            if (row.type === "task") {
+              const task = row.data;
+              const currentStatus = taskStatuses[task.id] || task.status || "Pending";
+              const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
+              const isSelected = isRowSelected(row);
+              const priorityIcon = getPriorityIcon(task.priority || '');
+              const taskIcon = getTaskIcon(task.department || '');
+
+              return (
+                <div
+                  key={`task-${task.id}`}
+                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10' : 'border-gray-200 hover:border-blue-200'}`}
+                  onClick={() => handleRowSelection(row, !isSelected)}
+                >
+
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200 text-blue-600">
+                      {taskIcon}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900 line-clamp-1" title={task.department}>{task.department}</h4>
+                      <p className="text-xs text-gray-500">{task.type || 'General Task'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-2">
+                    <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={task.description}>
+                      {task.description}
+                    </h3>
+
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="truncate">{task.patient}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className={new Date(task.dueDate || '') < new Date() ? 'text-red-600 font-medium' : ''}>
+                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusChipColor(currentStatus)}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+                      {currentStatus}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {session?.user?.role !== "Staff" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenAssignTaskId(task.id);
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title={currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                        </button>
+                      )}
+                      {task.document?.blobPath && (
+                        <button
+                          onClick={(e) => handleTaskDocumentPreview(e, task)}
+                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Preview Document"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSaveQuickNote) {
+                            setOpenQuickNoteId(openQuickNoteId === task.id ? null : task.id);
+                          } else {
+                            onTaskClick(task);
+                          }
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Task"
+                      >
+                        {task.department?.toLowerCase().includes("clinical") ? <FileSearch className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else {
+              const doc = row.data;
+              const isSelected = isRowSelected(row);
+              const isHardFailDoc = isHardFail(doc);
+
+              return (
+                <div
+                  key={`doc-${doc.id}`}
+                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-red-500 ring-1 ring-red-500 bg-red-50/10' : 'border-gray-200 hover:border-red-200'} ${isHardFailDoc ? 'opacity-75' : ''}`}
+                  onClick={() => !isHardFailDoc && handleRowSelection(row, !isSelected)}
+                >
+                  {!isHardFailDoc && (
+                    <div className="absolute top-4 right-4 z-10">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleRowSelection(row, e.target.checked);
+                        }}
+                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`p-3 rounded-xl ${isHardFailDoc ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-600'} border ${isHardFailDoc ? 'border-gray-200' : 'border-red-100'}`}>
+                      {isHardFailDoc ? <FileX className="w-6 h-6" /> : <FileWarning className="w-6 h-6" />}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900 line-clamp-1">Failed Document</h4>
+                      <p className="text-xs text-red-500 font-medium">Action Required</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-2">
+                    <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={doc.reason}>
+                      {doc.reason}
+                    </h3>
+                    <p className="text-xs text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
+
+                    {doc.patientName && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">{doc.patientName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500">
+                      {isHardFailDoc ? 'Missing Data' : 'Processing Failed'}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      {doc.blobPath && (
+                        <button
+                          onClick={(e) => handlePreviewFile(e, doc)}
+                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Preview File"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => handleViewSummary(e, doc)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteClick(e, doc)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          })}
+        </div>
+      )}
 
       {/* Summary/Details Modal for Failed Documents */}
       {summaryModalOpen && selectedDocument && (
@@ -818,93 +1351,109 @@ export default function TasksTable({
               className="fixed inset-0 bg-black/20 transition-opacity"
               onClick={() => setSummaryModalOpen(false)}
             />
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-              <div className="bg-white px-4 pb-4 pt-5 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
+            <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="bg-gradient-to-r from-gray-50 to-white px-6 pb-4 pt-6">
+                <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="bg-red-100 p-2 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-red-600" />
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-red-100 to-red-50 border border-red-200">
+                      <FileWarning className="w-6 h-6 text-red-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Document Details
-                    </h3>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        Document Details
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Review document information and take action
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={() => setSummaryModalOpen(false)}
-                    className="text-gray-400 hover:text-gray-500"
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-5 h-5 text-gray-500" />
                   </button>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <p className="text-sm font-medium text-gray-700">
+                  <div className="p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      <File className="w-4 h-4" />
                       File Name
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 font-mono">
                       {selectedDocument.fileName}
                     </p>
                   </div>
 
-                  <div className="p-3 bg-red-50 rounded-md">
-                    <p className="text-sm font-medium text-red-700">Reason</p>
+                  <div className="p-4 bg-gradient-to-br from-red-50 to-white rounded-xl border border-red-200">
+                    <p className="text-sm font-medium text-red-700 mb-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Issue Detected
+                    </p>
                     <p className="text-sm text-red-600">
                       {selectedDocument.reason}
                     </p>
                   </div>
 
                   {selectedDocument.patientName && (
-                    <div className="p-3 bg-gray-50 rounded-md">
-                      <p className="text-sm font-medium text-gray-700">
-                        Patient Name
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {selectedDocument.patientName}
-                      </p>
-                    </div>
-                  )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-white rounded-xl border border-blue-200">
+                        <p className="text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          Patient Name
+                        </p>
+                        <p className="text-sm text-gray-800">
+                          {selectedDocument.patientName}
+                        </p>
+                      </div>
 
-                  {selectedDocument.claimNumber && (
-                    <div className="p-3 bg-gray-50 rounded-md">
-                      <p className="text-sm font-medium text-gray-700">
-                        Claim Number
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {selectedDocument.claimNumber}
-                      </p>
+                      {selectedDocument.claimNumber && (
+                        <div className="p-4 bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-200">
+                          <p className="text-sm font-medium text-indigo-700 mb-2 flex items-center gap-2">
+                            <FileDigit className="w-4 h-4" />
+                            Claim Number
+                          </p>
+                          <p className="text-sm text-gray-800">
+                            {selectedDocument.claimNumber}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {(selectedDocument.summary ||
                     selectedDocument.documentText) && (
-                    <div className="p-3 bg-blue-50 rounded-md">
-                      <p className="text-sm font-medium text-blue-700 mb-2">
-                        Summary / Document Text
-                      </p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                        {selectedDocument.documentText ||
-                          selectedDocument.documentText}
-                      </p>
-                    </div>
-                  )}
+                      <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
+                        <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          Document Content
+                        </p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                          {selectedDocument.documentText ||
+                            selectedDocument.documentText}
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
                 {selectedDocument.gcsFileLink && (
                   <button
                     type="button"
                     onClick={(e) => handlePreviewFile(e, selectedDocument)}
-                    className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-200"
                   >
-                    Preview File
+                    <FileText className="w-4 h-4" />
+                    Preview Document
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setSummaryModalOpen(false)}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                  className="flex items-center gap-2 px-4 py-3 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors border border-gray-300 shadow-sm"
                 >
+                  <X className="w-4 h-4" />
                   Close
                 </button>
               </div>
@@ -921,27 +1470,26 @@ export default function TasksTable({
               className="fixed inset-0 bg-black/20 transition-opacity"
               onClick={() => setDeleteModalOpen(false)}
             />
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-              <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+            <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              <div className="bg-gradient-to-br from-red-50 to-white px-6 pb-4 pt-6">
                 <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <Trash2 className="h-6 w-6 text-red-600" />
+                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-100 to-red-50 sm:mx-0 sm:h-14 sm:w-14">
+                    <Trash2 className="h-7 w-7 text-red-600" />
                   </div>
                   <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                    <h3 className="text-lg font-semibold leading-6 text-gray-900">
+                    <h3 className="text-lg font-bold leading-6 text-gray-900">
                       Delete Document
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        Are you sure you want to delete this document? This
-                        action cannot be undone.
+                        This action cannot be undone. The document will be permanently removed.
                       </p>
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                        <p className="font-medium text-gray-700">
+                      <div className="mt-3 p-3 bg-gradient-to-br from-gray-50 to-white rounded-lg border border-gray-200">
+                        <p className="font-medium text-gray-900">
                           {documentToDelete.fileName}
                         </p>
                         {documentToDelete.patientName && (
-                          <p className="text-gray-500">
+                          <p className="text-sm text-gray-500 mt-1">
                             Patient: {documentToDelete.patientName}
                           </p>
                         )}
@@ -950,28 +1498,32 @@ export default function TasksTable({
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
                 <button
                   type="button"
                   disabled={isDeleting}
                   onClick={handleConfirmDelete}
-                  className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 shadow-lg shadow-red-200"
                 >
                   {isDeleting ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       Deleting...
-                    </div>
+                    </>
                   ) : (
-                    "Delete"
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete Permanently
+                    </>
                   )}
                 </button>
                 <button
                   type="button"
                   disabled={isDeleting}
                   onClick={() => setDeleteModalOpen(false)}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                  className="flex items-center gap-2 px-4 py-3 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors border border-gray-300 shadow-sm"
                 >
+                  <X className="w-4 h-4" />
                   Cancel
                 </button>
               </div>
@@ -979,6 +1531,31 @@ export default function TasksTable({
           </div>
         </div>
       )}
+
+      {/* Assign Task Modal */}
+      <AssignTaskModal
+        isOpen={openAssignTaskId !== null}
+        task={tasks.find(t => t.id === openAssignTaskId) || null}
+        onClose={() => setOpenAssignTaskId(null)}
+        onAssign={async (taskId: string, assignee: string) => {
+          await onAssigneeClick(taskId, assignee);
+          setOpenAssignTaskId(null);
+        }}
+      />
+
+      {/* Quick Note Modal */}
+      <QuickNoteModal
+        isOpen={openQuickNoteId !== null}
+        task={tasks.find(t => t.id === openQuickNoteId) || null}
+        onClose={() => setOpenQuickNoteId(null)}
+        onSave={onSaveQuickNote ? async (taskId: string, quickNotes: any, status?: string) => {
+          await onSaveQuickNote(taskId, quickNotes, status);
+          setOpenQuickNoteId(null);
+        } : undefined}
+        onAssignTask={async (taskId: string, assignee: string) => {
+          await onAssigneeClick(taskId, assignee);
+        }}
+      />
     </section>
   );
 }

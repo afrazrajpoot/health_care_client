@@ -1,7 +1,7 @@
 import React from "react";
 
 interface UploadSectionProps {
-  files: File[];
+  files?: File[]; // Make files optional
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onUpload: () => void;
   onCancel: () => void;
@@ -10,7 +10,7 @@ interface UploadSectionProps {
 }
 
 export const UploadSection = React.memo<UploadSectionProps>(
-  ({ files, onFileSelect, onUpload, onCancel, loading, fileInputRef }) => (
+  ({ files = [], onFileSelect, onUpload, onCancel, loading, fileInputRef }) => (
     <div className="mb-3.5">
       <input
         type="file"
@@ -20,7 +20,7 @@ export const UploadSection = React.memo<UploadSectionProps>(
         className="hidden"
         ref={fileInputRef}
       />
-      {files.length > 0 && (
+      {files && files.length > 0 && (
         <div className="inline-flex items-center gap-2 bg-blue-50 p-2 rounded-lg">
           <span className="text-sm text-gray-600">
             Selected: {files.map((f) => f.name).join(", ")}

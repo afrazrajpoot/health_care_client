@@ -30,7 +30,7 @@ export function Providers({ children }: { children: ReactNode }) {
           >
             <TooltipProvider>
               {children}
-              <ProgressTracker />
+          
               <Sonner position="top-center" />
             </TooltipProvider>
           </ThemeProvider>

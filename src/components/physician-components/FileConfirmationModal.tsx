@@ -13,6 +13,7 @@ interface FileConfirmationModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   onRemoveFile: (index: number) => void;
+  formatSize?: (bytes: number) => string;
 }
 
 export default function FileConfirmationModal({
@@ -21,6 +22,7 @@ export default function FileConfirmationModal({
   onConfirm,
   onCancel,
   onRemoveFile,
+  formatSize,
 }: FileConfirmationModalProps) {
   if (!showModal) return null;
 
@@ -31,6 +33,15 @@ export default function FileConfirmationModal({
   }));
 
   const isOverLimit = files.length > 5;
+
+  // Default formatSize function if not provided
+  const defaultFormatSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const formatFileSize = formatSize || defaultFormatSize;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -67,7 +78,7 @@ export default function FileConfirmationModal({
                       {file.name}
                     </p>
                     <p className="text-gray-500 text-xs mt-1">
-                      {(file.size / 1024).toFixed(2)} KB •{" "}
+                      {formatFileSize(file.size)} •{" "}
                       {file.type || "Unknown type"}
                     </p>
                   </div>
@@ -87,14 +98,14 @@ export default function FileConfirmationModal({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={fileDetails.length === 0 || isOverLimit}
-            className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Upload Files
           </button>

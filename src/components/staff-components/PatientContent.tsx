@@ -1,5 +1,6 @@
 import PatientHeader from "@/components/staff-components/PatientHeader";
 import TaskSummary from "@/components/staff-components/TaskSummary";
+import TreatmentHistorySection from "@/components/staff-components/TreatmentHistorySection";
 import QuestionnaireSummary from "@/components/staff-components/QuestionnaireSummary";
 
 interface RecentPatient {
@@ -32,6 +33,8 @@ interface PatientContentProps {
   questionnaireChips: QuestionnaireChip[];
   formatDOB: (dob: string) => string;
   formatClaimNumber: (claim: string) => string;
+  treatmentHistoryData?: any;
+  isTreatmentHistoryLoading?: boolean;
 }
 
 export default function PatientContent({
@@ -43,18 +46,12 @@ export default function PatientContent({
   questionnaireChips,
   formatDOB,
   formatClaimNumber,
+  treatmentHistoryData,
+  isTreatmentHistoryLoading,
 }: PatientContentProps) {
   // Don't render anything if no patient is selected - let TasksSection handle this
   if (!selectedPatient) {
     return null;
-  }
-
-  if (loadingPatientData) {
-    return (
-      <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
-        <p className="text-sm text-gray-500 m-0">Loading patient data...</p>
-      </section>
-    );
   }
 
   return (
@@ -66,14 +63,27 @@ export default function PatientContent({
         completedTasks={taskStats.completed}
       />
 
-      {/* <TaskSummary
-        open={taskStats.open}
-        urgent={taskStats.urgent}
-        dueToday={taskStats.dueToday}
-        completed={taskStats.completed}
-      /> */}
+      {loadingPatientData ? (
+        <section className="bg-white/60 backdrop-blur-[2px] border border-gray-200 rounded-[14px] p-8 text-center my-4 animate-pulse">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-semibold text-blue-600">
+              Syncing patient data...
+            </p>
+          </div>
+        </section>
+      ) : (
+        <>
+          <TaskSummary
+            open={taskStats.open}
+            urgent={taskStats.urgent}
+            dueToday={taskStats.dueToday}
+            completed={taskStats.completed}
+          />
 
-      <QuestionnaireSummary chips={questionnaireChips} />
+          <QuestionnaireSummary chips={questionnaireChips} />
+        </>
+      )}
     </>
   );
 }

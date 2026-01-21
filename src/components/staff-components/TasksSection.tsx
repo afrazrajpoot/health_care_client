@@ -37,6 +37,9 @@ interface TasksSectionProps {
   onFailedDocumentRowClick: (doc: FailedDocument) => void;
   userRole?: string;
   onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
+  treatmentHistoryData?: any;
+  isTreatmentHistoryLoading?: boolean;
+  onSearch?: (query: string) => void;
 }
 
 import { useState, useCallback, useEffect } from "react";
@@ -75,9 +78,12 @@ export default function TasksSection({
   onFailedDocumentRowClick,
   userRole,
   onBulkAssign,
+  treatmentHistoryData,
+  isTreatmentHistoryLoading,
+  onSearch,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  
+
   // Reset selection when patient changes
   useEffect(() => {
     setSelectedTaskIds([]);
@@ -85,97 +91,42 @@ export default function TasksSection({
 
   const handleToggleTaskSelection = useCallback((taskIds: string[], selected: boolean) => {
     setSelectedTaskIds(prev => {
-        if (selected) {
-            // Add unique IDs
-            const newIds = taskIds.filter(id => !prev.includes(id));
-            return [...prev, ...newIds];
-        } else {
-            // Remove IDs
-            if (taskIds.length === 0) return []; // Clear all
-            return prev.filter(id => !taskIds.includes(id));
-        }
+      if (selected) {
+        // Add unique IDs
+        const newIds = taskIds.filter(id => !prev.includes(id));
+        return [...prev, ...newIds];
+      } else {
+        // Remove IDs
+        if (taskIds.length === 0) return []; // Clear all
+        return prev.filter(id => !taskIds.includes(id));
+      }
     });
   }, []);
 
-  const handleAssignTasks = async (staffId: string, staffName: string) => {
-    // If bulk assign handler is provided, use it
-    if (onBulkAssign) {
-      await onBulkAssign(selectedTaskIds, staffName);
-      setSelectedTaskIds([]);
-      return;
-    }
 
-    // Fallback to individual assignment (legacy behavior)
-    for (const taskId of selectedTaskIds) {
-        await onAssigneeClick(taskId, staffName);
-    }
-    // Clear selection
-    setSelectedTaskIds([]);
-  };
 
-  // Handle view mode toggle
-  const handleViewModeToggle = () => {
-    if (viewMode === "open") {
-      onViewModeChange("completed");
-    } else if (viewMode === "completed") {
-      onViewModeChange("all");
-    } else {
-      onViewModeChange("completed");
-    }
-  };
 
-  // Get button text based on current view mode
-  const getViewModeButtonText = () => {
-    if (viewMode === "open") {
-      return "Show Completed Tasks";
-    } else if (viewMode === "completed") {
-      return "Show All Tasks";
-    } else {
-      return "Show Completed Tasks";
-    }
-  };
 
-  // Get button class based on current view mode
-  const getViewModeButtonClass = () => {
-    const baseClass = "px-4 py-2 rounded-lg border border-gray-200 cursor-pointer text-[13px] font-medium transition-all duration-200";
-    
-    // Show green when in "completed" or "all" mode (indicating a filter is active or changed)
-    if (viewMode === "completed" || viewMode === "all") {
-      return `${baseClass} bg-green-700 text-white`;
-    } else {
-      return `${baseClass} bg-white text-slate-900 hover:bg-gray-50`;
-    }
-  };
 
-  // Get section title based on view mode
-  const getSectionTitle = () => {
-    if (!selectedPatient) {
-      return "";
-    }
-    
-    if (viewMode === "completed") {
-      return `Completed Tasks (${taskTotalCount})`;
-    } else if (viewMode === "all") {
-      return `All Tasks (${taskTotalCount})`;
-    } else {
-      return `Open Tasks & Required Actions (${taskTotalCount})`;
-    }
-  };
 
   return (
     <div>
       {/* Patient Content Section */}
-      <PatientContent
-        selectedPatient={selectedPatient}
-        loadingPatientData={loadingPatientData}
-        patientIntakeUpdate={patientIntakeUpdate}
-        patientQuiz={patientQuiz}
-        taskStats={taskStats}
-        questionnaireChips={questionnaireChips}
-        formatDOB={formatDOB}
-        formatClaimNumber={formatClaimNumber}
-      />
+      <div className="px-[1vw]">
+        <PatientContent
+          selectedPatient={selectedPatient}
+          loadingPatientData={loadingPatientData}
+          patientIntakeUpdate={patientIntakeUpdate}
+          patientQuiz={patientQuiz}
+          taskStats={taskStats}
+          questionnaireChips={questionnaireChips}
+          formatDOB={formatDOB}
+          formatClaimNumber={formatClaimNumber}
+          treatmentHistoryData={treatmentHistoryData}
+          isTreatmentHistoryLoading={isTreatmentHistoryLoading}
+        />
 
+      </div>
       {/* No Patient Selected Message */}
       {!selectedPatient && (
         <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center mb-4">
@@ -184,89 +135,81 @@ export default function TasksSection({
           </p>
         </section>
       )}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-base font-bold text-slate-900 m-0">
-          {getSectionTitle()}
-        </h3>
 
-        {/* Show task filters when patient is selected */}
-        {selectedPatient && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleViewModeToggle}
-              className={getViewModeButtonClass()}
-            >
-              {getViewModeButtonText()}
-            </button>
-          </div>
-        )}
-      </div>
 
 
 
       {/* Show TasksTable - only one instance, handle both cases */}
-      <TaskManager  tasks={displayedTasks as any} />
-      <TasksTable
-        tasks={displayedTasks}
-        taskStatuses={taskStatuses}
-        taskAssignees={taskAssignees}
-        onStatusClick={onStatusClick}
-        onAssigneeClick={onAssigneeClick}
-        onTaskClick={onTaskClick}
-        onSaveQuickNote={onSaveQuickNote}
-        getStatusOptions={getStatusOptions}
-        getAssigneeOptions={getAssigneeOptions}
-        // ALWAYS pass failed documents (they show in ALL cases)
-        failedDocuments={failedDocuments}
-        onFailedDocumentDeleted={onFailedDocumentDeleted}
-        onFailedDocumentRowClick={onFailedDocumentRowClick}
-        mode="wc"
-        physicianId={physicianId || undefined}
-        selectedTaskIds={selectedTaskIds}
-        onToggleTaskSelection={handleToggleTaskSelection}
+      <div className="px-[1vw]">
+        <TasksTable
+          tasks={displayedTasks}
+          taskStatuses={taskStatuses}
+          taskAssignees={taskAssignees}
+          onStatusClick={onStatusClick}
+          onAssigneeClick={onAssigneeClick}
+          onTaskClick={onTaskClick}
+          onSaveQuickNote={onSaveQuickNote}
+          getStatusOptions={getStatusOptions}
+          getAssigneeOptions={getAssigneeOptions}
+          // ALWAYS pass failed documents (they show in ALL cases)
+          failedDocuments={failedDocuments}
+          onFailedDocumentDeleted={onFailedDocumentDeleted}
+          onFailedDocumentRowClick={onFailedDocumentRowClick}
+          mode="wc"
+          physicianId={physicianId || undefined}
+          selectedTaskIds={selectedTaskIds}
+          onToggleTaskSelection={handleToggleTaskSelection}
+          onSearch={onSearch}
+          isLoading={loadingPatientData}
+        />
+        {selectedPatient &&
+          displayedTasks.length > 0 &&
+          taskTotalCount > taskPageSize && (
+            <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">
+                Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
+                {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
+                {taskTotalCount} tasks
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onTaskPageChange(Math.max(1, taskPage - 1))}
+                  disabled={!hasPrevPage}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${hasPrevPage
+                      ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {taskPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    onTaskPageChange(Math.min(totalPages, taskPage + 1))
+                  }
+                  disabled={!hasNextPage}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${hasNextPage
+                      ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+      </div>
+      <TaskManager
+        tasks={displayedTasks as any}
+        treatmentHistoryData={treatmentHistoryData}
+        isTreatmentHistoryLoading={isTreatmentHistoryLoading}
       />
 
+
       {/* Pagination Controls - only show when patient is selected, has tasks, and has pagination */}
-      {selectedPatient &&
-        displayedTasks.length > 0 &&
-        taskTotalCount > taskPageSize && (
-          <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600">
-              Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
-              {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
-              {taskTotalCount} tasks
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onTaskPageChange(Math.max(1, taskPage - 1))}
-                disabled={!hasPrevPage}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                  hasPrevPage
-                    ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                }`}
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {taskPage} of {totalPages}
-              </span>
-              <button
-                onClick={() =>
-                  onTaskPageChange(Math.min(totalPages, taskPage + 1))
-                }
-                disabled={!hasNextPage}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                  hasNextPage
-                    ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                }`}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+
     </div>
   );
 }

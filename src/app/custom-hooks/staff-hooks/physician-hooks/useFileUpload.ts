@@ -1,122 +1,240 @@
 import { useState, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useSocket } from "@/providers/SocketProvider";
+import { toast } from "sonner";
+import { useExtractDocumentsMutation } from "@/redux/pythonApi";
 
-// Response type for upload API
-interface IgnoredFile {
-  filename: string;
-  reason: string;
-  existing_file?: string;
-  document_id?: string;
-}
-
-interface UploadResponse {
-  upload_task_id?: string;
-  task_id?: string | null;
-  payload_count: number;
-  ignored?: IgnoredFile[];
-  ignored_count?: number;
-  remaining_parses?: number;
-}
-
-export const useFileUpload = (
-  session: any,
-  mode: "wc" | "gm" = "wc"
-) => {
-  const [files, setFiles] = useState<File[]>([]);
-  const [ignoredFiles, setIgnoredFiles] = useState<IgnoredFile[]>([]);
+export const useFileUpload = (mode: "wc" | "gm") => {
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [ignoredFiles, setIgnoredFiles] = useState<any[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const snapInputRef = useRef<HTMLInputElement>(null);
+  const { data: session } = useSession();
+  const { setActiveTask, startTwoPhaseTracking, clearProgress } = useSocket();
+  const [extractDocumentsMutation] = useExtractDocumentsMutation();
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-      setIgnoredFiles([]);
-      setUploadError(null);
-    }
+  const formatSize = useCallback((bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }, []);
 
-  const handleUpload = useCallback(async () => {
-    if (files.length === 0) return;
+  const clearPaymentError = useCallback(() => {
+    setPaymentError(null);
+    setIgnoredFiles([]);
+  }, []);
 
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append("documents", file);
-    });
-    formData.append("mode", mode);
+  const clearUploadError = useCallback(() => {
+    setUploadError(null);
+  }, []);
 
-    try {
-      setUploadError(null);
-      setIgnoredFiles([]);
+  const submitFiles = useCallback(
+    async (filesToSubmit: File[]) => {
+      if (filesToSubmit.length === 0) return;
 
-      // ✅ Determine physician ID based on role (same as staff dashboard)
-      const user = session?.user;
-      const physicianId =
-        user?.role === "Physician"
-          ? user?.id // if Physician, send their own ID
-          : user?.physicianId || ""; // otherwise, send assigned physician's ID
-
-      const apiUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL
-      }/api/documents/extract-documents?physicianId=${physicianId}&userId=${
-        user?.id || ""
-      }`;
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${user?.fastapi_token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Upload failed:", errorText);
-        setUploadError(`Upload failed: ${errorText}`);
+      // Check for files larger than 30MB
+      const oversizedFiles = filesToSubmit.filter(file => file.size > 30 * 1024 * 1024);
+      if (oversizedFiles.length > 0) {
+        setUploadError(`Cannot upload files larger than 30MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+        setUploading(false);
+        toast.error("File size limit exceeded", {
+          description: `The following files exceed 30MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+          duration: 4000,
+        });
         return;
       }
 
-      const data: UploadResponse = await response.json();
-      
-      // Handle ignored files - set state for modal display
-      if (data.ignored && data.ignored.length > 0) {
-        setIgnoredFiles(data.ignored);
-        
-        // If all files were ignored (no processing task created)
-        if (!data.task_id && data.payload_count === 0) {
-          const errorMsg = `All ${data.ignored_count} file${data.ignored_count !== 1 ? "s were" : " was"} skipped. See details below.`;
-          setUploadError(errorMsg);
+      setUploading(true);
+      setPaymentError(null);
+      setUploadError(null);
+
+      const formDataUpload = new FormData();
+      filesToSubmit.forEach((file) => {
+        formDataUpload.append("documents", file);
+      });
+      formDataUpload.append("mode", mode);
+
+      try {
+        const user = session?.user;
+        const physicianId =
+          user?.role === "Physician"
+            ? user?.id
+            : user?.physicianId || "";
+
+        const result = await extractDocumentsMutation({
+          physicianId,
+          userId: user?.id || "",
+          formData: formDataUpload
+        }).unwrap();
+
+        if (result.ignored && result.ignored.length > 0) {
+          if (!result.task_id) {
+            clearProgress();
+          }
+
+          setIgnoredFiles(result.ignored);
+
+          if (!result.task_id && result.payload_count === 0) {
+            setPaymentError(
+              `All ${result.ignored_count} file${result.ignored_count > 1 ? "s were" : " was"
+              } skipped. See details below.`
+            );
+          } else {
+            setPaymentError(
+              `${result.ignored_count} file${result.ignored_count > 1 ? "s" : ""
+              } could not be uploaded. See details below.`
+            );
+          }
+
+          setSelectedFiles([]);
+          if (snapInputRef.current) {
+            snapInputRef.current.value = "";
+          }
+
+          if (!result.task_id) {
+            return;
+          }
+        }
+
+        if (result.upload_task_id && result.task_id) {
+          startTwoPhaseTracking(
+            result.upload_task_id,
+            result.task_id,
+            result.payload_count
+          );
+        } else if (result.task_id) {
+          setActiveTask(result.task_id, result.payload_count);
         } else {
-          // Some files processed, some ignored
-          const errorMsg = `${data.ignored_count} file${data.ignored_count !== 1 ? "s" : ""} could not be uploaded. See details below.`;
-          setUploadError(errorMsg);
+          if (!result.ignored || result.ignored.length === 0) {
+            throw new Error("No files were processed. Please try again.");
+          }
+          return;
+        }
+
+        setSelectedFiles([]);
+        if (snapInputRef.current) {
+          snapInputRef.current.value = "";
+        }
+      } catch (error: any) {
+        console.error("❌ Upload error:", error);
+        setUploadError(`Upload failed: ${error.message || "Unknown error"}`);
+        clearProgress();
+      } finally {
+        setUploading(false);
+      }
+    },
+    [session?.user, setActiveTask, mode, startTwoPhaseTracking, clearProgress, extractDocumentsMutation]
+  );
+
+  const handleSubmit = useCallback(async () => {
+    await submitFiles(selectedFiles);
+  }, [selectedFiles, submitFiles]);
+
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || []);
+
+      // Check if more than 10 files selected
+      if (files.length > 10) {
+        toast.error("Maximum 10 files allowed", {
+          description: `You selected ${files.length} files. Please select up to 10 files only.`,
+          duration: 4000,
+        });
+        if (snapInputRef.current) {
+          snapInputRef.current.value = "";
+        }
+        return;
+      }
+
+      if (files.length > 0) {
+        const validFiles = files.filter((file) => {
+          // Check for 30MB limit
+          if (file.size > 30 * 1024 * 1024) {
+            console.error(`File ${file.name} is too large (max 30MB)`);
+            toast.error(`File too large: ${file.name}`, {
+              description: "Maximum file size is 30MB",
+            });
+            return false;
+          }
+          // Keep the 40MB check as secondary validation if needed
+          if (file.size > 40 * 1024 * 1024) {
+            console.error(`File ${file.name} is too large (max 40MB)`);
+            toast.error(`File too large: ${file.name}`, {
+              description: "Maximum file size is 40MB",
+            });
+            return false;
+          }
+          const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+          const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
+          if (!allowedTypes.includes(fileExtension)) {
+            console.error(`File ${file.name} has unsupported format`);
+            toast.error(`Unsupported format: ${file.name}`, {
+              description: "Allowed formats: PDF, DOCX, JPG, JPEG, PNG",
+            });
+            return false;
+          }
+          return true;
+        });
+
+        if (validFiles.length > 0) {
+          setSelectedFiles(validFiles);
+          // Auto-submit immediately without showing modal
+          setTimeout(() => {
+            submitFiles(validFiles);
+          }, 0);
+        } else {
+          console.error(
+            "No valid files selected. Please check file types and size (max 30MB)."
+          );
+          toast.error("No valid files selected", {
+            description: "Please check file types and size (max 30MB)",
+          });
         }
       }
+    },
+    [submitFiles]
+  );
 
-      setFiles([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    } catch (err: unknown) {
-      console.error("❌ Network error uploading files:", err);
-      const errorMsg = err instanceof Error ? err.message : "Network error";
-      setUploadError(errorMsg);
+  const handleCancel = useCallback(() => {
+    setSelectedFiles([]);
+    if (snapInputRef.current) {
+      snapInputRef.current.value = "";
     }
-  }, [files, session, mode]);
-
-  const resetFiles = useCallback(() => {
-    setFiles([]);
+    setPaymentError(null);
     setIgnoredFiles([]);
     setUploadError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
-  return { 
-    files, 
-    fileInputRef, 
-    handleFileSelect, 
-    handleUpload, 
-    resetFiles,
+  const removeFile = useCallback((indexToRemove: number) => {
+    setSelectedFiles((prevFiles) =>
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
+  }, []);
+
+  const handleSnap = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      handleFileChange(e);
+    },
+    [handleFileChange]
+  );
+
+  return {
+    selectedFiles,
+    uploading,
+    snapInputRef,
+    formatSize,
+    handleFileChange,
+    handleSubmit,
+    handleCancel,
+    handleSnap,
+    setSelectedFiles,
+    paymentError,
+    clearPaymentError,
     ignoredFiles,
     uploadError,
+    clearUploadError,
+    removeFile,
   };
 };

@@ -1,33 +1,17 @@
-import React, { useCallback, useState } from "react";
-
-interface Patient {
-  id?: string | number;
-  patientName: string;
-  name?: string;
-  dob: string;
-  doi: string;
-  claimNumber: string;
-}
-
-interface RecentPatient {
-  patientName: string;
-  dob: string | Date | null | undefined;
-  claimNumber?: string;
-  documentType?: string;
-  documentCount?: number;
-  createdAt: string | Date;
-}
+import React from "react";
 
 interface RecentPatientsPanelProps {
   isVisible: boolean;
   onToggle: () => void;
-  recentPatients: RecentPatient[];
+  recentPatients: any[];
   searchQuery: string;
   onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  searchResults: Patient[];
+  searchResults: any[];
   searchLoading: boolean;
-  onPatientSelect: (patient: Patient) => void;
+  onPatientSelect: (patient: any, index?: number) => void;
   onClose: () => void;
+  highlightedPatientIndex?: number | null;
+  selectedPatient?: any | null;
 }
 
 export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
@@ -40,6 +24,8 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
   searchLoading,
   onPatientSelect,
   onClose,
+  highlightedPatientIndex,
+  selectedPatient,
 }) => {
   // Format date for recent patients popup (MM/DD/YYYY)
   const formatShortDate = (
@@ -57,7 +43,7 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
   };
 
   // Get document type for recent patients popup
-  const getDocType = (patient: RecentPatient): string => {
+  const getDocType = (patient: any): string => {
     if (patient.documentType) {
       return patient.documentType;
     }
@@ -82,12 +68,12 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
     );
   }, [recentPatients, searchQuery]);
 
-  const handleSearchResultSelect = (patient: Patient) => {
-    onPatientSelect(patient);
+  const handleSearchResultSelect = (patient: any, index: number) => {
+    onPatientSelect(patient, index);
     onClose();
   };
 
-  const handleRecentPatientSelect = (patient: RecentPatient) => {
+  const handleRecentPatientSelect = (patient: any, index: number) => {
     // Format dob to string if it's a Date object
     let dobString = "";
     if (patient.dob) {
@@ -103,26 +89,57 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
       dob: dobString,
       claimNumber: patient.claimNumber || "",
       doi: "", // DOI will be fetched when document data is loaded
-    });
+    }, index);
     onClose();
+  };
+
+  const isPatientSelected = (patient: any) => {
+    if (!selectedPatient) return false;
+
+    const pName = (patient.patientName || patient.name || "").toLowerCase().trim();
+    const sName = (selectedPatient.patientName || selectedPatient.name || "").toLowerCase().trim();
+
+    const pClaim = (patient.claimNumber || "").trim();
+    const sClaim = (selectedPatient.claimNumber || "").trim();
+
+    // Match by name and claim if possible, otherwise just name
+    if (pClaim && sClaim) {
+      return pName === sName && pClaim === sClaim;
+    }
+    return pName === sName;
   };
 
   return (
     <>
+      <style jsx>{`
+        @keyframes pulse-highlight {
+          0% { background-color: rgba(59, 130, 246, 0.1); }
+          50% { background-color: rgba(59, 130, 246, 0.2); }
+          100% { background-color: rgba(59, 130, 246, 0.1); }
+        }
+        .highlighted-patient {
+          animation: pulse-highlight 2s ease-in-out infinite;
+          border-left: 4px solid #3b82f6 !important;
+        }
+        .selected-patient {
+          background-color: rgba(59, 130, 246, 0.08) !important;
+          border-left: 4px solid #3f51b5 !important;
+          font-weight: 600;
+        }
+      `}</style>
+
       {/* Recent Patients Toggle */}
       <div
-        className={`fixed right-0 top-1/2 -translate-y-1/2 bg-[#3f51b5] text-white p-[10px_12px] rounded-l-[12px] shadow-[0_8px_18px_rgba(0,0,0,0.18)] cursor-pointer z-[9998] font-extrabold text-[13px] flex items-center gap-2 ${
-          isVisible ? "checked" : ""
-        }`}
+        className={`fixed right-0 top-1/2 -translate-y-1/2 bg-[#3f51b5] text-white p-[10px_12px] rounded-l-[12px] shadow-[0_8px_18px_rgba(0,0,0,0.18)] cursor-pointer z-[9998] font-extrabold text-[13px] flex items-center gap-2 ${isVisible ? "checked" : ""
+          }`}
         onClick={onToggle}
       >
         <span className="[writing-mode:vertical-rl] rotate-180 tracking-[0.02em]">
           Recent Patients
         </span>
         <div
-          className={`[writing-mode:horizontal-tb] text-[16px] leading-[1] ${
-            isVisible ? "rotate-180" : ""
-          }`}
+          className={`[writing-mode:horizontal-tb] text-[16px] leading-[1] ${isVisible ? "rotate-180" : ""
+            }`}
         >
           ◀
         </div>
@@ -138,31 +155,13 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
             </div>
 
             {/* Search Input */}
-            <div
-              style={{
-                padding: "12px 14px",
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
+            <div className="p-[12px_14px] border-b border-[#e5e7eb]">
               <input
                 type="text"
                 placeholder="Search patients..."
                 value={searchQuery}
                 onChange={onSearchChange}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid var(--border)",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  outline: "none",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "var(--accent)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "var(--border)";
-                }}
+                className="w-full p-2 border border-[#e5e7eb] rounded-lg text-sm outline-none focus:border-[#3f51b5] transition-colors"
               />
             </div>
 
@@ -176,34 +175,31 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
                     </div>
                   ) : searchResults.length > 0 ? (
                     <>
-                      <div
-                        style={{
-                          padding: "8px 14px",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          color: "var(--muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                        }}
-                      >
+                      <div className="p-[8px_14px] text-xs font-semibold text-[#6b7280] uppercase tracking-wider">
                         Search Results
                       </div>
-                      {searchResults.map((patient, index) => (
-                        <div
-                          key={patient.id || index}
-                          className="p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleSearchResultSelect(patient)}
-                        >
-                          {patient.patientName}
-                          {patient.claimNumber &&
-                            patient.claimNumber !== "Not specified" && (
-                              <> • Claim: {patient.claimNumber}</>
+                      {searchResults.map((patient, index) => {
+                        const isSelected = isPatientSelected(patient);
+                        const isHighlighted = highlightedPatientIndex === index;
+
+                        return (
+                          <div
+                            key={patient.id || index}
+                            className={`p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${isSelected ? "selected-patient" : ""
+                              } ${isHighlighted ? "highlighted-patient" : ""}`}
+                            onClick={() => handleSearchResultSelect(patient, index)}
+                          >
+                            {patient.patientName}
+                            {patient.claimNumber &&
+                              patient.claimNumber !== "Not specified" && (
+                                <> • Claim: {patient.claimNumber}</>
+                              )}
+                            {patient.dob && (
+                              <> • DOB: {formatShortDate(patient.dob)}</>
                             )}
-                          {patient.dob && (
-                            <> • DOB: {formatShortDate(patient.dob)}</>
-                          )}
-                        </div>
-                      ))}
+                          </div>
+                        );
+                      })}
                     </>
                   ) : (
                     <div className="p-[10px_14px] text-[13px] text-center text-[#6b7280]">
@@ -221,16 +217,22 @@ export const RecentPatientsPanel: React.FC<RecentPatientsPanelProps> = ({
                       No patients found
                     </div>
                   ) : (
-                    filteredRecentPatients.map((patient, index) => (
-                      <div
-                        key={index}
-                        className="p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => handleRecentPatientSelect(patient)}
-                      >
-                        {patient.patientName} — {getDocType(patient)} •{" "}
-                        {formatShortDate(patient.createdAt)}
-                      </div>
-                    ))
+                    filteredRecentPatients.map((patient, index) => {
+                      const isSelected = isPatientSelected(patient);
+                      const isHighlighted = highlightedPatientIndex === index;
+
+                      return (
+                        <div
+                          key={index}
+                          className={`p-[10px_14px] text-[13px] border-t border-[#e5e7eb] first:border-t-0 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${isSelected ? "selected-patient" : ""
+                            } ${isHighlighted ? "highlighted-patient" : ""}`}
+                          onClick={() => handleRecentPatientSelect(patient, index)}
+                        >
+                          {patient.patientName} — {getDocType(patient)} •{" "}
+                          {formatShortDate(patient.reportDate || patient.createdAt)}
+                        </div>
+                      );
+                    })
                   )}
                 </>
               )}

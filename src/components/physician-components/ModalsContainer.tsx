@@ -1,12 +1,8 @@
-import { DocumentSummary } from "@/app/custom-hooks/staff-hooks/physician-hooks/types";
 import React from "react";
 import { BriefSummaryModal } from "./BriefSummaryModal";
 import { PreviousSummaryModal } from "./PreviousSummaryModal";
 import ManualTaskModal from "../ManualTaskModal";
-// import { BriefSummaryModal } from "./BriefSummaryModal";
-// import { PreviousSummaryModal } from "./PreviousSummaryModal";
-// import { ManualTaskModal } from "@/components/ManualTaskModal";
-// import { DocumentSummary } from "../types"; // Assume types
+import { DocumentSummary } from "@/app/custom-hooks/staff-hooks/physician-hooks/types";
 
 interface ModalsContainerProps {
   showPreviousSummary: boolean;
@@ -44,18 +40,23 @@ export const ModalsContainer = React.memo<ModalsContainerProps>(({
   addToast,
 }) => (
   <>
+    {/* BriefSummaryModal - opens when selectedBriefSummary is not empty */}
     <BriefSummaryModal
-      isOpen={showPreviousSummary}
+      isOpen={!!selectedBriefSummary}
       onClose={onCloseBriefSummary}
       briefSummary={selectedBriefSummary}
     />
+
+    {/* PreviousSummaryModal - opens when showPreviousSummary is true */}
     <PreviousSummaryModal
       isOpen={showPreviousSummary}
       onClose={onClosePreviousSummary}
       onViewBrief={onViewBrief}
-      previousSummary={previousSummary as DocumentSummary | null}
+      previousSummary={previousSummary}
       formatDate={formatDate}
     />
+
+    {/* ManualTaskModal for creating manual tasks */}
     <ManualTaskModal
       open={showManualTaskModal}
       onOpenChange={onManualTaskModalChange}
@@ -72,3 +73,5 @@ export const ModalsContainer = React.memo<ModalsContainerProps>(({
     />
   </>
 ));
+
+ModalsContainer.displayName = "ModalsContainer";

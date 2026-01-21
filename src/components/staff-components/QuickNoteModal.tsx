@@ -18,6 +18,7 @@ interface Task {
     timestamp?: string;
   };
   assignee?: string;
+  status?: string;
 }
 
 interface QuickNoteModalProps {
@@ -28,9 +29,11 @@ interface QuickNoteModalProps {
     taskId: string,
     quickNotes: {
       options: ChipData[];
-    }
+    },
+    status?: string
   ) => Promise<void>;
   onAssignTask?: (taskId: string, assignee: string) => Promise<void>;
+  statusOptions?: string[];
 }
 
 // Custom status chips organized by category
@@ -124,8 +127,10 @@ export default function QuickNoteModal({
   onClose,
   onSave,
   onAssignTask,
+  statusOptions = [],
 }: QuickNoteModalProps) {
   const [selectedChips, setSelectedChips] = useState<ChipData[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -158,6 +163,8 @@ export default function QuickNoteModal({
       }
       // Reset selected staff
       setSelectedStaffId(null);
+      // Set initial status
+      setSelectedStatus(task.status || "Pending");
     }
   }, [task, isOpen]);
 
@@ -179,6 +186,11 @@ export default function QuickNoteModal({
     }
 
     if (!chipData) return;
+
+    // If the category is "General Task Status", update the main task status
+    if (chipCategory === "General Task Status") {
+      setSelectedStatus(chipLabel);
+    }
 
     setSelectedChips((prev) => {
       const exists = prev.find(chip => 
@@ -227,7 +239,17 @@ export default function QuickNoteModal({
 
       // Use the API directly if onSave is not provided
       if (onSave) {
-        await onSave(task.id, quickNotes);
+        // Pass status as the third argument
+        // We need to cast onSave to any because we updated the signature in the parent but not strictly here in the interface if we want to be safe, 
+        // but we updated the interface above so it should be fine.
+        // However, the interface definition in this file needs to match what we expect.
+        // We updated the interface in the previous step? No, I am updating it now.
+        // Wait, I need to update the interface definition in the first chunk.
+        // I did update the interface in the first chunk.
+        // But the interface in QuickNoteModalProps for onSave is:
+        // onSave?: (taskId: string, quickNotes: { options: ChipData[] }) => Promise<void>;
+        // I need to update that too.
+        await (onSave as any)(task.id, quickNotes, selectedStatus);
       } else {
         await saveQuickNote(task.id, selectedChips);
       }
@@ -367,6 +389,8 @@ export default function QuickNoteModal({
           </div>
         )}
 
+
+
         <div className="border-t border-gray-200 my-3"></div>
 
         <h4 className="text-xs font-bold text-slate-700 mb-2">
@@ -485,7 +509,7 @@ export default function QuickNoteModal({
         <button
           className="bg-blue-600 text-white border border-blue-600 rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
           onClick={handleSave}
-          disabled={saving || !canSave}
+          disabled={saving}
         >
           {saving ? "Saving..." : "Save Note"}
         </button>

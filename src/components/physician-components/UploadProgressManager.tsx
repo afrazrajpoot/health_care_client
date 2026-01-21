@@ -3,8 +3,8 @@ import { useEffect, useRef, useCallback } from "react";
 import { useSocket } from "@/providers/SocketProvider";
 
 interface UploadProgressManagerProps {
-  onRefreshData: () => Promise<void>;
-  onShowSuccessPopup: () => void;
+  onRefreshData: any;
+  onShowSuccessPopup: any;
 }
 
 export default function UploadProgressManager({

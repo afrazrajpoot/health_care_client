@@ -33,61 +33,49 @@ export const useFileUpload = (mode: "wc" | "gm") => {
   const submitFiles = useCallback(
     async (filesToSubmit: File[]) => {
       if (filesToSubmit.length === 0) return;
-
       setUploading(true);
       setPaymentError(null);
       setUploadError(null);
-
       const formDataUpload = new FormData();
       filesToSubmit.forEach((file) => {
         formDataUpload.append("documents", file);
       });
       formDataUpload.append("mode", mode);
-
       try {
         const user = session?.user;
         const physicianId =
           user?.role === "Physician"
             ? user?.id
             : user?.physicianId || "";
-
         const result = await extractDocumentsMutation({
           physicianId,
           userId: user?.id || "",
           formData: formDataUpload
         }).unwrap();
-
         if (result.ignored && result.ignored.length > 0) {
           if (!result.task_id) {
             clearProgress();
           }
-
           setIgnoredFiles(result.ignored);
-
           if (!result.task_id && result.payload_count === 0) {
             setPaymentError(
-              `All ${result.ignored_count} file${
-                result.ignored_count > 1 ? "s were" : " was"
+              `All ${result.ignored_count} file${result.ignored_count > 1 ? "s were" : " was"
               } skipped. See details below.`
             );
           } else {
             setPaymentError(
-              `${result.ignored_count} file${
-                result.ignored_count > 1 ? "s" : ""
+              `${result.ignored_count} file${result.ignored_count > 1 ? "s" : ""
               } could not be uploaded. See details below.`
             );
           }
-
           setSelectedFiles([]);
           if (snapInputRef.current) {
             snapInputRef.current.value = "";
           }
-
           if (!result.task_id) {
             return;
           }
         }
-
         if (result.upload_task_id && result.task_id) {
           startTwoPhaseTracking(
             result.upload_task_id,
@@ -102,7 +90,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
           }
           return;
         }
-
         setSelectedFiles([]);
         if (snapInputRef.current) {
           snapInputRef.current.value = "";
@@ -118,61 +105,13 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     [session?.user, setActiveTask, mode, startTwoPhaseTracking, clearProgress, extractDocumentsMutation]
   );
 
-  const handleSubmit = useCallback(async () => {
-    await submitFiles(selectedFiles);
-  }, [selectedFiles, submitFiles]);
-
   const handleFileChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
-
-      // Check if more than 10 files selected
-      if (files.length > 10) {
-        toast.error("Maximum 10 files allowed", {
-          description: `You selected ${files.length} files. Please select up to 10 files only.`,
-          duration: 4000,
-        });
-        if (snapInputRef.current) {
-          snapInputRef.current.value = "";
-        }
-        return;
-      }
-
       if (files.length > 0) {
-        const validFiles = files.filter((file) => {
-          if (file.size > 40 * 1024 * 1024) {
-            console.error(`File ${file.name} is too large (max 40MB)`);
-            toast.error(`File too large: ${file.name}`, {
-              description: "Maximum file size is 40MB",
-            });
-            return false;
-          }
-          const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
-          const allowedTypes = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
-          if (!allowedTypes.includes(fileExtension)) {
-            console.error(`File ${file.name} has unsupported format`);
-            toast.error(`Unsupported format: ${file.name}`, {
-              description: "Allowed formats: PDF, DOCX, JPG, JPEG, PNG",
-            });
-            return false;
-          }
-          return true;
-        });
-
-        if (validFiles.length > 0) {
-          setSelectedFiles(validFiles);
-          // Auto-submit immediately without showing modal
-          setTimeout(() => {
-            submitFiles(validFiles);
-          }, 0);
-        } else {
-          console.error(
-            "No valid files selected. Please check file types and size (max 40MB)."
-          );
-          toast.error("No valid files selected", {
-            description: "Please check file types and size (max 40MB)",
-          });
-        }
+        setSelectedFiles(files);
+        // Auto-submit if used directly (e.g., no popup)
+        submitFiles(files);
       }
     },
     [submitFiles]
@@ -201,18 +140,14 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     [handleFileChange]
   );
 
-  // Add submitFiles to dependencies in handleFileChange
-  // Update the handleFileChange callback to include submitFiles in deps
-
   return {
     selectedFiles,
     uploading,
     snapInputRef,
     formatSize,
     handleFileChange,
-    handleSubmit,
-    handleCancel,
     handleSnap,
+    handleCancel,
     setSelectedFiles,
     paymentError,
     clearPaymentError,
@@ -220,5 +155,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
     uploadError,
     clearUploadError,
     removeFile,
+    submitFiles, // Exposed for direct API call from popup
   };
 };

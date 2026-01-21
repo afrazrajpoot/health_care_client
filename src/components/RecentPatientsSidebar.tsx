@@ -382,7 +382,7 @@ export default function RecentPatientsSidebar({
                 }}
               >
                 {patient.patientName} — {getDocType(patient)} •{" "}
-                {formatShortDate(patient.createdAt)}
+                {formatShortDate(patient.reportDate || patient.createdAt)}
               </div>
             ))
           )}
