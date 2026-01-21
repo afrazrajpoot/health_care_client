@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react"; // ✅ import useSession and signOut
 import {
   Home,
@@ -108,13 +108,28 @@ export function Sidebar({ className }: SidebarProps) {
     signOut({ callbackUrl: "/auth/sign-in" }); // Redirect to home after logout; adjust as needed
   };
 
-  // ✅ Filter menu items by user role
+  const searchParams = useSearchParams();
+
+  // ✅ Filter menu items by user role and add search params
   const filteredItems = useMemo(() => {
     const role = session?.user?.role;
-    return navigationItems.filter(
-      (item) => !item.roles || (role && item.roles.includes(role))
-    );
-  }, [session]);
+    const currentParams = searchParams ? searchParams.toString() : "";
+
+    return navigationItems
+      .filter((item) => !item.roles || (role && item.roles.includes(role)))
+      .map((item) => {
+        if (
+          (item.href === "/dashboard" || item.href === "/staff-dashboard") &&
+          currentParams
+        ) {
+          return {
+            ...item,
+            href: `${item.href}?${currentParams}`,
+          };
+        }
+        return item;
+      });
+  }, [session, searchParams]);
 
   return (
     <>

@@ -27,6 +27,19 @@ export const pythonApi = createApi({
                 method: "POST",
                 body: formData,
             }),
+            async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                try {
+                    const { data } = await queryFulfilled;
+                    // If the extraction immediately identifies a patient (e.g. from filename or quick scan)
+                    // we can invalidate tags to refresh the UI.
+                    if (data?.patient_name) {
+                        dispatch(dashboardApi.util.invalidateTags(["Patients", "Tasks"]));
+                        dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
+                    }
+                } catch (error) {
+                    // Silently fail if query fails
+                }
+            },
         }),
         splitAndProcessDocument: builder.mutation({
             query: (data) => ({

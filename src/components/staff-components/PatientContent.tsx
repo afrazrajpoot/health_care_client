@@ -54,16 +54,6 @@ export default function PatientContent({
     return null;
   }
 
-  if (loadingPatientData) {
-    return (
-      <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center">
-        <p className="text-sm text-gray-500 m-0">
-          Loading patient data...
-        </p>
-      </section>
-    );
-  }
-
   return (
     <>
       <PatientHeader
@@ -73,14 +63,25 @@ export default function PatientContent({
         completedTasks={taskStats.completed}
       />
 
-      <TaskSummary
-        open={taskStats.open}
-        urgent={taskStats.urgent}
-        dueToday={taskStats.dueToday}
-        completed={taskStats.completed}
-      />
+      {loadingPatientData ? (
+        <section className="bg-white/60 backdrop-blur-[2px] border border-gray-200 rounded-[14px] p-8 text-center my-4 animate-pulse">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-semibold text-blue-600">Syncing patient data...</p>
+          </div>
+        </section>
+      ) : (
+        <>
+          <TaskSummary
+            open={taskStats.open}
+            urgent={taskStats.urgent}
+            dueToday={taskStats.dueToday}
+            completed={taskStats.completed}
+          />
 
-      <QuestionnaireSummary chips={questionnaireChips} />
+          <QuestionnaireSummary chips={questionnaireChips} />
+        </>
+      )}
     </>
   );
 }

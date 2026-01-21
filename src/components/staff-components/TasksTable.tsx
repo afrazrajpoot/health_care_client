@@ -139,6 +139,7 @@ interface TasksTableProps {
   selectedTaskIds?: string[];
   onToggleTaskSelection?: (taskIds: string[], selected: boolean) => void;
   onSearch?: (query: string) => void;
+  isLoading?: boolean;
 }
 
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
@@ -162,6 +163,7 @@ export default function TasksTable({
   selectedTaskIds = [],
   onToggleTaskSelection,
   onSearch,
+  isLoading = false,
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -304,7 +306,7 @@ export default function TasksTable({
   };
 
   const handleBulkUpdateFailedDocs = async () => {
-    const selectedFailedDocs = failedDocuments.filter(doc => 
+    const selectedFailedDocs = failedDocuments.filter(doc =>
       selectedTaskIds?.includes(`doc-${doc.id}`) && !isHardFail(doc)
     );
 
@@ -324,9 +326,9 @@ export default function TasksTable({
       }));
 
       await updateFailedDocument(updates).unwrap();
-      
+
       toast.success(`Successfully processed ${selectedFailedDocs.length} documents`);
-      
+
       // Clear selection for these documents
       const idsToRemove = selectedFailedDocs.map(doc => `doc-${doc.id}`);
       onToggleTaskSelection?.(idsToRemove, false);
@@ -346,7 +348,7 @@ export default function TasksTable({
       if (onFailedDocumentDeleted) {
         onFailedDocumentDeleted(documentToDelete.id);
       }
- 
+
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
       toast.success("Document deleted successfully");
@@ -446,20 +448,20 @@ export default function TasksTable({
     }
 
     return tasks.filter(task => {
-       const currentAssignee = taskAssignees[task.id] || task.assignee;
-       
-       if (!currentAssignee) return false;
-       
-       const assigneeLower = currentAssignee.toLowerCase();
-       const userNameLower = session?.user?.name?.toLowerCase() || "";
-       const userEmailLower = session?.user?.email?.toLowerCase() || "";
-       
-       return (
-         assigneeLower === userNameLower ||
-         (userNameLower && userNameLower.includes(assigneeLower)) ||
-         (assigneeLower && assigneeLower.includes(userNameLower)) ||
-         assigneeLower === userEmailLower
-       );
+      const currentAssignee = taskAssignees[task.id] || task.assignee;
+
+      if (!currentAssignee) return false;
+
+      const assigneeLower = currentAssignee.toLowerCase();
+      const userNameLower = session?.user?.name?.toLowerCase() || "";
+      const userEmailLower = session?.user?.email?.toLowerCase() || "";
+
+      return (
+        assigneeLower === userNameLower ||
+        (userNameLower && userNameLower.includes(assigneeLower)) ||
+        (assigneeLower && assigneeLower.includes(userNameLower)) ||
+        assigneeLower === userEmailLower
+      );
     });
   }, [tasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
 
@@ -537,7 +539,7 @@ export default function TasksTable({
         );
       }
     }
-    
+
     if (statusFilter !== "all") {
       if (row.type === "task") {
         return row.data.status?.toLowerCase() === statusFilter.toLowerCase();
@@ -545,7 +547,7 @@ export default function TasksTable({
         return statusFilter === "failed";
       }
     }
-    
+
     if (typeFilter !== "all") {
       if (row.type === "task") {
         return row.data.department?.toLowerCase() === typeFilter.toLowerCase();
@@ -562,21 +564,30 @@ export default function TasksTable({
         return false;
       }
     }
-    
+
     return true;
   });
 
   if (unifiedRows.length === 0) {
     return (
-      <section className="bg-gradient-to-br from-white to-gray-50/50 border border-gray-200 rounded-2xl shadow-lg shadow-gray-100/50 overflow-hidden">
+      <section className="bg-gradient-to-br from-white to-gray-50/50 border border-gray-200 rounded-2xl shadow-lg shadow-gray-100/50 overflow-hidden mt-[1vw]">
         <div className="p-12 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-            <FileX className="w-10 h-10 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</h3>
-          <p className="text-gray-600 max-w-md mx-auto">
-            Create new tasks or upload documents to get started with task management
-          </p>
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-500 font-medium">Fetching tasks...</p>
+            </div>
+          ) : (
+            <>
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                <FileX className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Create new tasks or upload documents to get started with task management
+              </p>
+            </>
+          )}
         </div>
       </section>
     );
@@ -613,32 +624,32 @@ export default function TasksTable({
       return "border-indigo-300 bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-800";
     if (a.includes("scheduler"))
       return "border-teal-300 bg-gradient-to-r from-teal-50 to-teal-100 text-teal-800";
-    if (a.includes("ma")) 
+    if (a.includes("ma"))
       return "border-cyan-300 bg-gradient-to-r from-cyan-50 to-cyan-100 text-cyan-800";
     return "border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800";
   };
 
   const getTaskIcon = (department: string) => {
     if (!department) return <FileText className="w-5 h-5" />;
-    
+
     const dept = department.toLowerCase();
-    if (dept.includes("clinical") || dept.includes("medical")) 
+    if (dept.includes("clinical") || dept.includes("medical"))
       return <FileHeart className="w-5 h-5" />;
-    if (dept.includes("admin")) 
+    if (dept.includes("admin"))
       return <FileUser className="w-5 h-5" />;
-    if (dept.includes("scheduling")) 
+    if (dept.includes("scheduling"))
       return <Calendar className="w-5 h-5" />;
-    if (dept.includes("billing") || dept.includes("finance")) 
+    if (dept.includes("billing") || dept.includes("finance"))
       return <FileBarChart className="w-5 h-5" />;
-    if (dept.includes("document")) 
+    if (dept.includes("document"))
       return <FolderTree className="w-5 h-5" />;
-    if (dept.includes("review")) 
+    if (dept.includes("review"))
       return <FileSearch className="w-5 h-5" />;
-    if (dept.includes("legal")) 
+    if (dept.includes("legal"))
       return <FileSignature className="w-5 h-5" />;
-    if (dept.includes("imaging")) 
+    if (dept.includes("imaging"))
       return <FileImage className="w-5 h-5" />;
-    
+
     return <File className="w-5 h-5" />;
   };
 
@@ -669,7 +680,7 @@ export default function TasksTable({
               Manage and track tasks and documents across all workflows
             </p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* View Mode Toggle */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
@@ -721,7 +732,7 @@ export default function TasksTable({
               className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             />
           </div>
-          
+
           <div className="flex flex-wrap gap-3">
             <select
               value={statusFilter}
@@ -734,7 +745,7 @@ export default function TasksTable({
                 </option>
               ))}
             </select>
-            
+
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -778,7 +789,7 @@ export default function TasksTable({
               </div>
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-br from-white to-amber-50 border border-amber-100 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 rounded-lg">
@@ -790,7 +801,7 @@ export default function TasksTable({
               </div>
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-br from-white to-red-50 border border-red-100 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-100 rounded-lg">
@@ -802,7 +813,7 @@ export default function TasksTable({
               </div>
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-br from-white to-emerald-50 border border-emerald-100 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 rounded-lg">
@@ -821,337 +832,337 @@ export default function TasksTable({
 
       {/* Table Content */}
       {viewMode === "list" ? (
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-full divide-y divide-gray-200">
-          <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
-            <tr>
-              <th className="px-6 py-4 text-left">
-                <input
-                  type="checkbox"
-                  checked={isAllSelected()}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    const selectableRows = unifiedRows.filter(row => {
-                      if (row.type === "failedDoc") {
-                        return !isHardFail(row.data);
-                      }
-                      return false;
-                    });
-                    const ids = selectableRows.map(row => `doc-${row.data.id}`);
-                    onToggleTaskSelection?.(ids, checked);
-                  }}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                <div className="flex items-center gap-2">
-                  <File className="w-4 h-4" />
-                  Task / Document
-                </div>
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Tag className="w-4 h-4" />
-                  Status
-                </div>
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                <div className="flex items-center gap-2">
-                  <FolderTree className="w-4 h-4" />
-                  Type / Department
-                </div>
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Due Date
-                </div>
-              </th>
-              {session?.user?.role !== "Staff" && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-full divide-y divide-gray-200">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
+              <tr>
+                <th className="px-6 py-4 text-left">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected()}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      const selectableRows = unifiedRows.filter(row => {
+                        if (row.type === "failedDoc") {
+                          return !isHardFail(row.data);
+                        }
+                        return false;
+                      });
+                      const ids = selectableRows.map(row => `doc-${row.data.id}`);
+                      onToggleTaskSelection?.(ids, checked);
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Assignee
+                    <File className="w-4 h-4" />
+                    Task / Document
                   </div>
                 </th>
-              )}
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  Actions
-                </div>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredRows.map((row) => {
-              if (row.type === "task") {
-                const task = row.data;
-                const currentStatus = taskStatuses[task.id] || task.status || "Pending";
-                const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
-                const statusOptions = getStatusOptions(task);
-                const isSelected = isRowSelected(row);
-                const priorityIcon = getPriorityIcon(task.priority || '');
-                const taskIcon = getTaskIcon(task.department || '');
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    Status
+                  </div>
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <FolderTree className="w-4 h-4" />
+                    Type / Department
+                  </div>
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Due Date
+                  </div>
+                </th>
+                {session?.user?.role !== "Staff" && (
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Assignee
+                    </div>
+                  </th>
+                )}
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Actions
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredRows.map((row) => {
+                if (row.type === "task") {
+                  const task = row.data;
+                  const currentStatus = taskStatuses[task.id] || task.status || "Pending";
+                  const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
+                  const statusOptions = getStatusOptions(task);
+                  const isSelected = isRowSelected(row);
+                  const priorityIcon = getPriorityIcon(task.priority || '');
+                  const taskIcon = getTaskIcon(task.department || '');
 
-                return (
-                  <tr 
-                    key={`task-${task.id}`} 
-                    className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-blue-50 to-blue-25' : ''}`}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center h-full">
-                        {/* Checkbox for selection */}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
-                          {taskIcon}
+                  return (
+                    <tr
+                      key={`task-${task.id}`}
+                      className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-blue-50 to-blue-25' : ''}`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center h-full">
+                          {/* Checkbox for selection */}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900">{task.description}</h4>
-                            {task.priority && (
-                              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs">
-                                {priorityIcon}
-                                <span>{task.priority}</span>
-                              </div>
-                            )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
+                            {taskIcon}
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span className="flex items-center gap-1">
-                              <User className="w-4 h-4" />
-                              {task.patient}
-                            </span>
-                            {task.assignee && task.assignee !== 'Unclaimed' && (
-                              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200">
-                                <UserPlus className="w-3 h-3" />
-                                {task.assignee}
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900">{task.description}</h4>
+                              {task.priority && (
+                                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs">
+                                  {priorityIcon}
+                                  <span>{task.priority}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <User className="w-4 h-4" />
+                                {task.patient}
                               </span>
-                            )}
+                              {task.assignee && task.assignee !== 'Unclaimed' && (
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200">
+                                  <UserPlus className="w-3 h-3" />
+                                  {task.assignee}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusChipColor(currentStatus)}`}>
-                        <span className="w-2 h-2 rounded-full bg-current opacity-70"></span>
-                        {currentStatus}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-gray-100 to-gray-50">
-                          {taskIcon}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusChipColor(currentStatus)}`}>
+                          <span className="w-2 h-2 rounded-full bg-current opacity-70"></span>
+                          {currentStatus}
                         </div>
-                        <div>
-                          <span className="font-medium text-gray-900">{task.department}</span>
-                          <div className="text-xs text-gray-500 mt-1">{task.type || 'General Task'}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-gray-100 to-gray-50">
+                            {taskIcon}
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-900">{task.department}</span>
+                            <div className="text-xs text-gray-500 mt-1">{task.type || 'General Task'}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className={`font-medium ${new Date(task.dueDate || '') < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
-                          {task.dueDate
-                            ? new Date(task.dueDate).toLocaleDateString('en-US', {
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className={`font-medium ${new Date(task.dueDate || '') < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
+                            {task.dueDate
+                              ? new Date(task.dueDate).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric'
                               })
-                            : "—"}
-                        </span>
-                        {task.dueDate && new Date(task.dueDate) < new Date() && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">
-                            Overdue
+                              : "—"}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    {session?.user?.role !== "Staff" && (
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenAssignTaskId(task.id);
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 rounded-lg transition-all border border-blue-200 shadow-sm"
-                          title="Assign Task"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                          {currentAssignee === "Unclaimed" ? "Assign" : "Reassign"}
-                        </button>
-                      </td>
-                    )}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {task.document?.blobPath && (
-                          <button
-                            onClick={(e) => handleTaskDocumentPreview(e, task)}
-                            disabled={loadingTaskPreview === task.id}
-                            className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
-                            title="Preview Document"
-                          >
-                            {loadingTaskPreview === task.id ? (
-                              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <FileText className="w-4 h-4 text-gray-600" />
-                            )}
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onSaveQuickNote) {
-                              setOpenQuickNoteId(
-                                openQuickNoteId === task.id ? null : task.id
-                              );
-                            } else {
-                              onTaskClick(task);
-                            }
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-all shadow-sm shadow-blue-200"
-                        >
-                          {task.department?.toLowerCase().includes("clinical") ||
-                          task.department?.toLowerCase().includes("medical")
-                            ? <><FileSearch className="w-4 h-4" /> Review</>
-                            : <><Eye className="w-4 h-4" /> View</>}
-                        </button>
-                        
-                        <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                          <MoreVertical className="w-5 h-5 text-gray-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              } else {
-                // Failed document row
-                const doc = row.data;
-                const isSelected = isRowSelected(row);
-                const isHardFailDoc = isHardFail(doc);
-
-                return (
-                  <tr
-                    key={`doc-${doc.id}`}
-                    className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-red-50 to-red-25' : ''} ${isHardFailDoc ? 'opacity-75' : ''}`}
-                    onClick={() => isHardFailDoc && onFailedDocumentRowClick?.(doc)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center h-full">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          disabled={isHardFailDoc}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleRowSelection(row, e.target.checked);
-                          }}
-                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gradient-to-br from-gray-100 to-gray-50' : 'bg-gradient-to-br from-red-100 to-red-50'} border ${isHardFailDoc ? 'border-gray-300' : 'border-red-200'}`}>
-                          {isHardFailDoc ? <FileX className="w-5 h-5 text-gray-600" /> : <FileWarning className="w-5 h-5 text-red-600" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900">{doc.reason}</h4>
-                            {isHardFailDoc && (
-                              <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
-                                Hard Fail
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600">{doc.fileName}</p>
-                          {doc.patientName && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <User className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-700">{doc.patientName}</span>
-                              {doc.claimNumber && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span className="text-sm text-gray-700">Claim: {doc.claimNumber}</span>
-                                </>
-                              )}
-                            </div>
+                          {task.dueDate && new Date(task.dueDate) < new Date() && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">
+                              Overdue
+                            </span>
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border border-red-300 bg-gradient-to-r from-red-50 to-red-100 text-red-800 shadow-sm shadow-red-100">
-                        <AlertTriangle className="w-4 h-4" />
-                        Action Required
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gray-100' : 'bg-red-100'}`}>
-                          {isHardFailDoc ? <FileQuestion className="w-5 h-5" /> : <FileClock className="w-5 h-5" />}
+                      </td>
+                      {session?.user?.role !== "Staff" && (
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenAssignTaskId(task.id);
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 rounded-lg transition-all border border-blue-200 shadow-sm"
+                            title="Assign Task"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            {currentAssignee === "Unclaimed" ? "Assign" : "Reassign"}
+                          </button>
+                        </td>
+                      )}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {task.document?.blobPath && (
+                            <button
+                              onClick={(e) => handleTaskDocumentPreview(e, task)}
+                              disabled={loadingTaskPreview === task.id}
+                              className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
+                              title="Preview Document"
+                            >
+                              {loadingTaskPreview === task.id ? (
+                                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4 text-gray-600" />
+                              )}
+                            </button>
+                          )}
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onSaveQuickNote) {
+                                setOpenQuickNoteId(
+                                  openQuickNoteId === task.id ? null : task.id
+                                );
+                              } else {
+                                onTaskClick(task);
+                              }
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-all shadow-sm shadow-blue-200"
+                          >
+                            {task.department?.toLowerCase().includes("clinical") ||
+                              task.department?.toLowerCase().includes("medical")
+                              ? <><FileSearch className="w-4 h-4" /> Review</>
+                              : <><Eye className="w-4 h-4" /> View</>}
+                          </button>
+
+                          <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <MoreVertical className="w-5 h-5 text-gray-400" />
+                          </button>
                         </div>
-                        <div>
-                          <span className="font-medium text-gray-900">Failed Document</span>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {isHardFailDoc ? 'Missing critical data' : 'Needs processing'}
+                      </td>
+                    </tr>
+                  );
+                } else {
+                  // Failed document row
+                  const doc = row.data;
+                  const isSelected = isRowSelected(row);
+                  const isHardFailDoc = isHardFail(doc);
+
+                  return (
+                    <tr
+                      key={`doc-${doc.id}`}
+                      className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-red-50 to-red-25' : ''} ${isHardFailDoc ? 'opacity-75' : ''}`}
+                      onClick={() => isHardFailDoc && onFailedDocumentRowClick?.(doc)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center h-full">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isHardFailDoc}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleRowSelection(row, e.target.checked);
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gradient-to-br from-gray-100 to-gray-50' : 'bg-gradient-to-br from-red-100 to-red-50'} border ${isHardFailDoc ? 'border-gray-300' : 'border-red-200'}`}>
+                            {isHardFailDoc ? <FileX className="w-5 h-5 text-gray-600" /> : <FileWarning className="w-5 h-5 text-red-600" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900">{doc.reason}</h4>
+                              {isHardFailDoc && (
+                                <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
+                                  Hard Fail
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600">{doc.fileName}</p>
+                            {doc.patientName && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <User className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm text-gray-700">{doc.patientName}</span>
+                                {doc.claimNumber && (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span className="text-sm text-gray-700">Claim: {doc.claimNumber}</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-gray-400">—</span>
-                    </td>
-                    {session?.user?.role !== "Staff" && (
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border border-red-300 bg-gradient-to-r from-red-50 to-red-100 text-red-800 shadow-sm shadow-red-100">
+                          <AlertTriangle className="w-4 h-4" />
+                          Action Required
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gray-100' : 'bg-red-100'}`}>
+                            {isHardFailDoc ? <FileQuestion className="w-5 h-5" /> : <FileClock className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-900">Failed Document</span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {isHardFailDoc ? 'Missing critical data' : 'Needs processing'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <span className="text-gray-400">—</span>
                       </td>
-                    )}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {doc.blobPath && (
+                      {session?.user?.role !== "Staff" && (
+                        <td className="px-6 py-4">
+                          <span className="text-gray-400">—</span>
+                        </td>
+                      )}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          {doc.blobPath && (
+                            <button
+                              onClick={(e) => handlePreviewFile(e, doc)}
+                              disabled={loadingPreview === doc.id}
+                              className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
+                              title="Preview File"
+                            >
+                              {loadingPreview === doc.id ? (
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4 text-gray-600" />
+                              )}
+                            </button>
+                          )}
+
                           <button
-                            onClick={(e) => handlePreviewFile(e, doc)}
-                            disabled={loadingPreview === doc.id}
-                            className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
-                            title="Preview File"
+                            onClick={(e) => handleViewSummary(e, doc)}
+                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 transition-all border border-blue-200"
+                            title="View Details"
                           >
-                            {loadingPreview === doc.id ? (
-                              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <FileText className="w-4 h-4 text-gray-600" />
-                            )}
+                            <Eye className="w-4 h-4 text-blue-600" />
                           </button>
-                        )}
-                        
-                        <button
-                          onClick={(e) => handleViewSummary(e, doc)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 transition-all border border-blue-200"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4 text-blue-600" />
-                        </button>
-                        
-                        <button
-                          onClick={(e) => handleDeleteClick(e, doc)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 transition-all border border-red-200"
-                          title="Delete Document"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }
-            })}
-          </tbody>
-        </table>
-      </div>
+
+                          <button
+                            onClick={(e) => handleDeleteClick(e, doc)}
+                            className="p-2 rounded-lg bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 transition-all border border-red-200"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredRows.map((row) => {
@@ -1164,8 +1175,8 @@ export default function TasksTable({
               const taskIcon = getTaskIcon(task.department || '');
 
               return (
-                <div 
-                  key={`task-${task.id}`} 
+                <div
+                  key={`task-${task.id}`}
                   className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10' : 'border-gray-200 hover:border-blue-200'}`}
                   onClick={() => handleRowSelection(row, !isSelected)}
                 >
@@ -1185,12 +1196,12 @@ export default function TasksTable({
                     <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={task.description}>
                       {task.description}
                     </h3>
-                    
+
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <User className="w-4 h-4 text-gray-400" />
                       <span className="truncate">{task.patient}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Calendar className="w-4 h-4 text-gray-400" />
                       <span className={new Date(task.dueDate || '') < new Date() ? 'text-red-600 font-medium' : ''}>
@@ -1251,7 +1262,7 @@ export default function TasksTable({
               const isHardFailDoc = isHardFail(doc);
 
               return (
-                <div 
+                <div
                   key={`doc-${doc.id}`}
                   className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-red-500 ring-1 ring-red-500 bg-red-50/10' : 'border-gray-200 hover:border-red-200'} ${isHardFailDoc ? 'opacity-75' : ''}`}
                   onClick={() => !isHardFailDoc && handleRowSelection(row, !isSelected)}
@@ -1285,7 +1296,7 @@ export default function TasksTable({
                       {doc.reason}
                     </h3>
                     <p className="text-xs text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
-                    
+
                     {doc.patientName && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <User className="w-4 h-4 text-gray-400" />
@@ -1298,7 +1309,7 @@ export default function TasksTable({
                     <span className="text-xs text-gray-500">
                       {isHardFailDoc ? 'Missing Data' : 'Processing Failed'}
                     </span>
-                    
+
                     <div className="flex items-center gap-1">
                       {doc.blobPath && (
                         <button
@@ -1413,17 +1424,17 @@ export default function TasksTable({
 
                   {(selectedDocument.summary ||
                     selectedDocument.documentText) && (
-                    <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
-                      <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Document Content
-                      </p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                        {selectedDocument.documentText ||
-                          selectedDocument.documentText}
-                      </p>
-                    </div>
-                  )}
+                      <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
+                        <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          Document Content
+                        </p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                          {selectedDocument.documentText ||
+                            selectedDocument.documentText}
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">

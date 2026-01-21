@@ -7,6 +7,7 @@ interface StaffDashboardHeaderProps {
   onAddTask: () => void;
   onUploadDocument: () => void;
   userRole?: string;
+  dashboardHref?: string;
 }
 
 export default function StaffDashboardHeader({
@@ -14,6 +15,7 @@ export default function StaffDashboardHeader({
   onAddTask,
   onUploadDocument,
   userRole,
+  dashboardHref = "/dashboard",
 }: StaffDashboardHeaderProps) {
   return (
     <header className="bg-gradient-to-r from-white to-gray-50 border-b border-gray-200/50 shadow-sm px-6 py-3.5">
@@ -21,10 +23,10 @@ export default function StaffDashboardHeader({
         {/* Left: Logo and Brand - Keeping your original logo */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="DocLatch Logo" 
-              width={50} 
+            <img
+              src="/logo.png"
+              alt="DocLatch Logo"
+              width={50}
               height={50}
               className="rounded-lg shadow-sm"
             />
@@ -46,9 +48,9 @@ export default function StaffDashboardHeader({
             <span className="text-lg">+</span>
             Create Intake Link
           </button>
-          
+
           <Link
-            href="/dashboard"
+            href={dashboardHref}
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl font-semibold text-sm hover:border-blue-300 hover:from-gray-100 hover:to-gray-150 transition-all text-gray-700"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,7 +58,7 @@ export default function StaffDashboardHeader({
             </svg>
             Dashboard
           </Link>
-          
+
           <button
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl font-semibold text-sm hover:from-indigo-600 hover:to-indigo-700 transition-all shadow-lg shadow-indigo-200"
             onClick={onUploadDocument}
@@ -66,7 +68,7 @@ export default function StaffDashboardHeader({
             </svg>
             Upload Document
           </button>
-          
+
           {userRole !== "Staff" && (
             <button
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold text-sm hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-200"

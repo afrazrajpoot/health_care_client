@@ -54,14 +54,16 @@ interface DocumentData {
 export const usePatientData = (
   physicianId: string | null,
   patientInfo: Patient | null,
-  mode: "wc" | "gm"
+  mode: "wc" | "gm",
+  shouldFetch: boolean = true,
+  documentIdFromUrl?: string
 ) => {
   const { data: session } = useSession();
 
   // 1. Fetch Document Data
   const docParams = useMemo(() => {
-    if (!physicianId || !patientInfo) return null;
-    return {
+    if (!physicianId || !patientInfo || !shouldFetch) return null;
+    const params: any = {
       patient_name: patientInfo.patientName || patientInfo.name || "",
       dob: patientInfo.dob,
       doi: patientInfo.doi,
@@ -69,6 +71,13 @@ export const usePatientData = (
       physicianId: physicianId,
       mode: mode,
     };
+
+    // Add document_id from URL if provided
+    if (documentIdFromUrl) {
+      params.document_id = documentIdFromUrl;
+    }
+
+    return params;
   }, [
     physicianId,
     patientInfo?.patientName,
@@ -76,29 +85,40 @@ export const usePatientData = (
     patientInfo?.dob,
     patientInfo?.doi,
     patientInfo?.claimNumber,
-    mode
+    mode,
+    shouldFetch,
+    documentIdFromUrl
   ]);
 
   const {
     data: rawDocData,
     isFetching: docLoading,
-    error: docError
+    error: docError,
+    refetch: refetchDocument
   } = useGetDocumentQuery(docParams, {
-    skip: !docParams,
-    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-    pollingInterval: 0, // Disable automatic polling
+    skip: !docParams || !shouldFetch,
+    refetchOnMountOrArgChange: false,
+    pollingInterval: 0,
   });
 
   const latestDoc = useMemo(() => {
     if (rawDocData?.documents && rawDocData.documents.length > 0) {
+      // If we have a document_id from URL, try to find that specific document
+      if (documentIdFromUrl && rawDocData.documents.length > 1) {
+        const urlDoc = rawDocData.documents.find(
+          (doc: any) => doc.id === documentIdFromUrl || doc.document_id === documentIdFromUrl
+        );
+        if (urlDoc) return urlDoc;
+      }
+      // Otherwise return the first document
       return rawDocData.documents[0];
     }
     return null;
-  }, [rawDocData]);
+  }, [rawDocData, documentIdFromUrl]);
 
   // 2. Fetch Task Data (Parallel with Document Data)
   const taskParams = useMemo(() => {
-    if (!patientInfo) return null;
+    if (!patientInfo || !shouldFetch) return null;
 
     const params: any = { mode: mode };
 
@@ -117,67 +137,79 @@ export const usePatientData = (
 
     params.patientName = patientName;
     return params;
-  }, [patientInfo?.patientName, patientInfo?.name, patientInfo?.claimNumber, mode, rawDocData?.documents]);
+  }, [
+    patientInfo?.patientName,
+    patientInfo?.name,
+    patientInfo?.claimNumber,
+    mode,
+    rawDocData?.documents,
+    shouldFetch
+  ]);
 
   const {
     data: rawTaskData,
     isFetching: taskLoading,
     error: taskError
   } = useGetTasksQuery(taskParams, {
-    skip: !taskParams,
-    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-    pollingInterval: 0, // Disable automatic polling
+    skip: !taskParams || !shouldFetch,
+    refetchOnMountOrArgChange: false,
+    pollingInterval: 0,
   });
 
   // 3. Fetch Patient Intake Data
   const intakeParams = useMemo(() => {
-    if (!patientInfo) return null;
+    if (!patientInfo || !shouldFetch) return null;
     return {
       patientName: patientInfo.patientName || patientInfo.name || "",
       dob: patientInfo.dob,
       claimNumber: patientInfo.claimNumber
     };
-  }, [patientInfo?.patientName, patientInfo?.name, patientInfo?.dob, patientInfo?.claimNumber]);
+  }, [
+    patientInfo?.patientName,
+    patientInfo?.name,
+    patientInfo?.dob,
+    patientInfo?.claimNumber,
+    shouldFetch
+  ]);
 
   const {
     data: patientIntakeData,
     isFetching: intakeLoading
   } = useGetPatientIntakesQuery(intakeParams, {
-    skip: !intakeParams,
-    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-    pollingInterval: 0, // Disable automatic polling
+    skip: !intakeParams || !shouldFetch,
+    refetchOnMountOrArgChange: false,
+    pollingInterval: 0,
   });
 
   const {
     data: patientIntakeUpdateData,
     isFetching: intakeUpdateLoading
   } = useGetPatientIntakeUpdateQuery(intakeParams, {
-    skip: !intakeParams,
-    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-    pollingInterval: 0, // Disable automatic polling
+    skip: !intakeParams || !shouldFetch,
+    refetchOnMountOrArgChange: false,
+    pollingInterval: 0,
   });
 
   // 3.5 Fetch Treatment History
   const treatmentHistoryParams = useMemo(() => {
-    if (!patientInfo || !physicianId) return null;
+    if (!patientInfo || !physicianId || !shouldFetch) return null;
     return {
       patientName: patientInfo.patientName || patientInfo.name || "",
       dob: patientInfo.dob,
       claimNumber: patientInfo.claimNumber,
       physicianId: physicianId
     };
-  }, [patientInfo, physicianId]);
+  }, [patientInfo, physicianId, shouldFetch]);
 
   const {
     data: treatmentHistoryData,
     isFetching: treatmentHistoryLoading,
     refetch: refetchTreatmentHistory
   } = useGetTreatmentHistoryQuery(treatmentHistoryParams, {
-    skip: !treatmentHistoryParams,
+    skip: !treatmentHistoryParams || !shouldFetch,
     refetchOnMountOrArgChange: false,
   });
 
-  // 4. Process Document Data
   // 4. Process Document Data
   const processedData = useMemo(() => {
     // If no documents found, return a base object with patient info so UI can still render
@@ -380,7 +412,7 @@ export const usePatientData = (
 
     return allTaskQuickNotes
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
-      .slice(0, 10); // Show more chips if available
+      .slice(0, 10);
   }, [rawTaskData, latestDoc, patientInfo, rawDocData]);
 
   // 6. Process Patient Intake Data
@@ -406,5 +438,6 @@ export const usePatientData = (
     loading: docLoading || taskLoading || intakeLoading || intakeUpdateLoading || treatmentHistoryLoading,
     error: (docError as any)?.data?.error || (taskError as any)?.data?.error || null,
     refetchTreatmentHistory,
+    refetchDocument,
   };
 };

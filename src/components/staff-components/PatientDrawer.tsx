@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { 
-  Search, 
-  X, 
-  Users, 
-  ChevronLeft, 
-  ChevronRight, 
-  Calendar, 
-  FileText, 
-  User, 
+import {
+  Search,
+  X,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  FileText,
+  User,
   Clock,
   Tag,
   Stethoscope,
@@ -163,15 +163,15 @@ export default function PatientDrawer({
         patient.physician?.toLowerCase().includes(query)
       );
     }
-    
+
     if (statusFilter !== "all" && patient.status !== statusFilter) {
       return false;
     }
-    
+
     if (visitTypeFilter !== "all" && patient.visitType !== visitTypeFilter) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -185,7 +185,7 @@ export default function PatientDrawer({
       }}
     >
       {/* Header */}
-      <div 
+      <div
         className="relative p-6 bg-gradient-to-r from-blue-600 to-indigo-600 cursor-pointer group"
         onClick={onToggle}
       >
@@ -205,7 +205,7 @@ export default function PatientDrawer({
               </div>
             </div>
           )}
-          
+
           <button className={`p-2 rounded-lg transition-all duration-300 ${collapsed ? 'rotate-180' : ''} group-hover:bg-white/20`}>
             {collapsed ? (
               <ChevronRight className="w-5 h-5 text-white" />
@@ -214,7 +214,7 @@ export default function PatientDrawer({
             )}
           </button>
         </div>
-        
+
         {!collapsed && (
           <div className="absolute -bottom-3 left-6 right-6">
             <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ export default function PatientDrawer({
                 )}
               </div>
 
-           
+
             </div>
           </div>
 
@@ -273,7 +273,7 @@ export default function PatientDrawer({
                   {searchQuery ? "No Patients Found" : "No Patients Available"}
                 </h4>
                 <p className="text-sm text-gray-600">
-                  {searchQuery 
+                  {searchQuery
                     ? "Try adjusting your search or filters"
                     : "Patients will appear here as they are added"}
                 </p>
@@ -281,17 +281,19 @@ export default function PatientDrawer({
             ) : (
               <div className="space-y-3">
                 {filteredPatients.map((patient, idx) => {
-                  const isSelected = selectedPatient?.patientName === patient?.patientName &&
-                    selectedPatient?.dob === patient?.dob;
+                  const isSelected = selectedPatient && (
+                    (selectedPatient.patientName?.toLowerCase().trim() === patient?.patientName?.toLowerCase().trim()) &&
+                    (selectedPatient.dob?.toString().split('T')[0] === patient?.dob?.toString().split('T')[0]) &&
+                    (!selectedPatient.claimNumber || selectedPatient.claimNumber === "Not specified" || !patient?.claimNumber || patient.claimNumber === "Not specified" || selectedPatient.claimNumber === patient.claimNumber)
+                  );
 
                   return (
                     <div
                       key={idx}
-                      className={`group relative rounded-xl border-2 transition-all duration-300 cursor-pointer overflow-hidden ${
-                        isSelected
-                          ? "border-blue-500 bg-gradient-to-r from-blue-50 to-blue-25 shadow-lg shadow-blue-100"
-                          : "border-gray-200 hover:border-blue-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white hover:shadow-md"
-                      }`}
+                      className={`group relative rounded-xl border-2 transition-all duration-300 cursor-pointer overflow-hidden ${isSelected
+                        ? "border-blue-500 bg-gradient-to-r from-blue-50 to-blue-25 shadow-lg shadow-blue-100"
+                        : "border-gray-200 hover:border-blue-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white hover:shadow-md"
+                        }`}
                       onClick={() => onSelectPatient(patient)}
                     >
                       {/* Selection Indicator */}
@@ -305,11 +307,10 @@ export default function PatientDrawer({
                         {/* Patient Header */}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
-                            <div className={`p-2.5 rounded-xl ${
-                              isSelected 
-                                ? "bg-blue-100 border border-blue-200" 
-                                : "bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200"
-                            }`}>
+                            <div className={`p-2.5 rounded-xl ${isSelected
+                              ? "bg-blue-100 border border-blue-200"
+                              : "bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200"
+                              }`}>
                               {getPatientIcon(patient)}
                             </div>
                             <div>
@@ -355,7 +356,7 @@ export default function PatientDrawer({
                                 <span className="truncate">Dr. {patient.physician.split(' ')[0]}</span>
                               </div>
                             )}
-                            
+
                             {patient.lastVisit && (
                               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                                 <Clock className="w-3.5 h-3.5" />
@@ -377,7 +378,7 @@ export default function PatientDrawer({
                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
                           <div className="flex items-center gap-1.5 text-xs text-gray-500">
                             <Clock className="w-3.5 h-3.5" />
-                            <span>Added {new Date(patient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            <span>{patient.createdAt ? `Added ${new Date(patient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'New Selection'}</span>
                           </div>
                           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group-hover:translate-x-0.5">
                             <span>View</span>
@@ -418,15 +419,15 @@ export default function PatientDrawer({
           <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
             <Users className="w-6 h-6 text-blue-600" />
           </div>
-          
+
           <div className="text-center">
             <div className="text-2xl font-bold text-gray-900 mb-1">{patients.length}</div>
             <div className="text-xs text-gray-600">Patients</div>
           </div>
-          
+
           <div className="space-y-4">
             {patients.slice(0, 3).map((patient, idx) => (
-              <div 
+              <div
                 key={idx}
                 className="p-2.5 rounded-lg bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors"
                 onClick={() => onSelectPatient(patient)}
@@ -437,7 +438,7 @@ export default function PatientDrawer({
               </div>
             ))}
           </div>
-          
+
           {patients.length > 3 && (
             <div className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
               +{patients.length - 3} more

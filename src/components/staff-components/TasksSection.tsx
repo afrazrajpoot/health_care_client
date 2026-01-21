@@ -83,7 +83,7 @@ export default function TasksSection({
   onSearch,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  
+
   // Reset selection when patient changes
   useEffect(() => {
     setSelectedTaskIds([]);
@@ -91,42 +91,42 @@ export default function TasksSection({
 
   const handleToggleTaskSelection = useCallback((taskIds: string[], selected: boolean) => {
     setSelectedTaskIds(prev => {
-        if (selected) {
-            // Add unique IDs
-            const newIds = taskIds.filter(id => !prev.includes(id));
-            return [...prev, ...newIds];
-        } else {
-            // Remove IDs
-            if (taskIds.length === 0) return []; // Clear all
-            return prev.filter(id => !taskIds.includes(id));
-        }
+      if (selected) {
+        // Add unique IDs
+        const newIds = taskIds.filter(id => !prev.includes(id));
+        return [...prev, ...newIds];
+      } else {
+        // Remove IDs
+        if (taskIds.length === 0) return []; // Clear all
+        return prev.filter(id => !taskIds.includes(id));
+      }
     });
   }, []);
 
 
 
- 
+
 
 
 
   return (
     <div>
       {/* Patient Content Section */}
-  <div className="px-[1vw]">
+      <div className="px-[1vw]">
         <PatientContent
-        selectedPatient={selectedPatient}
-        loadingPatientData={loadingPatientData}
-        patientIntakeUpdate={patientIntakeUpdate}
-        patientQuiz={patientQuiz}
-        taskStats={taskStats}
-        questionnaireChips={questionnaireChips}
-        formatDOB={formatDOB}
-        formatClaimNumber={formatClaimNumber}
-        treatmentHistoryData={treatmentHistoryData}
-        isTreatmentHistoryLoading={isTreatmentHistoryLoading}
-      />
+          selectedPatient={selectedPatient}
+          loadingPatientData={loadingPatientData}
+          patientIntakeUpdate={patientIntakeUpdate}
+          patientQuiz={patientQuiz}
+          taskStats={taskStats}
+          questionnaireChips={questionnaireChips}
+          formatDOB={formatDOB}
+          formatClaimNumber={formatClaimNumber}
+          treatmentHistoryData={treatmentHistoryData}
+          isTreatmentHistoryLoading={isTreatmentHistoryLoading}
+        />
 
-  </div>
+      </div>
       {/* No Patient Selected Message */}
       {!selectedPatient && (
         <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center mb-4">
@@ -135,82 +135,81 @@ export default function TasksSection({
           </p>
         </section>
       )}
-     
+
 
 
 
       {/* Show TasksTable - only one instance, handle both cases */}
- <div className="px-[1vw]">
+      <div className="px-[1vw]">
         <TasksTable
-        tasks={displayedTasks}
-        taskStatuses={taskStatuses}
-        taskAssignees={taskAssignees}
-        onStatusClick={onStatusClick}
-        onAssigneeClick={onAssigneeClick}
-        onTaskClick={onTaskClick}
-        onSaveQuickNote={onSaveQuickNote}
-        getStatusOptions={getStatusOptions}
-        getAssigneeOptions={getAssigneeOptions}
-        // ALWAYS pass failed documents (they show in ALL cases)
-        failedDocuments={failedDocuments}
-        onFailedDocumentDeleted={onFailedDocumentDeleted}
-        onFailedDocumentRowClick={onFailedDocumentRowClick}
-        mode="wc"
-        physicianId={physicianId || undefined}
-        selectedTaskIds={selectedTaskIds}
-        onToggleTaskSelection={handleToggleTaskSelection}
-        onSearch={onSearch}
-      />
+          tasks={displayedTasks}
+          taskStatuses={taskStatuses}
+          taskAssignees={taskAssignees}
+          onStatusClick={onStatusClick}
+          onAssigneeClick={onAssigneeClick}
+          onTaskClick={onTaskClick}
+          onSaveQuickNote={onSaveQuickNote}
+          getStatusOptions={getStatusOptions}
+          getAssigneeOptions={getAssigneeOptions}
+          // ALWAYS pass failed documents (they show in ALL cases)
+          failedDocuments={failedDocuments}
+          onFailedDocumentDeleted={onFailedDocumentDeleted}
+          onFailedDocumentRowClick={onFailedDocumentRowClick}
+          mode="wc"
+          physicianId={physicianId || undefined}
+          selectedTaskIds={selectedTaskIds}
+          onToggleTaskSelection={handleToggleTaskSelection}
+          onSearch={onSearch}
+          isLoading={loadingPatientData}
+        />
         {selectedPatient &&
-        displayedTasks.length > 0 &&
-        taskTotalCount > taskPageSize && (
-          <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600">
-              Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
-              {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
-              {taskTotalCount} tasks
+          displayedTasks.length > 0 &&
+          taskTotalCount > taskPageSize && (
+            <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">
+                Showing {(taskPage - 1) * taskPageSize + 1} to{" "}
+                {Math.min(taskPage * taskPageSize, taskTotalCount)} of{" "}
+                {taskTotalCount} tasks
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onTaskPageChange(Math.max(1, taskPage - 1))}
+                  disabled={!hasPrevPage}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${hasPrevPage
+                      ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {taskPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    onTaskPageChange(Math.min(totalPages, taskPage + 1))
+                  }
+                  disabled={!hasNextPage}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${hasNextPage
+                      ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                >
+                  Next
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onTaskPageChange(Math.max(1, taskPage - 1))}
-                disabled={!hasPrevPage}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                  hasPrevPage
-                    ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                }`}
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {taskPage} of {totalPages}
-              </span>
-              <button
-                onClick={() =>
-                  onTaskPageChange(Math.min(totalPages, taskPage + 1))
-                }
-                disabled={!hasNextPage}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                  hasNextPage
-                    ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                }`}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
- </div>
-      <TaskManager 
-        tasks={displayedTasks as any} 
+          )}
+      </div>
+      <TaskManager
+        tasks={displayedTasks as any}
         treatmentHistoryData={treatmentHistoryData}
         isTreatmentHistoryLoading={isTreatmentHistoryLoading}
       />
-     
+
 
       {/* Pagination Controls - only show when patient is selected, has tasks, and has pagination */}
-    
+
     </div>
   );
 }
