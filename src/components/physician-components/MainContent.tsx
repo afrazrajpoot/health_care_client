@@ -46,7 +46,7 @@ export const MainContent = React.memo<MainContentProps>(
     onRetry,
   }) => (
     <>
-      <LoadingOverlay isLoading={loading} />
+      {/* <LoadingOverlay isLoading={loading} /> */}
       {error && (
         <ErrorDisplay
           error={error}

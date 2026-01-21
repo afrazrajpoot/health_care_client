@@ -6,9 +6,10 @@ import { useGetFailedDocumentsQuery } from "@/redux/staffApi";
 import { useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
 
 export const useFailedDocuments = () => {
-  const { data: failedDocsData, refetch: fetchFailedDocuments } = useGetFailedDocumentsQuery(undefined);
+  const { data: failedDocsData, refetch: fetchFailedDocuments } =
+    useGetFailedDocumentsQuery(undefined);
   const [updateFailedDocumentMutation] = useUpdateFailedDocumentMutation();
-  
+
   const failedDocuments = failedDocsData?.documents || [];
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
@@ -24,11 +25,10 @@ export const useFailedDocuments = () => {
 
   const removeFailedDocument = useCallback((docId: string) => {
     // Note: In a real app, you'd probably have a delete mutation
-    // For now, we'll just toast and rely on refetch if needed
-    toast.success("Document deleted successfully", {
-      duration: 3000,
-      position: "top-right",
-    });
+    // toast.success("Document deleted successfully", {
+    //   duration: 3000,
+    //   position: "top-right",
+    // });
   }, []);
 
   const handleRowClick = useCallback((doc: any) => {
@@ -74,7 +74,7 @@ export const useFailedDocuments = () => {
         setUpdateFormData({ ...updateFormData, [name]: value });
       }
     },
-    [updateFormData]
+    [updateFormData],
   );
 
   const handleUpdateSubmit = useCallback(async () => {
