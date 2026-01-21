@@ -94,6 +94,7 @@ const UploadToast: React.FC = () => {
 export default function StaffDashboardContainer() {
   const { data: session } = useSession();
   const physicianId = useMemo(() => getPhysicianIdUtil(session), [session]);
+  const isStaff = session?.user?.role?.toLowerCase() === "staff";
   const dispatch = useDispatch();
   const searchParams = useSearchParams();
   const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(
@@ -134,8 +135,8 @@ export default function StaffDashboardContainer() {
       dob: selectedPatient.dob,
       claim: selectedPatient.claimNumber,
       documentIds: selectedPatient.documentIds,
-      page: taskPage,
-      pageSize: taskPageSize,
+      page: isStaff ? 1 : taskPage, // Fetch all for staff to allow client-side filtering
+      pageSize: isStaff ? 1000 : taskPageSize,
       status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
       type: taskTypeFilter,
       search: taskSearchQuery
@@ -205,7 +206,7 @@ export default function StaffDashboardContainer() {
   const patientTasks = useMemo(() => {
     return tasksData?.tasks || [];
   }, [tasksData]);
-  const taskTotalCount = tasksData?.totalCount || 0;
+  // taskTotalCount moved below filteredPatientTasks definition
   // Legacy patient quiz is no longer used directly, we rely on patientIntakeUpdate
   const patientQuiz = null;
   const patientIntakeUpdate = intakeUpdateData?.success ? intakeUpdateData.data : null;
@@ -257,6 +258,13 @@ export default function StaffDashboardContainer() {
        );
     });
   }, [patientTasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
+
+  const taskTotalCount = useMemo(() => {
+    if (isStaff) {
+      return filteredPatientTasks.length;
+    }
+    return tasksData?.totalCount || 0;
+  }, [isStaff, filteredPatientTasks.length, tasksData?.totalCount]);
 
   // Hooks
   const { isProcessing } = useSocket();
@@ -483,7 +491,15 @@ export default function StaffDashboardContainer() {
     [taskPage, totalPages]
   );
   const hasPrevPage = useMemo(() => taskPage > 1, [taskPage]);
-  const displayedTasks = useMemo(() => filteredPatientTasks, [filteredPatientTasks]);
+
+  const displayedTasks = useMemo(() => {
+    if (isStaff) {
+      const start = (taskPage - 1) * taskPageSize;
+      const end = start + taskPageSize;
+      return filteredPatientTasks.slice(start, end);
+    }
+    return filteredPatientTasks;
+  }, [filteredPatientTasks, isStaff, taskPage, taskPageSize]);
 
   // Initialize selected patient from URL or first patient
   useEffect(() => {
