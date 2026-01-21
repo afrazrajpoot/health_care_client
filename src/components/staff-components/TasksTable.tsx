@@ -820,6 +820,7 @@ export default function TasksTable({
       </div>
 
       {/* Table Content */}
+      {viewMode === "list" ? (
       <div className="overflow-x-auto">
         <table className="w-full min-w-full divide-y divide-gray-200">
           <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
@@ -1151,6 +1152,185 @@ export default function TasksTable({
           </tbody>
         </table>
       </div>
+      ) : (
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredRows.map((row) => {
+            if (row.type === "task") {
+              const task = row.data;
+              const currentStatus = taskStatuses[task.id] || task.status || "Pending";
+              const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
+              const isSelected = isRowSelected(row);
+              const priorityIcon = getPriorityIcon(task.priority || '');
+              const taskIcon = getTaskIcon(task.department || '');
+
+              return (
+                <div 
+                  key={`task-${task.id}`} 
+                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10' : 'border-gray-200 hover:border-blue-200'}`}
+                  onClick={() => handleRowSelection(row, !isSelected)}
+                >
+
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200 text-blue-600">
+                      {taskIcon}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900 line-clamp-1" title={task.department}>{task.department}</h4>
+                      <p className="text-xs text-gray-500">{task.type || 'General Task'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-2">
+                    <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={task.description}>
+                      {task.description}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="truncate">{task.patient}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className={new Date(task.dueDate || '') < new Date() ? 'text-red-600 font-medium' : ''}>
+                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusChipColor(currentStatus)}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+                      {currentStatus}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {session?.user?.role !== "Staff" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenAssignTaskId(task.id);
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title={currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                        </button>
+                      )}
+                      {task.document?.blobPath && (
+                        <button
+                          onClick={(e) => handleTaskDocumentPreview(e, task)}
+                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Preview Document"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSaveQuickNote) {
+                            setOpenQuickNoteId(openQuickNoteId === task.id ? null : task.id);
+                          } else {
+                            onTaskClick(task);
+                          }
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Task"
+                      >
+                        {task.department?.toLowerCase().includes("clinical") ? <FileSearch className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else {
+              const doc = row.data;
+              const isSelected = isRowSelected(row);
+              const isHardFailDoc = isHardFail(doc);
+
+              return (
+                <div 
+                  key={`doc-${doc.id}`}
+                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-red-500 ring-1 ring-red-500 bg-red-50/10' : 'border-gray-200 hover:border-red-200'} ${isHardFailDoc ? 'opacity-75' : ''}`}
+                  onClick={() => !isHardFailDoc && handleRowSelection(row, !isSelected)}
+                >
+                  {!isHardFailDoc && (
+                    <div className="absolute top-4 right-4 z-10">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleRowSelection(row, e.target.checked);
+                        }}
+                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`p-3 rounded-xl ${isHardFailDoc ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-600'} border ${isHardFailDoc ? 'border-gray-200' : 'border-red-100'}`}>
+                      {isHardFailDoc ? <FileX className="w-6 h-6" /> : <FileWarning className="w-6 h-6" />}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900 line-clamp-1">Failed Document</h4>
+                      <p className="text-xs text-red-500 font-medium">Action Required</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-2">
+                    <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={doc.reason}>
+                      {doc.reason}
+                    </h3>
+                    <p className="text-xs text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
+                    
+                    {doc.patientName && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">{doc.patientName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500">
+                      {isHardFailDoc ? 'Missing Data' : 'Processing Failed'}
+                    </span>
+                    
+                    <div className="flex items-center gap-1">
+                      {doc.blobPath && (
+                        <button
+                          onClick={(e) => handlePreviewFile(e, doc)}
+                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Preview File"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => handleViewSummary(e, doc)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteClick(e, doc)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          })}
+        </div>
+      )}
 
       {/* Summary/Details Modal for Failed Documents */}
       {summaryModalOpen && selectedDocument && (
