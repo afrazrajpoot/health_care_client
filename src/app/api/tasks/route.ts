@@ -81,29 +81,52 @@ export async function GET(request: Request) {
 
     // 🧠 Inclusive Matching Logic:
     // Match either the document id(s) OR the search term (patient name)
-    if (documentIds.length > 0 || search) {
-      console.log('🔍 Filtering tasks by documentId(s):', documentIds, 'OR search:', search);
-
-      const orConditions: any[] = [];
-
-      if (documentIds.length > 0) {
-        if (documentIds.length === 1) {
-          orConditions.push({ documentId: documentIds[0] });
-        } else {
-          orConditions.push({ documentId: { in: documentIds } });
-        }
+    // 🧠 Inclusive Matching Logic:
+    // If documentIds are provided, filter by them (AND condition)
+    if (documentIds.length > 0) {
+      console.log('🔍 Filtering tasks by documentId(s):', documentIds);
+      if (documentIds.length === 1) {
+        andConditions.push({ documentId: documentIds[0] });
+      } else {
+        andConditions.push({ documentId: { in: documentIds } });
       }
+    }
 
-      if (search) {
-        orConditions.push({ patient: { contains: search, mode: 'insensitive' } });
-        orConditions.push({ description: { contains: search, mode: 'insensitive' } });
-      }
+    // If search is provided, filter by patient or description (AND condition with internal OR)
+    if (search) {
+      console.log('🔍 Filtering tasks by search:', search);
+      andConditions.push({
+        OR: [
+          { patient: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } }
+        ]
+      });
+    }
 
-      if (orConditions.length > 0) {
-        andConditions.push({ OR: orConditions });
-      }
-    } else {
-      // "if no any data then not get tasks"
+    // If NO documentIds AND NO search, return empty (unless it's a staff member viewing all tasks, but that logic is handled below)
+    // Wait, the original logic was: if (documentIds.length > 0 || search) { ... } else { return empty }
+    // We need to preserve the "return empty if no context" behavior, unless there's a specific reason to show all.
+    // However, for Staff Dashboard, we might want to show all tasks if no specific filter is applied?
+    // The original code returned empty if no documentId AND no search.
+    // But wait, what if I just want to see "My Tasks" (assignedTo=me)?
+    // The original code would return empty if I didn't search or provide a documentId.
+    // Let's check if there are other filters that should allow fetching.
+    // If I am a staff member, I might want to see all tasks assigned to me.
+
+    // Let's keep the restriction for now but allow if other filters are present?
+    // Actually, the user request is about "search on server using current patient document id".
+    // So if I have a document ID, I want to see tasks for that document.
+    // If I have a search, I want to see tasks matching that search.
+    // If I have NEITHER, what should happen?
+    // The previous code returned empty.
+
+    if (documentIds.length === 0 && !search && !assignedTo && !status && !dept && !taskTypeFilter && !overdueOnly) {
+      // "if no any data then not get tasks" - strictly following previous logic's intent but expanding to other filters
+      // actually the previous logic ONLY checked documentIds and search.
+      // If I just filtered by status='pending', it would return empty?
+      // Yes, because it was inside the `if (documentIds.length > 0 || search)` block.
+      // That seems restrictive. Maybe that was the intention?
+      // Let's stick to the previous behavior: if no documentId and no search, return empty.
       console.log('🔄 No documentId or search provided, returning empty');
       return NextResponse.json({
         tasks: [],

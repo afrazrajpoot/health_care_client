@@ -113,6 +113,7 @@ export default function StaffDashboardContainer() {
   const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
     useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [taskPage, setTaskPage] = useState(1);
   const taskPageSize = TASK_PAGE_SIZE;
   const [taskTypeFilter, setTaskTypeFilter] = useState<
@@ -136,7 +137,8 @@ export default function StaffDashboardContainer() {
       page: taskPage,
       pageSize: taskPageSize,
       status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
-      type: taskTypeFilter
+      type: taskTypeFilter,
+      search: taskSearchQuery
     };
   }, [
     selectedPatient?.patientName,
@@ -146,7 +148,8 @@ export default function StaffDashboardContainer() {
     taskPage,
     taskPageSize,
     viewMode,
-    taskTypeFilter
+    taskTypeFilter,
+    taskSearchQuery
   ]);
 
   const { data: tasksData, isLoading: isTasksLoading, refetch: refetchTasks } = useGetTasksQuery(
@@ -272,6 +275,7 @@ export default function StaffDashboardContainer() {
   const handleSelectPatient = useCallback(
     (patient: RecentPatient) => {
       setSelectedPatient(patient);
+      setTaskSearchQuery(""); // Reset search when patient changes
 
       // Update URL search params
       const params = new URLSearchParams(searchParams.toString());
@@ -755,7 +759,7 @@ export default function StaffDashboardContainer() {
             onCancelFile={handleCancelFile as (index: number) => void}
           />
 
-          <main className="p-4 max-w-[1280px] mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
+          <main className="p-4 mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
             <PatientDrawer
               patients={recentPatients}
               selectedPatient={selectedPatient}
@@ -808,6 +812,7 @@ export default function StaffDashboardContainer() {
                 userRole={session?.user?.role}
                 treatmentHistoryData={treatmentHistoryData?.data}
                 isTreatmentHistoryLoading={isTreatmentHistoryLoading}
+                onSearch={setTaskSearchQuery}
               />
             </section>
           </main>
