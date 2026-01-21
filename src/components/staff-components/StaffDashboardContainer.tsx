@@ -234,6 +234,30 @@ export default function StaffDashboardContainer() {
 
   const [reassignLoading, setReassignLoading] = useState(false);
 
+  // Filter tasks for Staff role
+  const filteredPatientTasks = useMemo(() => {
+    if (session?.user?.role?.toLowerCase() !== "staff") {
+      return patientTasks;
+    }
+
+    return patientTasks.filter(task => {
+       const currentAssignee = taskAssignees[task.id] || task.assignee;
+       
+       if (!currentAssignee) return false;
+       
+       const assigneeLower = currentAssignee.toLowerCase();
+       const userNameLower = session?.user?.name?.toLowerCase() || "";
+       const userEmailLower = session?.user?.email?.toLowerCase() || "";
+       
+       return (
+         assigneeLower === userNameLower ||
+         (userNameLower && userNameLower.includes(assigneeLower)) ||
+         (assigneeLower && assigneeLower.includes(userNameLower)) ||
+         assigneeLower === userEmailLower
+       );
+    });
+  }, [patientTasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
+
   // Hooks
   const { isProcessing } = useSocket();
   const initialMode = "wc" as const;
@@ -442,8 +466,8 @@ export default function StaffDashboardContainer() {
   );
 
   const taskStats: TaskStats = useMemo(
-    () => calculateTaskStats(patientTasks),
-    [patientTasks]
+    () => calculateTaskStats(filteredPatientTasks),
+    [filteredPatientTasks]
   );
   const questionnaireChips = useMemo(
     () => getQuestionnaireChipsUtil(patientIntakeUpdate, patientQuiz),
@@ -459,7 +483,7 @@ export default function StaffDashboardContainer() {
     [taskPage, totalPages]
   );
   const hasPrevPage = useMemo(() => taskPage > 1, [taskPage]);
-  const displayedTasks = useMemo(() => patientTasks, [patientTasks]);
+  const displayedTasks = useMemo(() => filteredPatientTasks, [filteredPatientTasks]);
 
   // Initialize selected patient from URL or first patient
   useEffect(() => {

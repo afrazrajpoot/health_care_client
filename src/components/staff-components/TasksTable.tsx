@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import {
@@ -176,6 +176,7 @@ export default function TasksTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
 
   // Debounce search
   useEffect(() => {
@@ -191,6 +192,7 @@ export default function TasksTable({
   // Dynamic Filter Options
   const availableStatuses = ["all", ...Array.from(new Set(tasks.map(t => t.status || "Pending")))];
   const availableTypes = ["all", ...Array.from(new Set(tasks.map(t => t.department || "General")))];
+  const availableAssignees = ["all", ...Array.from(new Set(tasks.map(t => taskAssignees[t.id] || t.assignee || "Unclaimed")))];
 
   // Document preview states
   const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(
@@ -437,13 +439,37 @@ export default function TasksTable({
     }
   };
 
+  // Filter tasks based on role (Staff sees only assigned tasks)
+  const filteredTasks = useMemo(() => {
+    if (session?.user?.role?.toLowerCase() !== "staff") {
+      return tasks;
+    }
+
+    return tasks.filter(task => {
+       const currentAssignee = taskAssignees[task.id] || task.assignee;
+       
+       if (!currentAssignee) return false;
+       
+       const assigneeLower = currentAssignee.toLowerCase();
+       const userNameLower = session?.user?.name?.toLowerCase() || "";
+       const userEmailLower = session?.user?.email?.toLowerCase() || "";
+       
+       return (
+         assigneeLower === userNameLower ||
+         (userNameLower && userNameLower.includes(assigneeLower)) ||
+         (assigneeLower && assigneeLower.includes(userNameLower)) ||
+         assigneeLower === userEmailLower
+       );
+    });
+  }, [tasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
+
   // Combine tasks and failed documents into unified rows
   type UnifiedRow =
     | { type: "task"; data: Task }
     | { type: "failedDoc"; data: FailedDocument };
 
   const unifiedRows: UnifiedRow[] = [
-    ...tasks.map((task) => ({ type: "task" as const, data: task })),
+    ...filteredTasks.map((task) => ({ type: "task" as const, data: task })),
     ...failedDocuments.map((doc) => ({
       type: "failedDoc" as const,
       data: doc,
@@ -525,6 +551,15 @@ export default function TasksTable({
         return row.data.department?.toLowerCase() === typeFilter.toLowerCase();
       } else {
         return typeFilter === "failed";
+      }
+    }
+
+    if (assigneeFilter !== "all") {
+      if (row.type === "task") {
+        const currentAssignee = taskAssignees[row.data.id] || row.data.assignee || "Unclaimed";
+        return currentAssignee === assigneeFilter;
+      } else {
+        return false;
       }
     }
     
@@ -711,6 +746,20 @@ export default function TasksTable({
                 </option>
               ))}
             </select>
+
+            {session?.user?.role !== "Staff" && (
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
+              >
+                {availableAssignees.map(assignee => (
+                  <option key={assignee} value={assignee}>
+                    {assignee === "all" ? "All Assignees" : assignee}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -725,7 +774,7 @@ export default function TasksTable({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Tasks</p>
-                <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredTasks.length}</p>
               </div>
             </div>
           </div>
@@ -737,7 +786,7 @@ export default function TasksTable({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Active Tasks</p>
-                <p className="text-2xl font-bold text-gray-900">{tasks.filter(t => t.status === "pending" || t.status === "in progress").length}</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredTasks.filter(t => t.quickNotes?.options && t.quickNotes.options.length > 0).length}</p>
               </div>
             </div>
           </div>
@@ -762,7 +811,7 @@ export default function TasksTable({
               <div>
                 <p className="text-sm text-gray-600">Completion Rate</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {tasks.length > 0 ? Math.round((tasks.filter(t => t.status === "completed").length / tasks.length) * 100) : 0}%
+                  {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === "completed").length / filteredTasks.length) * 100) : 0}%
                 </p>
               </div>
             </div>
