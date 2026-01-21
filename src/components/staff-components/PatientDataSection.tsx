@@ -148,14 +148,14 @@ const PatientDataSection: React.FC<PatientDataSectionProps> = ({
           const therapyArray = Array.isArray(therapies)
             ? therapies
             : typeof therapies === "object"
-            ? Object.values(therapies)
-            : [];
+              ? Object.values(therapies)
+              : [];
           if (
             therapyArray.some(
               (t: any) =>
                 t?.missed ||
                 t?.status === "missed" ||
-                (typeof t === "string" && t.toLowerCase().includes("missed"))
+                (typeof t === "string" && t.toLowerCase().includes("missed")),
             )
           ) {
             chips.push({ text: "Missed PT session", type: "amber" });
@@ -170,8 +170,8 @@ const PatientDataSection: React.FC<PatientDataSectionProps> = ({
           const appsArray = Array.isArray(newApps)
             ? newApps
             : typeof newApps === "object"
-            ? Object.values(newApps)
-            : [];
+              ? Object.values(newApps)
+              : [];
           if (appsArray.length > 0) {
             chips.push({ text: "New appointment scheduled", type: "blue" });
           }
@@ -181,10 +181,10 @@ const PatientDataSection: React.FC<PatientDataSectionProps> = ({
           const adls = Array.isArray(patientQuiz.adl)
             ? patientQuiz.adl
             : typeof patientQuiz.adl === "string"
-            ? JSON.parse(patientQuiz.adl)
-            : typeof patientQuiz.adl === "object"
-            ? Object.values(patientQuiz.adl)
-            : [];
+              ? JSON.parse(patientQuiz.adl)
+              : typeof patientQuiz.adl === "object"
+                ? Object.values(patientQuiz.adl)
+                : [];
 
           if (
             adls.length === 0 ||
@@ -194,7 +194,7 @@ const PatientDataSection: React.FC<PatientDataSectionProps> = ({
                   !a ||
                   a === "unchanged" ||
                   (typeof a === "string" &&
-                    a.toLowerCase().includes("unchanged"))
+                    a.toLowerCase().includes("unchanged")),
               ))
           ) {
             chips.push({ text: "ADLs unchanged", type: "green" });
@@ -235,12 +235,12 @@ const PatientDataSection: React.FC<PatientDataSectionProps> = ({
         completedTasks={taskStats.completed}
       />
 
-      <TaskSummary
+      {/* <TaskSummary
         open={taskStats.open}
         urgent={taskStats.urgent}
         dueToday={taskStats.dueToday}
         completed={taskStats.completed}
-      />
+      /> */}
 
       <QuestionnaireSummary chips={questionnaireChips} />
     </>

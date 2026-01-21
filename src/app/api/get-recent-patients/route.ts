@@ -125,6 +125,39 @@ function normalizeDOB(dob: Date | string | null | undefined): string {
   }
 }
 
+// Normalize DOI (Date of Injury) → YYYY-MM-DD
+// Treat invalid DOI as empty
+function normalizeDOI(doi: Date | string | null | undefined): string {
+  if (!doi) return "";
+
+  const normalized = typeof doi === 'string' ? doi.trim().toLowerCase() : '';
+
+  // Check for invalid/placeholder values
+  const invalidDOIs = [
+    "not specified",
+    "notspecified",
+    "unspecified",
+    "n/a",
+    "na",
+    "none",
+    "unknown",
+    "undefined",
+    "",
+  ];
+
+  if (typeof doi === 'string' && invalidDOIs.includes(normalized)) {
+    return "";
+  }
+
+  try {
+    const d = new Date(doi);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0]; // YYYY-MM-DD
+  } catch {
+    return "";
+  }
+}
+
 // Check if two DOBs are within 1-2 days (for timezone/format issues)
 function dobsWithinTolerance(
   dob1: string,
@@ -151,23 +184,23 @@ function dobsWithinTolerance(
 function isSamePatient(
   name1: string,
   dob1: string,
-  claim1: string,
+  doi1: string,
   name2: string,
   dob2: string,
-  claim2: string
+  doi2: string
 ): boolean {
-  // 🎯 PRIMARY RULE: Match by claim number (if both have valid claims)
-  // If both have claim numbers, they must match to be the same patient
-  if (claim1 && claim2) {
-    // Same claim number → ALWAYS same patient (merge them)
-    if (claim1 === claim2) return true;
-    // Different claim numbers → NOT same patient
+  // 🎯 PRIMARY RULE: Match by DOI (Date of Injury) - if both have valid DOI
+  // If both have DOI, they must match to be the same case
+  if (doi1 && doi2) {
+    // Same DOI → SAME case (merge them)
+    if (doi1 === doi2) return true;
+    // Different DOI → DIFFERENT case (do NOT merge)
     return false;
   }
 
-  // 🎯 FALLBACK: If one or both don't have claim numbers, use name + DOB matching
-  // This handles cases where claim number is missing
-  if (!claim1 || !claim2) {
+  // 🎯 FALLBACK: If one or both don't have DOI, use name + DOB matching
+  // This handles cases where DOI is missing (e.g., 2nd report comes without DOI)
+  if (!doi1 || !doi2) {
     // Extract name parts for advanced matching
     const parts1 = getNameParts(name1);
     const parts2 = getNameParts(name2);
@@ -262,6 +295,12 @@ export async function GET(request: Request) {
           },
         },
         {
+          doi: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
           claimNumber: {
             contains: search,
             mode: "insensitive",
@@ -280,6 +319,7 @@ export async function GET(request: Request) {
             id: true,
             patientName: true,
             dob: true,
+            doi: true,
             claimNumber: true,
             createdAt: true,
             reportDate: true,
@@ -333,6 +373,7 @@ export async function GET(request: Request) {
       documents: typeof cleanedDocuments;
       patientName: string | null;
       dob: Date | string | null;
+      doi: Date | string | null;
       claimNumber: string | null;
       createdAt: Date;
     }
@@ -341,7 +382,7 @@ export async function GET(request: Request) {
 
     for (const doc of cleanedDocuments) {
       const docName = normalizePatientName(doc.patientName);
-      const docClaim = normalizeClaimNumber(doc.claimNumber);
+      const docDOI = normalizeDOI(doc.doi);
       const docDOB = normalizeDOB(doc.dob);
 
       let foundGroup = false;
@@ -351,17 +392,17 @@ export async function GET(request: Request) {
         // Check against the first document in the group
         const firstDoc = group.documents[0];
         const groupName = normalizePatientName(firstDoc.patientName);
-        const groupClaim = normalizeClaimNumber(firstDoc.claimNumber);
+        const groupDOI = normalizeDOI(firstDoc.doi);
         const groupDOB = normalizeDOB(firstDoc.dob);
 
         if (
           isSamePatient(
             docName,
             docDOB,
-            docClaim,
+            docDOI,
             groupName,
             groupDOB,
-            groupClaim
+            groupDOI
           )
         ) {
           group.documents.push(doc);
@@ -383,6 +424,21 @@ export async function GET(request: Request) {
             }
           }
 
+          // Update DOI - prefer non-empty DOI, and use most recent if both exist
+          const groupDOINormalized = normalizeDOI(group.doi);
+          const docDOINormalized = normalizeDOI(doc.doi);
+
+          if (!groupDOINormalized && docDOINormalized) {
+            group.doi = doc.doi;
+          }
+          else if (groupDOINormalized && docDOINormalized && doc.createdAt > group.createdAt) {
+            group.doi = doc.doi;
+          }
+          else if (!group.doi && doc.doi) {
+            group.doi = doc.doi;
+          }
+
+          // Keep claim number for backward compatibility
           const groupClaimNormalized = normalizeClaimNumber(group.claimNumber);
           const docClaimNormalized = normalizeClaimNumber(doc.claimNumber);
 
@@ -411,6 +467,7 @@ export async function GET(request: Request) {
           documents: [doc],
           patientName: doc.patientName,
           dob: doc.dob,
+          doi: doc.doi,
           claimNumber: doc.claimNumber,
           createdAt: doc.createdAt,
         });
@@ -433,6 +490,7 @@ export async function GET(request: Request) {
       return {
         patientName: group.patientName,
         dob: group.dob,
+        doi: group.doi,
         claimNumber: group.claimNumber,
         createdAt: group.createdAt,
         reportDate: mostRecentDoc.reportDate,
@@ -444,6 +502,7 @@ export async function GET(request: Request) {
             id: d.id,
             patientName: d.patientName,
             dob: d.dob,
+            doi: d.doi,
             claimNumber: d.claimNumber,
             createdAt: d.createdAt,
             reportDate: d.reportDate,

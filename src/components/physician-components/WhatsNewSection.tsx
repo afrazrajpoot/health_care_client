@@ -89,6 +89,232 @@ const FIELD_LABELS: Record<string, string> = {
   imaging: "Imaging",
 };
 
+// Helper to convert snake_case to Title Case
+const formatKeyLabel = (key: string): string => {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+// Get color for different field types
+const getFieldColor = (key: string): string => {
+  const keyLower = key.toLowerCase();
+  if (keyLower.includes("diagnosis") || keyLower.includes("finding"))
+    return "#dc2626";
+  if (keyLower.includes("medication") || keyLower.includes("prescription"))
+    return "#7c3aed";
+  if (keyLower.includes("recommendation") || keyLower.includes("plan"))
+    return "#2563eb";
+  if (keyLower.includes("procedure") || keyLower.includes("test"))
+    return "#d97706";
+  if (keyLower.includes("vital") || keyLower.includes("allerg"))
+    return "#db2777";
+  if (keyLower.includes("authorization") || keyLower.includes("status"))
+    return "#059669";
+  if (keyLower.includes("follow") || keyLower.includes("next"))
+    return "#0891b2";
+  if (keyLower.includes("unclear") || keyLower.includes("note"))
+    return "#6b7280";
+  if (keyLower.includes("metadata")) return "#9ca3af";
+  return "#374151";
+};
+
+// Get background color for section headers
+const getFieldBgColor = (key: string): string => {
+  const keyLower = key.toLowerCase();
+  if (keyLower.includes("diagnosis") || keyLower.includes("finding"))
+    return "#fef2f2";
+  if (keyLower.includes("medication") || keyLower.includes("prescription"))
+    return "#f5f3ff";
+  if (keyLower.includes("recommendation") || keyLower.includes("plan"))
+    return "#eff6ff";
+  if (keyLower.includes("procedure") || keyLower.includes("test"))
+    return "#fffbeb";
+  if (keyLower.includes("vital") || keyLower.includes("allerg"))
+    return "#fdf2f8";
+  if (keyLower.includes("authorization") || keyLower.includes("status"))
+    return "#ecfdf5";
+  if (keyLower.includes("follow") || keyLower.includes("next"))
+    return "#ecfeff";
+  if (keyLower.includes("metadata")) return "#f9fafb";
+  return "#f9fafb";
+};
+
+// Render a single value (handles primitives, arrays, and objects)
+const renderDynamicValue = (
+  value: any,
+  depth: number = 0,
+  parentKey?: string,
+): React.ReactNode => {
+  if (value === null || value === undefined) {
+    return <span className="text-gray-400 italic text-sm">Not specified</span>;
+  }
+
+  if (typeof value === "boolean") {
+    return (
+      <span
+        className={`text-sm font-medium ${value ? "text-green-600" : "text-red-500"}`}
+      >
+        {value ? "Yes" : "No"}
+      </span>
+    );
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return <span className="text-sm text-gray-700">{String(value)}</span>;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="text-gray-400 italic text-sm">None</span>;
+    }
+
+    // Check if array contains objects or primitives
+    const hasObjects = value.some(
+      (item) => typeof item === "object" && item !== null,
+    );
+
+    if (hasObjects) {
+      return (
+        <div className="space-y-1.5">
+          {value.map((item, idx) => (
+            <div
+              key={idx}
+              className="bg-white rounded-md px-3 py-2 border border-gray-100 shadow-sm"
+            >
+              {typeof item === "object" && item !== null ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {Object.entries(item).map(([subKey, subValue]) => (
+                    <div key={subKey} className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-500">
+                        {formatKeyLabel(subKey)}:
+                      </span>
+                      <span className="text-sm text-gray-800 font-medium">
+                        {renderDynamicValue(subValue, depth + 1)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-sm text-gray-700">{String(item)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Simple array of primitives - render as compact bullet list
+    return (
+      <ul className="space-y-0.5">
+        {value.map((item, idx) => (
+          <li
+            key={idx}
+            className="flex items-start gap-2 text-sm text-gray-700"
+          >
+            <span className="text-gray-400 mt-1 text-xs">•</span>
+            <span>{String(item)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (typeof value === "object") {
+    return (
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {Object.entries(value).map(([subKey, subValue]) => (
+          <div key={subKey} className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">
+              {formatKeyLabel(subKey)}:
+            </span>
+            <span className="text-sm text-gray-800 font-medium">
+              {renderDynamicValue(subValue, depth + 1)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return <span className="text-sm">{String(value)}</span>;
+};
+
+// Parse and render dynamic brief summary JSON
+const renderDynamicBriefSummary = (summary: any): React.ReactNode => {
+  // Try to parse if it's a string
+  let data = summary;
+  if (typeof summary === "string") {
+    try {
+      data = JSON.parse(summary);
+    } catch {
+      // Not JSON, return as plain text
+      return (
+        <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+          {summary}
+        </div>
+      );
+    }
+  }
+
+  if (!data || typeof data !== "object") {
+    return <div className="text-sm text-gray-700">{String(summary)}</div>;
+  }
+
+  // Filter out metadata keys
+  const filteredEntries = Object.entries(data).filter(
+    ([key]) => !key.startsWith("_") && key !== "extraction_metadata",
+  );
+
+  if (filteredEntries.length === 0) {
+    return (
+      <div className="text-gray-500 italic text-center py-4">
+        No summary data available
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {filteredEntries.map(([key, value]) => {
+        const labelColor = getFieldColor(key);
+        const bgColor = getFieldBgColor(key);
+        const isEmpty =
+          value === null ||
+          value === undefined ||
+          (Array.isArray(value) && value.length === 0) ||
+          (typeof value === "object" &&
+            value !== null &&
+            Object.keys(value).length === 0);
+
+        if (isEmpty) return null;
+
+        return (
+          <div
+            key={key}
+            className="rounded-lg overflow-hidden border border-gray-100"
+          >
+            {/* Section Header */}
+            <div
+              className="px-3 py-2 border-b border-gray-100"
+              style={{ backgroundColor: bgColor }}
+            >
+              <span
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: labelColor }}
+              >
+                {formatKeyLabel(key)}
+              </span>
+            </div>
+            {/* Section Content */}
+            <div className="px-3 py-2 bg-white">
+              {renderDynamicValue(value, 0, key)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // Get indicator color based on field type
 const getFieldIndicatorColor = (field: string): string => {
   if (field === "findings" || field === "diagnosis") return "#ef4444"; // Red
@@ -1518,7 +1744,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
           <div className="text-gray-700 leading-relaxed">
             {selectedBriefSummary ? (
               <div className="space-y-3">
-                {renderFormattedSummary(selectedBriefSummary)}
+                {renderDynamicBriefSummary(selectedBriefSummary)}
               </div>
             ) : (
               <div className="text-center py-8">
