@@ -52,7 +52,7 @@ export const MainContent = React.memo<MainContentProps>(
           error={error}
           onRetry={onRetry}
           selectedPatient={selectedPatient}
-          fetchDocumentData={() => {}}
+          fetchDocumentData={() => { }}
           mode={mode}
         />
       )}
@@ -77,6 +77,8 @@ export const MainContent = React.memo<MainContentProps>(
                 <StaffStatusSection
                   documentQuickNotes={documentData.quick_notes_snapshots || []}
                   taskQuickNotes={taskQuickNotes}
+                  isCollapsed={collapsedSections.staffStatus}
+                  onToggle={() => onToggleSection("staffStatus")}
                 />
               )}
               {documentData && (

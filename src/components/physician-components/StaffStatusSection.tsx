@@ -12,11 +12,15 @@ interface QuickNoteSnapshot {
 interface StaffStatusSectionProps {
   documentQuickNotes: QuickNoteSnapshot[];
   taskQuickNotes: QuickNoteSnapshot[];
+  isCollapsed?: boolean;
+  onToggle?: () => void;
 }
 
 export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
   documentQuickNotes,
   taskQuickNotes,
+  isCollapsed = true,
+  onToggle,
 }) => {
   // Determine status color based on content
   const getStatusColor = (note: QuickNoteSnapshot): string => {
@@ -135,8 +139,16 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     .staff-status-header {
       padding: 16px 20px;
       border-bottom: 1px solid #f3f4f6;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: opacity 0.2s ease;
+    }
+
+    .staff-status-header:hover {
+      opacity: 0.95;
     }
     
     .staff-status-title {
@@ -178,7 +190,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     }
     
     .status-chip:hover {
-      background: #f3f4f6;
+    
       transform: translateY(-1px);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
@@ -227,7 +239,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     .empty-state {
       text-align: center;
       padding: 30px 20px;
-      color: #6b7280;
+    
     }
     
     .empty-state svg {
@@ -279,93 +291,115 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
   return (
     <>
       <style>{styles}</style>
-      <div className="staff-status-section">
-        <div className="staff-status-header">
-          <div className="staff-status-title">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-            </svg>
-            Staff Status
-          </div>
-          <div className="staff-status-subtitle">
-            Patient-specific updates • Read-only view
-          </div>
-        </div>
-
-        <div className="staff-status-body">
-          {/* Document Quick Notes Section */}
-          {filteredDocNotes.length > 0 && (
-            <div className="task-group">
-              <div className="task-group-title">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                </svg>
-                Document Notes ({filteredDocNotes.length})
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap" }}>
-                {filteredDocNotes.map((note, index) => {
-                  const statusColor = getStatusColor(note);
-                  const displayText = getDisplayText(note);
-                  return (
-                    <div key={`doc-note-${index}`} className="status-chip">
-                      <span className={`status-dot ${statusColor}`}></span>
-                      {displayText}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Task Quick Notes Section */}
-          {groups.length > 0 && (
-            <div className="notes-timeline">
-              {groups.map(([description, notes], groupIndex) => (
-                <div key={`task-group-${groupIndex}`} className="task-group">
-                  <div className="task-group-title">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                    </svg>
-                    {description} ({notes.length})
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap" }}>
-                    {notes.map((note, noteIndex) => {
-                      const statusColor = getStatusColor(note);
-                      const displayText = getDisplayText(note);
-                      const time = note.timestamp ? new Date(note.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : '';
-
-                      return (
-                        <div key={`task-note-${groupIndex}-${noteIndex}`} className="status-chip">
-                          <span className={`status-dot ${statusColor}`}></span>
-                          {displayText}
-                          {time && <span className="note-time">{time}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {filteredDocNotes.length === 0 && groups.length === 0 && (
-            <div className="empty-state">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.801 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.801 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+      <div className="staff-status-section mb-[1vw]">
+        <div className="staff-status-header" onClick={onToggle}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="staff-status-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
               </svg>
-              <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
-                No status updates available
-              </div>
-              <div style={{ fontSize: '12px' }}>
-                Staff notes and task updates will appear here
-              </div>
+              Staff Status
             </div>
-          )}
+            <div className="staff-status-subtitle">
+              Patient-specific updates • Read-only view
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider font-bold opacity-70">
+              {isCollapsed ? 'Click to expand' : 'Click to collapse'}
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              style={{
+                width: '20px',
+                height: '20px',
+                transition: 'transform 0.3s ease',
+                transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'
+              }}
+            >
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </div>
         </div>
+
+        {!isCollapsed && (
+          <div className="staff-status-body">
+            {/* Document Quick Notes Section */}
+            {filteredDocNotes.length > 0 && (
+              <div className="task-group">
+                <div className="task-group-title">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                  </svg>
+                  Document Notes ({filteredDocNotes.length})
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap" }}>
+                  {filteredDocNotes.map((note, index) => {
+                    const statusColor = getStatusColor(note);
+                    const displayText = getDisplayText(note);
+                    return (
+                      <div key={`doc-note-${index}`} className="status-chip">
+                        <span className={`status-dot ${statusColor}`}></span>
+                        {displayText}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Task Quick Notes Section */}
+            {groups.length > 0 && (
+              <div className="notes-timeline">
+                {groups.map(([description, notes], groupIndex) => (
+                  <div key={`task-group-${groupIndex}`} className="task-group">
+                    <div className="task-group-title">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                      </svg>
+                      {description} ({notes.length})
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap" }}>
+                      {notes.map((note, noteIndex) => {
+                        const statusColor = getStatusColor(note);
+                        const displayText = getDisplayText(note);
+                        const time = note.timestamp ? new Date(note.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '';
+
+                        return (
+                          <div key={`task-note-${groupIndex}-${noteIndex}`} className="status-chip">
+                            <span className={`status-dot ${statusColor}`}></span>
+                            {displayText}
+                            {time && <span className="note-time">{time}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {filteredDocNotes.length === 0 && groups.length === 0 && (
+              <div className="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.801 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.801 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                </svg>
+                <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>
+                  No status updates available
+                </div>
+                <div style={{ fontSize: '12px' }}>
+                  Staff notes and task updates will appear here
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

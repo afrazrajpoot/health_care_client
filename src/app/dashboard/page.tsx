@@ -187,6 +187,7 @@ export default function PhysicianCard() {
     treatmentHistory: false,
     adlWorkStatus: true,
     documentSummary: true,
+    staffStatus: true,
   });
   const [showManualTaskModal, setShowManualTaskModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
