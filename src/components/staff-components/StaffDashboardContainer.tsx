@@ -118,6 +118,7 @@ export default function StaffDashboardContainer() {
     "all" | "internal" | "external"
   >("all");
   const [showUploadToast, setShowUploadToast] = useState(false);
+  const [isRefreshingAfterUpload, setIsRefreshingAfterUpload] = useState(false);
 
   // RTK Query Hooks
   const { data: recentPatientsData, isLoading: isPatientsLoading, refetch: refetchPatients } = useGetRecentPatientsQuery(patientSearchQuery, {
@@ -494,6 +495,13 @@ export default function StaffDashboardContainer() {
   // Initialize selected patient from URL or first patient
   useEffect(() => {
     if (recentPatientsData && !isPatientsLoading) {
+      // Priority 1: If we just finished an upload, always pick the newest patient
+      if (isRefreshingAfterUpload && recentPatientsData.length > 0) {
+        setIsRefreshingAfterUpload(false);
+        handleSelectPatient(recentPatientsData[0]);
+        return;
+      }
+
       const patientNameFromUrl = searchParams.get("patient_name");
       const dobFromUrl = searchParams.get("dob");
       const claimFromUrl = searchParams.get("claim");
@@ -501,7 +509,8 @@ export default function StaffDashboardContainer() {
       if (patientNameFromUrl) {
         // Try to find the patient in the recent list
         const urlPatient = recentPatientsData.find((p: RecentPatient) => {
-          const nameMatch = p.patientName.toLowerCase() === patientNameFromUrl.toLowerCase();
+          const nameMatch =
+            p.patientName.toLowerCase() === patientNameFromUrl.toLowerCase();
           const dobMatch = !dobFromUrl || p.dob === dobFromUrl;
           const claimMatch = !claimFromUrl || p.claimNumber === claimFromUrl;
           return nameMatch && dobMatch && claimMatch;
@@ -514,7 +523,10 @@ export default function StaffDashboardContainer() {
 
         // If not found in list but we have parameters, create a "virtual" patient
         // to show their data in the dashboard
-        if (!selectedPatient || selectedPatient.patientName !== patientNameFromUrl) {
+        if (
+          !selectedPatient ||
+          selectedPatient.patientName !== patientNameFromUrl
+        ) {
           setSelectedPatient({
             patientName: patientNameFromUrl,
             dob: dobFromUrl || "",
@@ -525,12 +537,23 @@ export default function StaffDashboardContainer() {
         }
       }
 
-      // Only default to first patient if no selection exists and no URL params
-      if (!selectedPatient && recentPatientsData.length > 0) {
-        setSelectedPatient(recentPatientsData[0]);
+      // Priority 3: Default to first patient if no selection and no URL
+      if (
+        !selectedPatient &&
+        !patientNameFromUrl &&
+        recentPatientsData.length > 0
+      ) {
+        handleSelectPatient(recentPatientsData[0]);
       }
     }
-  }, [recentPatientsData, isPatientsLoading, searchParams, selectedPatient]);
+  }, [
+    recentPatientsData,
+    isPatientsLoading,
+    searchParams,
+    selectedPatient,
+    isRefreshingAfterUpload,
+    handleSelectPatient,
+  ]);
   // Function to refresh all data using tag invalidation
   const refreshAllData = useCallback(() => {
     dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
@@ -639,6 +662,7 @@ export default function StaffDashboardContainer() {
   };
   // Data refresh function for progress manager
   const handleRefreshData = useCallback(() => {
+    setIsRefreshingAfterUpload(true);
     refreshAllData();
   }, [refreshAllData]);
   const handleUpgrade = useCallback(() => {

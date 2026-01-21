@@ -315,13 +315,15 @@ export default function PatientDrawer({
                             </div>
                             <div>
                               <h4 className="font-bold text-gray-900 text-base">
-                                {patient?.patientName}
+                                {patient?.patientName && patient.patientName.toLowerCase() !== "unknown" ? patient.patientName : "Patient"}
                               </h4>
                               <div className="flex items-center gap-2 mt-1">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
-                                  {patient.status || "Unknown"}
-                                </span>
-                                {patient.visitType && (
+                                {patient.status && patient.status.toLowerCase() !== "unknown" && (
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
+                                    {patient.status}
+                                  </span>
+                                )}
+                                {patient.visitType && patient.visitType.toLowerCase() !== "unknown" && (
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getVisitTypeColor(patient.visitType)}`}>
                                     {patient.visitType}
                                   </span>
@@ -334,10 +336,16 @@ export default function PatientDrawer({
                         {/* Patient Details */}
                         <div className="space-y-2.5">
                           <div className="flex items-center gap-3 text-sm text-gray-600">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="w-4 h-4" />
-                              <span>DOB: {formatDOB(patient?.dob)}</span>
-                            </div>
+                            {(() => {
+                              const dobValue = patient?.dob ? formatDOB(patient.dob) : "";
+                              if (!dobValue || dobValue.toLowerCase().includes("invalid") || dobValue.toLowerCase() === "unknown") return null;
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>DOB: {dobValue}</span>
+                                </div>
+                              );
+                            })()}
                             <div className="flex items-center gap-1.5">
                               <FileText className="w-4 h-4" />
                               <span className={patient?.claimNumber !== "Not specified" ? "font-medium" : "text-gray-500"}>
@@ -350,14 +358,14 @@ export default function PatientDrawer({
 
                           {/* Additional Info */}
                           <div className="grid grid-cols-2 gap-3">
-                            {patient.physician && (
+                            {patient.physician && patient.physician.toLowerCase() !== "unknown" && (
                               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                                 <UserPen className="w-3.5 h-3.5" />
                                 <span className="truncate">Dr. {patient.physician.split(' ')[0]}</span>
                               </div>
                             )}
 
-                            {patient.lastVisit && (
+                            {patient.lastVisit && patient.lastVisit.toLowerCase() !== "unknown" && !isNaN(new Date(patient.lastVisit).getTime()) && (
                               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                                 <Clock className="w-3.5 h-3.5" />
                                 <span>{new Date(patient.lastVisit).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
@@ -378,7 +386,13 @@ export default function PatientDrawer({
                         <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
                           <div className="flex items-center gap-1.5 text-xs text-gray-500">
                             <Clock className="w-3.5 h-3.5" />
-                            <span>{patient.createdAt ? `Added ${new Date(patient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'New Selection'}</span>
+                            <span>
+                              {(() => {
+                                if (!patient.createdAt) return 'New Selection';
+                                const d = new Date(patient.createdAt);
+                                return isNaN(d.getTime()) ? '' : `Added ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                              })()}
+                            </span>
                           </div>
                           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group-hover:translate-x-0.5">
                             <span>View</span>

@@ -39,6 +39,7 @@ import {
   useGetRecentPatientsQuery,
   useAddManualTaskMutation,
 } from "@/redux/dashboardApi";
+import { ProgressTracker } from "@/components/ProgressTracker";
 
 // Import types - Check if these are exported from DashboardContent
 // If not, define them locally
@@ -128,6 +129,19 @@ const validateFiles = (files: File[]): { isValid: boolean; error?: string; overs
     };
   }
 
+  const allowedExtensions = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
+  const invalidTypeFiles = files.filter(file => {
+    const extension = "." + file.name.split(".").pop()?.toLowerCase();
+    return !allowedExtensions.includes(extension);
+  });
+
+  if (invalidTypeFiles.length > 0) {
+    return {
+      isValid: false,
+      error: `Unsupported file format. Please upload PDF, DOCX, or images (JPG, PNG). Invalid files: ${invalidTypeFiles.map(f => f.name).join(', ')}`
+    };
+  }
+
   return { isValid: true };
 };
 
@@ -183,6 +197,7 @@ export default function PhysicianCard() {
   const [highlightedPatientIndex, setHighlightedPatientIndex] = useState<number | null>(null);
   const [isFromURLSelection, setIsFromURLSelection] = useState(false);
   const [documentIdFromUrl, setDocumentIdFromUrl] = useState<string | null>(null);
+  const [isRefreshingAfterUpload, setIsRefreshingAfterUpload] = useState(false);
 
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const initialPatientSelectedRef = useRef(false);
@@ -536,9 +551,16 @@ export default function PhysicianCard() {
 
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      handleSnap(e);
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        handleFilesSelection(files);
+      }
+      // Reset input value so same files can be selected again
+      if (e.target) {
+        e.target.value = "";
+      }
     },
-    [handleSnap]
+    [handleFilesSelection]
   );
 
   const handleUploadClick = useCallback(() => {
@@ -567,6 +589,7 @@ export default function PhysicianCard() {
 
   const handleRefreshData = useCallback(() => {
     dispatch(dashboardApi.util.invalidateTags(["Patients", "Tasks"]));
+    setIsRefreshingAfterUpload(true);
   }, [dispatch]);
 
   const handleManualTaskSubmit = useCallback(async (data: any) => {
@@ -612,14 +635,17 @@ export default function PhysicianCard() {
         const patients = recentPatientsData as unknown as Patient[];
         setRecentPatientsList(patients || []);
 
+        const latestPatient = patients[0];
+
         // Auto-select first patient if no URL selection and this is the first load
+        // OR if we just finished an upload
         if (
-          !initialPatientSelectedRef.current &&
+          (!initialPatientSelectedRef.current || isRefreshingAfterUpload) &&
           patients &&
           patients.length > 0 &&
-          session?.user &&
-          !selectedPatient
+          session?.user
         ) {
+          setIsRefreshingAfterUpload(false);
           const latestPatient = patients[0];
           let dobString = "";
           if (latestPatient.dob) {
@@ -700,6 +726,7 @@ export default function PhysicianCard() {
 
   return (
     <>
+      <ProgressTracker />
       <style jsx>{`
         @keyframes pulse-highlight {
           0% { background-color: rgba(59, 130, 246, 0.1); }

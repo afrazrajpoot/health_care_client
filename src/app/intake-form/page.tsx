@@ -369,7 +369,12 @@ function PatientIntakeContent() {
 
     if (showAppointments && appointments.length > 0) {
       appointments.forEach((appt, i) => {
-        lines.push(`Appointment ${i + 1}: ${appt.type} on ${appt.date || "—"}`);
+        let displayDate = appt.date || "—";
+        if (appt.date && appt.date.includes("-")) {
+          const [year, month, day] = appt.date.split("-");
+          displayDate = `${month}/${day}/${year}`;
+        }
+        lines.push(`Appointment ${i + 1}: ${appt.type} on ${displayDate}`);
       });
     }
 
@@ -509,9 +514,9 @@ function PatientIntakeContent() {
                     setAuthDob("");
                   }
                 }}
-                dateFormat="yyyy-MM-dd"
+                dateFormat="MM/dd/yyyy"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholderText="Select date of birth"
+                placeholderText="MM/DD/YYYY"
                 showYearDropdown
                 scrollableYearDropdown
                 yearDropdownItemNumber={100}
@@ -646,9 +651,9 @@ function PatientIntakeContent() {
                             updateAppointment(index, "date", "");
                           }
                         }}
-                        dateFormat="yyyy-MM-dd"
+                        dateFormat="MM/dd/yyyy"
                         className="w-[17vw] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        placeholderText="Select appointment date (YYYY-MM-DD)"
+                        placeholderText="MM/DD/YYYY"
                         showYearDropdown
                         scrollableYearDropdown
                         yearDropdownItemNumber={100}

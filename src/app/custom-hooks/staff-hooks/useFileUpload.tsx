@@ -110,8 +110,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
       const files = Array.from(event.target.files || []);
       if (files.length > 0) {
         setSelectedFiles(files);
-        // Auto-submit if used directly (e.g., no popup)
-        submitFiles(files);
       }
     },
     [submitFiles]

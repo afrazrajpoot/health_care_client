@@ -47,13 +47,13 @@ export default function FileConfirmationModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
         <h2 className="text-lg font-bold mb-4">Confirm Upload</h2>
-        {isOverLimit ? (
+        {files.length > 10 ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-red-800 font-semibold">
-              ⚠️ Maximum 5 documents allowed
+              ⚠️ Maximum 10 documents allowed
             </p>
             <p className="text-xs text-red-600 mt-1">
-              Please remove {files.length - 5} file(s) to continue
+              Please remove {files.length - 10} file(s) to continue
             </p>
           </div>
         ) : (
@@ -104,7 +104,7 @@ export default function FileConfirmationModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={fileDetails.length === 0 || isOverLimit}
+            disabled={fileDetails.length === 0 || fileDetails.length > 10}
             className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Upload Files

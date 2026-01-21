@@ -1,10 +1,10 @@
 "use client";
 
-import { 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
+import {
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  Clock,
   TrendingUp,
   Shield,
   Info
@@ -55,7 +55,7 @@ export default function QuestionnaireSummary({
         case "shield": return <Shield className="w-4 h-4" />;
       }
     }
-    
+
     switch (type) {
       case "blue": return <Info className="w-4 h-4" />;
       case "amber": return <Clock className="w-4 h-4" />;
@@ -87,33 +87,13 @@ export default function QuestionnaireSummary({
               <p className="text-sm text-gray-500 m-0">Patient responses and status</p>
             </div>
           </div>
-          
-          {/* Progress Stats */}
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-gray-600">Completion:</span>
-                <span className="text-lg font-bold text-gray-900">{completionRate}%</span>
-              </div>
-              <p className="text-xs text-gray-500 m-0">
-                {completedQuestions}/{totalQuestions} questions
-              </p>
-            </div>
-          </div>
+
+
         </div>
-        
-        {/* Progress Bar */}
-        <div className="px-6 pb-4">
-          <div className="w-full bg-gray-100 rounded-full h-2">
-            <div 
-              className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${completionRate}%` }}
-            ></div>
-          </div>
-        </div>
+
+
       </div>
-      
+
       {/* Chips Section */}
       <div className="p-6">
         <div className="flex flex-wrap gap-3">
@@ -129,28 +109,8 @@ export default function QuestionnaireSummary({
             </div>
           ))}
         </div>
-        
-        {/* Legend */}
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span>Completed</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>In Progress</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-              <span>Pending Review</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span>Urgent</span>
-            </div>
-          </div>
-        </div>
+
+
       </div>
     </section>
   );

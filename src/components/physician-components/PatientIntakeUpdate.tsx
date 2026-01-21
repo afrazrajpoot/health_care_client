@@ -28,9 +28,6 @@ const PatientIntakeUpdate: React.FC<PatientIntakeUpdateProps> = ({
   documentData,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [intakeUpdate, setIntakeUpdate] = useState<IntakeUpdateData | null>(
-    null
-  );
 
   const { data: intakeData, isFetching: loading } = useGetPatientIntakeUpdateQuery(
     {
@@ -43,13 +40,7 @@ const PatientIntakeUpdate: React.FC<PatientIntakeUpdateProps> = ({
     }
   );
 
-  useEffect(() => {
-    if (intakeData?.success && intakeData?.data) {
-      setIntakeUpdate(intakeData.data);
-    } else if (intakeData && !intakeData.success) {
-      setIntakeUpdate(null);
-    }
-  }, [intakeData]);
+  const intakeUpdate = intakeData?.success ? intakeData.data : null;
 
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
@@ -78,9 +69,8 @@ const PatientIntakeUpdate: React.FC<PatientIntakeUpdateProps> = ({
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-3">
       {/* Summary Section */}
       <div
-        className={`px-3 py-2.5 cursor-pointer flex gap-2.5 items-start transition-colors ${
-          isExpanded ? "bg-gray-50" : ""
-        }`}
+        className={`px-3 py-2.5 cursor-pointer flex gap-2.5 items-start transition-colors ${isExpanded ? "bg-gray-50" : ""
+          }`}
         onClick={toggleExpand}
       >
         {/* Icon */}
@@ -99,10 +89,10 @@ const PatientIntakeUpdate: React.FC<PatientIntakeUpdateProps> = ({
                 {loading
                   ? "Loading..."
                   : intakeUpdate
-                  ? `Completed ${formatDate(
+                    ? `Completed ${formatDate(
                       intakeUpdate.createdAt
                     )} • Since last visit`
-                  : "No intake update available"}
+                    : "No intake update available"}
               </div>
             </div>
           </div>
@@ -132,9 +122,8 @@ const PatientIntakeUpdate: React.FC<PatientIntakeUpdateProps> = ({
         {/* Expand/Collapse Indicator */}
         <div className="flex-shrink-0">
           <svg
-            className={`w-5 h-5 text-gray-400 transition-transform ${
-              isExpanded ? "rotate-180" : ""
-            }`}
+            className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""
+              }`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

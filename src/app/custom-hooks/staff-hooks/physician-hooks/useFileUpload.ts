@@ -180,10 +180,6 @@ export const useFileUpload = (mode: "wc" | "gm") => {
 
         if (validFiles.length > 0) {
           setSelectedFiles(validFiles);
-          // Auto-submit immediately without showing modal
-          setTimeout(() => {
-            submitFiles(validFiles);
-          }, 0);
         } else {
           console.error(
             "No valid files selected. Please check file types and size (max 30MB)."

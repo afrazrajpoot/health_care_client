@@ -24,6 +24,8 @@ interface QuickNoteSnapshot {
   timestamp: string;
   one_line_note: string;
   status_update: string;
+  taskDescription?: string;
+  taskType?: string;
 }
 
 interface DocumentData {
@@ -379,31 +381,39 @@ export const usePatientData = (
           }
 
           if (qn) {
-            // Handle new chip-based options format
-            if (qn.options && Array.isArray(qn.options)) {
-              qn.options.forEach((option: any) => {
-                allTaskQuickNotes.push({
-                  details: option.description || "",
-                  timestamp: qn.timestamp || task.updatedAt || "",
-                  one_line_note: option.label || "",
-                  status_update: option.category || "Task Update",
-                });
+            // 1. Capture top-level note (reverted to prefer one_line_note for chip view)
+            const topNote = (qn.one_line_note || "").trim();
+            const topStatus = (qn.status_update || "").trim();
+            const topDetails = (qn.details || "").trim();
+
+            if (topNote || topDetails) {
+              allTaskQuickNotes.push({
+                details: topDetails,
+                timestamp: qn.timestamp || task.updatedAt || "",
+                one_line_note: topNote,
+                status_update: topStatus || "Staff Note",
+                taskDescription: task.description,
+                taskType: task.type,
               });
             }
-            // Handle legacy format (if any)
-            else {
-              const hasContent = (qn.status_update && qn.status_update.trim()) ||
-                (qn.one_line_note && qn.one_line_note.trim()) ||
-                (qn.details && qn.details.trim());
 
-              if (hasContent) {
-                allTaskQuickNotes.push({
-                  details: qn.details || "",
-                  timestamp: qn.timestamp || qn.updatedAt || task.updatedAt || "",
-                  one_line_note: qn.one_line_note || "",
-                  status_update: qn.status_update || "",
-                });
-              }
+            // 2. Handle options format (chips)
+            if (qn.options && Array.isArray(qn.options)) {
+              qn.options.forEach((option: any) => {
+                const label = (option.label || "").trim();
+                const description = (option.description || "").trim();
+
+                if (label || description) {
+                  allTaskQuickNotes.push({
+                    details: description,
+                    timestamp: qn.timestamp || task.updatedAt || "",
+                    one_line_note: label,
+                    status_update: option.category || "Task Update",
+                    taskDescription: task.description,
+                    taskType: task.type,
+                  });
+                }
+              });
             }
           }
         }
