@@ -73,6 +73,7 @@ CREATE TABLE "public"."documents" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "ur_denial_reason" TEXT,
+    "aiSummarizerText" TEXT,
     "userId" TEXT,
 
     CONSTRAINT "documents_pkey" PRIMARY KEY ("id")
@@ -219,7 +220,8 @@ CREATE TABLE "public"."fail_docs" (
     "fileName" TEXT,
     "gcsFileLink" TEXT,
     "dob" TEXT,
-    "summary" TEXT,
+    "author" TEXT,
+    "aiSummarizerText" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -331,6 +333,7 @@ CREATE TABLE "public"."patient_intake_updates" (
     "keyFindings" TEXT,
     "adlEffectPoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "intakePatientPoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "generatedPoints" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "medRefillsRequested" TEXT,
     "newAppointments" TEXT,
     "adlChanges" TEXT,
@@ -339,6 +342,21 @@ CREATE TABLE "public"."patient_intake_updates" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "patient_intake_updates_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."treatment_histories" (
+    "id" TEXT NOT NULL,
+    "patientName" TEXT NOT NULL,
+    "dob" TEXT,
+    "claimNumber" TEXT,
+    "physicianId" TEXT,
+    "historyData" JSONB NOT NULL,
+    "documentId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "treatment_histories_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -404,6 +422,12 @@ CREATE INDEX "patient_intake_updates_documentId_idx" ON "public"."patient_intake
 -- CreateIndex
 CREATE INDEX "patient_intake_updates_createdAt_idx" ON "public"."patient_intake_updates"("createdAt");
 
+-- CreateIndex
+CREATE INDEX "treatment_histories_patientName_dob_claimNumber_idx" ON "public"."treatment_histories"("patientName", "dob", "claimNumber");
+
+-- CreateIndex
+CREATE INDEX "treatment_histories_physicianId_idx" ON "public"."treatment_histories"("physicianId");
+
 -- AddForeignKey
 ALTER TABLE "public"."accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -430,3 +454,6 @@ ALTER TABLE "public"."tasks" ADD CONSTRAINT "tasks_documentId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "public"."patient_intake_updates" ADD CONSTRAINT "patient_intake_updates_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "public"."documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."treatment_histories" ADD CONSTRAINT "treatment_histories_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "public"."documents"("id") ON DELETE CASCADE ON UPDATE CASCADE;

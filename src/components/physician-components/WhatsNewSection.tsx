@@ -81,12 +81,329 @@ interface SummaryHeader {
   disclaimer: string;
 }
 
-interface StructuredShortSummary {
+// Legacy format with items array
+interface LegacyStructuredShortSummary {
   header: SummaryHeader;
   summary: {
     items: SummaryItem[];
   };
 }
+
+// New format with key-value pairs
+interface NewStructuredShortSummary {
+  header: SummaryHeader;
+  summary: Record<string, string[]>;
+}
+
+// Union type for both formats
+type StructuredShortSummary =
+  | LegacyStructuredShortSummary
+  | NewStructuredShortSummary;
+
+// Types for new structured long summary response
+interface LongSummaryContentBlock {
+  type: "paragraph" | "bullets";
+  content?: string;
+  items?: string[];
+}
+
+interface LongSummarySection {
+  heading: string;
+  content_blocks?: LongSummaryContentBlock[];
+  // Legacy support
+  paragraphs?: string[];
+  bullet_points?: { text: string; sub_bullets?: string[] }[];
+}
+
+interface StructuredLongSummary {
+  sections: LongSummarySection[];
+  content_type?: string;
+  // Legacy support
+  metadata?: {
+    document_type?: string;
+    document_date?: string;
+    patient_name?: string;
+    provider?: string;
+    claim_number?: string;
+  };
+  original_bullet_count?: number;
+  formatted_bullet_count?: number;
+}
+
+// Types for new structured brief summary response
+interface BriefSummaryAtAGlanceItem {
+  item: string;
+}
+
+interface BriefSummaryDynamicSection {
+  field_name: string;
+  field_type: string;
+  content: string[];
+  priority: number;
+}
+
+interface StructuredBriefSummary {
+  summary_title: string;
+  at_a_glance: BriefSummaryAtAGlanceItem[];
+  dynamic_sections: BriefSummaryDynamicSection[];
+}
+
+// Type for simple key-value brief summary format
+type SimpleBriefSummary = Record<string, string[]>;
+
+// Known field names for simple brief summary (in priority order)
+const BRIEF_SUMMARY_FIELD_CONFIG: Record<
+  string,
+  {
+    priority: number;
+    bgColor: string;
+    borderColor: string;
+    textColor: string;
+    iconColor: string;
+    icon:
+      | "critical"
+      | "finding"
+      | "diagnosis"
+      | "recommendation"
+      | "medication"
+      | "status"
+      | "default";
+  }
+> = {
+  "Critical Findings": {
+    priority: 1,
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    textColor: "text-red-800",
+    iconColor: "text-red-600",
+    icon: "critical",
+  },
+  "Key Findings": {
+    priority: 2,
+    bgColor: "bg-amber-50",
+    borderColor: "border-amber-200",
+    textColor: "text-amber-800",
+    iconColor: "text-amber-600",
+    icon: "finding",
+  },
+  Findings: {
+    priority: 2,
+    bgColor: "bg-amber-50",
+    borderColor: "border-amber-200",
+    textColor: "text-amber-800",
+    iconColor: "text-amber-600",
+    icon: "finding",
+  },
+  Diagnosis: {
+    priority: 3,
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    textColor: "text-purple-800",
+    iconColor: "text-purple-600",
+    icon: "diagnosis",
+  },
+  Impressions: {
+    priority: 3,
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    textColor: "text-purple-800",
+    iconColor: "text-purple-600",
+    icon: "diagnosis",
+  },
+  Recommendations: {
+    priority: 4,
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    textColor: "text-blue-800",
+    iconColor: "text-blue-600",
+    icon: "recommendation",
+  },
+  "Treatment Plan": {
+    priority: 4,
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    textColor: "text-blue-800",
+    iconColor: "text-blue-600",
+    icon: "recommendation",
+  },
+  Medications: {
+    priority: 5,
+    bgColor: "bg-indigo-50",
+    borderColor: "border-indigo-200",
+    textColor: "text-indigo-800",
+    iconColor: "text-indigo-600",
+    icon: "medication",
+  },
+  "Work Status": {
+    priority: 6,
+    bgColor: "bg-teal-50",
+    borderColor: "border-teal-200",
+    textColor: "text-teal-800",
+    iconColor: "text-teal-600",
+    icon: "status",
+  },
+  "MMI Status": {
+    priority: 6,
+    bgColor: "bg-teal-50",
+    borderColor: "border-teal-200",
+    textColor: "text-teal-800",
+    iconColor: "text-teal-600",
+    icon: "status",
+  },
+};
+
+// Get icon for simple brief summary field
+const getSimpleBriefIcon = (iconType: string) => {
+  switch (iconType) {
+    case "critical":
+      return <AlertOctagon size={16} />;
+    case "finding":
+      return <FileSearch size={16} />;
+    case "diagnosis":
+      return <Stethoscope size={16} />;
+    case "recommendation":
+      return <ClipboardList size={16} />;
+    case "medication":
+      return <FilePlus size={16} />;
+    case "status":
+      return <BadgeCheck size={16} />;
+    default:
+      return <FileText size={16} />;
+  }
+};
+
+// Get config for a field name (with fallback for unknown fields)
+const getFieldConfig = (fieldName: string) => {
+  // Check for exact match first
+  if (BRIEF_SUMMARY_FIELD_CONFIG[fieldName]) {
+    return BRIEF_SUMMARY_FIELD_CONFIG[fieldName];
+  }
+
+  // Check for partial match
+  const fieldLower = fieldName.toLowerCase();
+  if (fieldLower.includes("critical")) {
+    return BRIEF_SUMMARY_FIELD_CONFIG["Critical Findings"];
+  }
+  if (fieldLower.includes("finding")) {
+    return BRIEF_SUMMARY_FIELD_CONFIG["Key Findings"];
+  }
+  if (fieldLower.includes("diagnosis") || fieldLower.includes("impression")) {
+    return BRIEF_SUMMARY_FIELD_CONFIG["Diagnosis"];
+  }
+  if (fieldLower.includes("recommendation") || fieldLower.includes("plan")) {
+    return BRIEF_SUMMARY_FIELD_CONFIG["Recommendations"];
+  }
+  if (fieldLower.includes("medication")) {
+    return BRIEF_SUMMARY_FIELD_CONFIG["Medications"];
+  }
+  if (
+    fieldLower.includes("status") ||
+    fieldLower.includes("work") ||
+    fieldLower.includes("mmi")
+  ) {
+    return BRIEF_SUMMARY_FIELD_CONFIG["Work Status"];
+  }
+
+  // Default config
+  return {
+    priority: 99,
+    bgColor: "bg-gray-50",
+    borderColor: "border-gray-200",
+    textColor: "text-gray-800",
+    iconColor: "text-gray-600",
+    icon: "default" as const,
+  };
+};
+
+// Check if brief summary is simple key-value format
+const isSimpleBriefSummary = (data: any): data is SimpleBriefSummary => {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+
+  // Check if all values are arrays of strings
+  const entries = Object.entries(data);
+  if (entries.length === 0) return false;
+
+  return entries.every(
+    ([key, value]) =>
+      typeof key === "string" &&
+      Array.isArray(value) &&
+      value.every((item) => typeof item === "string"),
+  );
+};
+
+// Render simple brief summary with professional styling
+const renderSimpleBriefSummary = (
+  summary: SimpleBriefSummary,
+): React.ReactNode => {
+  // Get entries and sort by priority
+  const entries = Object.entries(summary)
+    .filter(([, value]) => Array.isArray(value) && value.length > 0)
+    .map(([key, value]) => ({
+      fieldName: key,
+      items: value,
+      config: getFieldConfig(key),
+    }))
+    .sort((a, b) => a.config.priority - b.config.priority);
+
+  if (entries.length === 0) {
+    return (
+      <div className="text-gray-500 italic text-center py-4">
+        No summary data available
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {entries.map(({ fieldName, items, config }, idx) => {
+        const isCritical = fieldName.toLowerCase().includes("critical");
+
+        return (
+          <div
+            key={idx}
+            className={`rounded-lg overflow-hidden border ${config.borderColor} ${isCritical ? "ring-1 ring-red-300" : ""}`}
+          >
+            {/* Section Header */}
+            <div
+              className={`px-4 py-2.5 ${config.bgColor} border-b ${config.borderColor} flex items-center gap-2`}
+            >
+              <span className={config.iconColor}>
+                {getSimpleBriefIcon(config.icon)}
+              </span>
+              <span className={`text-sm font-semibold ${config.textColor}`}>
+                {fieldName}
+              </span>
+              {isCritical && (
+                <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full uppercase">
+                  Priority
+                </span>
+              )}
+            </div>
+
+            {/* Section Content */}
+            <div className="p-4 bg-white">
+              <ul className="space-y-2">
+                {items.map((item, itemIdx) => (
+                  <li
+                    key={itemIdx}
+                    className="flex items-start gap-2.5 text-sm text-gray-700"
+                  >
+                    <span
+                      className={`mt-0.5 flex-shrink-0 ${config.iconColor}`}
+                    >
+                      •
+                    </span>
+                    <span className="leading-relaxed">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // Field label mapping
 const FIELD_LABELS: Record<string, string> = {
@@ -253,6 +570,241 @@ const renderDynamicValue = (
   return <span className="text-sm">{String(value)}</span>;
 };
 
+// Check if brief summary is in new structured format
+const isStructuredBriefSummary = (
+  summary: any,
+): summary is StructuredBriefSummary => {
+  return (
+    summary &&
+    typeof summary === "object" &&
+    typeof summary.summary_title === "string" &&
+    Array.isArray(summary.at_a_glance) &&
+    Array.isArray(summary.dynamic_sections)
+  );
+};
+
+// Get field type styling for brief summary dynamic sections
+const getBriefSectionStyles = (
+  fieldType: string,
+): {
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  iconColor: string;
+} => {
+  switch (fieldType.toLowerCase()) {
+    case "critical":
+      return {
+        bgColor: "bg-red-50",
+        borderColor: "border-red-200",
+        textColor: "text-red-800",
+        iconColor: "text-red-600",
+      };
+    case "important":
+      return {
+        bgColor: "bg-amber-50",
+        borderColor: "border-amber-200",
+        textColor: "text-amber-800",
+        iconColor: "text-amber-600",
+      };
+    case "info":
+      return {
+        bgColor: "bg-blue-50",
+        borderColor: "border-blue-200",
+        textColor: "text-blue-800",
+        iconColor: "text-blue-600",
+      };
+    case "success":
+      return {
+        bgColor: "bg-green-50",
+        borderColor: "border-green-200",
+        textColor: "text-green-800",
+        iconColor: "text-green-600",
+      };
+    case "warning":
+      return {
+        bgColor: "bg-orange-50",
+        borderColor: "border-orange-200",
+        textColor: "text-orange-800",
+        iconColor: "text-orange-600",
+      };
+    default:
+      return {
+        bgColor: "bg-gray-50",
+        borderColor: "border-gray-200",
+        textColor: "text-gray-800",
+        iconColor: "text-gray-600",
+      };
+  }
+};
+
+// Get icon for brief summary section based on field type
+const getBriefSectionIcon = (fieldType: string, fieldName: string) => {
+  const nameLower = fieldName.toLowerCase();
+
+  // Check field name first for more specific icons
+  if (nameLower.includes("critical") || nameLower.includes("alert")) {
+    return <AlertOctagon size={16} />;
+  }
+  if (nameLower.includes("treatment") || nameLower.includes("plan")) {
+    return <ClipboardList size={16} />;
+  }
+  if (nameLower.includes("diagnosis") || nameLower.includes("finding")) {
+    return <FileSearch size={16} />;
+  }
+  if (nameLower.includes("medication") || nameLower.includes("prescription")) {
+    return <FilePlus size={16} />;
+  }
+  if (nameLower.includes("recommendation")) {
+    return <CheckCircle2 size={16} />;
+  }
+  if (nameLower.includes("status") || nameLower.includes("work")) {
+    return <BadgeCheck size={16} />;
+  }
+  if (nameLower.includes("vital") || nameLower.includes("sign")) {
+    return <Activity size={16} />;
+  }
+
+  // Fall back to field type
+  switch (fieldType.toLowerCase()) {
+    case "critical":
+      return <AlertOctagon size={16} />;
+    case "important":
+      return <AlertTriangle size={16} />;
+    case "info":
+      return <Info size={16} />;
+    case "success":
+      return <CheckCircle2 size={16} />;
+    case "warning":
+      return <AlertCircle size={16} />;
+    default:
+      return <FileText size={16} />;
+  }
+};
+
+// Render structured brief summary
+const renderStructuredBriefSummary = (
+  summary: StructuredBriefSummary,
+): React.ReactNode => {
+  const { summary_title, at_a_glance, dynamic_sections } = summary;
+
+  // Sort dynamic sections by priority
+  const sortedSections = [...dynamic_sections].sort(
+    (a, b) => (a.priority || 999) - (b.priority || 999),
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Title */}
+      {summary_title && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-blue-600" />
+            <h3 className="text-base font-semibold text-blue-900">
+              {summary_title}
+            </h3>
+          </div>
+        </div>
+      )}
+
+      {/* At a Glance Section */}
+      {at_a_glance && at_a_glance.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+            <Eye size={14} className="text-gray-500" />
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
+              At a Glance
+            </span>
+          </div>
+          <div className="p-4">
+            <ul className="space-y-2">
+              {at_a_glance.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-2.5 text-sm text-gray-700"
+                >
+                  <span className="text-blue-500 mt-0.5 flex-shrink-0">•</span>
+                  <span className="leading-relaxed">{item.item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Sections */}
+      {sortedSections && sortedSections.length > 0 && (
+        <div className="space-y-3">
+          {sortedSections.map((section, idx) => {
+            const styles = getBriefSectionStyles(section.field_type);
+            const icon = getBriefSectionIcon(
+              section.field_type,
+              section.field_name,
+            );
+
+            return (
+              <div
+                key={idx}
+                className={`rounded-lg overflow-hidden border ${styles.borderColor}`}
+              >
+                {/* Section Header */}
+                <div
+                  className={`px-4 py-2.5 ${styles.bgColor} border-b ${styles.borderColor} flex items-center gap-2`}
+                >
+                  <span className={styles.iconColor}>{icon}</span>
+                  <span className={`text-sm font-semibold ${styles.textColor}`}>
+                    {section.field_name}
+                  </span>
+                  {section.priority === 1 && (
+                    <span className="ml-auto px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full uppercase">
+                      Priority
+                    </span>
+                  )}
+                </div>
+                {/* Section Content */}
+                <div className="p-4 bg-white">
+                  {section.content && section.content.length > 0 ? (
+                    <ul className="space-y-2">
+                      {section.content.map((item, contentIdx) => (
+                        <li
+                          key={contentIdx}
+                          className="flex items-start gap-2.5 text-sm text-gray-700"
+                        >
+                          <span
+                            className={`mt-0.5 flex-shrink-0 ${styles.iconColor}`}
+                          >
+                            •
+                          </span>
+                          <span className="leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">
+                      No content available
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {(!at_a_glance || at_a_glance.length === 0) &&
+        (!dynamic_sections || dynamic_sections.length === 0) && (
+          <div className="text-center py-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+              <FileText size={20} className="text-gray-400" />
+            </div>
+            <p className="text-sm text-gray-500">No summary data available</p>
+          </div>
+        )}
+    </div>
+  );
+};
+
 // Parse and render dynamic brief summary JSON
 const renderDynamicBriefSummary = (summary: any): React.ReactNode => {
   // Try to parse if it's a string
@@ -274,6 +826,17 @@ const renderDynamicBriefSummary = (summary: any): React.ReactNode => {
     return <div className="text-sm text-gray-700">{String(summary)}</div>;
   }
 
+  // Check if it's the new structured brief summary format
+  if (isStructuredBriefSummary(data)) {
+    return renderStructuredBriefSummary(data);
+  }
+
+  // Check if it's the simple key-value brief summary format
+  if (isSimpleBriefSummary(data)) {
+    return renderSimpleBriefSummary(data);
+  }
+
+  // Fall back to legacy format handling
   // Filter out metadata keys
   const filteredEntries = Object.entries(data).filter(
     ([key]) => !key.startsWith("_") && key !== "extraction_metadata",
@@ -338,6 +901,438 @@ const getFieldIndicatorColor = (field: string): string => {
   return "#6b7280"; // Gray
 };
 
+// Get pill styling for summary card keys
+const getKeyPillStyle = (
+  key: string,
+): { bgColor: string; textColor: string; borderColor: string } => {
+  const keyLower = key.toLowerCase().replace(/_/g, " ");
+
+  if (keyLower.includes("assessment") || keyLower.includes("diagnosis")) {
+    return {
+      bgColor: "bg-red-50",
+      textColor: "text-red-700",
+      borderColor: "border-red-200",
+    };
+  }
+  if (keyLower.includes("plan") || keyLower.includes("recommendation")) {
+    return {
+      bgColor: "bg-blue-50",
+      textColor: "text-blue-700",
+      borderColor: "border-blue-200",
+    };
+  }
+  if (keyLower.includes("exam") || keyLower.includes("pertinent")) {
+    return {
+      bgColor: "bg-green-50",
+      textColor: "text-green-700",
+      borderColor: "border-green-200",
+    };
+  }
+  if (keyLower.includes("medication") || keyLower.includes("prescription")) {
+    return {
+      bgColor: "bg-purple-50",
+      textColor: "text-purple-700",
+      borderColor: "border-purple-200",
+    };
+  }
+  if (keyLower.includes("history") || keyLower.includes("illness")) {
+    return {
+      bgColor: "bg-cyan-50",
+      textColor: "text-cyan-700",
+      borderColor: "border-cyan-200",
+    };
+  }
+  if (keyLower.includes("follow") || keyLower.includes("up")) {
+    return {
+      bgColor: "bg-indigo-50",
+      textColor: "text-indigo-700",
+      borderColor: "border-indigo-200",
+    };
+  }
+  if (keyLower.includes("finding") || keyLower.includes("impression")) {
+    return {
+      bgColor: "bg-amber-50",
+      textColor: "text-amber-700",
+      borderColor: "border-amber-200",
+    };
+  }
+  if (
+    keyLower.includes("work") ||
+    keyLower.includes("status") ||
+    keyLower.includes("mmi")
+  ) {
+    return {
+      bgColor: "bg-teal-50",
+      textColor: "text-teal-700",
+      borderColor: "border-teal-200",
+    };
+  }
+  if (keyLower.includes("vital") || keyLower.includes("sign")) {
+    return {
+      bgColor: "bg-pink-50",
+      textColor: "text-pink-700",
+      borderColor: "border-pink-200",
+    };
+  }
+
+  // Default
+  return {
+    bgColor: "bg-gray-100",
+    textColor: "text-gray-700",
+    borderColor: "border-gray-200",
+  };
+};
+
+// Format field key for display (convert SNAKE_CASE to Title Case)
+const formatFieldKey = (key: string): string => {
+  return key
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+// Parse and check if long summary is structured
+const parseLongSummary = (
+  longSummary: any,
+): StructuredLongSummary | string | null => {
+  if (!longSummary) return null;
+
+  // If it's already an object with the expected structure (new format with sections)
+  if (typeof longSummary === "object" && Array.isArray(longSummary.sections)) {
+    return longSummary as StructuredLongSummary;
+  }
+
+  // If it's a string, try to parse it as JSON
+  if (typeof longSummary === "string") {
+    try {
+      const parsed = JSON.parse(longSummary);
+      if (Array.isArray(parsed.sections)) {
+        return parsed as StructuredLongSummary;
+      }
+    } catch {
+      // Not JSON, return as plain string
+      return longSummary;
+    }
+  }
+
+  return longSummary;
+};
+
+// Check if long summary is structured
+const isStructuredLongSummary = (
+  summary: any,
+): summary is StructuredLongSummary => {
+  return (
+    summary && typeof summary === "object" && Array.isArray(summary.sections)
+  );
+};
+
+// Get section icon based on heading
+const getSectionIcon = (heading: string) => {
+  const headingLower = heading.toLowerCase();
+
+  if (headingLower.includes("overview") || headingLower.includes("report")) {
+    return <FileText size={14} className="text-blue-500" />;
+  }
+  if (
+    headingLower.includes("patient") ||
+    headingLower.includes("information")
+  ) {
+    return <User size={14} className="text-indigo-500" />;
+  }
+  if (headingLower.includes("diagnosis") || headingLower.includes("finding")) {
+    return <FileSearch size={14} className="text-red-500" />;
+  }
+  if (headingLower.includes("clinical") || headingLower.includes("status")) {
+    return <Activity size={14} className="text-green-500" />;
+  }
+  if (
+    headingLower.includes("medication") ||
+    headingLower.includes("prescription")
+  ) {
+    return <FilePlus size={14} className="text-purple-500" />;
+  }
+  if (headingLower.includes("legal") || headingLower.includes("conclusion")) {
+    return <Shield size={14} className="text-amber-500" />;
+  }
+  if (headingLower.includes("work") || headingLower.includes("employment")) {
+    return <BadgeCheck size={14} className="text-teal-500" />;
+  }
+  if (
+    headingLower.includes("recommendation") ||
+    headingLower.includes("plan")
+  ) {
+    return <ClipboardList size={14} className="text-blue-600" />;
+  }
+  if (headingLower.includes("critical") || headingLower.includes("alert")) {
+    return <AlertOctagon size={14} className="text-red-600" />;
+  }
+  if (headingLower.includes("imaging") || headingLower.includes("scan")) {
+    return <FileImage size={14} className="text-cyan-500" />;
+  }
+  if (headingLower.includes("history")) {
+    return <History size={14} className="text-gray-500" />;
+  }
+
+  return <BookOpen size={14} className="text-gray-500" />;
+};
+
+// Get section header color based on heading
+const getSectionHeaderColor = (heading: string): string => {
+  const headingLower = heading.toLowerCase();
+
+  if (headingLower.includes("critical") || headingLower.includes("alert")) {
+    return "#dc2626";
+  }
+  if (headingLower.includes("diagnosis") || headingLower.includes("finding")) {
+    return "#ef4444";
+  }
+  if (
+    headingLower.includes("recommendation") ||
+    headingLower.includes("plan")
+  ) {
+    return "#2563eb";
+  }
+  if (headingLower.includes("medication")) {
+    return "#7c3aed";
+  }
+  if (headingLower.includes("legal") || headingLower.includes("conclusion")) {
+    return "#d97706";
+  }
+  if (headingLower.includes("work") || headingLower.includes("status")) {
+    return "#059669";
+  }
+  if (headingLower.includes("clinical")) {
+    return "#0891b2";
+  }
+
+  return "#374151";
+};
+
+// Render structured long summary
+const renderStructuredLongSummary = (
+  summary: StructuredLongSummary,
+): React.ReactNode => {
+  const { metadata, sections, content_type } = summary;
+
+  return (
+    <div className="space-y-4">
+      {/* Content Type Badge (if no metadata) */}
+      {content_type && !metadata && (
+        <div className="flex justify-end">
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded-full uppercase">
+            {content_type}
+          </span>
+        </div>
+      )}
+
+      {/* Metadata Header (legacy support) */}
+      {metadata && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={16} className="text-blue-600" />
+            <span className="text-sm font-semibold text-blue-900">
+              {metadata.document_type || "Document"}
+            </span>
+            {content_type && (
+              <span className="ml-auto px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded-full uppercase">
+                {content_type}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {metadata.patient_name && (
+              <div className="flex items-center gap-2">
+                <User size={12} className="text-gray-400" />
+                <span className="text-gray-600">Patient:</span>
+                <span className="font-medium text-gray-900">
+                  {metadata.patient_name}
+                </span>
+              </div>
+            )}
+            {metadata.document_date && (
+              <div className="flex items-center gap-2">
+                <Calendar size={12} className="text-gray-400" />
+                <span className="text-gray-600">Date:</span>
+                <span className="font-medium text-gray-900">
+                  {metadata.document_date}
+                </span>
+              </div>
+            )}
+            {metadata.provider && (
+              <div className="flex items-center gap-2">
+                <Stethoscope size={12} className="text-gray-400" />
+                <span className="text-gray-600">Provider:</span>
+                <span className="font-medium text-gray-900">
+                  {metadata.provider}
+                </span>
+              </div>
+            )}
+            {metadata.claim_number && (
+              <div className="flex items-center gap-2">
+                <Tag size={12} className="text-gray-400" />
+                <span className="text-gray-600">Claim #:</span>
+                <span className="font-medium text-gray-900">
+                  {metadata.claim_number}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Sections */}
+      {sections && sections.length > 0 && (
+        <div className="space-y-3">
+          {sections.map((section, sectionIdx) => {
+            const sectionIcon = getSectionIcon(section.heading);
+            const headerColor = getSectionHeaderColor(section.heading);
+
+            // Check if using new content_blocks format or legacy format
+            const hasContentBlocks =
+              section.content_blocks && section.content_blocks.length > 0;
+            const hasLegacyContent =
+              (section.paragraphs && section.paragraphs.length > 0) ||
+              (section.bullet_points && section.bullet_points.length > 0);
+
+            return (
+              <div
+                key={sectionIdx}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+              >
+                {/* Section Header */}
+                <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+                  {sectionIcon}
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: headerColor }}
+                  >
+                    {section.heading}
+                  </span>
+                </div>
+
+                {/* Section Content */}
+                <div className="p-4 space-y-3">
+                  {/* New content_blocks format */}
+                  {hasContentBlocks &&
+                    section.content_blocks!.map((block, blockIdx) => {
+                      if (block.type === "paragraph" && block.content) {
+                        return (
+                          <p
+                            key={blockIdx}
+                            className="text-sm text-gray-700 leading-relaxed"
+                          >
+                            {block.content}
+                          </p>
+                        );
+                      }
+                      if (
+                        block.type === "bullets" &&
+                        block.items &&
+                        block.items.length > 0
+                      ) {
+                        return (
+                          <ul key={blockIdx} className="space-y-2">
+                            {block.items.map((item, itemIdx) => (
+                              <li
+                                key={itemIdx}
+                                className="flex items-start gap-2 text-sm text-gray-700"
+                              >
+                                <span className="text-blue-500 mt-0.5 flex-shrink-0">
+                                  •
+                                </span>
+                                <span className="leading-relaxed">{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      }
+                      return null;
+                    })}
+
+                  {/* Legacy format: Paragraphs */}
+                  {!hasContentBlocks &&
+                    section.paragraphs &&
+                    section.paragraphs.length > 0 && (
+                      <div className="space-y-2">
+                        {section.paragraphs.map((paragraph, pIdx) => (
+                          <p
+                            key={pIdx}
+                            className="text-sm text-gray-700 leading-relaxed"
+                          >
+                            {paragraph}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                  {/* Legacy format: Bullet Points */}
+                  {!hasContentBlocks &&
+                    section.bullet_points &&
+                    section.bullet_points.length > 0 && (
+                      <ul className="space-y-2">
+                        {section.bullet_points.map((bullet, bIdx) => (
+                          <li key={bIdx} className="text-sm text-gray-700">
+                            <div className="flex items-start gap-2">
+                              <span className="text-blue-500 mt-0.5 flex-shrink-0">
+                                •
+                              </span>
+                              <div className="flex-1">
+                                <span className="leading-relaxed">
+                                  {bullet.text}
+                                </span>
+                                {/* Sub-bullets */}
+                                {bullet.sub_bullets &&
+                                  bullet.sub_bullets.length > 0 && (
+                                    <ul className="mt-1.5 ml-3 space-y-1">
+                                      {bullet.sub_bullets.map(
+                                        (subBullet, sbIdx) => (
+                                          <li
+                                            key={sbIdx}
+                                            className="flex items-start gap-2 text-xs text-gray-600"
+                                          >
+                                            <span className="text-gray-400 mt-0.5">
+                                              ◦
+                                            </span>
+                                            <span>{subBullet}</span>
+                                          </li>
+                                        ),
+                                      )}
+                                    </ul>
+                                  )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                  {/* Empty section fallback */}
+                  {!hasContentBlocks && !hasLegacyContent && (
+                    <p className="text-sm text-gray-400 italic">
+                      No content available
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty sections fallback */}
+      {(!sections || sections.length === 0) && (
+        <div className="text-center py-6">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+            <FileText size={20} className="text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-500">No detailed summary available</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Get field icon based on type
 const getFieldIcon = (field: string) => {
   const fieldLower = field.toLowerCase();
@@ -348,7 +1343,10 @@ const getFieldIcon = (field: string) => {
   if (fieldLower.includes("recommendation") || fieldLower.includes("plan")) {
     return <ClipboardList size={14} className="text-blue-500" />;
   }
-  if (fieldLower.includes("medication") || fieldLower.includes("prescription")) {
+  if (
+    fieldLower.includes("medication") ||
+    fieldLower.includes("prescription")
+  ) {
     return <FilePlus size={14} className="text-purple-500" />;
   }
   if (fieldLower.includes("status") || fieldLower.includes("work")) {
@@ -528,9 +1526,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                 Page {citation.page_number}
               </span>
             </div>
-            <div className="italic text-gray-600">
-              "{citation.source_text}"
-            </div>
+            <div className="italic text-gray-600">"{citation.source_text}"</div>
           </div>
         )}
       </div>
@@ -565,49 +1561,168 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   ) => {
     const { header, summary: summaryContent } = summary;
     const expandedItemsSet = expandedItems[docId] || new Set();
-    const isQME = isQMEType(header.title, header.source_type);
-    const defaultFields = getDefaultVisibleFields(isQME);
 
-    // Get all items (show all fields now, since we removed the verify button)
-    const allItems = summaryContent.items || [];
+    // Check if it's the new format (summary is Record<string, string[]>)
+    const isNewFormat =
+      summaryContent &&
+      typeof summaryContent === "object" &&
+      !Array.isArray(summaryContent) &&
+      !("items" in summaryContent);
 
-    return (
-      <div className="space-y-0">
-        {/* All Summary Items in ONE Container */}
-        {allItems.length > 0 && (
-          <div className="space-y-0">
-            {allItems.map((item, idx) => {
-              const isExpanded = expandedItemsSet.has(idx);
-              const label = FIELD_LABELS[item.field] || item.field;
-              const indicatorColor = getFieldIndicatorColor(item.field);
-              const Icon = getFieldIcon(item.field);
+    if (isNewFormat) {
+      // Render new format using the simple brief summary renderer
+      const summaryData = summaryContent as Record<string, string[]>;
+
+      // Filter out empty arrays and sort by priority
+      const entries = Object.entries(summaryData)
+        .filter(([, value]) => Array.isArray(value) && value.length > 0)
+        .map(([key, value]) => ({
+          fieldName: key,
+          items: value as string[],
+          config: getFieldConfig(key),
+        }))
+        .sort((a, b) => a.config.priority - b.config.priority);
+
+      return (
+        <div className="space-y-3">
+          {/* Header Info */}
+          {header && (
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Calendar size={12} className="text-gray-400" />
+                  <span>{header.date}</span>
+                  <span className="text-gray-300">•</span>
+                  <User size={12} className="text-gray-400" />
+                  <span className="truncate max-w-[200px]">
+                    {header.author}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Sections */}
+          {entries.length > 0 ? (
+            entries.map(({ fieldName, items, config }, idx) => {
+              const isCritical = fieldName.toLowerCase().includes("critical");
 
               return (
-                <div key={idx}>
-                  {/* Item Row - Key-Value Layout */}
+                <div
+                  key={idx}
+                  className={`rounded-lg overflow-hidden border ${config.borderColor} ${isCritical ? "ring-1 ring-red-300" : ""}`}
+                >
+                  {/* Section Header */}
                   <div
-                    className="flex items-start py-2.5 cursor-pointer hover:bg-gray-50/50 transition-colors group"
+                    className={`px-3 py-2 ${config.bgColor} border-b ${config.borderColor} flex items-center gap-2`}
+                  >
+                    <span className={config.iconColor}>
+                      {getSimpleBriefIcon(config.icon)}
+                    </span>
+                    <span
+                      className={`text-xs font-semibold ${config.textColor}`}
+                    >
+                      {fieldName}
+                    </span>
+                    {isCritical && (
+                      <span className="ml-auto px-1.5 py-0.5 bg-red-100 text-red-700 text-[9px] font-bold rounded-full uppercase">
+                        Priority
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Section Content */}
+                  <div className="p-3 bg-white">
+                    <ul className="space-y-1.5">
+                      {items.map((item, itemIdx) => (
+                        <li
+                          key={itemIdx}
+                          className="flex items-start gap-2 text-sm text-gray-700"
+                        >
+                          <span
+                            className={`mt-0.5 flex-shrink-0 ${config.iconColor}`}
+                          >
+                            •
+                          </span>
+                          <span className="leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-gray-500 italic text-center py-4">
+              No summary data available
+            </div>
+          )}
+
+          {/* Disclaimer */}
+          {header?.disclaimer && (
+            <div className="text-[10px] text-gray-400 italic pt-2 border-t border-gray-100">
+              {header.disclaimer}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Legacy format rendering
+    const legacySummary = summaryContent as { items: SummaryItem[] };
+    const allItems = legacySummary?.items || [];
+
+    return (
+      <div className="space-y-3">
+        {/* Header Info */}
+        {header && (
+          <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <Calendar size={12} className="text-gray-400" />
+                <span>{header.date}</span>
+                <span className="text-gray-300">•</span>
+                <User size={12} className="text-gray-400" />
+                <span className="truncate max-w-[200px]">{header.author}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* All Summary Items */}
+        {allItems.length > 0 && (
+          <div className="space-y-2.5">
+            {allItems.map((item, idx) => {
+              const isExpanded = expandedItemsSet.has(idx);
+              const label =
+                FIELD_LABELS[item.field] || formatFieldKey(item.field);
+              const pillStyle = getKeyPillStyle(item.field);
+
+              return (
+                <div key={idx} className="group">
+                  {/* Item Row */}
+                  <div
+                    className="flex items-start gap-3 cursor-pointer hover:bg-gray-50/50 rounded-lg p-2 -mx-2 transition-colors"
                     onClick={() => {
                       if (item.expanded) {
                         toggleItemExpanded(docId, idx);
                       }
                     }}
                   >
-                    {/* Key Column (Heading) */}
-                    <div className="w-32 flex-shrink-0">
+                    {/* Key Pill */}
+                    <div className="flex-shrink-0 pt-0.5">
                       <span
-                        className="text-[10px] font-bold uppercase tracking-wider inline-block"
-                        style={{ color: indicatorColor }}
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${pillStyle.bgColor} ${pillStyle.textColor} ${pillStyle.borderColor}`}
                       >
                         {label}
                       </span>
                     </div>
 
-                    {/* Value Column (Description) */}
+                    {/* Value Column */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 leading-relaxed">
+                          <p className="text-sm text-gray-800 leading-relaxed">
                             {item.collapsed}
                           </p>
                           {isExpanded &&
@@ -627,11 +1742,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </div>
                     </div>
                   </div>
-
-                  {/* Divider between items (not after last item) */}
-                  {idx < allItems.length - 1 && (
-                    <div className="border-b border-gray-100" />
-                  )}
                 </div>
               );
             })}
@@ -639,8 +1749,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
         )}
 
         {/* Disclaimer */}
-        {header.disclaimer && (
-          <div className="text-xs text-gray-500 italic mt-4 pt-3 border-t border-gray-200">
+        {header?.disclaimer && (
+          <div className="text-[10px] text-gray-400 italic pt-2 border-t border-gray-100">
             {header.disclaimer}
           </div>
         )}
@@ -648,7 +1758,545 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     );
   };
 
-  // Function to format long summary with colors
+  // Get color for heading based on content (dynamic - works with any heading)
+  const getHeadingColor = (heading: string): string => {
+    const headingLower = heading.toLowerCase();
+
+    // Critical/Findings - Red
+    if (headingLower.includes("finding") || headingLower.includes("impression"))
+      return "#dc2626";
+    if (
+      headingLower.includes("diagnosis") ||
+      headingLower.includes("assessment")
+    )
+      return "#ef4444";
+
+    // Recommendations/Plan - Blue
+    if (
+      headingLower.includes("recommendation") ||
+      headingLower.includes("plan")
+    )
+      return "#2563eb";
+
+    // Medications - Purple
+    if (
+      headingLower.includes("medication") ||
+      headingLower.includes("prescription")
+    )
+      return "#7c3aed";
+
+    // History - Cyan
+    if (headingLower.includes("history") || headingLower.includes("complaint"))
+      return "#0891b2";
+
+    // Exam/Technique/Procedure - Green
+    if (
+      headingLower.includes("exam") ||
+      headingLower.includes("physical") ||
+      headingLower.includes("technique") ||
+      headingLower.includes("procedure")
+    )
+      return "#059669";
+
+    // Patient/Provider/Document Info - Indigo
+    if (
+      headingLower.includes("patient") ||
+      headingLower.includes("provider") ||
+      headingLower.includes("author") ||
+      headingLower.includes("signed") ||
+      headingLower.includes("document") ||
+      headingLower.includes("overview")
+    )
+      return "#4f46e5";
+
+    // Work/Status - Amber
+    if (headingLower.includes("work") || headingLower.includes("status"))
+      return "#d97706";
+
+    // Vitals/Allergies - Pink
+    if (headingLower.includes("vital") || headingLower.includes("allerg"))
+      return "#db2777";
+
+    // Imaging/Lab/Clinical - Slate Blue
+    if (
+      headingLower.includes("imaging") ||
+      headingLower.includes("lab") ||
+      headingLower.includes("indication") ||
+      headingLower.includes("clinical")
+    )
+      return "#6366f1";
+
+    // Summary/Conclusion - Teal
+    if (headingLower.includes("summary") || headingLower.includes("conclusion"))
+      return "#0d9488";
+
+    // Request/Details - Sky Blue
+    if (headingLower.includes("request") || headingLower.includes("detail"))
+      return "#0284c7";
+
+    // Medical Necessity/Justification - Orange
+    if (
+      headingLower.includes("necessity") ||
+      headingLower.includes("justification")
+    )
+      return "#ea580c";
+
+    // Default - Gray
+    return "#475569";
+  };
+
+  // Get background color for heading (dynamic - works with any heading)
+  const getHeadingBgColor = (heading: string): string => {
+    const headingLower = heading.toLowerCase();
+
+    // Critical/Findings - Red bg
+    if (headingLower.includes("finding") || headingLower.includes("impression"))
+      return "#fef2f2";
+    if (
+      headingLower.includes("diagnosis") ||
+      headingLower.includes("assessment")
+    )
+      return "#fef2f2";
+
+    // Recommendations/Plan - Blue bg
+    if (
+      headingLower.includes("recommendation") ||
+      headingLower.includes("plan")
+    )
+      return "#eff6ff";
+
+    // Medications - Purple bg
+    if (
+      headingLower.includes("medication") ||
+      headingLower.includes("prescription")
+    )
+      return "#f5f3ff";
+
+    // History - Cyan bg
+    if (headingLower.includes("history") || headingLower.includes("complaint"))
+      return "#ecfeff";
+
+    // Exam/Technique/Procedure - Green bg
+    if (
+      headingLower.includes("exam") ||
+      headingLower.includes("physical") ||
+      headingLower.includes("technique") ||
+      headingLower.includes("procedure")
+    )
+      return "#ecfdf5";
+
+    // Patient/Provider/Document Info - Indigo bg
+    if (
+      headingLower.includes("patient") ||
+      headingLower.includes("provider") ||
+      headingLower.includes("author") ||
+      headingLower.includes("signed") ||
+      headingLower.includes("document") ||
+      headingLower.includes("overview")
+    )
+      return "#eef2ff";
+
+    // Work/Status - Amber bg
+    if (headingLower.includes("work") || headingLower.includes("status"))
+      return "#fffbeb";
+
+    // Vitals/Allergies - Pink bg
+    if (headingLower.includes("vital") || headingLower.includes("allerg"))
+      return "#fdf2f8";
+
+    // Imaging/Lab/Clinical - Indigo bg
+    if (
+      headingLower.includes("imaging") ||
+      headingLower.includes("lab") ||
+      headingLower.includes("indication") ||
+      headingLower.includes("clinical")
+    )
+      return "#eef2ff";
+
+    // Summary/Conclusion - Teal bg
+    if (headingLower.includes("summary") || headingLower.includes("conclusion"))
+      return "#f0fdfa";
+
+    // Request/Details - Sky bg
+    if (headingLower.includes("request") || headingLower.includes("detail"))
+      return "#f0f9ff";
+
+    // Medical Necessity/Justification - Orange bg
+    if (
+      headingLower.includes("necessity") ||
+      headingLower.includes("justification")
+    )
+      return "#fff7ed";
+
+    // Default - Gray bg
+    return "#f8fafc";
+  };
+
+  // Get border color for heading
+  const getHeadingBorderColor = (heading: string): string => {
+    const headingLower = heading.toLowerCase();
+
+    if (
+      headingLower.includes("finding") ||
+      headingLower.includes("impression") ||
+      headingLower.includes("diagnosis") ||
+      headingLower.includes("assessment")
+    )
+      return "border-red-200";
+    if (
+      headingLower.includes("recommendation") ||
+      headingLower.includes("plan")
+    )
+      return "border-blue-200";
+    if (
+      headingLower.includes("medication") ||
+      headingLower.includes("prescription")
+    )
+      return "border-purple-200";
+    if (headingLower.includes("history") || headingLower.includes("complaint"))
+      return "border-cyan-200";
+    if (
+      headingLower.includes("exam") ||
+      headingLower.includes("physical") ||
+      headingLower.includes("technique") ||
+      headingLower.includes("procedure")
+    )
+      return "border-green-200";
+    if (
+      headingLower.includes("patient") ||
+      headingLower.includes("provider") ||
+      headingLower.includes("author") ||
+      headingLower.includes("signed") ||
+      headingLower.includes("document") ||
+      headingLower.includes("overview")
+    )
+      return "border-indigo-200";
+    if (headingLower.includes("work") || headingLower.includes("status"))
+      return "border-amber-200";
+    if (headingLower.includes("vital") || headingLower.includes("allerg"))
+      return "border-pink-200";
+    if (
+      headingLower.includes("imaging") ||
+      headingLower.includes("lab") ||
+      headingLower.includes("indication") ||
+      headingLower.includes("clinical")
+    )
+      return "border-indigo-200";
+    if (headingLower.includes("summary") || headingLower.includes("conclusion"))
+      return "border-teal-200";
+    if (headingLower.includes("request") || headingLower.includes("detail"))
+      return "border-sky-200";
+    if (
+      headingLower.includes("necessity") ||
+      headingLower.includes("justification")
+    )
+      return "border-orange-200";
+
+    return "border-gray-200";
+  };
+
+  // Get icon for long summary section heading
+  const getLongSummaryIcon = (heading: string) => {
+    const headingLower = heading.toLowerCase();
+
+    if (headingLower.includes("finding") || headingLower.includes("impression"))
+      return <FileSearch size={14} />;
+    if (
+      headingLower.includes("diagnosis") ||
+      headingLower.includes("assessment")
+    )
+      return <Stethoscope size={14} />;
+    if (
+      headingLower.includes("recommendation") ||
+      headingLower.includes("plan")
+    )
+      return <ClipboardList size={14} />;
+    if (
+      headingLower.includes("medication") ||
+      headingLower.includes("prescription")
+    )
+      return <FilePlus size={14} />;
+    if (headingLower.includes("history") || headingLower.includes("complaint"))
+      return <History size={14} />;
+    if (
+      headingLower.includes("exam") ||
+      headingLower.includes("physical") ||
+      headingLower.includes("technique") ||
+      headingLower.includes("procedure")
+    )
+      return <Activity size={14} />;
+    if (
+      headingLower.includes("patient") ||
+      headingLower.includes("provider") ||
+      headingLower.includes("author") ||
+      headingLower.includes("signed")
+    )
+      return <User size={14} />;
+    if (headingLower.includes("document") || headingLower.includes("overview"))
+      return <FileText size={14} />;
+    if (headingLower.includes("work") || headingLower.includes("status"))
+      return <BadgeCheck size={14} />;
+    if (headingLower.includes("vital")) return <Activity size={14} />;
+    if (headingLower.includes("allerg")) return <AlertCircle size={14} />;
+    if (headingLower.includes("imaging") || headingLower.includes("lab"))
+      return <FileImage size={14} />;
+    if (
+      headingLower.includes("indication") ||
+      headingLower.includes("clinical")
+    )
+      return <Info size={14} />;
+    if (headingLower.includes("summary") || headingLower.includes("conclusion"))
+      return <BookOpen size={14} />;
+    if (headingLower.includes("request") || headingLower.includes("detail"))
+      return <FileCheck size={14} />;
+    if (
+      headingLower.includes("necessity") ||
+      headingLower.includes("justification")
+    )
+      return <Shield size={14} />;
+
+    return <FileText size={14} />;
+  };
+
+  // Dynamic heading detection for plain text long summaries
+  const isLikelyHeading = (
+    line: string,
+    nextLine: string | undefined,
+    prevLine: string | undefined,
+  ): boolean => {
+    const trimmedLine = line.trim();
+    const trimmedNextLine = nextLine?.trim() || "";
+
+    // Empty lines are not headings
+    if (!trimmedLine) return false;
+
+    // Lines of only dashes are separators, not headings
+    if (/^[-=]+$/.test(trimmedLine)) return false;
+
+    // If next line is a separator (dashes), current line is a heading
+    if (/^[-=]{3,}$/.test(trimmedNextLine)) return true;
+
+    // Lines that are short (< 60 chars), don't start with bullet, and don't end with period
+    // are likely headings if followed by content
+    const isShort = trimmedLine.length < 60;
+    const doesntStartWithBullet = !trimmedLine.startsWith("•");
+    const doesntEndWithPeriod = !trimmedLine.endsWith(".");
+    const doesntContainColon =
+      !trimmedLine.includes(":") || trimmedLine.endsWith(":");
+    const startsWithCapital = /^[A-Z]/.test(trimmedLine);
+    const isAllCapsOrTitleCase =
+      /^[A-Z][A-Za-z\s\/\-&]+$/.test(trimmedLine) ||
+      /^[A-Z\s\/\-&]+$/.test(trimmedLine);
+
+    // Check for common heading patterns
+    const commonHeadingPatterns = [
+      /^(Author|Signed|Prepared)\s*(By)?:/i,
+      /Information$/i,
+      /^(Clinical|Medical|Patient|Exam|Report|Document)/i,
+      /^(Findings|Impression|Diagnosis|Assessment)/i,
+      /^(Recommendations?|Plan|Treatment)/i,
+      /^(Technique|Method|Procedure)/i,
+      /^(History|Background|Overview)/i,
+      /^(Summary|Conclusion|Results?)/i,
+      /^(Medications?|Prescriptions?)/i,
+      /^(Work|MMI|Disability)\s*Status/i,
+    ];
+
+    const matchesCommonPattern = commonHeadingPatterns.some((pattern) =>
+      pattern.test(trimmedLine),
+    );
+
+    if (matchesCommonPattern) return true;
+
+    // Short, title-case lines without periods that appear between blank lines
+    if (
+      isShort &&
+      doesntStartWithBullet &&
+      doesntEndWithPeriod &&
+      startsWithCapital &&
+      isAllCapsOrTitleCase
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Render plain text long summary with professional formatting (dynamic heading detection)
+  const renderPlainTextLongSummary = (summary: string): React.ReactNode => {
+    if (!summary) return null;
+
+    // Clean up the summary (minimal cleaning to preserve structure)
+    const cleanedSummary = summary
+      .replace(/[\[\]"]/g, "")
+      .replace(/\{/g, "")
+      .replace(/\}/g, "");
+
+    // Define section type
+    type SectionType = { heading: string; content: string[] };
+
+    // Split into lines
+    const lines = cleanedSummary.split("\n");
+    const sections: SectionType[] = [];
+    let currentSection: SectionType | null = null;
+    let skipNextLine = false;
+
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      const nextLine = lines[index + 1];
+      const prevLine = lines[index - 1];
+
+      // Skip separator lines (dashes)
+      if (/^[-=]{3,}$/.test(trimmedLine)) {
+        skipNextLine = false;
+        return;
+      }
+
+      // Skip empty lines
+      if (!trimmedLine) return;
+
+      // Check if this line is a heading using dynamic detection
+      const isHeading = isLikelyHeading(trimmedLine, nextLine, prevLine);
+
+      if (isHeading) {
+        // Save previous section if exists
+        if (currentSection && currentSection.content.length > 0) {
+          sections.push(currentSection);
+        }
+        // Start new section (clean up the heading - remove trailing colons for consistency)
+        const cleanHeading = trimmedLine.replace(/:$/, "").trim();
+        currentSection = { heading: cleanHeading, content: [] } as SectionType;
+      } else if (currentSection) {
+        currentSection.content.push(trimmedLine);
+      } else {
+        // Content before any heading - create an intro section
+        if (!sections.length) {
+          currentSection = {
+            heading: "",
+            content: [trimmedLine],
+          } as SectionType;
+        } else if (sections[0].heading === "") {
+          sections[0].content.push(trimmedLine);
+        } else {
+          sections.unshift({
+            heading: "",
+            content: [trimmedLine],
+          } as SectionType);
+        }
+      }
+    });
+
+    // Don't forget the last section
+    if (currentSection && (currentSection as SectionType).content.length > 0) {
+      sections.push(currentSection);
+    }
+
+    // If no sections were detected, render as simple formatted text
+    if (
+      sections.length === 0 ||
+      (sections.length === 1 && !sections[0].heading)
+    ) {
+      return (
+        <div className="space-y-3">
+          {lines
+            .filter((line) => line.trim() && !/^[-=]{3,}$/.test(line.trim()))
+            .map((line, idx) => {
+              const trimmedLine = line.trim();
+              const isBullet = trimmedLine.startsWith("•");
+              if (isBullet) {
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 text-sm text-gray-700"
+                  >
+                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span>{trimmedLine.replace(/^•\s*/, "")}</span>
+                  </div>
+                );
+              }
+              return (
+                <p key={idx} className="text-sm text-gray-700 leading-relaxed">
+                  {trimmedLine}
+                </p>
+              );
+            })}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {sections.map((section, sectionIdx) => {
+          if (!section.heading && section.content.length === 0) return null;
+
+          const headingColor = getHeadingColor(section.heading);
+          const headingBgColor = getHeadingBgColor(section.heading);
+          const borderColor = getHeadingBorderColor(section.heading);
+          const icon = getLongSummaryIcon(section.heading);
+
+          return (
+            <div
+              key={sectionIdx}
+              className={`rounded-xl overflow-hidden border ${borderColor} shadow-sm`}
+            >
+              {/* Section Heading */}
+              {section.heading && (
+                <div
+                  className={`px-4 py-3 border-b ${borderColor} flex items-center gap-2.5`}
+                  style={{ backgroundColor: headingBgColor }}
+                >
+                  <span style={{ color: headingColor }}>{icon}</span>
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: headingColor }}
+                  >
+                    {section.heading}
+                  </span>
+                </div>
+              )}
+
+              {/* Section Content */}
+              {section.content.length > 0 && (
+                <div className="p-4 bg-white space-y-2.5">
+                  {section.content.map((line, lineIdx) => {
+                    const isBullet = line.startsWith("•");
+                    if (isBullet) {
+                      return (
+                        <div
+                          key={lineIdx}
+                          className="flex items-start gap-2.5 text-sm text-gray-700"
+                        >
+                          <span
+                            className="mt-0.5 flex-shrink-0"
+                            style={{ color: headingColor }}
+                          >
+                            •
+                          </span>
+                          <span className="leading-relaxed">
+                            {line.replace(/^•\s*/, "")}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <p
+                        key={lineIdx}
+                        className="text-sm text-gray-700 leading-relaxed"
+                      >
+                        {line}
+                      </p>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Function to format long summary with colors (legacy support)
   const formatLongSummaryWithColors = (summary: string): string => {
     if (!summary) return "";
 
@@ -855,7 +2503,6 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     });
   };
 
-
   useEffect(() => {
     const verifiedIds = documentGroups
       .filter((g: any) => g.status === "verified")
@@ -993,7 +2640,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL
+        `${
+          process.env.NEXT_PUBLIC_API_BASE_URL
         }/api/documents/preview/${encodeURIComponent(doc.blob_path)}`,
         {
           headers: {
@@ -1140,7 +2788,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     const isOpen = (e.currentTarget as HTMLDetailsElement).open;
                     if (isOpen) {
                       setOpenCards(new Set([group.docId]));
-                      if (expandedLongSummary && expandedLongSummary !== group.docId) {
+                      if (
+                        expandedLongSummary &&
+                        expandedLongSummary !== group.docId
+                      ) {
                         setExpandedLongSummary(null);
                       }
                     } else {
@@ -1174,7 +2825,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                               )}
                             </h3>
                             {isViewed && (
-                              <BadgeCheck size={16} className="text-green-600 flex-shrink-0" />
+                              <BadgeCheck
+                                size={16}
+                                className="text-green-600 flex-shrink-0"
+                              />
                             )}
                           </div>
 
@@ -1195,17 +2849,20 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             {isStructuredSummary(group.shortSummary) && (
                               <div className="flex items-center gap-1">
                                 <Tag size={12} className="text-gray-400" />
-                                <span>{group.shortSummary.header.source_type}</span>
+                                <span>
+                                  {group.shortSummary.header.source_type}
+                                </span>
                               </div>
                             )}
                           </div>
                         </div>
                         <div className="flex gap-2 items-center flex-shrink-0">
                           <button
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors ${isPreviewLoading
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                              }`}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors ${
+                              isPreviewLoading
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
+                            }`}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -1239,7 +2896,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <div className="border-t border-gray-200 p-4 bg-gray-50">
                     <div className="grid grid-cols-1 gap-2">
                       {expandedLongSummary === group.docId &&
-                        group.longSummary ? (
+                      group.longSummary ? (
                         <div className="bg-white border border-gray-200 rounded-xl p-4">
                           <div className="flex items-center gap-2 mb-3">
                             <BookOpen size={14} className="text-gray-500" />
@@ -1248,11 +2905,22 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                             </div>
                           </div>
                           <div className="text-sm leading-relaxed text-gray-900">
-                            {renderFormattedSummary(
-                              formatLongSummaryWithColors(
-                                group.longSummary || group.briefSummary || "",
-                              ),
-                            )}
+                            {(() => {
+                              const parsedLong = parseLongSummary(
+                                group.longSummary,
+                              );
+                              if (isStructuredLongSummary(parsedLong)) {
+                                return renderStructuredLongSummary(parsedLong);
+                              }
+                              // Use professional plain text renderer for string summaries
+                              const summaryText =
+                                typeof parsedLong === "string"
+                                  ? parsedLong
+                                  : group.longSummary ||
+                                    group.briefSummary ||
+                                    "";
+                              return renderPlainTextLongSummary(summaryText);
+                            })()}
                           </div>
                         </div>
                       ) : (
@@ -1293,10 +2961,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       )}
 
                       <button
-                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${isGroupCopied
-                          ? "bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
-                          : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-                          }`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${
+                          isGroupCopied
+                            ? "bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+                        }`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1318,10 +2987,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </button>
 
                       <button
-                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${isViewed
-                          ? "bg-green-50 border-green-300 text-green-700"
-                          : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-                          } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${
+                          isViewed
+                            ? "bg-green-50 border-green-300 text-green-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+                        } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1444,7 +3114,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       </Dialog>
 
       {/* Global Verification Loader Modal */}
-      <Dialog open={isVerifyingGlobal} onOpenChange={() => { }}>
+      <Dialog open={isVerifyingGlobal} onOpenChange={() => {}}>
         <DialogContent className="max-w-[300px] p-8 flex flex-col items-center justify-center border-none shadow-2xl bg-white/95 backdrop-blur-sm rounded-2xl">
           <div className="relative flex items-center justify-center w-20 h-20 mb-4">
             <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
@@ -1452,8 +3122,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             <Loader2 size={32} className="text-blue-600 animate-pulse" />
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Verifying Document</h3>
-            <p className="text-sm text-gray-500">Updating treatment history...</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Verifying Document
+            </h3>
+            <p className="text-sm text-gray-500">
+              Updating treatment history...
+            </p>
           </div>
         </DialogContent>
       </Dialog>
