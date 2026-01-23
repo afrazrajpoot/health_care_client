@@ -24,11 +24,11 @@ export const metadata: Metadata = {
     title: "DocLatch AI",
     description:
       "AI-powered healthcare assistant automates document classification and task creation for medical practices",
-    url: "https://doclatch.com/",
+    url: "https://staging.doclatch.com/",
     siteName: "DocLatch AI",
     images: [
       {
-        url: "https://doclatch.com/logo.png",
+        url: "https://staging.doclatch.com/logo.png",
         width: 1200,
         height: 630,
         alt: "DocLatch AI Logo",
@@ -41,11 +41,9 @@ export const metadata: Metadata = {
     title: "DocLatch AI",
     description:
       "AI-powered healthcare assistant automates document classification and task creation for medical practices",
-    images: ["https://doclatch.com/logo.png"],
+    images: ["https://staging.doclatch.com/logo.png"],
   },
-  authors: [
-    { name: "DocLatch AI Team", url: "https://doclatch.com" },
-  ],
+  authors: [{ name: "DocLatch AI Team", url: "https://staging.doclatch.com" }],
   creator: "@doclatchai",
   robots: {
     index: true,
@@ -75,7 +73,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <head>
-          <link rel="icon" type="image/x-icon" href="/logo.png" />
+          <link
+            rel="icon"
+            type="image/x-icon"
+            href="https://staging.doclatch.com/logo.png"
+          />
         </head>
         <Providers>{children}</Providers>
       </body>

@@ -272,7 +272,82 @@ const getSimpleBriefIcon = (iconType: string) => {
   }
 };
 
-// Get config for a field name (with fallback for unknown fields)
+// Light color palette for brief summary sections (matches PILL_COLORS structure)
+const BRIEF_SUMMARY_COLORS = [
+  {
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    textColor: "text-red-800",
+    iconColor: "text-red-600",
+  },
+  {
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    textColor: "text-blue-800",
+    iconColor: "text-blue-600",
+  },
+  {
+    bgColor: "bg-green-50",
+    borderColor: "border-green-200",
+    textColor: "text-green-800",
+    iconColor: "text-green-600",
+  },
+  {
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    textColor: "text-purple-800",
+    iconColor: "text-purple-600",
+  },
+  {
+    bgColor: "bg-amber-50",
+    borderColor: "border-amber-200",
+    textColor: "text-amber-800",
+    iconColor: "text-amber-600",
+  },
+  {
+    bgColor: "bg-cyan-50",
+    borderColor: "border-cyan-200",
+    textColor: "text-cyan-800",
+    iconColor: "text-cyan-600",
+  },
+  {
+    bgColor: "bg-indigo-50",
+    borderColor: "border-indigo-200",
+    textColor: "text-indigo-800",
+    iconColor: "text-indigo-600",
+  },
+  {
+    bgColor: "bg-teal-50",
+    borderColor: "border-teal-200",
+    textColor: "text-teal-800",
+    iconColor: "text-teal-600",
+  },
+  {
+    bgColor: "bg-pink-50",
+    borderColor: "border-pink-200",
+    textColor: "text-pink-800",
+    iconColor: "text-pink-600",
+  },
+  {
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-200",
+    textColor: "text-orange-800",
+    iconColor: "text-orange-600",
+  },
+];
+
+// Simple hash function to get consistent color index for same key (duplicate for module scope)
+const hashFieldName = (str: string): number => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+};
+
+// Get config for a field name (with fallback using hash-based coloring for unknown fields)
 const getFieldConfig = (fieldName: string) => {
   // Check for exact match first
   if (BRIEF_SUMMARY_FIELD_CONFIG[fieldName]) {
@@ -304,13 +379,16 @@ const getFieldConfig = (fieldName: string) => {
     return BRIEF_SUMMARY_FIELD_CONFIG["Work Status"];
   }
 
-  // Default config
+  // Use hash-based color for unknown fields - ensures all fields get a colored background
+  const colorIndex = hashFieldName(fieldLower) % BRIEF_SUMMARY_COLORS.length;
+  const hashColor = BRIEF_SUMMARY_COLORS[colorIndex];
+
   return {
     priority: 99,
-    bgColor: "bg-gray-50",
-    borderColor: "border-gray-200",
-    textColor: "text-gray-800",
-    iconColor: "text-gray-600",
+    bgColor: hashColor.bgColor,
+    borderColor: hashColor.borderColor,
+    textColor: hashColor.textColor,
+    iconColor: hashColor.iconColor,
     icon: "default" as const,
   };
 };
@@ -901,86 +979,77 @@ const getFieldIndicatorColor = (field: string): string => {
   return "#6b7280"; // Gray
 };
 
-// Get pill styling for summary card keys
+// Light color palette for summary card pills
+const PILL_COLORS = [
+  {
+    bgColor: "bg-red-50",
+    textColor: "text-red-700",
+    borderColor: "border-red-200",
+  },
+  {
+    bgColor: "bg-blue-50",
+    textColor: "text-blue-700",
+    borderColor: "border-blue-200",
+  },
+  {
+    bgColor: "bg-green-50",
+    textColor: "text-green-700",
+    borderColor: "border-green-200",
+  },
+  {
+    bgColor: "bg-purple-50",
+    textColor: "text-purple-700",
+    borderColor: "border-purple-200",
+  },
+  {
+    bgColor: "bg-amber-50",
+    textColor: "text-amber-700",
+    borderColor: "border-amber-200",
+  },
+  {
+    bgColor: "bg-cyan-50",
+    textColor: "text-cyan-700",
+    borderColor: "border-cyan-200",
+  },
+  {
+    bgColor: "bg-indigo-50",
+    textColor: "text-indigo-700",
+    borderColor: "border-indigo-200",
+  },
+  {
+    bgColor: "bg-teal-50",
+    textColor: "text-teal-700",
+    borderColor: "border-teal-200",
+  },
+  {
+    bgColor: "bg-pink-50",
+    textColor: "text-pink-700",
+    borderColor: "border-pink-200",
+  },
+  {
+    bgColor: "bg-orange-50",
+    textColor: "text-orange-700",
+    borderColor: "border-orange-200",
+  },
+];
+
+// Simple hash function to get consistent color index for same key
+const hashString = (str: string): number => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+};
+
+// Get pill styling for summary card keys - uses consistent color based on key name
 const getKeyPillStyle = (
   key: string,
 ): { bgColor: string; textColor: string; borderColor: string } => {
-  const keyLower = key.toLowerCase().replace(/_/g, " ");
-
-  if (keyLower.includes("assessment") || keyLower.includes("diagnosis")) {
-    return {
-      bgColor: "bg-red-50",
-      textColor: "text-red-700",
-      borderColor: "border-red-200",
-    };
-  }
-  if (keyLower.includes("plan") || keyLower.includes("recommendation")) {
-    return {
-      bgColor: "bg-blue-50",
-      textColor: "text-blue-700",
-      borderColor: "border-blue-200",
-    };
-  }
-  if (keyLower.includes("exam") || keyLower.includes("pertinent")) {
-    return {
-      bgColor: "bg-green-50",
-      textColor: "text-green-700",
-      borderColor: "border-green-200",
-    };
-  }
-  if (keyLower.includes("medication") || keyLower.includes("prescription")) {
-    return {
-      bgColor: "bg-purple-50",
-      textColor: "text-purple-700",
-      borderColor: "border-purple-200",
-    };
-  }
-  if (keyLower.includes("history") || keyLower.includes("illness")) {
-    return {
-      bgColor: "bg-cyan-50",
-      textColor: "text-cyan-700",
-      borderColor: "border-cyan-200",
-    };
-  }
-  if (keyLower.includes("follow") || keyLower.includes("up")) {
-    return {
-      bgColor: "bg-indigo-50",
-      textColor: "text-indigo-700",
-      borderColor: "border-indigo-200",
-    };
-  }
-  if (keyLower.includes("finding") || keyLower.includes("impression")) {
-    return {
-      bgColor: "bg-amber-50",
-      textColor: "text-amber-700",
-      borderColor: "border-amber-200",
-    };
-  }
-  if (
-    keyLower.includes("work") ||
-    keyLower.includes("status") ||
-    keyLower.includes("mmi")
-  ) {
-    return {
-      bgColor: "bg-teal-50",
-      textColor: "text-teal-700",
-      borderColor: "border-teal-200",
-    };
-  }
-  if (keyLower.includes("vital") || keyLower.includes("sign")) {
-    return {
-      bgColor: "bg-pink-50",
-      textColor: "text-pink-700",
-      borderColor: "border-pink-200",
-    };
-  }
-
-  // Default
-  return {
-    bgColor: "bg-gray-100",
-    textColor: "text-gray-700",
-    borderColor: "border-gray-200",
-  };
+  const colorIndex = hashString(key.toLowerCase()) % PILL_COLORS.length;
+  return PILL_COLORS[colorIndex];
 };
 
 // Format field key for display (convert SNAKE_CASE to Title Case)
@@ -1758,6 +1827,31 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     );
   };
 
+  // Long summary color palette for hash-based fallback
+  const LONG_SUMMARY_COLORS = [
+    { text: "#dc2626", bg: "#fef2f2", border: "border-red-200" }, // Red
+    { text: "#2563eb", bg: "#eff6ff", border: "border-blue-200" }, // Blue
+    { text: "#059669", bg: "#ecfdf5", border: "border-green-200" }, // Green
+    { text: "#7c3aed", bg: "#f5f3ff", border: "border-purple-200" }, // Purple
+    { text: "#d97706", bg: "#fffbeb", border: "border-amber-200" }, // Amber
+    { text: "#0891b2", bg: "#ecfeff", border: "border-cyan-200" }, // Cyan
+    { text: "#4f46e5", bg: "#eef2ff", border: "border-indigo-200" }, // Indigo
+    { text: "#0d9488", bg: "#f0fdfa", border: "border-teal-200" }, // Teal
+    { text: "#db2777", bg: "#fdf2f8", border: "border-pink-200" }, // Pink
+    { text: "#ea580c", bg: "#fff7ed", border: "border-orange-200" }, // Orange
+  ];
+
+  // Hash function for long summary headings
+  const hashHeading = (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash);
+  };
+
   // Get color for heading based on content (dynamic - works with any heading)
   const getHeadingColor = (heading: string): string => {
     const headingLower = heading.toLowerCase();
@@ -1841,8 +1935,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     )
       return "#ea580c";
 
-    // Default - Gray
-    return "#475569";
+    // Hash-based fallback for unknown headings
+    const colorIndex = hashHeading(headingLower) % LONG_SUMMARY_COLORS.length;
+    return LONG_SUMMARY_COLORS[colorIndex].text;
   };
 
   // Get background color for heading (dynamic - works with any heading)
@@ -1928,8 +2023,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     )
       return "#fff7ed";
 
-    // Default - Gray bg
-    return "#f8fafc";
+    // Hash-based fallback for unknown headings
+    const colorIndex = hashHeading(headingLower) % LONG_SUMMARY_COLORS.length;
+    return LONG_SUMMARY_COLORS[colorIndex].bg;
   };
 
   // Get border color for heading
@@ -1992,7 +2088,9 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     )
       return "border-orange-200";
 
-    return "border-gray-200";
+    // Hash-based fallback for unknown headings
+    const colorIndex = hashHeading(headingLower) % LONG_SUMMARY_COLORS.length;
+    return LONG_SUMMARY_COLORS[colorIndex].border;
   };
 
   // Get icon for long summary section heading
@@ -2630,6 +2728,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
     if (!doc.blob_path) {
       console.error("Blob path not found for preview");
+      toast.error("Document preview not available");
+      return;
+    }
+
+    const token = session?.user?.fastapi_token;
+    if (!token) {
+      console.error("No auth token available for preview");
+      toast.error("Authentication required. Please sign in again.");
       return;
     }
 
@@ -2639,18 +2745,21 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     setLoadingPreviews((prev) => new Set([...prev, docId]));
 
     try {
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_BASE_URL
-        }/api/documents/preview/${encodeURIComponent(doc.blob_path)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session?.user?.fastapi_token}`,
-          },
+      const previewUrl = `${
+        process.env.NEXT_PUBLIC_API_BASE_URL
+      }/api/documents/preview/${encodeURIComponent(doc.blob_path)}`;
+
+      console.log("Preview request:", { url: previewUrl, hasToken: !!token });
+
+      const response = await fetch(previewUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        console.error(`Preview failed: ${response.status}`, errorText);
         throw new Error(`Failed to fetch preview: ${response.status}`);
       }
 
@@ -2659,6 +2768,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       window.open(blobUrl, "_blank");
     } catch (error) {
       console.error("Error fetching preview:", error);
+      toast.error("Failed to load document preview");
     } finally {
       setLoadingPreviews((prev) => {
         const newSet = new Set(prev);
