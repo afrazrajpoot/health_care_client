@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   trailingSlash: false,
   // --- disable SWC minification to fix Azure SIGKILL ---
-  swcMinify: false,
+  // swcMinify: false,
 };
 
 export default nextConfig;
