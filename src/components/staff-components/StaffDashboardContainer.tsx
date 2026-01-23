@@ -95,14 +95,16 @@ export default function StaffDashboardContainer() {
   const dispatch = useDispatch();
   const searchParams = useSearchParams();
   const [selectedPatient, setSelectedPatient] = useState<RecentPatient | null>(
-    null
+    null,
   );
   const [pageLoading, setPageLoading] = useState(true);
   const [showFilePopup, setShowFilePopup] = useState(false);
   const [fileDetailsPopup, setFileDetailsPopup] = useState<FileDetails[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [patientDrawerCollapsed, setPatientDrawerCollapsed] = useState(false);
-  const [viewMode, setViewMode] = useState<"open" | "completed" | "all">("open");
+  const [viewMode, setViewMode] = useState<"open" | "completed" | "all">(
+    "open",
+  );
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
@@ -121,7 +123,11 @@ export default function StaffDashboardContainer() {
   const [isRefreshingAfterUpload, setIsRefreshingAfterUpload] = useState(false);
 
   // RTK Query Hooks
-  const { data: recentPatientsData, isLoading: isPatientsLoading, refetch: refetchPatients } = useGetRecentPatientsQuery(patientSearchQuery, {
+  const {
+    data: recentPatientsData,
+    isLoading: isPatientsLoading,
+    refetch: refetchPatients,
+  } = useGetRecentPatientsQuery(patientSearchQuery, {
     refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
     pollingInterval: 0, // Disable automatic polling
   });
@@ -136,9 +142,14 @@ export default function StaffDashboardContainer() {
       documentIds: selectedPatient.documentIds,
       page: isStaff ? 1 : taskPage, // Fetch all for staff to allow client-side filtering
       pageSize: isStaff ? 1000 : taskPageSize,
-      status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
+      status:
+        viewMode === "completed"
+          ? "completed"
+          : viewMode === "all"
+            ? "all"
+            : undefined,
       type: taskTypeFilter,
-      search: taskSearchQuery
+      search: taskSearchQuery,
     };
   }, [
     selectedPatient?.patientName,
@@ -149,33 +160,36 @@ export default function StaffDashboardContainer() {
     taskPageSize,
     viewMode,
     taskTypeFilter,
-    taskSearchQuery
+    taskSearchQuery,
   ]);
-  const { data: tasksData, isLoading: isTasksLoading, refetch: refetchTasks } = useGetTasksQuery(
-    taskQueryParams!,
-    {
-      skip: !taskQueryParams,
-      refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
-      pollingInterval: 0, // Disable automatic polling
-    }
-  );
+  const {
+    data: tasksData,
+    isLoading: isTasksLoading,
+    refetch: refetchTasks,
+  } = useGetTasksQuery(taskQueryParams!, {
+    skip: !taskQueryParams,
+    refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
+    pollingInterval: 0, // Disable automatic polling
+  });
   // Memoize intake query params to prevent unnecessary re-renders and API calls
   const intakeQueryParams = useMemo(() => {
     if (!selectedPatient) return null;
     return {
       patientName: selectedPatient.patientName || "",
       dob: selectedPatient.dob,
-      claimNumber: selectedPatient.claimNumber
+      claimNumber: selectedPatient.claimNumber,
     };
-  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber]);
-  const { data: intakeUpdateData, isLoading: isIntakeUpdateLoading } = useGetPatientIntakeUpdateQuery(
-    intakeQueryParams!,
-    {
+  }, [
+    selectedPatient?.patientName,
+    selectedPatient?.dob,
+    selectedPatient?.claimNumber,
+  ]);
+  const { data: intakeUpdateData, isLoading: isIntakeUpdateLoading } =
+    useGetPatientIntakeUpdateQuery(intakeQueryParams!, {
       skip: !intakeQueryParams,
       refetchOnMountOrArgChange: false, // Don't refetch on mount if cached data exists
       pollingInterval: 0, // Disable automatic polling
-    }
-  );
+    });
   // Memoize treatment history query params
   const treatmentHistoryQueryParams = useMemo(() => {
     if (!selectedPatient || !physicianId) return null;
@@ -183,16 +197,19 @@ export default function StaffDashboardContainer() {
       patientName: selectedPatient.patientName || "",
       dob: selectedPatient.dob,
       claimNumber: selectedPatient.claimNumber,
-      physicianId: physicianId
+      physicianId: physicianId,
     };
-  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber, physicianId]);
-  const { data: treatmentHistoryData, isLoading: isTreatmentHistoryLoading } = useGetTreatmentHistoryQuery(
-    treatmentHistoryQueryParams!,
-    {
+  }, [
+    selectedPatient?.patientName,
+    selectedPatient?.dob,
+    selectedPatient?.claimNumber,
+    physicianId,
+  ]);
+  const { data: treatmentHistoryData, isLoading: isTreatmentHistoryLoading } =
+    useGetTreatmentHistoryQuery(treatmentHistoryQueryParams!, {
       skip: !treatmentHistoryQueryParams,
       refetchOnMountOrArgChange: false,
-    }
-  );
+    });
   const [updateTaskMutation] = useUpdateTaskMutation();
   // Derived state
   const recentPatients = useMemo(() => {
@@ -200,18 +217,27 @@ export default function StaffDashboardContainer() {
 
     // If we have a selected patient, ensure they are in the list without changing position if already present
     if (selectedPatient) {
-      const selectedPatientName = selectedPatient.patientName?.toLowerCase().trim();
-      const selectedPatientDob = selectedPatient.dob ? selectedPatient.dob.toString().split('T')[0] : "";
+      const selectedPatientName = selectedPatient.patientName
+        ?.toLowerCase()
+        .trim();
+      const selectedPatientDob = selectedPatient.dob
+        ? selectedPatient.dob.toString().split("T")[0]
+        : "";
       const selectedPatientClaim = selectedPatient.claimNumber;
 
-      const exists = list.some(p => {
+      const exists = list.some((p) => {
         const pName = p.patientName?.toLowerCase().trim();
-        const pDob = p.dob ? p.dob.toString().split('T')[0] : "";
+        const pDob = p.dob ? p.dob.toString().split("T")[0] : "";
         const pClaim = p.claimNumber;
 
         const nameMatch = pName === selectedPatientName;
         const dobMatch = pDob === selectedPatientDob;
-        const claimMatch = (!pClaim || pClaim === "Not specified" || !selectedPatientClaim || selectedPatientClaim === "Not specified" || pClaim === selectedPatientClaim);
+        const claimMatch =
+          !pClaim ||
+          pClaim === "Not specified" ||
+          !selectedPatientClaim ||
+          selectedPatientClaim === "Not specified" ||
+          pClaim === selectedPatientClaim;
 
         return nameMatch && dobMatch && claimMatch;
       });
@@ -230,7 +256,9 @@ export default function StaffDashboardContainer() {
   // taskTotalCount moved below filteredPatientTasks definition
   // Legacy patient quiz is no longer used directly, we rely on patientIntakeUpdate
   const patientQuiz = null;
-  const patientIntakeUpdate = intakeUpdateData?.success ? intakeUpdateData.data : null;
+  const patientIntakeUpdate = intakeUpdateData?.success
+    ? intakeUpdateData.data
+    : null;
   const loading = isPatientsLoading;
   const loadingPatientDataState = isTasksLoading || isIntakeUpdateLoading;
   // Task status and assignee management
@@ -274,7 +302,13 @@ export default function StaffDashboardContainer() {
         assigneeLower === userEmailLower
       );
     });
-  }, [patientTasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
+  }, [
+    patientTasks,
+    taskAssignees,
+    session?.user?.role,
+    session?.user?.name,
+    session?.user?.email,
+  ]);
   const taskTotalCount = useMemo(() => {
     if (isStaff) {
       return filteredPatientTasks.length;
@@ -329,7 +363,12 @@ export default function StaffDashboardContainer() {
         params.delete("patient_name");
       }
       if (patient.dob) {
-        params.set("dob", patient.dob);
+        // Normalize DOB to YYYY-MM-DD format (strip time component)
+        let dobStr = patient.dob;
+        if (dobStr.includes("T")) {
+          dobStr = dobStr.split("T")[0];
+        }
+        params.set("dob", dobStr);
       } else {
         params.delete("dob");
       }
@@ -343,13 +382,17 @@ export default function StaffDashboardContainer() {
       // Reset pagination when patient changes
       setTaskPage(1);
     },
-    [router, searchParams]
+    [router, searchParams],
   );
 
   // Reset pagination when patient changes
   useEffect(() => {
     setTaskPage(1);
-  }, [selectedPatient?.patientName, selectedPatient?.dob, selectedPatient?.claimNumber]);
+  }, [
+    selectedPatient?.patientName,
+    selectedPatient?.dob,
+    selectedPatient?.claimNumber,
+  ]);
   const handleStatusChipClick = useCallback(
     async (taskId: string, status: string) => {
       try {
@@ -359,7 +402,7 @@ export default function StaffDashboardContainer() {
         toast.error("Failed to update task status");
       }
     },
-    [updateTaskMutation]
+    [updateTaskMutation],
   );
   const handleAssigneeChipClick = useCallback(
     async (taskId: string, assignee: string) => {
@@ -370,7 +413,7 @@ export default function StaffDashboardContainer() {
         toast.error("Failed to update task assignee");
       }
     },
-    [updateTaskMutation]
+    [updateTaskMutation],
   );
   const handleConfirmReassign = useCallback(async () => {
     if (!reassignConfirmData) return;
@@ -391,50 +434,56 @@ export default function StaffDashboardContainer() {
   const handleCancelReassign = useCallback(() => {
     setReassignConfirmData(null);
   }, []);
-  const handleBulkAssign = useCallback(async (taskIds: string[], assignee: string) => {
-    // Filter out tasks that are ALREADY assigned to the target assignee
-    const tasksToAssign = taskIds.filter(taskId => {
-      const task = patientTasks.find((t: Task) => t.id === taskId);
-      const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
-      return currentAssignee !== assignee;
-    });
-    if (tasksToAssign.length === 0) {
-      toast.info(`Selected tasks are already assigned to ${assignee}`);
-      return;
-    }
-    // Check for conflicting assignments (assigned to someone else)
-    const conflictingDetails: { taskId: string; currentAssignee: string }[] = [];
-
-    tasksToAssign.forEach(taskId => {
-      const task = patientTasks.find((t: Task) => t.id === taskId);
-      const currentAssignee = taskAssignees[taskId] || task?.assignee || "Unclaimed";
-
-      if (currentAssignee !== "Unclaimed" && currentAssignee !== assignee) {
-        conflictingDetails.push({ taskId, currentAssignee });
-      }
-    });
-    if (conflictingDetails.length > 0) {
-      setBulkReassignConfirmData({
-        isOpen: true,
-        taskIds: tasksToAssign, // Only reassign the ones that need it
-        newAssignee: assignee,
-        conflictingDetails
+  const handleBulkAssign = useCallback(
+    async (taskIds: string[], assignee: string) => {
+      // Filter out tasks that are ALREADY assigned to the target assignee
+      const tasksToAssign = taskIds.filter((taskId) => {
+        const task = patientTasks.find((t: Task) => t.id === taskId);
+        const currentAssignee =
+          taskAssignees[taskId] || task?.assignee || "Unclaimed";
+        return currentAssignee !== assignee;
       });
-      return;
-    }
-    // If no conflicts, proceed with assignment
-    try {
-      await Promise.all(
-        tasksToAssign.map(taskId =>
-          updateTaskMutation({ taskId, assignee }).unwrap()
-        )
-      );
-      toast.success(`Assigned ${tasksToAssign.length} tasks to ${assignee}`);
-    } catch (error) {
-      console.error("Bulk assign error:", error);
-      toast.error("Failed to assign some tasks");
-    }
-  }, [patientTasks, taskAssignees, updateTaskMutation]);
+      if (tasksToAssign.length === 0) {
+        toast.info(`Selected tasks are already assigned to ${assignee}`);
+        return;
+      }
+      // Check for conflicting assignments (assigned to someone else)
+      const conflictingDetails: { taskId: string; currentAssignee: string }[] =
+        [];
+
+      tasksToAssign.forEach((taskId) => {
+        const task = patientTasks.find((t: Task) => t.id === taskId);
+        const currentAssignee =
+          taskAssignees[taskId] || task?.assignee || "Unclaimed";
+
+        if (currentAssignee !== "Unclaimed" && currentAssignee !== assignee) {
+          conflictingDetails.push({ taskId, currentAssignee });
+        }
+      });
+      if (conflictingDetails.length > 0) {
+        setBulkReassignConfirmData({
+          isOpen: true,
+          taskIds: tasksToAssign, // Only reassign the ones that need it
+          newAssignee: assignee,
+          conflictingDetails,
+        });
+        return;
+      }
+      // If no conflicts, proceed with assignment
+      try {
+        await Promise.all(
+          tasksToAssign.map((taskId) =>
+            updateTaskMutation({ taskId, assignee }).unwrap(),
+          ),
+        );
+        toast.success(`Assigned ${tasksToAssign.length} tasks to ${assignee}`);
+      } catch (error) {
+        console.error("Bulk assign error:", error);
+        toast.error("Failed to assign some tasks");
+      }
+    },
+    [patientTasks, taskAssignees, updateTaskMutation],
+  );
   const handleConfirmBulkReassign = useCallback(async () => {
     if (!bulkReassignConfirmData) return;
     const { taskIds, newAssignee } = bulkReassignConfirmData;
@@ -442,9 +491,9 @@ export default function StaffDashboardContainer() {
     setReassignLoading(true);
     try {
       await Promise.all(
-        taskIds.map(taskId =>
-          updateTaskMutation({ taskId, assignee: newAssignee }).unwrap()
-        )
+        taskIds.map((taskId) =>
+          updateTaskMutation({ taskId, assignee: newAssignee }).unwrap(),
+        ),
       );
       toast.success(`Reassigned ${taskIds.length} tasks to ${newAssignee}`);
       setBulkReassignConfirmData(null);
@@ -460,28 +509,28 @@ export default function StaffDashboardContainer() {
   }, []);
   const getStatusOptions = useCallback(
     (task: Task): string[] => getStatusOptionsUtil(task),
-    []
+    [],
   );
   const getAssigneeOptions = useCallback(
     (task: Task): string[] => getAssigneeOptionsUtil(task),
-    []
+    [],
   );
   const taskStats: TaskStats = useMemo(
     () => calculateTaskStats(filteredPatientTasks),
-    [filteredPatientTasks]
+    [filteredPatientTasks],
   );
   const questionnaireChips = useMemo(
     () => getQuestionnaireChipsUtil(patientIntakeUpdate, patientQuiz),
-    [patientIntakeUpdate, patientQuiz]
+    [patientIntakeUpdate, patientQuiz],
   );
   const departments = useMemo(() => DEPARTMENTS, []);
   const totalPages = useMemo(
     () => Math.ceil(taskTotalCount / taskPageSize),
-    [taskTotalCount, taskPageSize]
+    [taskTotalCount, taskPageSize],
   );
   const hasNextPage = useMemo(
     () => taskPage < totalPages,
-    [taskPage, totalPages]
+    [taskPage, totalPages],
   );
   const hasPrevPage = useMemo(() => taskPage > 1, [taskPage]);
   const displayedTasks = useMemo(() => {
@@ -587,7 +636,7 @@ export default function StaffDashboardContainer() {
   const formatDOB = useCallback((dob: string) => formatDOBUtil(dob), []);
   const formatClaimNumber = useCallback(
     (claim: string) => formatClaimNumberUtil(claim),
-    []
+    [],
   );
   // Handle manual task submit
   const handleManualTaskSubmit = useCallback(
@@ -619,7 +668,7 @@ export default function StaffDashboardContainer() {
         await handleCreateManualTask(
           formData,
           initialMode,
-          selectedPatient?.claimNumber || ""
+          selectedPatient?.claimNumber || "",
         );
         // Refetch tasks after manual task creation
         refetchTasks();
@@ -628,7 +677,7 @@ export default function StaffDashboardContainer() {
         throw error;
       }
     },
-    [selectedPatient, handleCreateManualTask, initialMode, refetchTasks]
+    [selectedPatient, handleCreateManualTask, initialMode, refetchTasks],
   );
   const handleTaskClick = (task: Task) => {
     setSelectedTaskForQuickNote(task);
@@ -641,7 +690,7 @@ export default function StaffDashboardContainer() {
       details: string;
       one_line_note: string;
     },
-    status?: string
+    status?: string,
   ) => {
     try {
       const payload: any = {
@@ -670,12 +719,24 @@ export default function StaffDashboardContainer() {
     router.push("/packages");
   }, [clearPaymentError, router]);
   const dashboardHref = useMemo(() => {
-    if (selectedPatient) {
+    if (selectedPatient && selectedPatient.patientName) {
       const params = new URLSearchParams();
-      params.set('patient_name', selectedPatient.patientName || "");
-      if (selectedPatient.dob) params.set('dob', selectedPatient.dob);
-      if (selectedPatient.claimNumber && selectedPatient.claimNumber !== "Not specified") {
-        params.set('claim', selectedPatient.claimNumber);
+      // Only set patient_name if it has a value
+      params.set("patient_name", selectedPatient.patientName);
+      if (selectedPatient.dob) {
+        // Normalize DOB to YYYY-MM-DD format (strip time component and handle timezone)
+        let dobStr = selectedPatient.dob;
+        if (dobStr.includes("T")) {
+          // If it's an ISO datetime, extract just the date part
+          dobStr = dobStr.split("T")[0];
+        }
+        params.set("dob", dobStr);
+      }
+      if (
+        selectedPatient.claimNumber &&
+        selectedPatient.claimNumber !== "Not specified"
+      ) {
+        params.set("claim", selectedPatient.claimNumber);
       }
       return `/dashboard?${params.toString()}`;
     }
@@ -704,10 +765,12 @@ export default function StaffDashboardContainer() {
   }, []);
   const handleFileUpload = useCallback(async () => {
     // Final check for oversized files before upload
-    const oversizedFiles = pendingFiles.filter(file => !validateFileSize(file));
+    const oversizedFiles = pendingFiles.filter(
+      (file) => !validateFileSize(file),
+    );
     if (oversizedFiles.length > 0) {
       toast.error("File size limit exceeded", {
-        description: `The following files exceed 30MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+        description: `The following files exceed 30MB: ${oversizedFiles.map((f) => f.name).join(", ")}`,
         duration: 4000,
         position: "top-center",
       });
@@ -745,7 +808,8 @@ export default function StaffDashboardContainer() {
           --green: #15803d;
           --radius: 14px;
           --shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
-          --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          --font:
+            ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
             Helvetica, Arial;
         }
         * {
@@ -798,10 +862,12 @@ export default function StaffDashboardContainer() {
                   return;
                 }
                 // Check for oversized files
-                const oversizedFiles = filesArray.filter(file => !validateFileSize(file));
+                const oversizedFiles = filesArray.filter(
+                  (file) => !validateFileSize(file),
+                );
                 if (oversizedFiles.length > 0) {
                   toast.error("File size limit exceeded", {
-                    description: `The following files exceed 30MB: ${oversizedFiles.map(f => f.name).join(', ')}`,
+                    description: `The following files exceed 30MB: ${oversizedFiles.map((f) => f.name).join(", ")}`,
                     duration: 4000,
                     position: "top-center",
                   });

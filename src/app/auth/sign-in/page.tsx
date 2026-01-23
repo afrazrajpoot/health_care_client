@@ -29,7 +29,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react";
 
 const signInSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -41,6 +41,7 @@ type SignInFormValues = z.infer<typeof signInSchema>;
 export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const form = useForm<SignInFormValues>({
@@ -103,7 +104,10 @@ export default function SignInPage() {
         <Card className="border border-gray-200 shadow-lg">
           <CardContent className="pt-8 pb-6 px-8">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
                 <FormField
                   control={form.control}
                   name="email"
@@ -140,11 +144,22 @@ export default function SignInPage() {
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                           <Input
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             placeholder="Enter your password"
-                            className="pl-10 h-12 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                            className="pl-10 pr-10 h-12 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                             {...field}
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
                         </div>
                       </FormControl>
                       <FormMessage className="text-red-600 text-xs" />
@@ -153,7 +168,10 @@ export default function SignInPage() {
                 />
 
                 {error && (
-                  <Alert variant="destructive" className="border-red-200 bg-red-50">
+                  <Alert
+                    variant="destructive"
+                    className="border-red-200 bg-red-50"
+                  >
                     <AlertDescription className="text-red-800 text-sm">
                       {error}
                     </AlertDescription>
@@ -165,7 +183,9 @@ export default function SignInPage() {
                   className="w-full h-12 bg-[#53d1df] hover:bg-[#33c7d8] text-white font-medium text-base transition-colors duration-200"
                   disabled={isLoading}
                 >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Sign In
                 </Button>
               </form>
