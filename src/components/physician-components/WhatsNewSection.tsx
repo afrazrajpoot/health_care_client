@@ -3028,7 +3028,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         title="View Document Summary"
                       >
                         <Eye size={12} />
-                        <span>Summary</span>
+                        <span>Quick Overview</span>
                       </button>
                     </div>
                   </div>
