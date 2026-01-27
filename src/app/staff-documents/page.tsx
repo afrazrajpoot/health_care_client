@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Sidebar } from "@/components/navigation/sidebar";
+import { useEffect, useState } from "react";
 import {
-  Menu,
-  X,
   Download,
   FileText,
   Calendar,
-  Hash,
   User,
   ClipboardList,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import StaffDashboardHeader from "@/components/staff-components/StaffDashboardHeader";
+import { useRouter } from "next/navigation";
 
 interface DocumentSummary {
   id: string;
@@ -40,6 +38,13 @@ interface Document {
   mode?: string;
   documentSummary?: DocumentSummary;
   blobPath?: string;
+  whatsNew?: {
+    short_summary?: {
+      header?: {
+        title?: string;
+      };
+    };
+  };
 }
 
 const formatDate = (dateString: string) => {
@@ -66,25 +71,11 @@ export default function RecentDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const { data: session } = useSession();
-  const sidebarRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node)
-      ) {
-        setIsSidebarOpen(false);
-      }
-    };
-    if (isSidebarOpen)
-      document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSidebarOpen]);
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -289,50 +280,17 @@ export default function RecentDocumentsPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Menu Button */}
-      <button
-        onClick={() => setIsSidebarOpen(true)}
-        className="fixed top-4 left-4 z-50 bg-white p-2.5 rounded-lg shadow-md border border-gray-200 hover:shadow-lg hover:scale-105 transition-all duration-200"
-      >
-        <Menu size={18} className="text-gray-700" />
-      </button>
-
-      {/* Backdrop with transition */}
-      <div
-        className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-all duration-300 ease-in-out ${
-          isSidebarOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-        onClick={() => setIsSidebarOpen(false)}
+    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
+      <StaffDashboardHeader
+        onCreateIntakeLink={() => router.push("/staff-dashboard")}
+        onAddTask={() => router.push("/staff-dashboard")}
+        onUploadDocument={() => router.push("/staff-dashboard")}
+        userRole={session?.user?.role}
+        dashboardHref="/dashboard"
       />
 
-      {/* Sidebar with enhanced transitions */}
-      <div
-        ref={sidebarRef}
-        className={`fixed left-0 top-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <h2 className="font-semibold text-gray-800 text-base">Navigation</h2>
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-white/80 transition-colors duration-200"
-          >
-            <X size={18} className="text-gray-600" />
-          </button>
-        </div>
-        <Sidebar />
-      </div>
-
-      {/* Main Content with transition when sidebar opens */}
-      <main
-        className={`max-w-6xl mx-auto py-10 px-5 lg:px-8 transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "lg:translate-x-16" : "translate-x-0"
-        }`}
-      >
+      {/* Main Content */}
+      <main className="flex-1 max-w-6xl mx-auto py-10 px-5 lg:px-8 w-full">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -348,10 +306,10 @@ export default function RecentDocumentsPage() {
               <button
                 onClick={handleDownloadAll}
                 disabled={downloadingAll}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white text-xs font-medium rounded-md shadow-sm hover:shadow-md transition-all duration-200"
               >
-                <Download size={16} />
-                {downloadingAll ? "Downloading All..." : "Download All"}
+                <Download size={14} />
+                {downloadingAll ? "Downloading..." : "Download All"}
               </button>
             )}
           </div>
@@ -397,9 +355,9 @@ export default function RecentDocumentsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {doc.documentSummary?.type && (
-                        <span className="px-3 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">
-                          {doc.documentSummary.type}
+                      {(doc.whatsNew?.short_summary?.header?.title || doc.documentSummary?.type) && (
+                        <span className="px-3 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 max-w-[250px] truncate" title={doc.whatsNew?.short_summary?.header?.title || doc.documentSummary?.type}>
+                          {doc.whatsNew?.short_summary?.header?.title || doc.documentSummary?.type}
                         </span>
                       )}
                       <span
@@ -441,12 +399,12 @@ export default function RecentDocumentsPage() {
                         </span>
                       </div>
                     )}
-                    {doc.documentSummary?.type && (
+                    {(doc.whatsNew?.short_summary?.header?.title || doc.documentSummary?.type) && (
                       <div className="flex items-center gap-2 text-xs">
                         <ClipboardList size={13} className="text-gray-500" />
                         <span className="text-gray-600">Type:</span>
                         <span className="text-gray-900 font-medium">
-                          {doc.documentSummary.type}
+                          {doc.whatsNew?.short_summary?.header?.title || doc.documentSummary?.type}
                         </span>
                       </div>
                     )}
@@ -467,19 +425,19 @@ export default function RecentDocumentsPage() {
                           <button
                             onClick={() => handlePreview(doc)}
                             disabled={downloadingId === doc.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-medium rounded-md transition-colors duration-200"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-[11px] font-medium rounded-md transition-colors duration-200"
                           >
-                            <FileText size={13} />
-                            {downloadingId === doc.id ? "Loading..." : "View"}
+                            <FileText size={12} />
+                            {downloadingId === doc.id ? "..." : "View"}
                           </button>
                           <button
                             onClick={() => handleDownload(doc)}
                             disabled={downloadingId === doc.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white text-xs font-medium rounded-md transition-colors duration-200"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white text-[11px] font-medium rounded-md transition-colors duration-200"
                           >
-                            <Download size={13} />
+                            <Download size={12} />
                             {downloadingId === doc.id
-                              ? "Downloading..."
+                              ? "..."
                               : "Download"}
                           </button>
                         </>

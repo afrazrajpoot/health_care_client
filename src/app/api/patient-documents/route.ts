@@ -32,7 +32,8 @@ export async function GET() {
         briefSummary: true,
         documentSummary: true,
         blobPath: true,
-        
+        whatsNew: true,
+
       },
     });
 
