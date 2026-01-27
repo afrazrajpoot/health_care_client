@@ -120,21 +120,6 @@ export async function GET(request: Request) {
     // If I have NEITHER, what should happen?
     // The previous code returned empty.
 
-    if (documentIds.length === 0 && !search && !assignedTo && !status && !dept && !taskTypeFilter && !overdueOnly) {
-      // "if no any data then not get tasks" - strictly following previous logic's intent but expanding to other filters
-      // actually the previous logic ONLY checked documentIds and search.
-      // If I just filtered by status='pending', it would return empty?
-      // Yes, because it was inside the `if (documentIds.length > 0 || search)` block.
-      // That seems restrictive. Maybe that was the intention?
-      // Let's stick to the previous behavior: if no documentId and no search, return empty.
-      console.log('🔄 No documentId or search provided, returning empty');
-      return NextResponse.json({
-        tasks: [],
-        totalCount: 0,
-        message: "No search criteria provided",
-        timestamp: new Date().toISOString()
-      });
-    }
 
     // Department filter - remove "Department" from the search term
     if (dept) {
