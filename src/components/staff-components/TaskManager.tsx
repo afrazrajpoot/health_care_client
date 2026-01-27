@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Activity, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  User, 
+import {
+  Activity,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  User,
   Calendar,
   FileText,
   TrendingUp,
@@ -71,10 +71,10 @@ interface TaskManagerProps {
 
 const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }: TaskManagerProps) => {
   console.log('Tasks data:', tasks);
-  
+
   // Filter tasks for Active Tasks section - include all tasks with quick notes regardless of status
-  const activeTasks = tasks.filter(task => 
-    task.quickNotes?.options && 
+  const activeTasks = tasks.filter(task =>
+    task.quickNotes?.options &&
     task.quickNotes.options.length > 0
   );
 
@@ -115,8 +115,8 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
   // Format date for display
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -164,39 +164,39 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
       'Physician-Dependent': 'bg-rose-50 border-rose-200 text-rose-800',
       'Exception & Priority': 'bg-red-50 border-red-200 text-red-800'
     };
-    
+
     return colors[category] || 'bg-gray-50 border-gray-200 text-gray-800';
   };
 
   // Group chips by category
   const groupChipsByCategory = (chips: ChipData[]) => {
     const grouped: Record<string, ChipData[]> = {};
-    
+
     chips.forEach(chip => {
       if (!grouped[chip.category]) {
         grouped[chip.category] = [];
       }
       grouped[chip.category].push(chip);
     });
-    
+
     return grouped;
   };
 
   // Check if task has quick notes (backward compatible)
   const hasQuickNotes = (task: Task) => {
-    return (task.quickNotes?.options && task.quickNotes.options.length > 0) || 
-           task.quickNotes?.status_update ||
-           task.quickNotes?.details;
+    return (task.quickNotes?.options && task.quickNotes.options.length > 0) ||
+      task.quickNotes?.status_update ||
+      task.quickNotes?.details;
   };
 
   return (
     <div className="font-sans bg-gradient-to-br from-gray-50 to-blue-50/30 p-6 text-gray-900">
-    
-      
+
+
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT: Active Tasks */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-[600px] overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
@@ -216,14 +216,14 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
             </div>
             <p className="text-sm text-gray-600">Tasks with recent status updates and quick notes</p>
           </div>
-          
-          <div className="overflow-y-auto flex-1 p-4 space-y-4">
+
+          <div className="p-4 space-y-4">
             {activeTasks.length > 0 ? (
               activeTasks.map((task) => {
                 const priority = getPriorityBadge(task.priority || '');
-                
+
                 return (
-                  <div 
+                  <div
                     key={task.id}
                     className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all hover:shadow-md"
                   >
@@ -245,7 +245,7 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
                         <ChevronRight className="w-5 h-5 text-gray-400" />
                       </button>
                     </div>
-                    
+
                     {/* Task Meta */}
                     <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
                       <span className="flex items-center gap-1.5">
@@ -260,7 +260,7 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
                         {task.status}
                       </span>
                     </div>
-                    
+
                     {/* Quick Notes */}
                     {task.quickNotes?.options && task.quickNotes.options.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-200">
@@ -268,13 +268,13 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
                           <MessageSquare className="w-4 h-4 text-gray-500" />
                           <h4 className="text-sm font-semibold text-gray-700">Quick Notes</h4>
                         </div>
-                        
+
                         {Object.entries(groupChipsByCategory(task.quickNotes.options)).map(([category, chips]) => (
                           <div key={category} className="mb-3 last:mb-0">
                             <h5 className="text-xs font-medium text-gray-500 mb-2">{category}</h5>
                             <div className="flex flex-wrap gap-2">
                               {chips.map((chip, index) => (
-                                <span 
+                                <span
                                   key={index}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${getChipColor(category)}`}
                                 >
@@ -292,7 +292,7 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
                         ))}
                       </div>
                     )}
-                    
+
                     {/* Task Footer */}
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
                       <div className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -328,7 +328,7 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
         </div>
 
         {/* RIGHT: Treatment History */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-[600px] overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
@@ -348,8 +348,8 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
             </div>
             <p className="text-sm text-gray-600">Complete patient treatment timeline and history</p>
           </div>
-          
-          <div className="h-full overflow-y-auto">
+
+          <div className="h-full">
             {isTreatmentHistoryLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">

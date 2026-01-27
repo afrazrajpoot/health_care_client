@@ -140,6 +140,7 @@ interface TasksTableProps {
   onToggleTaskSelection?: (taskIds: string[], selected: boolean) => void;
   onSearch?: (query: string) => void;
   isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
@@ -164,6 +165,7 @@ export default function TasksTable({
   onToggleTaskSelection,
   onSearch,
   isLoading = false,
+  onRefresh,
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -697,6 +699,16 @@ export default function TasksTable({
                 <Grid className="w-5 h-5" />
               </button>
             </div>
+
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all shadow-sm group"
+                title="Sync Dashboard"
+              >
+                <RotateCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+              </button>
+            )}
 
             {selectedTaskIds && selectedTaskIds.some(id => id.startsWith('doc-')) && (
               <button

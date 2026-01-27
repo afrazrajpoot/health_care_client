@@ -603,12 +603,18 @@ export default function StaffDashboardContainer() {
     isRefreshingAfterUpload,
     handleSelectPatient,
   ]);
-  // Function to refresh all data using tag invalidation
+  // Function to refresh all data using tag invalidation and explicit refetch
   const refreshAllData = useCallback(() => {
+    // 1. Invalidate tags for all observers
     dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
     dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
-  }, [dispatch]);
+
+    // 2. Explicitly trigger refetch for current active queries
+    refetchPatients();
+    refetchTasks();
+    fetchFailedDocuments();
+  }, [dispatch, refetchPatients, refetchTasks, fetchFailedDocuments]);
   // Close all modals when upload errors occur
   useEffect(() => {
     if (paymentError || ignoredFiles?.length > 0 || uploadError) {
@@ -750,6 +756,11 @@ export default function StaffDashboardContainer() {
     dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
 
+    // Explicitly refetch
+    refetchPatients();
+    refetchTasks();
+    fetchFailedDocuments();
+
     // Hook clears its own errors
     // Close modals
     setShowModal(false);
@@ -757,7 +768,7 @@ export default function StaffDashboardContainer() {
     setShowQuickNoteModal(false);
     setShowDocumentSuccessPopup(false);
     setIsUpdateModalOpen(false);
-  }, [dispatch, setIsUpdateModalOpen]);
+  }, [dispatch, setIsUpdateModalOpen, refetchPatients, refetchTasks, fetchFailedDocuments]);
   // File upload handlers with popup review step
   const validateFileSize = useCallback((file: File): boolean => {
     const maxSize = 30 * 1024 * 1024; // 30MB in bytes
@@ -897,7 +908,7 @@ export default function StaffDashboardContainer() {
             onCancelFile={handleCancelFile}
             validateFileSize={validateFileSize}
           />
-          <main className="p-4 mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border h-[calc(100vh-50px)] overflow-hidden flex-1 max-md:grid-cols-1">
+          <main className="p-4 mx-auto w-full grid grid-cols-[auto_1fr] gap-4 box-border overflow-hidden flex-1 max-md:grid-cols-1">
             <PatientDrawer
               patients={recentPatients}
               selectedPatient={selectedPatient}
@@ -911,7 +922,7 @@ export default function StaffDashboardContainer() {
               formatClaimNumber={formatClaimNumber}
               onSearchChange={setPatientSearchQuery}
             />
-            <section className="flex flex-col gap-3.5 h-full overflow-y-auto pr-2 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
+            <section className="flex flex-col gap-3.5 h-full min-h-0 overflow-y-auto pr-2 pb-10 [scrollbar-width:thin] [scrollbar-color:#c1c1c1_#f1f1f1] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[#f1f1f1] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[#c1c1c1] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-[#a8a8a8]">
               <TasksSection
                 selectedPatient={selectedPatient}
                 displayedTasks={displayedTasks}
@@ -950,6 +961,7 @@ export default function StaffDashboardContainer() {
                 treatmentHistoryData={treatmentHistoryData?.data}
                 isTreatmentHistoryLoading={isTreatmentHistoryLoading}
                 onSearch={setTaskSearchQuery}
+                onRefresh={refreshAllData}
               />
             </section>
           </main>
@@ -983,8 +995,14 @@ export default function StaffDashboardContainer() {
         onCloseTaskModal={() => setShowTaskModal(false)}
         onCloseQuickNoteModal={() => setShowQuickNoteModal(false)}
         onCloseDocumentSuccessPopup={triggerRefresh}
-        onClearPaymentError={clearPaymentError} // From hook
-        onClearUploadError={clearUploadError} // From hook
+        onClearPaymentError={() => {
+          clearPaymentError();
+          triggerRefresh();
+        }}
+        onClearUploadError={() => {
+          clearUploadError();
+          triggerRefresh();
+        }}
         onUpgrade={handleUpgrade}
         onManualTaskSubmit={handleManualTaskSubmit}
         onSaveQuickNote={handleSaveQuickNote}

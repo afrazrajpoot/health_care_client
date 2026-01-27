@@ -47,6 +47,16 @@ export const pythonApi = createApi({
                 method: "POST",
                 body: data,
             }),
+            async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+                    // Invalidate tags across different API slices
+                    dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
+                    dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
+                } catch (error) {
+                    console.error("Failed to invalidate tags after document split:", error);
+                }
+            },
         }),
         getDocumentPreview: builder.query({
             query: (blobPath) => ({

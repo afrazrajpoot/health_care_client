@@ -40,6 +40,7 @@ interface TasksSectionProps {
   treatmentHistoryData?: any;
   isTreatmentHistoryLoading?: boolean;
   onSearch?: (query: string) => void;
+  onRefresh?: () => void;
 }
 
 import { useState, useCallback, useEffect } from "react";
@@ -81,6 +82,7 @@ export default function TasksSection({
   treatmentHistoryData,
   isTreatmentHistoryLoading,
   onSearch,
+  onRefresh,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
@@ -161,6 +163,7 @@ export default function TasksSection({
           onToggleTaskSelection={handleToggleTaskSelection}
           onSearch={onSearch}
           isLoading={loadingPatientData}
+          onRefresh={onRefresh}
         />
         {selectedPatient &&
           displayedTasks.length > 0 &&
@@ -176,8 +179,8 @@ export default function TasksSection({
                   onClick={() => onTaskPageChange(Math.max(1, taskPage - 1))}
                   disabled={!hasPrevPage}
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${hasPrevPage
-                      ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                     }`}
                 >
                   Previous
@@ -191,8 +194,8 @@ export default function TasksSection({
                   }
                   disabled={!hasNextPage}
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${hasNextPage
-                      ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                     }`}
                 >
                   Next

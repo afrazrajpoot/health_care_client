@@ -111,6 +111,9 @@ export const useFailedDocuments = () => {
         user_id: session?.user?.id,
       }).unwrap();
 
+      // Explicitly refetch to ensure UI is in sync
+      fetchFailedDocuments();
+
       toast.success("✅ Document updated successfully", {
         duration: 5000,
         position: "top-right",

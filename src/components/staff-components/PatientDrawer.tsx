@@ -177,11 +177,13 @@ export default function PatientDrawer({
 
   return (
     <aside
-      className="bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl shadow-xl shadow-gray-100/50 h-[calc(100vh-2rem)]"
+      className="bg-gradient-to-b from-white to-gray-50 border border-gray-200 rounded-2xl shadow-xl shadow-gray-100/50 h-full"
       style={{
         width: collapsed ? "72px" : "360px",
         transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       {/* Header */}
@@ -255,7 +257,7 @@ export default function PatientDrawer({
           </div>
 
           {/* Patients List */}
-          <div className="h-[calc(100vh-240px)] overflow-y-auto overflow-x-hidden px-4 py-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3, 4].map(i => (
