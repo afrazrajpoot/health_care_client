@@ -51,7 +51,7 @@ import {
   ClipboardList,
   History,
   FileImage,
-  FilePlus
+  FilePlus,
 } from "lucide-react";
 
 interface RecentPatient {
@@ -156,7 +156,7 @@ export default function PatientDrawer({
   const isLikelyHeading = (
     line: string,
     nextLine: string | undefined,
-    prevLine: string | undefined
+    prevLine: string | undefined,
   ): boolean => {
     const trimmedLine = line.trim();
     const trimmedNextLine = nextLine?.trim() || "";
@@ -166,7 +166,8 @@ export default function PatientDrawer({
     if (/^[-=]{3,}$/.test(trimmedNextLine)) return true;
 
     const isShort = trimmedLine.length < 60;
-    const doesntStartWithBullet = !trimmedLine.startsWith("•") && !trimmedLine.startsWith("-");
+    const doesntStartWithBullet =
+      !trimmedLine.startsWith("•") && !trimmedLine.startsWith("-");
     const doesntEndWithPeriod = !trimmedLine.endsWith(".");
     const startsWithCapital = /^[A-Z]/.test(trimmedLine);
 
@@ -183,9 +184,15 @@ export default function PatientDrawer({
       /^(Work|MMI|Disability)\s*Status/i,
     ];
 
-    if (commonHeadingPatterns.some(pattern => pattern.test(trimmedLine))) return true;
+    if (commonHeadingPatterns.some((pattern) => pattern.test(trimmedLine)))
+      return true;
 
-    if (isShort && doesntStartWithBullet && doesntEndWithPeriod && startsWithCapital) {
+    if (
+      isShort &&
+      doesntStartWithBullet &&
+      doesntEndWithPeriod &&
+      startsWithCapital
+    ) {
       return true;
     }
 
@@ -194,14 +201,22 @@ export default function PatientDrawer({
 
   const getSectionIcon = (heading: string) => {
     const h = heading.toLowerCase();
-    if (h.includes("overview") || h.includes("report")) return <FileText size={16} className="text-blue-500" />;
-    if (h.includes("patient") || h.includes("info")) return <User size={16} className="text-indigo-500" />;
-    if (h.includes("diagnosis") || h.includes("finding")) return <FileSearch size={16} className="text-red-500" />;
-    if (h.includes("clinical") || h.includes("status")) return <Activity size={16} className="text-green-500" />;
-    if (h.includes("medication")) return <FilePlus size={16} className="text-purple-500" />;
-    if (h.includes("recommendation") || h.includes("plan")) return <ClipboardList size={16} className="text-blue-600" />;
-    if (h.includes("critical") || h.includes("alert")) return <AlertOctagon size={16} className="text-red-600" />;
-    if (h.includes("history")) return <History size={16} className="text-gray-500" />;
+    if (h.includes("overview") || h.includes("report"))
+      return <FileText size={16} className="text-blue-500" />;
+    if (h.includes("patient") || h.includes("info"))
+      return <User size={16} className="text-indigo-500" />;
+    if (h.includes("diagnosis") || h.includes("finding"))
+      return <FileSearch size={16} className="text-red-500" />;
+    if (h.includes("clinical") || h.includes("status"))
+      return <Activity size={16} className="text-green-500" />;
+    if (h.includes("medication"))
+      return <FilePlus size={16} className="text-purple-500" />;
+    if (h.includes("recommendation") || h.includes("plan"))
+      return <ClipboardList size={16} className="text-blue-600" />;
+    if (h.includes("critical") || h.includes("alert"))
+      return <AlertOctagon size={16} className="text-red-600" />;
+    if (h.includes("history"))
+      return <History size={16} className="text-gray-500" />;
     return <BookOpen size={16} className="text-gray-500" />;
   };
 
@@ -209,7 +224,8 @@ export default function PatientDrawer({
     const h = heading.toLowerCase();
     if (h.includes("critical") || h.includes("alert")) return "text-red-600";
     if (h.includes("diagnosis") || h.includes("finding")) return "text-red-500";
-    if (h.includes("recommendation") || h.includes("plan")) return "text-blue-600";
+    if (h.includes("recommendation") || h.includes("plan"))
+      return "text-blue-600";
     if (h.includes("medication")) return "text-purple-600";
     return "text-gray-900";
   };
@@ -217,7 +233,8 @@ export default function PatientDrawer({
   const renderLongSummary = (summary: any) => {
     if (!summary) return null;
 
-    const summaryStr = typeof summary === 'string' ? summary : JSON.stringify(summary);
+    const summaryStr =
+      typeof summary === "string" ? summary : JSON.stringify(summary);
     const cleanedSummary = summaryStr
       .replace(/[\[\]"]/g, "")
       .replace(/\{/g, "")
@@ -233,7 +250,10 @@ export default function PatientDrawer({
 
       if (isLikelyHeading(trimmed, lines[index + 1], lines[index - 1])) {
         if (currentSection) sections.push(currentSection);
-        currentSection = { heading: trimmed.replace(/:$/, "").trim(), content: [] };
+        currentSection = {
+          heading: trimmed.replace(/:$/, "").trim(),
+          content: [],
+        };
       } else if (currentSection) {
         currentSection.content.push(trimmed);
       } else {
@@ -243,16 +263,22 @@ export default function PatientDrawer({
 
     if (currentSection) sections.push(currentSection);
 
-    if (sections.length === 0) return <p className="text-gray-700 leading-relaxed">{summaryStr}</p>;
+    if (sections.length === 0)
+      return <p className="text-gray-700 leading-relaxed">{summaryStr}</p>;
 
     return (
       <div className="space-y-6">
         {sections.map((section, idx) => (
-          <div key={idx} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          <div
+            key={idx}
+            className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+          >
             {section.heading && (
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
                 {getSectionIcon(section.heading)}
-                <span className={`text-sm font-bold uppercase tracking-wider ${getSectionHeaderColor(section.heading)}`}>
+                <span
+                  className={`text-sm font-bold uppercase tracking-wider ${getSectionHeaderColor(section.heading)}`}
+                >
                   {section.heading}
                 </span>
               </div>
@@ -260,13 +286,20 @@ export default function PatientDrawer({
             <div className="p-5">
               <ul className="space-y-3">
                 {section.content.map((item, iIdx) => {
-                  const isBullet = item.startsWith("-") || item.startsWith("*") || item.startsWith("•");
+                  const isBullet =
+                    item.startsWith("-") ||
+                    item.startsWith("*") ||
+                    item.startsWith("•");
                   const content = isBullet ? item.substring(1).trim() : item;
 
                   return (
                     <li key={iIdx} className="flex items-start gap-3">
-                      <span className="text-blue-500 mt-1.5 flex-shrink-0 text-xs">●</span>
-                      <p className="text-gray-700 leading-relaxed text-sm">{content}</p>
+                      <span className="text-blue-500 mt-1.5 flex-shrink-0 text-xs">
+                        ●
+                      </span>
+                      <p className="text-gray-700 leading-relaxed text-sm">
+                        {content}
+                      </p>
                     </li>
                   );
                 })}
@@ -294,7 +327,7 @@ export default function PatientDrawer({
     return <User className="w-4 h-4 text-gray-500" />;
   };
 
-  const filteredPatients = patients.filter(patient => {
+  const filteredPatients = patients.filter((patient) => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -350,7 +383,9 @@ export default function PatientDrawer({
               </div>
             )}
 
-            <button className={`p-2 rounded-lg transition-all duration-300 ${collapsed ? 'rotate-180' : ''} group-hover:bg-white/20`}>
+            <button
+              className={`p-2 rounded-lg transition-all duration-300 ${collapsed ? "rotate-180" : ""} group-hover:bg-white/20`}
+            >
               {collapsed ? (
                 <ChevronRight className="w-5 h-5 text-white" />
               ) : (
@@ -393,8 +428,6 @@ export default function PatientDrawer({
                     </button>
                   )}
                 </div>
-
-
               </div>
             </div>
 
@@ -402,19 +435,22 @@ export default function PatientDrawer({
             <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
               {loading ? (
                 <div className="space-y-4">
-                  {[1, 2, 3, 4].map(i => (
+                  {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="animate-pulse">
                       <div className="h-20 bg-gray-200 rounded-xl"></div>
                     </div>
                   ))}
                 </div>
-              ) : !Array.isArray(filteredPatients) || filteredPatients.length === 0 ? (
+              ) : !Array.isArray(filteredPatients) ||
+                filteredPatients.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
                     <UserSearch className="w-8 h-8 text-gray-400" />
                   </div>
                   <h4 className="text-base font-semibold text-gray-900 mb-2">
-                    {searchQuery ? "No Patients Found" : "No Patients Available"}
+                    {searchQuery
+                      ? "No Patients Found"
+                      : "No Patients Available"}
                   </h4>
                   <p className="text-sm text-gray-600">
                     {searchQuery
@@ -425,19 +461,26 @@ export default function PatientDrawer({
               ) : (
                 <div className="space-y-3">
                   {filteredPatients.map((patient, idx) => {
-                    const isSelected = selectedPatient && (
-                      (selectedPatient.patientName?.toLowerCase().trim() === patient?.patientName?.toLowerCase().trim()) &&
-                      (selectedPatient.dob?.toString().split('T')[0] === patient?.dob?.toString().split('T')[0]) &&
-                      (!selectedPatient.claimNumber || selectedPatient.claimNumber === "Not specified" || !patient?.claimNumber || patient.claimNumber === "Not specified" || selectedPatient.claimNumber === patient.claimNumber)
-                    );
+                    const isSelected =
+                      selectedPatient &&
+                      selectedPatient.patientName?.toLowerCase().trim() ===
+                        patient?.patientName?.toLowerCase().trim() &&
+                      selectedPatient.dob?.toString().split("T")[0] ===
+                        patient?.dob?.toString().split("T")[0] &&
+                      (!selectedPatient.claimNumber ||
+                        selectedPatient.claimNumber === "Not specified" ||
+                        !patient?.claimNumber ||
+                        patient.claimNumber === "Not specified" ||
+                        selectedPatient.claimNumber === patient.claimNumber);
 
                     return (
                       <div
                         key={idx}
-                        className={`group relative rounded-xl border-2 transition-all duration-300 cursor-pointer overflow-hidden ${isSelected
-                          ? "border-blue-500 bg-gradient-to-r from-blue-50 to-blue-25 shadow-lg shadow-blue-100"
-                          : "border-gray-200 hover:border-blue-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white hover:shadow-md"
-                          }`}
+                        className={`group relative rounded-xl border-2 transition-all duration-300 cursor-pointer overflow-hidden ${
+                          isSelected
+                            ? "border-blue-500 bg-gradient-to-r from-blue-50 to-blue-25 shadow-lg shadow-blue-100"
+                            : "border-gray-200 hover:border-blue-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white hover:shadow-md"
+                        }`}
                         onClick={() => onSelectPatient(patient)}
                       >
                         {/* Selection Indicator */}
@@ -451,27 +494,42 @@ export default function PatientDrawer({
                           {/* Patient Header */}
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
-                              <div className={`p-2.5 rounded-xl ${isSelected
-                                ? "bg-blue-100 border border-blue-200"
-                                : "bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200"
-                                }`}>
+                              <div
+                                className={`p-2.5 rounded-xl ${
+                                  isSelected
+                                    ? "bg-blue-100 border border-blue-200"
+                                    : "bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200"
+                                }`}
+                              >
                                 {getPatientIcon(patient)}
                               </div>
                               <div>
                                 <h4 className="font-bold text-gray-900 text-base">
-                                  {patient?.patientName && patient.patientName.toLowerCase() !== "unknown" ? patient.patientName : "Patient"}
+                                  {patient?.patientName &&
+                                  patient.patientName.toLowerCase() !==
+                                    "unknown"
+                                    ? patient.patientName
+                                    : "Patient"}
                                 </h4>
                                 <div className="flex items-center gap-2 mt-1">
-                                  {patient.status && patient.status.toLowerCase() !== "unknown" && (
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
-                                      {patient.status}
-                                    </span>
-                                  )}
-                                  {patient.visitType && patient.visitType.toLowerCase() !== "unknown" && (
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getVisitTypeColor(patient.visitType)}`}>
-                                      {patient.visitType}
-                                    </span>
-                                  )}
+                                  {patient.status &&
+                                    patient.status.toLowerCase() !==
+                                      "unknown" && (
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}
+                                      >
+                                        {patient.status}
+                                      </span>
+                                    )}
+                                  {patient.visitType &&
+                                    patient.visitType.toLowerCase() !==
+                                      "unknown" && (
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${getVisitTypeColor(patient.visitType)}`}
+                                      >
+                                        {patient.visitType}
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             </div>
@@ -481,8 +539,15 @@ export default function PatientDrawer({
                           <div className="space-y-2.5">
                             <div className="flex items-center gap-3 text-sm text-gray-600">
                               {(() => {
-                                const dobValue = patient?.dob ? formatDOB(patient.dob) : "";
-                                if (!dobValue || dobValue.toLowerCase().includes("invalid") || dobValue.toLowerCase() === "unknown") return null;
+                                const dobValue = patient?.dob
+                                  ? formatDOB(patient.dob)
+                                  : "";
+                                if (
+                                  !dobValue ||
+                                  dobValue.toLowerCase().includes("invalid") ||
+                                  dobValue.toLowerCase() === "unknown"
+                                )
+                                  return null;
                                 return (
                                   <div className="flex items-center gap-1.5">
                                     <Calendar className="w-4 h-4" />
@@ -492,7 +557,13 @@ export default function PatientDrawer({
                               })()}
                               <div className="flex items-center gap-1.5">
                                 <FileText className="w-4 h-4" />
-                                <span className={patient?.claimNumber !== "Not specified" ? "font-medium" : "text-gray-500"}>
+                                <span
+                                  className={
+                                    patient?.claimNumber !== "Not specified"
+                                      ? "font-medium"
+                                      : "text-gray-500"
+                                  }
+                                >
                                   {patient?.claimNumber !== "Not specified"
                                     ? formatClaimNumber(patient?.claimNumber)
                                     : "No Claim"}
@@ -502,28 +573,49 @@ export default function PatientDrawer({
 
                             {/* Additional Info */}
                             <div className="grid grid-cols-2 gap-3">
-                              {patient.physician && patient.physician.toLowerCase() !== "unknown" && (
-                                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                  <UserPen className="w-3.5 h-3.5" />
-                                  <span className="truncate">Dr. {patient.physician.split(' ')[0]}</span>
-                                </div>
-                              )}
+                              {patient.physician &&
+                                patient.physician.toLowerCase() !==
+                                  "unknown" && (
+                                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                    <UserPen className="w-3.5 h-3.5" />
+                                    <span className="truncate">
+                                      Dr. {patient.physician.split(" ")[0]}
+                                    </span>
+                                  </div>
+                                )}
 
-                              {patient.lastVisit && patient.lastVisit.toLowerCase() !== "unknown" && !isNaN(new Date(patient.lastVisit).getTime()) && (
-                                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  <span>{new Date(patient.lastVisit).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                                </div>
-                              )}
+                              {patient.lastVisit &&
+                                patient.lastVisit.toLowerCase() !== "unknown" &&
+                                !isNaN(
+                                  new Date(patient.lastVisit).getTime(),
+                                ) && (
+                                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>
+                                      {new Date(
+                                        patient.lastVisit,
+                                      ).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  </div>
+                                )}
                             </div>
 
                             {/* Document Count */}
-                            {patient.documentIds && patient.documentIds.length > 0 && (
-                              <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                                <Folder className="w-3.5 h-3.5" />
-                                <span>{patient.documentIds.length} document{patient.documentIds.length !== 1 ? 's' : ''}</span>
-                              </div>
-                            )}
+                            {patient.documentIds &&
+                              patient.documentIds.length > 0 && (
+                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                  <Folder className="w-3.5 h-3.5" />
+                                  <span>
+                                    {patient.documentIds.length} document
+                                    {patient.documentIds.length !== 1
+                                      ? "s"
+                                      : ""}
+                                  </span>
+                                </div>
+                              )}
                           </div>
 
                           {/* View Button */}
@@ -532,9 +624,12 @@ export default function PatientDrawer({
                               <Clock className="w-3.5 h-3.5" />
                               <span>
                                 {(() => {
-                                  if (!patient.createdAt) return 'New Selection';
+                                  if (!patient.createdAt)
+                                    return "New Selection";
                                   const d = new Date(patient.createdAt);
-                                  return isNaN(d.getTime()) ? '' : `Added ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                                  return isNaN(d.getTime())
+                                    ? ""
+                                    : `Added ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
                                 })()}
                               </span>
                             </div>
@@ -542,7 +637,7 @@ export default function PatientDrawer({
                               onClick={(e) => handleViewDetails(e, patient)}
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group-hover:translate-x-0.5"
                             >
-                              <span>View</span>
+                              <span>View Summary</span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -561,12 +656,20 @@ export default function PatientDrawer({
             <div className="border-t border-gray-200 px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-gray-600">
-                  <span className="font-medium text-gray-900">{filteredPatients.length}</span> of <span className="font-medium text-gray-900">{patients.length}</span> patients
+                  <span className="font-medium text-gray-900">
+                    {filteredPatients.length}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-gray-900">
+                    {patients.length}
+                  </span>{" "}
+                  patients
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                   <span className="text-xs text-gray-600">
-                    {patients.filter(p => p.status === 'active').length} active
+                    {patients.filter((p) => p.status === "active").length}{" "}
+                    active
                   </span>
                 </div>
               </div>
@@ -582,7 +685,9 @@ export default function PatientDrawer({
             </div>
 
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900 mb-1">{patients.length}</div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {patients.length}
+              </div>
               <div className="text-xs text-gray-600">Patients</div>
             </div>
 
@@ -614,12 +719,12 @@ export default function PatientDrawer({
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm transition-opacity duration-300 ease-out"
           onClick={() => setIsModalOpen(false)}
-          style={{ animation: 'fadeIn 0.3s ease-out forwards' }}
+          style={{ animation: "fadeIn 0.3s ease-out forwards" }}
         >
           <div
             className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col shadow-blue-500/10"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'scaleIn 0.3s ease-out forwards' }}
+            style={{ animation: "scaleIn 0.3s ease-out forwards" }}
           >
             {/* Modal Header */}
             <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between">
@@ -628,8 +733,12 @@ export default function PatientDrawer({
                   <Sparkles className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">Clinical Summary</h3>
-                  <p className="text-blue-100 text-sm">Patient: {modalPatient.patientName}</p>
+                  <h3 className="text-xl font-bold text-white">
+                    Clinical Summary
+                  </h3>
+                  <p className="text-blue-100 text-sm">
+                    Patient: {modalPatient.patientName}
+                  </p>
                 </div>
               </div>
               <button
@@ -649,8 +758,13 @@ export default function PatientDrawer({
                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
                     <FileText className="w-10 h-10 text-gray-400" />
                   </div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">No Summary Available</h4>
-                  <p className="text-gray-500 max-w-sm">We couldn't find a clinical summary for this patient's most recent document.</p>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">
+                    No Summary Available
+                  </h4>
+                  <p className="text-gray-500 max-w-sm">
+                    We couldn't find a clinical summary for this patient's most
+                    recent document.
+                  </p>
                 </div>
               )}
             </div>
@@ -670,12 +784,22 @@ export default function PatientDrawer({
 
       <style jsx global>{`
         @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
         @keyframes scaleIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
       `}</style>
     </>

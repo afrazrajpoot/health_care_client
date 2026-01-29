@@ -113,7 +113,7 @@ import {
   FolderRoot,
   FolderUp,
   FolderDown,
-  FolderDot
+  FolderDot,
 } from "lucide-react";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 import AssignTaskModal from "@/components/staff-components/AssignTaskModal";
@@ -134,7 +134,11 @@ interface TasksTableProps {
   onStatusClick: (taskId: string, status: string) => Promise<void>;
   onAssigneeClick: (taskId: string, assignee: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
-  onSaveQuickNote?: (taskId: string, quickNotes: any, status?: string) => Promise<void>;
+  onSaveQuickNote?: (
+    taskId: string,
+    quickNotes: any,
+    status?: string,
+  ) => Promise<void>;
   getStatusOptions: (task: Task) => string[];
   getAssigneeOptions: (task: Task) => string[];
   // New props for failed documents
@@ -155,7 +159,11 @@ interface TasksTableProps {
 }
 
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
-import { useLazyGetDocumentPreviewQuery, useSplitAndProcessDocumentMutation, useUpdateFailedDocumentMutation } from "@/redux/pythonApi";
+import {
+  useLazyGetDocumentPreviewQuery,
+  useSplitAndProcessDocumentMutation,
+  useUpdateFailedDocumentMutation,
+} from "@/redux/pythonApi";
 
 export default function TasksTable({
   tasks = [],
@@ -188,7 +196,7 @@ export default function TasksTable({
   const [openAssignTaskId, setOpenAssignTaskId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [updatingStatuses, setUpdatingStatuses] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
@@ -209,13 +217,26 @@ export default function TasksTable({
   }, [searchTerm, onSearch]);
 
   // Dynamic Filter Options
-  const availableStatuses = ["all", ...Array.from(new Set(tasks.map(t => t.status || "Pending")))];
-  const availableTypes = ["all", ...Array.from(new Set(tasks.map(t => t.department || "General")))];
-  const availableAssignees = ["all", ...Array.from(new Set(tasks.map(t => taskAssignees[t.id] || t.assignee || "Unclaimed")))];
+  const availableStatuses = [
+    "all",
+    ...Array.from(new Set(tasks.map((t) => t.status || "Pending"))),
+  ];
+  const availableTypes = [
+    "all",
+    ...Array.from(new Set(tasks.map((t) => t.department || "General"))),
+  ];
+  const availableAssignees = [
+    "all",
+    ...Array.from(
+      new Set(
+        tasks.map((t) => taskAssignees[t.id] || t.assignee || "Unclaimed"),
+      ),
+    ),
+  ];
 
   // Document preview states
   const [loadingTaskPreview, setLoadingTaskPreview] = useState<string | null>(
-    null
+    null,
   );
   const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -227,7 +248,7 @@ export default function TasksTable({
     useState<FailedDocument | null>(null);
 
   const [documentToSplit, setDocumentToSplit] = useState<FailedDocument | null>(
-    null
+    null,
   );
   const [isSplitting, setIsSplitting] = useState(false);
   const [splitResults, setSplitResults] = useState<any>(null);
@@ -274,7 +295,9 @@ export default function TasksTable({
     setLoadingTaskPreview(taskId);
 
     try {
-      const blob = await triggerGetDocumentPreview(task.document.blobPath).unwrap();
+      const blob = await triggerGetDocumentPreview(
+        task.document.blobPath,
+      ).unwrap();
       const blobUrl = window.URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (error) {
@@ -288,7 +311,7 @@ export default function TasksTable({
   // Failed document preview handler (updated to use backend API like physician dashboard)
   const handlePreviewFile = async (
     e: React.MouseEvent,
-    doc: FailedDocument
+    doc: FailedDocument,
   ) => {
     e.stopPropagation();
 
@@ -329,15 +352,15 @@ export default function TasksTable({
   };
 
   const handleBulkUpdateFailedDocs = async () => {
-    const selectedFailedDocs = failedDocuments.filter(doc =>
-      selectedTaskIds?.includes(`doc-${doc.id}`) && !isHardFail(doc)
+    const selectedFailedDocs = failedDocuments.filter(
+      (doc) => selectedTaskIds?.includes(`doc-${doc.id}`) && !isHardFail(doc),
     );
 
     if (selectedFailedDocs.length === 0) return;
 
     setIsBulkUpdating(true);
     try {
-      const updates = selectedFailedDocs.map(doc => ({
+      const updates = selectedFailedDocs.map((doc) => ({
         fail_doc_id: doc.id,
         patient_name: doc.patientName || "Unknown Patient",
         claim_number: doc.claimNumber || "Not specified",
@@ -350,10 +373,12 @@ export default function TasksTable({
 
       await updateFailedDocument(updates).unwrap();
 
-      toast.success(`Successfully processed ${selectedFailedDocs.length} documents`);
+      toast.success(
+        `Successfully processed ${selectedFailedDocs.length} documents`,
+      );
 
       // Clear selection for these documents
-      const idsToRemove = selectedFailedDocs.map(doc => `doc-${doc.id}`);
+      const idsToRemove = selectedFailedDocs.map((doc) => `doc-${doc.id}`);
       onToggleTaskSelection?.(idsToRemove, false);
     } catch (error: any) {
       console.error("Error bulk updating documents:", error);
@@ -378,7 +403,7 @@ export default function TasksTable({
     } catch (error: any) {
       console.error("Error deleting document:", error);
       toast.error(
-        error.data?.error || error.message || "Failed to delete document"
+        error.data?.error || error.message || "Failed to delete document",
       );
     } finally {
       setIsDeleting(false);
@@ -407,7 +432,7 @@ export default function TasksTable({
   const handlePageRangeChange = (
     index: number,
     field: "start_page" | "end_page" | "report_title",
-    value: string | number
+    value: string | number,
   ) => {
     const updated = [...pageRanges];
     updated[index] = { ...updated[index], [field]: value };
@@ -423,11 +448,11 @@ export default function TasksTable({
       (range) =>
         range.start_page > 0 &&
         range.end_page >= range.start_page &&
-        range.report_title.trim() !== ""
+        range.report_title.trim() !== "",
     );
     if (validRanges.length === 0) {
       toast.error(
-        "Please add at least one valid page range with a report title"
+        "Please add at least one valid page range with a report title",
       );
       return;
     }
@@ -446,7 +471,7 @@ export default function TasksTable({
       setSplitResults(data);
       if (data.saved_documents && data.saved_documents > 0) {
         toast.success(
-          `Successfully split and saved ${data.saved_documents} document(s)!`
+          `Successfully split and saved ${data.saved_documents} document(s)!`,
         );
         if (onFailedDocumentDeleted && documentToSplit.id) {
           setTimeout(() => onFailedDocumentDeleted(documentToSplit.id), 1000);
@@ -457,7 +482,9 @@ export default function TasksTable({
     } catch (error: any) {
       console.error("Error splitting document:", error);
       toast.error(
-        error.data?.detail || error.message || "Failed to split and process document"
+        error.data?.detail ||
+          error.message ||
+          "Failed to split and process document",
       );
     } finally {
       setIsSplitting(false);
@@ -470,7 +497,7 @@ export default function TasksTable({
       return tasks;
     }
 
-    return tasks.filter(task => {
+    return tasks.filter((task) => {
       const currentAssignee = taskAssignees[task.id] || task.assignee;
 
       if (!currentAssignee) return false;
@@ -486,7 +513,13 @@ export default function TasksTable({
         assigneeLower === userEmailLower
       );
     });
-  }, [tasks, taskAssignees, session?.user?.role, session?.user?.name, session?.user?.email]);
+  }, [
+    tasks,
+    taskAssignees,
+    session?.user?.role,
+    session?.user?.name,
+    session?.user?.email,
+  ]);
 
   // Combine tasks and failed documents into unified rows
   type UnifiedRow =
@@ -530,18 +563,18 @@ export default function TasksTable({
 
   // Check if all rows are selected
   const isAllSelected = () => {
-    const selectableRows = unifiedRows.filter(row => {
+    const selectableRows = unifiedRows.filter((row) => {
       if (row.type === "failedDoc") {
         return !isHardFail(row.data);
       }
       return false;
     });
     if (selectableRows.length === 0) return false;
-    return selectableRows.every(row => isRowSelected(row));
+    return selectableRows.every((row) => isRowSelected(row));
   };
 
   // Filter rows based on search and filters
-  const filteredRows = unifiedRows.filter(row => {
+  const filteredRows = unifiedRows.filter((row) => {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       if (row.type === "failedDoc") {
@@ -581,7 +614,8 @@ export default function TasksTable({
 
     if (assigneeFilter !== "all") {
       if (row.type === "task") {
-        const currentAssignee = taskAssignees[row.data.id] || row.data.assignee || "Unclaimed";
+        const currentAssignee =
+          taskAssignees[row.data.id] || row.data.assignee || "Unclaimed";
         return currentAssignee === assigneeFilter;
       } else {
         return false;
@@ -605,9 +639,12 @@ export default function TasksTable({
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                 <FileX className="w-10 h-10 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tasks Found</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Tasks Found
+              </h3>
               <p className="text-gray-600 max-w-md mx-auto">
-                Create new tasks or upload documents to get started with task management
+                Create new tasks or upload documents to get started with task
+                management
               </p>
             </>
           )}
@@ -658,30 +695,28 @@ export default function TasksTable({
     const dept = department.toLowerCase();
     if (dept.includes("clinical") || dept.includes("medical"))
       return <FileHeart className="w-5 h-5" />;
-    if (dept.includes("admin"))
-      return <FileUser className="w-5 h-5" />;
-    if (dept.includes("scheduling"))
-      return <Calendar className="w-5 h-5" />;
+    if (dept.includes("admin")) return <FileUser className="w-5 h-5" />;
+    if (dept.includes("scheduling")) return <Calendar className="w-5 h-5" />;
     if (dept.includes("billing") || dept.includes("finance"))
       return <FileBarChart className="w-5 h-5" />;
-    if (dept.includes("document"))
-      return <FolderTree className="w-5 h-5" />;
-    if (dept.includes("review"))
-      return <FileSearch className="w-5 h-5" />;
-    if (dept.includes("legal"))
-      return <FileSignature className="w-5 h-5" />;
-    if (dept.includes("imaging"))
-      return <FileImage className="w-5 h-5" />;
+    if (dept.includes("document")) return <FolderTree className="w-5 h-5" />;
+    if (dept.includes("review")) return <FileSearch className="w-5 h-5" />;
+    if (dept.includes("legal")) return <FileSignature className="w-5 h-5" />;
+    if (dept.includes("imaging")) return <FileImage className="w-5 h-5" />;
 
     return <File className="w-5 h-5" />;
   };
 
   const getPriorityIcon = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case 'high': return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 'medium': return <AlertCircle className="w-4 h-4 text-amber-500" />;
-      case 'low': return <CheckCircle className="w-4 h-4 text-emerald-500" />;
-      default: return <Tag className="w-4 h-4 text-gray-500" />;
+      case "high":
+        return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      case "medium":
+        return <AlertCircle className="w-4 h-4 text-amber-500" />;
+      case "low":
+        return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+      default:
+        return <Tag className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -727,29 +762,37 @@ export default function TasksTable({
                 className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all shadow-sm group"
                 title="Sync Dashboard"
               >
-                <RotateCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                <RotateCw
+                  className={`w-5 h-5 ${isLoading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`}
+                />
               </button>
             )}
 
-            {selectedTaskIds && selectedTaskIds.some(id => id.startsWith('doc-')) && (
-              <button
-                onClick={handleBulkUpdateFailedDocs}
-                disabled={isBulkUpdating}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isBulkUpdating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Process Selected ({selectedTaskIds.filter(id => id.startsWith('doc-')).length})
-                  </>
-                )}
-              </button>
-            )}
+            {selectedTaskIds &&
+              selectedTaskIds.some((id) => id.startsWith("doc-")) && (
+                <button
+                  onClick={handleBulkUpdateFailedDocs}
+                  disabled={isBulkUpdating}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBulkUpdating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Process Selected (
+                      {
+                        selectedTaskIds.filter((id) => id.startsWith("doc-"))
+                          .length
+                      }
+                      )
+                    </>
+                  )}
+                </button>
+              )}
           </div>
         </div>
 
@@ -772,7 +815,7 @@ export default function TasksTable({
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
             >
-              {availableStatuses.map(status => (
+              {availableStatuses.map((status) => (
                 <option key={status} value={status}>
                   {status === "all" ? "All Status" : status}
                 </option>
@@ -784,7 +827,7 @@ export default function TasksTable({
               onChange={(e) => setTypeFilter(e.target.value)}
               className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
             >
-              {availableTypes.map(type => (
+              {availableTypes.map((type) => (
                 <option key={type} value={type}>
                   {type === "all" ? "All Types" : type}
                 </option>
@@ -797,7 +840,7 @@ export default function TasksTable({
                 onChange={(e) => setAssigneeFilter(e.target.value)}
                 className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all capitalize"
               >
-                {availableAssignees.map(assignee => (
+                {availableAssignees.map((assignee) => (
                   <option key={assignee} value={assignee}>
                     {assignee === "all" ? "All Assignees" : assignee}
                   </option>
@@ -818,7 +861,9 @@ export default function TasksTable({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Tasks</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredTasks.length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {filteredTasks.length}
+                </p>
               </div>
             </div>
           </div>
@@ -830,7 +875,15 @@ export default function TasksTable({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Active Tasks</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredTasks.filter(t => t.quickNotes?.options && t.quickNotes.options.length > 0).length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {
+                    filteredTasks.filter(
+                      (t) =>
+                        t.quickNotes?.options &&
+                        t.quickNotes.options.length > 0,
+                    ).length
+                  }
+                </p>
               </div>
             </div>
           </div>
@@ -842,7 +895,9 @@ export default function TasksTable({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Failed Docs</p>
-                <p className="text-2xl font-bold text-gray-900">{failedDocuments.length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {failedDocuments.length}
+                </p>
               </div>
             </div>
           </div>
@@ -855,7 +910,15 @@ export default function TasksTable({
               <div>
                 <p className="text-sm text-gray-600">Completion Rate</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === "completed").length / filteredTasks.length) * 100) : 0}%
+                  {filteredTasks.length > 0
+                    ? Math.round(
+                        (filteredTasks.filter((t) => t.status === "completed")
+                          .length /
+                          filteredTasks.length) *
+                          100,
+                      )
+                    : 0}
+                  %
                 </p>
               </div>
             </div>
@@ -875,13 +938,15 @@ export default function TasksTable({
                     checked={isAllSelected()}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      const selectableRows = unifiedRows.filter(row => {
+                      const selectableRows = unifiedRows.filter((row) => {
                         if (row.type === "failedDoc") {
                           return !isHardFail(row.data);
                         }
                         return false;
                       });
-                      const ids = selectableRows.map(row => `doc-${row.data.id}`);
+                      const ids = selectableRows.map(
+                        (row) => `doc-${row.data.id}`,
+                      );
                       onToggleTaskSelection?.(ids, checked);
                     }}
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -926,17 +991,19 @@ export default function TasksTable({
               {filteredRows.map((row) => {
                 if (row.type === "task") {
                   const task = row.data;
-                  const currentStatus = taskStatuses[task.id] || task.status || "Pending";
-                  const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
+                  const currentStatus =
+                    taskStatuses[task.id] || task.status || "Pending";
+                  const currentAssignee =
+                    taskAssignees[task.id] || task.assignee || "Unclaimed";
                   const statusOptions = getStatusOptions(task);
                   const isSelected = isRowSelected(row);
-                  const priorityIcon = getPriorityIcon(task.priority || '');
-                  const taskIcon = getTaskIcon(task.department || '');
+                  const priorityIcon = getPriorityIcon(task.priority || "");
+                  const taskIcon = getTaskIcon(task.department || "");
 
                   return (
                     <tr
                       key={`task-${task.id}`}
-                      className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected || (selectedDocumentId === task.document?.id) ? 'bg-gradient-to-r from-blue-50 to-blue-25' : ''}`}
+                      className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected || selectedDocumentId === task.document?.id ? "bg-gradient-to-r from-blue-50 to-blue-25" : ""}`}
                       onClick={() => {
                         if (task.document?.id && onSelectDocument) {
                           onSelectDocument(task.document.id);
@@ -955,31 +1022,37 @@ export default function TasksTable({
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">{task.description}</h4>
-                              {task.priority && task.priority.toLowerCase() !== 'high' && (
-                                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs">
-                                  {priorityIcon}
-                                  <span>{task.priority}</span>
-                                </div>
-                              )}
+                              <h4 className="font-semibold text-gray-900">
+                                {task.description}
+                              </h4>
+                              {task.priority &&
+                                task.priority.toLowerCase() !== "high" && (
+                                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs">
+                                    {priorityIcon}
+                                    <span>{task.priority}</span>
+                                  </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-4 text-sm text-gray-600">
                               <span className="flex items-center gap-1">
                                 <User className="w-4 h-4" />
                                 {task.patient}
                               </span>
-                              {task.assignee && task.assignee !== 'Unclaimed' && (
-                                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200">
-                                  <UserPlus className="w-3 h-3" />
-                                  {task.assignee}
-                                </span>
-                              )}
+                              {task.assignee &&
+                                task.assignee !== "Unclaimed" && (
+                                  <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200">
+                                    <UserPlus className="w-3 h-3" />
+                                    {task.assignee}
+                                  </span>
+                                )}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusChipColor(currentStatus)}`}>
+                        <div
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusChipColor(currentStatus)}`}
+                        >
                           <span className="w-2 h-2 rounded-full bg-current opacity-70"></span>
                           {currentStatus}
                         </div>
@@ -990,8 +1063,12 @@ export default function TasksTable({
                             {taskIcon}
                           </div>
                           <div>
-                            <span className="font-medium text-gray-900">{task.department}</span>
-                            <div className="text-xs text-gray-500 mt-1">{task.type || 'General Task'}</div>
+                            <span className="font-medium text-gray-900">
+                              {task.department}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {task.type || "General Task"}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -1007,7 +1084,9 @@ export default function TasksTable({
                             title="Assign Task"
                           >
                             <UserPlus className="w-4 h-4" />
-                            {currentAssignee === "Unclaimed" ? "Assign" : "Reassign"}
+                            {currentAssignee === "Unclaimed"
+                              ? "Assign"
+                              : "Reassign"}
                           </button>
                         </td>
                       )}
@@ -1022,7 +1101,10 @@ export default function TasksTable({
                                 <MoreVertical className="w-4 h-4 text-gray-500" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 bg-white">
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-56 bg-white"
+                            >
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1034,10 +1116,21 @@ export default function TasksTable({
                                 }}
                                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
                               >
-                                {task.department?.toLowerCase().includes("clinical") ||
-                                  task.department?.toLowerCase().includes("medical")
-                                  ? <><FileSearch className="w-4 h-4" /> Review Task</>
-                                  : <><Eye className="w-4 h-4" /> View Task</>}
+                                {task.department
+                                  ?.toLowerCase()
+                                  .includes("clinical") ||
+                                task.department
+                                  ?.toLowerCase()
+                                  .includes("medical") ? (
+                                  <>
+                                    <FileSearch className="w-4 h-4" /> Review
+                                    Task
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-4 h-4" /> Add Note
+                                  </>
+                                )}
                               </DropdownMenuItem>
 
                               {task.document?.blobPath && (
@@ -1067,7 +1160,9 @@ export default function TasksTable({
                                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 cursor-pointer"
                                 >
                                   <UserPlus className="w-4 h-4" />
-                                  {currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
+                                  {currentAssignee === "Unclaimed"
+                                    ? "Assign Task"
+                                    : "Reassign Task"}
                                 </DropdownMenuItem>
                               )}
 
@@ -1114,7 +1209,7 @@ export default function TasksTable({
                   return (
                     <tr
                       key={`doc-${doc.id}`}
-                      className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected || (selectedDocumentId === doc.id) ? 'bg-gradient-to-r from-red-50 to-red-25' : ''} ${isHardFailDoc ? 'opacity-75' : ''}`}
+                      className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected || selectedDocumentId === doc.id ? "bg-gradient-to-r from-red-50 to-red-25" : ""} ${isHardFailDoc ? "opacity-75" : ""}`}
                       onClick={() => {
                         if (isHardFailDoc && onFailedDocumentRowClick) {
                           onFailedDocumentRowClick?.(doc);
@@ -1139,27 +1234,41 @@ export default function TasksTable({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gradient-to-br from-gray-100 to-gray-50' : 'bg-gradient-to-br from-red-100 to-red-50'} border ${isHardFailDoc ? 'border-gray-300' : 'border-red-200'}`}>
-                            {isHardFailDoc ? <FileX className="w-5 h-5 text-gray-600" /> : <FileWarning className="w-5 h-5 text-red-600" />}
+                          <div
+                            className={`p-2 rounded-lg ${isHardFailDoc ? "bg-gradient-to-br from-gray-100 to-gray-50" : "bg-gradient-to-br from-red-100 to-red-50"} border ${isHardFailDoc ? "border-gray-300" : "border-red-200"}`}
+                          >
+                            {isHardFailDoc ? (
+                              <FileX className="w-5 h-5 text-gray-600" />
+                            ) : (
+                              <FileWarning className="w-5 h-5 text-red-600" />
+                            )}
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">{doc.reason}</h4>
+                              <h4 className="font-semibold text-gray-900">
+                                {doc.reason}
+                              </h4>
                               {isHardFailDoc && (
                                 <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
                                   Hard Fail
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-600">{doc.fileName}</p>
+                            <p className="text-sm text-gray-600">
+                              {doc.fileName}
+                            </p>
                             {doc.patientName && (
                               <div className="flex items-center gap-2 mt-2">
                                 <User className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-700">{doc.patientName}</span>
+                                <span className="text-sm text-gray-700">
+                                  {doc.patientName}
+                                </span>
                                 {doc.claimNumber && (
                                   <>
                                     <span className="text-gray-300">•</span>
-                                    <span className="text-sm text-gray-700">Claim: {doc.claimNumber}</span>
+                                    <span className="text-sm text-gray-700">
+                                      Claim: {doc.claimNumber}
+                                    </span>
                                   </>
                                 )}
                               </div>
@@ -1175,13 +1284,23 @@ export default function TasksTable({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className={`p-2 rounded-lg ${isHardFailDoc ? 'bg-gray-100' : 'bg-red-100'}`}>
-                            {isHardFailDoc ? <FileQuestion className="w-5 h-5" /> : <FileClock className="w-5 h-5" />}
+                          <div
+                            className={`p-2 rounded-lg ${isHardFailDoc ? "bg-gray-100" : "bg-red-100"}`}
+                          >
+                            {isHardFailDoc ? (
+                              <FileQuestion className="w-5 h-5" />
+                            ) : (
+                              <FileClock className="w-5 h-5" />
+                            )}
                           </div>
                           <div>
-                            <span className="font-medium text-gray-900">Failed Document</span>
+                            <span className="font-medium text-gray-900">
+                              Failed Document
+                            </span>
                             <div className="text-xs text-gray-500 mt-1">
-                              {isHardFailDoc ? 'Missing critical data' : 'Needs processing'}
+                              {isHardFailDoc
+                                ? "Missing critical data"
+                                : "Needs processing"}
                             </div>
                           </div>
                         </div>
@@ -1203,7 +1322,10 @@ export default function TasksTable({
                                 <MoreVertical className="w-4 h-4 text-gray-500" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 bg-white">
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-56 bg-white"
+                            >
                               <DropdownMenuItem
                                 onClick={(e) => handleViewSummary(e, doc)}
                                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
@@ -1255,32 +1377,42 @@ export default function TasksTable({
           {filteredRows.map((row) => {
             if (row.type === "task") {
               const task = row.data;
-              const currentStatus = taskStatuses[task.id] || task.status || "Pending";
-              const currentAssignee = taskAssignees[task.id] || task.assignee || "Unclaimed";
+              const currentStatus =
+                taskStatuses[task.id] || task.status || "Pending";
+              const currentAssignee =
+                taskAssignees[task.id] || task.assignee || "Unclaimed";
               const isSelected = isRowSelected(row);
-              const priorityIcon = getPriorityIcon(task.priority || '');
-              const taskIcon = getTaskIcon(task.department || '');
+              const priorityIcon = getPriorityIcon(task.priority || "");
+              const taskIcon = getTaskIcon(task.department || "");
 
               return (
                 <div
                   key={`task-${task.id}`}
-                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/10' : 'border-gray-200 hover:border-blue-200'}`}
+                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50/10" : "border-gray-200 hover:border-blue-200"}`}
                   onClick={() => handleRowSelection(row, !isSelected)}
                 >
-
-
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200 text-blue-600">
                       {taskIcon}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-gray-900 line-clamp-1" title={task.department}>{task.department}</h4>
-                      <p className="text-xs text-gray-500">{task.type || 'General Task'}</p>
+                      <h4
+                        className="font-semibold text-gray-900 line-clamp-1"
+                        title={task.department}
+                      >
+                        {task.department}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {task.type || "General Task"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="mb-4 space-y-2">
-                    <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={task.description}>
+                    <h3
+                      className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]"
+                      title={task.description}
+                    >
                       {task.description}
                     </h3>
 
@@ -1288,12 +1420,12 @@ export default function TasksTable({
                       <User className="w-4 h-4 text-gray-400" />
                       <span className="truncate">{task.patient}</span>
                     </div>
-
-
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusChipColor(currentStatus)}`}>
+                    <div
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusChipColor(currentStatus)}`}
+                    >
                       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
                       {currentStatus}
                     </div>
@@ -1308,7 +1440,10 @@ export default function TasksTable({
                             <MoreVertical className="w-4 h-4 text-gray-500" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-white">
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-56 bg-white"
+                        >
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1320,10 +1455,20 @@ export default function TasksTable({
                             }}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
                           >
-                            {task.department?.toLowerCase().includes("clinical") ||
-                              task.department?.toLowerCase().includes("medical")
-                              ? <><FileSearch className="w-4 h-4" /> Review Task</>
-                              : <><Eye className="w-4 h-4" /> View Task</>}
+                            {task.department
+                              ?.toLowerCase()
+                              .includes("clinical") ||
+                            task.department
+                              ?.toLowerCase()
+                              .includes("medical") ? (
+                              <>
+                                <FileSearch className="w-4 h-4" /> Review Task
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4" /> View Task
+                              </>
+                            )}
                           </DropdownMenuItem>
 
                           {task.document?.blobPath && (
@@ -1353,7 +1498,9 @@ export default function TasksTable({
                               className="flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 cursor-pointer"
                             >
                               <UserPlus className="w-4 h-4" />
-                              {currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
+                              {currentAssignee === "Unclaimed"
+                                ? "Assign Task"
+                                : "Reassign Task"}
                             </DropdownMenuItem>
                           )}
 
@@ -1399,8 +1546,10 @@ export default function TasksTable({
               return (
                 <div
                   key={`doc-${doc.id}`}
-                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? 'border-red-500 ring-1 ring-red-500 bg-red-50/10' : 'border-gray-200 hover:border-red-200'} ${isHardFailDoc ? 'opacity-75' : ''}`}
-                  onClick={() => !isHardFailDoc && handleRowSelection(row, !isSelected)}
+                  className={`relative group bg-white border rounded-2xl p-5 hover:shadow-xl transition-all duration-300 ${isSelected ? "border-red-500 ring-1 ring-red-500 bg-red-50/10" : "border-gray-200 hover:border-red-200"} ${isHardFailDoc ? "opacity-75" : ""}`}
+                  onClick={() =>
+                    !isHardFailDoc && handleRowSelection(row, !isSelected)
+                  }
                 >
                   {!isHardFailDoc && (
                     <div className="absolute top-4 right-4 z-10">
@@ -1417,20 +1566,38 @@ export default function TasksTable({
                   )}
 
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-3 rounded-xl ${isHardFailDoc ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-600'} border ${isHardFailDoc ? 'border-gray-200' : 'border-red-100'}`}>
-                      {isHardFailDoc ? <FileX className="w-6 h-6" /> : <FileWarning className="w-6 h-6" />}
+                    <div
+                      className={`p-3 rounded-xl ${isHardFailDoc ? "bg-gray-100 text-gray-600" : "bg-red-50 text-red-600"} border ${isHardFailDoc ? "border-gray-200" : "border-red-100"}`}
+                    >
+                      {isHardFailDoc ? (
+                        <FileX className="w-6 h-6" />
+                      ) : (
+                        <FileWarning className="w-6 h-6" />
+                      )}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-gray-900 line-clamp-1">Failed Document</h4>
-                      <p className="text-xs text-red-500 font-medium">Action Required</p>
+                      <h4 className="font-semibold text-gray-900 line-clamp-1">
+                        Failed Document
+                      </h4>
+                      <p className="text-xs text-red-500 font-medium">
+                        Action Required
+                      </p>
                     </div>
                   </div>
 
                   <div className="mb-4 space-y-2">
-                    <h3 className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]" title={doc.reason}>
+                    <h3
+                      className="font-medium text-gray-900 line-clamp-2 min-h-[3rem]"
+                      title={doc.reason}
+                    >
                       {doc.reason}
                     </h3>
-                    <p className="text-xs text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
+                    <p
+                      className="text-xs text-gray-500 truncate"
+                      title={doc.fileName}
+                    >
+                      {doc.fileName}
+                    </p>
 
                     {doc.patientName && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -1442,7 +1609,7 @@ export default function TasksTable({
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <span className="text-xs text-gray-500">
-                      {isHardFailDoc ? 'Missing Data' : 'Processing Failed'}
+                      {isHardFailDoc ? "Missing Data" : "Processing Failed"}
                     </span>
 
                     <div className="flex items-center gap-1">
@@ -1455,7 +1622,10 @@ export default function TasksTable({
                             <MoreVertical className="w-4 h-4 text-gray-500" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-white">
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-56 bg-white"
+                        >
                           <DropdownMenuItem
                             onClick={(e) => handleViewSummary(e, doc)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
@@ -1583,17 +1753,17 @@ export default function TasksTable({
 
                   {(selectedDocument.summary ||
                     selectedDocument.documentText) && (
-                      <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
-                        <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
-                          <FileText className="w-4 h-4" />
-                          Document Content
-                        </p>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                          {selectedDocument.documentText ||
-                            selectedDocument.documentText}
-                        </p>
-                      </div>
-                    )}
+                    <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
+                      <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Document Content
+                      </p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                        {selectedDocument.documentText ||
+                          selectedDocument.documentText}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
@@ -1641,7 +1811,8 @@ export default function TasksTable({
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        This action cannot be undone. The document will be permanently removed.
+                        This action cannot be undone. The document will be
+                        permanently removed.
                       </p>
                       <div className="mt-3 p-3 bg-gradient-to-br from-gray-50 to-white rounded-lg border border-gray-200">
                         <p className="font-medium text-gray-900">
@@ -1694,7 +1865,7 @@ export default function TasksTable({
       {/* Assign Task Modal */}
       <AssignTaskModal
         isOpen={openAssignTaskId !== null}
-        task={tasks.find(t => t.id === openAssignTaskId) || null}
+        task={tasks.find((t) => t.id === openAssignTaskId) || null}
         onClose={() => setOpenAssignTaskId(null)}
         onAssign={async (taskId: string, assignee: string) => {
           await onAssigneeClick(taskId, assignee);
@@ -1717,13 +1888,22 @@ export default function TasksTable({
                     <AlertTriangle className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">Delete Task</h3>
-                    <p className="text-sm text-gray-500">Are you sure you want to delete this task? This action cannot be undone.</p>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Delete Task
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to delete this task? This action
+                      cannot be undone.
+                    </p>
                   </div>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl mb-6">
-                  <p className="font-semibold text-gray-900 mb-1">{taskToDelete.description}</p>
-                  <p className="text-sm text-gray-600">Patient: {taskToDelete.patient}</p>
+                  <p className="font-semibold text-gray-900 mb-1">
+                    {taskToDelete.description}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Patient: {taskToDelete.patient}
+                  </p>
                 </div>
                 <div className="flex gap-3 justify-end">
                   <button
@@ -1745,7 +1925,11 @@ export default function TasksTable({
                     disabled={isDeletingTask}
                     className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md shadow-red-200 disabled:opacity-50"
                   >
-                    {isDeletingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {isDeletingTask ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                     Delete Task
                   </button>
                 </div>
@@ -1758,12 +1942,16 @@ export default function TasksTable({
       {/* Quick Note Modal */}
       <QuickNoteModal
         isOpen={openQuickNoteId !== null}
-        task={tasks.find(t => t.id === openQuickNoteId) || null}
+        task={tasks.find((t) => t.id === openQuickNoteId) || null}
         onClose={() => setOpenQuickNoteId(null)}
-        onSave={onSaveQuickNote ? async (taskId: string, quickNotes: any, status?: string) => {
-          await onSaveQuickNote(taskId, quickNotes, status);
-          setOpenQuickNoteId(null);
-        } : undefined}
+        onSave={
+          onSaveQuickNote
+            ? async (taskId: string, quickNotes: any, status?: string) => {
+                await onSaveQuickNote(taskId, quickNotes, status);
+                setOpenQuickNoteId(null);
+              }
+            : undefined
+        }
         onAssignTask={async (taskId: string, assignee: string) => {
           await onAssigneeClick(taskId, assignee);
         }}
