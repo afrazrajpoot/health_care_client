@@ -38,6 +38,8 @@ interface DocumentData {
 
 interface TreatmentHistoryProps {
   documentData: DocumentData | null;
+  onSelectDocument?: (docId: string | null) => void;
+  selectedDocumentId?: string | null;
 }
 
 interface SystemConfigItem {
@@ -48,6 +50,8 @@ interface SystemConfigItem {
 
 const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({
   documentData,
+  onSelectDocument,
+  selectedDocumentId,
 }) => {
   const { data: session } = useSession();
   const [expandedSystems, setExpandedSystems] = useState<
@@ -342,9 +346,8 @@ const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({
               >
                 {/* System Header */}
                 <div
-                  className={`p-4 cursor-pointer flex justify-between items-center select-none ${
-                    isSystemExpanded ? "bg-gray-50" : "bg-white"
-                  }`}
+                  className={`p-4 cursor-pointer flex justify-between items-center select-none ${isSystemExpanded ? "bg-gray-50" : "bg-white"
+                    }`}
                   onClick={() => toggleSystem(config.id)}
                 >
                   <div className="flex items-center gap-3">
@@ -372,7 +375,12 @@ const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({
                       return (
                         <div
                           key={reportIndex}
-                          className="border border-gray-100 rounded-lg overflow-hidden"
+                          className={`border rounded-lg overflow-hidden transition-all ${selectedDocumentId === (report as any).document_id ? 'border-blue-500 ring-1 ring-blue-500 shadow-sm' : 'border-gray-100'}`}
+                          onClick={() => {
+                            if ((report as any).document_id && onSelectDocument) {
+                              onSelectDocument((report as any).document_id);
+                            }
+                          }}
                         >
                           {/* Report Header */}
                           <div
@@ -431,7 +439,7 @@ const TreatmentHistory: React.FC<TreatmentHistoryProps> = ({
                               {report.content?.map((item, itemIndex) => {
                                 const isItemExpanded =
                                   expandedContentItems[
-                                    `${config.id}-${reportIndex}-${itemIndex}`
+                                  `${config.id}-${reportIndex}-${itemIndex}`
                                   ];
                                 const colorClass = getFieldColor(item.field);
 

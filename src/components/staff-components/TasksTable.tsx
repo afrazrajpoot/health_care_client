@@ -117,6 +117,12 @@ import {
 } from "lucide-react";
 import QuickNoteModal from "@/components/staff-components/QuickNoteModal";
 import AssignTaskModal from "@/components/staff-components/AssignTaskModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { Task, FailedDocument } from "@/utils/staffDashboardUtils";
 
@@ -141,6 +147,10 @@ interface TasksTableProps {
   onSearch?: (query: string) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
+  onSelectDocument?: (docId: string | null) => void;
+  selectedDocumentId?: string | null;
+  onDeleteTask?: (taskId: string) => Promise<void>;
+  onEditTask?: (task: Task) => void;
 }
 
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
@@ -166,6 +176,10 @@ export default function TasksTable({
   onSearch,
   isLoading = false,
   onRefresh,
+  onSelectDocument,
+  selectedDocumentId,
+  onDeleteTask,
+  onEditTask,
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -219,6 +233,12 @@ export default function TasksTable({
   const [pageRanges, setPageRanges] = useState<
     Array<{ start_page: number; end_page: number; report_title: string }>
   >([{ start_page: 1, end_page: 1, report_title: "" }]);
+
+  // Task Action States
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [showDeleteTaskModal, setShowDeleteTaskModal] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -884,12 +904,7 @@ export default function TasksTable({
                     Type / Department
                   </div>
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Due Date
-                  </div>
-                </th>
+
                 {session?.user?.role !== "Staff" && (
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     <div className="flex items-center gap-2">
@@ -920,7 +935,12 @@ export default function TasksTable({
                   return (
                     <tr
                       key={`task-${task.id}`}
-                      className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-blue-50 to-blue-25' : ''}`}
+                      className={`hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-white transition-all duration-200 ${isSelected || (selectedDocumentId === task.document?.id) ? 'bg-gradient-to-r from-blue-50 to-blue-25' : ''}`}
+                      onClick={() => {
+                        if (task.document?.id && onSelectDocument) {
+                          onSelectDocument(task.document.id);
+                        }
+                      }}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center h-full">
@@ -935,7 +955,7 @@ export default function TasksTable({
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-semibold text-gray-900">{task.description}</h4>
-                              {task.priority && (
+                              {task.priority && task.priority.toLowerCase() !== 'high' && (
                                 <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs">
                                   {priorityIcon}
                                   <span>{task.priority}</span>
@@ -974,25 +994,7 @@ export default function TasksTable({
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className={`font-medium ${new Date(task.dueDate || '') < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
-                            {task.dueDate
-                              ? new Date(task.dueDate).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                              })
-                              : "—"}
-                          </span>
-                          {task.dueDate && new Date(task.dueDate) < new Date() && (
-                            <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">
-                              Overdue
-                            </span>
-                          )}
-                        </div>
-                      </td>
+
                       {session?.user?.role !== "Staff" && (
                         <td className="px-6 py-4">
                           <button
@@ -1044,9 +1046,48 @@ export default function TasksTable({
                               : <><Eye className="w-4 h-4" /> View</>}
                           </button>
 
-                          <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                            <MoreVertical className="w-5 h-5 text-gray-400" />
-                          </button>
+                          {/* Three-dot menu */}
+                          <div className="relative">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-gray-500" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40 bg-white">
+                                {onEditTask && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditTask(task);
+                                    }}
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Edit Task
+                                  </DropdownMenuItem>
+                                )}
+                                {onDeleteTask && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setTaskToDelete(task);
+                                      setShowDeleteTaskModal(true);
+                                    }}
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Task
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+
+
                         </div>
                       </td>
                     </tr>
@@ -1060,8 +1101,14 @@ export default function TasksTable({
                   return (
                     <tr
                       key={`doc-${doc.id}`}
-                      className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected ? 'bg-gradient-to-r from-red-50 to-red-25' : ''} ${isHardFailDoc ? 'opacity-75' : ''}`}
-                      onClick={() => isHardFailDoc && onFailedDocumentRowClick?.(doc)}
+                      className={`hover:bg-gradient-to-r hover:from-red-50/30 hover:to-white transition-all duration-200 ${isSelected || (selectedDocumentId === doc.id) ? 'bg-gradient-to-r from-red-50 to-red-25' : ''} ${isHardFailDoc ? 'opacity-75' : ''}`}
+                      onClick={() => {
+                        if (isHardFailDoc && onFailedDocumentRowClick) {
+                          onFailedDocumentRowClick?.(doc);
+                        } else if (doc.id && onSelectDocument) {
+                          onSelectDocument(doc.id);
+                        }
+                      }}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center h-full">
@@ -1126,9 +1173,7 @@ export default function TasksTable({
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-400">—</span>
-                      </td>
+
                       {session?.user?.role !== "Staff" && (
                         <td className="px-6 py-4">
                           <span className="text-gray-400">—</span>
@@ -1214,12 +1259,7 @@ export default function TasksTable({
                       <span className="truncate">{task.patient}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className={new Date(task.dueDate || '') < new Date() ? 'text-red-600 font-medium' : ''}>
-                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
-                      </span>
-                    </div>
+
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
@@ -1554,6 +1594,59 @@ export default function TasksTable({
           setOpenAssignTaskId(null);
         }}
       />
+
+      {/* Task Delete Confirmation Modal */}
+      {showDeleteTaskModal && taskToDelete && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+              onClick={() => setShowDeleteTaskModal(false)}
+            />
+            <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              <div className="p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 rounded-full bg-red-100 text-red-600">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Delete Task</h3>
+                    <p className="text-sm text-gray-500">Are you sure you want to delete this task? This action cannot be undone.</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl mb-6">
+                  <p className="font-semibold text-gray-900 mb-1">{taskToDelete.description}</p>
+                  <p className="text-sm text-gray-600">Patient: {taskToDelete.patient}</p>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowDeleteTaskModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (onDeleteTask) {
+                        setIsDeletingTask(true);
+                        await onDeleteTask(taskToDelete.id);
+                        setIsDeletingTask(false);
+                        setShowDeleteTaskModal(false);
+                        setTaskToDelete(null);
+                      }
+                    }}
+                    disabled={isDeletingTask}
+                    className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md shadow-red-200 disabled:opacity-50"
+                  >
+                    {isDeletingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Delete Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Note Modal */}
       <QuickNoteModal

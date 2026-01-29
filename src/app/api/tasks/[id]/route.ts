@@ -60,6 +60,18 @@ export async function PATCH(
       data.ur_denial_reason = body.ur_denial_reason;
     }
 
+    // Handle general task fields
+    const taskFields = ['description', 'department', 'patient', 'dueDate', 'claimNumber', 'type', 'reason', 'sourceDocument'];
+    taskFields.forEach(field => {
+      if (field in body) {
+        if (field === 'dueDate') {
+          data[field] = body[field] ? new Date(body[field]) : null;
+        } else {
+          data[field] = body[field];
+        }
+      }
+    });
+
     // Get existing quickNotes or default empty object
     const existingQuickNotes = (existingTask.quickNotes as any) || {};
 
@@ -89,18 +101,9 @@ export async function PATCH(
         timestamp: new Date().toISOString()
       };
       hasQuickNotesUpdate = true;
-    } else if ('description' in body || 'details' in body || 'notes' in body) {
-      // Format 4: Text updates from first handler
-      const textToSummarize =
-        body.one_line_note ||
-        body.details ||
-        body.status_update ||
-        body.description ||
-        body.details ||
-        body.notes ||
-        "";
-
-      const directNote = body.one_line_note || textToSummarize || "";
+    } else if (('notes' in body) && !('description' in body)) {
+      // Format 4: Text updates from first handler - only if description is not being updated as a primary field
+      const directNote = body.one_line_note || body.notes || "";
 
       newQuickNotesData = {
         ...existingQuickNotes,
@@ -137,6 +140,53 @@ export async function PATCH(
     return NextResponse.json(updatedTask);
   } catch (error) {
     console.error("Error updating task:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await context.params;
+    const taskId = params.id;
+
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let physicianId;
+    if (session.user.role == "Physician") {
+      physicianId = session.user.id;
+    } else {
+      physicianId = session.user.physicianId;
+    }
+
+    // 🩺 Validate that the task belongs to the logged-in physician
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        physicianId: physicianId,
+      },
+    });
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    await prisma.task.delete({
+      where: { id: taskId },
+    });
+
+    return NextResponse.json({ success: true, message: "Task deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting task:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

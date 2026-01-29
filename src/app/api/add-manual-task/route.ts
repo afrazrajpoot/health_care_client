@@ -14,7 +14,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { description, department, patient, dueDate, status, actions, documentId, mode, type, assignee } = body;
+    const {
+      description,
+      department,
+      patient,
+      dueDate,
+      status,
+      actions,
+      documentId,
+      mode,
+      type,
+      assignee,
+      claim_number,
+      claimNumber
+    } = body;
 
     // ✅ Validate required fields
     if (!description || !department || !patient) {
@@ -41,6 +54,7 @@ export async function POST(request: NextRequest) {
       actions: actions || ['Claim', 'Complete'],
       dueDate: dueDate ? new Date(dueDate) : null,
       documentId: documentId && documentId.trim() !== "" ? documentId : null, // Only set if not empty
+      claimNumber: claimNumber || claim_number || null,
       physicianId: physicianId,
       type: type || 'internal', // Default to internal for manually created tasks
       assignee: assignee || 'Unclaimed', // Use provided assignee or default

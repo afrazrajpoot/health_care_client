@@ -27,6 +27,8 @@ interface ManualTaskModalProps {
   defaultClaim?: string;
   defaultPatient?: string;
   defaultDocumentId?: string;
+  initialData?: any;
+  title?: string;
   onSubmit: (data: ManualTaskData) => Promise<void>;
 }
 
@@ -37,6 +39,8 @@ export default function ManualTaskModal({
   defaultClaim,
   defaultPatient,
   defaultDocumentId,
+  initialData,
+  title,
   onSubmit,
 }: ManualTaskModalProps) {
   const [taskFormData, setTaskFormData] = useState({
@@ -47,6 +51,7 @@ export default function ManualTaskModal({
     documentId: "",
     claim: defaultClaim || "",
   });
+
   const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -54,6 +59,38 @@ export default function ManualTaskModal({
   const [enableRecommendations, setEnableRecommendations] = useState(true);
   const patientInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Reset and initialize task modal states
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        // Mode: Editing
+        setTaskFormData({
+          patientName: initialData.patient || initialData.patientName || "",
+          dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+          description: initialData.description || "",
+          department: initialData.department || "",
+          documentId: initialData.documentId || (initialData.document?.id) || "",
+          claim: initialData.claimNumber || initialData.claim_number || initialData.claim || defaultClaim || "",
+        });
+        setEnableRecommendations(false);
+      } else {
+        // Mode: Adding
+        setTaskFormData({
+          patientName: defaultPatient || "",
+          dueDate: new Date().toISOString().split("T")[0],
+          description: "",
+          department: "",
+          documentId: defaultDocumentId || "",
+          claim: defaultClaim || "",
+        });
+        setEnableRecommendations(!defaultPatient);
+      }
+      setPatientSuggestions([]);
+      setShowSuggestions(false);
+      setIsSubmitting(false);
+    }
+  }, [open, initialData, defaultPatient, defaultClaim, defaultDocumentId]);
 
   // Debounce function
   const debounce = <F extends (...args: any[]) => any>(
@@ -156,24 +193,6 @@ export default function ManualTaskModal({
     };
   }, [open]);
 
-  // Reset task modal states
-  useEffect(() => {
-    if (open) {
-      setTaskFormData({
-        patientName: defaultPatient || "",
-        dueDate: new Date().toISOString().split("T")[0],
-        description: "",
-        department: "",
-        documentId: defaultDocumentId || "",
-        claim: defaultClaim || "",
-      });
-      setPatientSuggestions([]);
-      setShowSuggestions(false);
-      setIsSubmitting(false);
-      setEnableRecommendations(!defaultPatient);
-    }
-  }, [open, defaultClaim, defaultPatient, defaultDocumentId]);
-
   // Handle task form change
   const handleTaskFormChange = (
     e: React.ChangeEvent<
@@ -213,7 +232,6 @@ export default function ManualTaskModal({
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating task:", error);
-      // Optionally, show an error message to the user
     } finally {
       setIsSubmitting(false);
     }
@@ -223,9 +241,9 @@ export default function ManualTaskModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] w-[30vw]">
         <DialogHeader>
-          <DialogTitle>Add Manual Task</DialogTitle>
+          <DialogTitle>{title || (initialData ? "Edit Task" : "Add Manual Task")}</DialogTitle>
           <DialogDescription>
-            Fill in the details below to create a new manual task.
+            {initialData ? "Modify the task details below." : "Fill in the details below to create a new manual task."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -427,10 +445,10 @@ export default function ManualTaskModal({
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating...
+                  {initialData ? "Saving..." : "Creating..."}
                 </>
               ) : (
-                "Create Task"
+                initialData ? "Save Changes" : "Create Task"
               )}
             </button>
           </DialogFooter>

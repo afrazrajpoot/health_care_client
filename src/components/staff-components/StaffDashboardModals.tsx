@@ -74,6 +74,8 @@ interface StaffDashboardModalsProps {
   reassignLoading: boolean;
   onBulkAssign?: (taskIds: string[], assignee: string) => Promise<void>;
   onAssignTask: (taskId: string, assignee: string) => Promise<void>;
+  selectedDocumentId?: string | null;
+  taskToEdit?: Task | null;
 }
 
 export default function StaffDashboardModals({
@@ -112,6 +114,8 @@ export default function StaffDashboardModals({
   reassignLoading,
   onBulkAssign,
   onAssignTask,
+  selectedDocumentId,
+  taskToEdit,
 }: StaffDashboardModalsProps) {
   // Wrapper function to convert ChangeEvent to (field, value) format
   const handleUpdateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,16 +146,18 @@ export default function StaffDashboardModals({
         departments={departments}
         defaultClaim={
           selectedPatient?.claimNumber &&
-          selectedPatient.claimNumber !== "Not specified"
+            selectedPatient.claimNumber !== "Not specified"
             ? selectedPatient.claimNumber
             : ""
         }
         defaultPatient={selectedPatient?.patientName || ""}
         defaultDocumentId={
-          selectedPatient?.documentIds && selectedPatient.documentIds.length > 0
+          selectedDocumentId || (selectedPatient?.documentIds && selectedPatient.documentIds.length > 0
             ? selectedPatient.documentIds[0] // Use the first document ID (most recent)
-            : ""
+            : "")
         }
+        initialData={taskToEdit}
+        title={taskToEdit ? "Edit Task" : "Add Manual Task"}
         onSubmit={onManualTaskSubmit}
       />
 
@@ -354,7 +360,7 @@ const BulkReassignConfirmationModal = ({
           <p className="text-gray-700 leading-relaxed">
             The following tasks are already assigned to other staff members:
           </p>
-          
+
           <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto border border-gray-200">
             <ul className="space-y-2">
               {conflictingDetails.map((detail) => (

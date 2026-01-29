@@ -41,6 +41,10 @@ interface TasksSectionProps {
   isTreatmentHistoryLoading?: boolean;
   onSearch?: (query: string) => void;
   onRefresh?: () => void;
+  onSelectDocument?: (docId: string | null) => void;
+  selectedDocumentId?: string | null;
+  onEditTask?: (task: Task) => void;
+  onDeleteTask?: (taskId: string) => Promise<void>;
 }
 
 import { useState, useCallback, useEffect } from "react";
@@ -83,6 +87,10 @@ export default function TasksSection({
   isTreatmentHistoryLoading,
   onSearch,
   onRefresh,
+  onSelectDocument,
+  selectedDocumentId,
+  onEditTask,
+  onDeleteTask,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
@@ -164,6 +172,10 @@ export default function TasksSection({
           onSearch={onSearch}
           isLoading={loadingPatientData}
           onRefresh={onRefresh}
+          onSelectDocument={onSelectDocument}
+          selectedDocumentId={selectedDocumentId}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
         />
         {selectedPatient &&
           displayedTasks.length > 0 &&

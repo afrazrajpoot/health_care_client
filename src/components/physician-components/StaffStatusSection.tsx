@@ -186,7 +186,8 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       border: 1px solid #e5e7eb;
       transition: all 0.2s ease;
       cursor: default;
-      margin: 0 6px 8px 0;
+      margin: 0 0 8px 0;
+      width: 100%;
     }
     
     .status-chip:hover {
@@ -209,7 +210,11 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     .status-dot.gray { background: #9ca3af; }
     
     .task-group {
-      margin-bottom: 20px;
+      margin-bottom: 0px;
+      flex-shrink: 0;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
     }
     
     .task-group:last-child {
@@ -251,8 +256,25 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     
     .notes-timeline {
       display: flex;
-      flex-direction: column;
-      gap: 16px;
+      flex-direction: row;
+      gap: 24px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #e5e7eb transparent;
+    }
+
+    .notes-timeline::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .notes-timeline::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .notes-timeline::-webkit-scrollbar-thumb {
+      background-color: #e5e7eb;
+      border-radius: 20px;
     }
     
     .note-time {
@@ -326,63 +348,75 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
 
         {!isCollapsed && (
           <div className="staff-status-body">
-            {/* Document Quick Notes Section */}
-            {filteredDocNotes.length > 0 && (
-              <div className="task-group">
-                <div className="task-group-title">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                  </svg>
-                  Document Notes ({filteredDocNotes.length})
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap" }}>
-                  {filteredDocNotes.map((note, index) => {
-                    const statusColor = getStatusColor(note);
-                    const displayText = getDisplayText(note);
-                    return (
-                      <div key={`doc-note-${index}`} className="status-chip">
-                        <span className={`status-dot ${statusColor}`}></span>
-                        {displayText}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Task Quick Notes Section */}
-            {groups.length > 0 && (
-              <div className="notes-timeline">
-                {groups.map(([description, notes], groupIndex) => (
-                  <div key={`task-group-${groupIndex}`} className="task-group">
-                    <div className="task-group-title">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                      </svg>
-                      {description} ({notes.length})
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap" }}>
-                      {notes.map((note, noteIndex) => {
-                        const statusColor = getStatusColor(note);
-                        const displayText = getDisplayText(note);
-                        const time = note.timestamp ? new Date(note.timestamp).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : '';
-
-                        return (
-                          <div key={`task-note-${groupIndex}-${noteIndex}`} className="status-chip">
-                            <span className={`status-dot ${statusColor}`}></span>
-                            {displayText}
-                            {time && <span className="note-time">{time}</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
+            <div className="notes-timeline">
+              {/* Document Quick Notes Section */}
+              {filteredDocNotes.length > 0 && (
+                <div className="task-group">
+                  <div className="task-group-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                    Document Notes ({filteredDocNotes.length})
                   </div>
-                ))}
-              </div>
-            )}
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {filteredDocNotes.map((note, index) => {
+                      const statusColor = getStatusColor(note);
+                      const displayText = getDisplayText(note);
+                      return (
+                        <div key={`doc-note-${index}`} className="status-chip">
+                          <span className={`status-dot ${statusColor}`}></span>
+                          <span style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1
+                          }}>
+                            {displayText}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Task Quick Notes Section */}
+              {groups.map(([description, notes], groupIndex) => (
+                <div key={`task-group-${groupIndex}`} className="task-group">
+                  <div className="task-group-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                    </svg>
+                    {description} ({notes.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {notes.map((note, noteIndex) => {
+                      const statusColor = getStatusColor(note);
+                      const displayText = getDisplayText(note);
+                      const time = note.timestamp ? new Date(note.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : '';
+
+                      return (
+                        <div key={`task-note-${groupIndex}-${noteIndex}`} className="status-chip">
+                          <span className={`status-dot ${statusColor}`}></span>
+                          <span style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1
+                          }}>
+                            {displayText}
+                          </span>
+                          {time && <span className="note-time">{time}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {/* Empty State */}
             {filteredDocNotes.length === 0 && groups.length === 0 && (

@@ -101,6 +101,13 @@ export const dashboardApi = createApi({
             }),
             invalidatesTags: ["Tasks"],
         }),
+        deleteTask: builder.mutation({
+            query: (taskId) => ({
+                url: `/tasks/${taskId}`,
+                method: "DELETE",
+            }),
+            invalidatesTags: ["Tasks"],
+        }),
         generateIntakeLink: builder.mutation({
             query: (data) => ({
                 url: "/generate-link",
@@ -139,6 +146,7 @@ export const {
     useVerifyDocumentMutation,
     useUpdateTaskMutation,
     useAddManualTaskMutation,
+    useDeleteTaskMutation,
     useGenerateIntakeLinkMutation,
     useGetTreatmentHistoryQuery,
     useLazyGetTreatmentHistoryQuery,

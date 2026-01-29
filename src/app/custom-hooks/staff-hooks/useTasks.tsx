@@ -3,13 +3,19 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Task } from "@/components/staff-components/types";
 import { useSocket } from "@/providers/SocketProvider";
-import { useUpdateTaskMutation, useAddManualTaskMutation, useGetTasksQuery } from "@/redux/dashboardApi";
+import {
+  useUpdateTaskMutation,
+  useAddManualTaskMutation,
+  useGetTasksQuery,
+  useDeleteTaskMutation
+} from "@/redux/dashboardApi";
 
 export const useTasks = (initialMode: "wc" | "gm") => {
   const { data: session } = useSession();
   const { socket } = useSocket();
   const [updateTaskMutation] = useUpdateTaskMutation();
   const [addManualTaskMutation] = useAddManualTaskMutation();
+  const [deleteTaskMutation] = useDeleteTaskMutation();
 
   // Note: We don't use useGetTasksQuery here because the container manages the query state
   // But we keep the function signatures for compatibility
@@ -70,7 +76,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           taskId: id,
           status: "Completed",
         }).unwrap();
-        
+
         toast.success("🎉 Task marked complete", {
           duration: 5000,
           position: "top-right",
@@ -105,6 +111,25 @@ export const useTasks = (initialMode: "wc" | "gm") => {
     [updateTaskMutation]
   );
 
+  const deleteTask = useCallback(
+    async (id: string) => {
+      try {
+        await deleteTaskMutation(id).unwrap();
+        toast.success("🗑️ Task deleted successfully", {
+          duration: 5000,
+          position: "top-right",
+        });
+      } catch (error) {
+        console.error("Error deleting task:", error);
+        toast.error("❌ Error deleting task", {
+          duration: 5000,
+          position: "top-right",
+        });
+      }
+    },
+    [deleteTaskMutation]
+  );
+
   const saveNote = useCallback(
     async (e: React.MouseEvent, taskId: string) => {
       const wrap = (e.currentTarget as HTMLElement).closest(".qnote");
@@ -114,7 +139,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
       const d =
         (wrap.querySelector(".qmore") as HTMLSelectElement)?.value || "";
       const f = (wrap.querySelector(".qfree") as HTMLInputElement)?.value || "";
-      
+
       if (!t && !d && !f) return;
 
       try {
@@ -167,6 +192,7 @@ export const useTasks = (initialMode: "wc" | "gm") => {
           status: "Open",
           actions: ["Claimed", "Complete"],
           documentId: formData.documentId,
+          document_id: formData.documentId,
           mode: currentMode,
           ur_denial_reason: formData.urDenialReason,
           claim_number: formData.claimNumber || urlClaim,
@@ -194,5 +220,6 @@ export const useTasks = (initialMode: "wc" | "gm") => {
     saveNote,
     handleCreateManualTask,
     updateUrDenialReason,
+    deleteTask,
   };
 };

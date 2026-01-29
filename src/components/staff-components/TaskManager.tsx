@@ -67,9 +67,17 @@ interface TaskManagerProps {
   tasks: Task[];
   treatmentHistoryData?: any;
   isTreatmentHistoryLoading?: boolean;
+  onSelectDocument?: (docId: string | null) => void;
+  selectedDocumentId?: string | null;
 }
 
-const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }: TaskManagerProps) => {
+const TaskManager = ({
+  tasks,
+  treatmentHistoryData,
+  isTreatmentHistoryLoading,
+  onSelectDocument,
+  selectedDocumentId
+}: TaskManagerProps) => {
   console.log('Tasks data:', tasks);
 
   // Filter tasks for Active Tasks section - include all tasks with quick notes regardless of status
@@ -225,7 +233,12 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
                 return (
                   <div
                     key={task.id}
-                    className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all hover:shadow-md"
+                    className={`bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border transition-all hover:shadow-md cursor-pointer ${(selectedDocumentId === task.documentId) ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 hover:border-blue-300'}`}
+                    onClick={() => {
+                      if (task.documentId && onSelectDocument) {
+                        onSelectDocument(task.documentId);
+                      }
+                    }}
                   >
                     {/* Task Header */}
                     <div className="flex items-start justify-between mb-3">
@@ -361,7 +374,11 @@ const TaskManager = ({ tasks, treatmentHistoryData, isTreatmentHistoryLoading }:
               </div>
             ) : (
               <div className="p-4">
-                <TreatmentHistory documentData={{ treatment_history: treatmentHistoryData }} />
+                <TreatmentHistory
+                  documentData={{ treatment_history: treatmentHistoryData }}
+                  onSelectDocument={onSelectDocument}
+                  selectedDocumentId={selectedDocumentId}
+                />
               </div>
             )}
           </div>

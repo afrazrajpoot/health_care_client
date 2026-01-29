@@ -110,10 +110,12 @@ export default function StaffDashboardContainer() {
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
   const [selectedTaskForQuickNote, setSelectedTaskForQuickNote] =
     useState<Task | null>(null);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [showDocumentSuccessPopup, setShowDocumentSuccessPopup] =
     useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [taskPage, setTaskPage] = useState(1);
   const taskPageSize = TASK_PAGE_SIZE;
   const [taskTypeFilter, setTaskTypeFilter] = useState<
@@ -318,7 +320,7 @@ export default function StaffDashboardContainer() {
   // Hooks
   const { isProcessing } = useSocket();
   const initialMode = "wc" as const;
-  const { handleCreateManualTask } = useTasks(initialMode);
+  const { handleCreateManualTask, deleteTask, updateTask } = useTasks(initialMode);
   const {
     failedDocuments,
     isUpdateModalOpen,
@@ -379,8 +381,13 @@ export default function StaffDashboardContainer() {
       }
       router.push(`?${params.toString()}`, { scroll: false });
 
-      // Reset pagination when patient changes
+      // Reset pagination and selected document when patient changes
       setTaskPage(1);
+      if (patient.documentIds && patient.documentIds.length > 0) {
+        setSelectedDocumentId(patient.documentIds[0]);
+      } else {
+        setSelectedDocumentId(null);
+      }
     },
     [router, searchParams],
   );
@@ -594,12 +601,34 @@ export default function StaffDashboardContainer() {
       ) {
         handleSelectPatient(recentPatientsData[0]);
       }
+
+      // Priority 4: If we have a "virtual" patient but the full data is now available in list, sync it
+      if (
+        selectedPatient &&
+        (!selectedPatient.documentIds || selectedPatient.documentIds.length === 0) &&
+        recentPatientsData.length > 0
+      ) {
+        const fullPatient = recentPatientsData.find((p: RecentPatient) => {
+          const nameMatch = p.patientName.toLowerCase() === selectedPatient.patientName.toLowerCase();
+          const dobMatch = !selectedPatient.dob || p.dob === selectedPatient.dob;
+          const claimMatch = !selectedPatient.claimNumber || selectedPatient.claimNumber === "Not specified" || p.claimNumber === selectedPatient.claimNumber;
+          return nameMatch && dobMatch && claimMatch;
+        });
+
+        if (fullPatient) {
+          setSelectedPatient(fullPatient);
+          if (!selectedDocumentId && fullPatient.documentIds && fullPatient.documentIds.length > 0) {
+            setSelectedDocumentId(fullPatient.documentIds[0]);
+          }
+        }
+      }
     }
   }, [
     recentPatientsData,
     isPatientsLoading,
     searchParams,
     selectedPatient,
+    selectedDocumentId,
     isRefreshingAfterUpload,
     handleSelectPatient,
   ]);
@@ -658,33 +687,84 @@ export default function StaffDashboardContainer() {
           ) {
             formData.claim = selectedPatient.claimNumber;
           }
-          if (
-            !formData.documentId &&
-            selectedPatient.documentIds &&
-            selectedPatient.documentIds.length > 0
-          ) {
-            formData.documentId = selectedPatient.documentIds[0];
+        }
+
+        if (taskToEdit) {
+          // If we're editing an existing task
+          await updateTask(taskToEdit.id, {
+            description: formData.description,
+            department: formData.department,
+            patient: formData.patientName,
+            dueDate: formData.dueDate,
+            claimNumber: formData.claim || formData.claimNumber,
+            documentId: formData.documentId,
+          });
+          setTaskToEdit(null);
+        } else {
+          // If we're creating a new task
+          // Aggressively try to find a valid documentId
+          if (!formData.documentId) {
+            // 1. Check if we have an explicit selection
+            if (selectedDocumentId) {
+              formData.documentId = selectedDocumentId;
+            }
+            // 2. Check selected patient's documentIds array
+            else if (selectedPatient && selectedPatient.documentIds && selectedPatient.documentIds.length > 0) {
+              formData.documentId = selectedPatient.documentIds[0];
+            }
+            // 3. Look through displayed tasks for ANY document ID
+            else if (displayedTasks && displayedTasks.length > 0) {
+              const taskWithDoc = displayedTasks.find(t => t.documentId || (t as any).document?.id);
+              if (taskWithDoc) {
+                formData.documentId = taskWithDoc.documentId || (taskWithDoc as any).document?.id;
+              }
+            }
+            // 4. Look through recent patients list for a match to get documentIds
+            else if (recentPatientsData && recentPatientsData.length > 0 && selectedPatient) {
+              const fullPatient = recentPatientsData.find((p: any) =>
+                p.patientName?.toLowerCase() === selectedPatient.patientName?.toLowerCase()
+              );
+              if (fullPatient && fullPatient.documentIds && fullPatient.documentIds.length > 0) {
+                formData.documentId = fullPatient.documentIds[0];
+              }
+            }
           }
+
+          if (!formData.claim) {
+            formData.claim = `Recommendation-${new Date()
+              .toISOString()
+              .slice(0, 10)}`;
+          }
+          await handleCreateManualTask(
+            {
+              ...formData,
+              documentId: formData.documentId || "",
+              document_id: formData.documentId || "",
+            },
+            initialMode,
+            selectedPatient?.claimNumber || "",
+          );
         }
-        if (!formData.claim) {
-          formData.claim = `Recommendation-${new Date()
-            .toISOString()
-            .slice(0, 10)}`;
-        }
-        await handleCreateManualTask(
-          formData,
-          initialMode,
-          selectedPatient?.claimNumber || "",
-        );
-        // Refetch tasks after manual task creation
+        // Refetch tasks after manual task creation or update
         refetchTasks();
       } catch (error) {
-        console.error("Error creating manual task:", error);
+        console.error("Error handling manual task submit:", error);
         throw error;
       }
     },
-    [selectedPatient, handleCreateManualTask, initialMode, refetchTasks],
+    [selectedPatient, selectedDocumentId, handleCreateManualTask, updateTask, taskToEdit, initialMode, refetchTasks, displayedTasks, recentPatientsData],
   );
+
+  const handleEditTask = useCallback((task: Task) => {
+    setTaskToEdit(task);
+    setShowTaskModal(true);
+  }, []);
+
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    await deleteTask(taskId);
+    refetchTasks();
+  }, [deleteTask, refetchTasks]);
+
   const handleTaskClick = (task: Task) => {
     setSelectedTaskForQuickNote(task);
     setShowQuickNoteModal(true);
@@ -962,6 +1042,10 @@ export default function StaffDashboardContainer() {
                 isTreatmentHistoryLoading={isTreatmentHistoryLoading}
                 onSearch={setTaskSearchQuery}
                 onRefresh={refreshAllData}
+                onSelectDocument={setSelectedDocumentId}
+                selectedDocumentId={selectedDocumentId}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
               />
             </section>
           </main>
@@ -986,13 +1070,18 @@ export default function StaffDashboardContainer() {
         uploadError={uploadError} // Pass from hook
         selectedPatient={selectedPatient}
         selectedTaskForQuickNote={selectedTaskForQuickNote}
+        taskToEdit={taskToEdit}
+        selectedDocumentId={selectedDocumentId}
         departments={departments}
         isUpdateModalOpen={isUpdateModalOpen}
         selectedDoc={selectedDoc}
         updateFormData={updateFormData}
         updateLoading={updateLoading}
         onCloseModal={() => setShowModal(false)}
-        onCloseTaskModal={() => setShowTaskModal(false)}
+        onCloseTaskModal={() => {
+          setShowTaskModal(false);
+          setTaskToEdit(null);
+        }}
         onCloseQuickNoteModal={() => setShowQuickNoteModal(false)}
         onCloseDocumentSuccessPopup={triggerRefresh}
         onClearPaymentError={() => {

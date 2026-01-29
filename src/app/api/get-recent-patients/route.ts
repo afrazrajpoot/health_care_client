@@ -324,11 +324,11 @@ export async function GET(request: Request) {
             createdAt: true,
             reportDate: true,
             mode: true,
+            whatsNew: true,
             documentSummary: {
               select: {
                 type: true,
                 date: true,
-                summary: true,
               },
             },
           },
@@ -497,6 +497,7 @@ export async function GET(request: Request) {
         documentCount: group.documents.length,
         documentIds: group.documents.map((d) => d.id),
         documentType: mostRecentDoc.documentSummary?.type || null,
+        whatsNew: (mostRecentDoc.whatsNew as any)?.long_summary || null,
         ...(group.documents.length > 1 && {
           matchingDocuments: group.documents.map((d) => ({
             id: d.id,

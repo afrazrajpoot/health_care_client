@@ -35,6 +35,8 @@ interface PatientContentProps {
   formatClaimNumber: (claim: string) => string;
   treatmentHistoryData?: any;
   isTreatmentHistoryLoading?: boolean;
+  onSelectDocument?: (docId: string | null) => void;
+  selectedDocumentId?: string | null;
 }
 
 export default function PatientContent({
@@ -48,6 +50,8 @@ export default function PatientContent({
   formatClaimNumber,
   treatmentHistoryData,
   isTreatmentHistoryLoading,
+  onSelectDocument,
+  selectedDocumentId,
 }: PatientContentProps) {
   // Don't render anything if no patient is selected - let TasksSection handle this
   if (!selectedPatient) {
