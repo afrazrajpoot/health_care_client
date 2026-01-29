@@ -44,7 +44,14 @@ import {
   UserRound,
   UserCircle,
   UserSquare,
-  UserSquare2
+  UserSquare2,
+  BookOpen,
+  FileSearch,
+  AlertOctagon,
+  ClipboardList,
+  History,
+  FileImage,
+  FilePlus
 } from "lucide-react";
 
 interface RecentPatient {
@@ -144,6 +151,131 @@ export default function PatientDrawer({
       default:
         return "bg-gray-100 text-gray-800 border-gray-300";
     }
+  };
+
+  const isLikelyHeading = (
+    line: string,
+    nextLine: string | undefined,
+    prevLine: string | undefined
+  ): boolean => {
+    const trimmedLine = line.trim();
+    const trimmedNextLine = nextLine?.trim() || "";
+
+    if (!trimmedLine) return false;
+    if (/^[-=]+$/.test(trimmedLine)) return false;
+    if (/^[-=]{3,}$/.test(trimmedNextLine)) return true;
+
+    const isShort = trimmedLine.length < 60;
+    const doesntStartWithBullet = !trimmedLine.startsWith("•") && !trimmedLine.startsWith("-");
+    const doesntEndWithPeriod = !trimmedLine.endsWith(".");
+    const startsWithCapital = /^[A-Z]/.test(trimmedLine);
+
+    const commonHeadingPatterns = [
+      /^(Author|Signed|Prepared)\s*(By)?:/i,
+      /Information$/i,
+      /^(Clinical|Medical|Patient|Exam|Report|Document)/i,
+      /^(Findings|Impression|Diagnosis|Assessment)/i,
+      /^(Recommendations?|Plan|Treatment)/i,
+      /^(Technique|Method|Procedure)/i,
+      /^(History|Background|Overview)/i,
+      /^(Summary|Conclusion|Results?)/i,
+      /^(Medications?|Prescriptions?)/i,
+      /^(Work|MMI|Disability)\s*Status/i,
+    ];
+
+    if (commonHeadingPatterns.some(pattern => pattern.test(trimmedLine))) return true;
+
+    if (isShort && doesntStartWithBullet && doesntEndWithPeriod && startsWithCapital) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const getSectionIcon = (heading: string) => {
+    const h = heading.toLowerCase();
+    if (h.includes("overview") || h.includes("report")) return <FileText size={16} className="text-blue-500" />;
+    if (h.includes("patient") || h.includes("info")) return <User size={16} className="text-indigo-500" />;
+    if (h.includes("diagnosis") || h.includes("finding")) return <FileSearch size={16} className="text-red-500" />;
+    if (h.includes("clinical") || h.includes("status")) return <Activity size={16} className="text-green-500" />;
+    if (h.includes("medication")) return <FilePlus size={16} className="text-purple-500" />;
+    if (h.includes("recommendation") || h.includes("plan")) return <ClipboardList size={16} className="text-blue-600" />;
+    if (h.includes("critical") || h.includes("alert")) return <AlertOctagon size={16} className="text-red-600" />;
+    if (h.includes("history")) return <History size={16} className="text-gray-500" />;
+    return <BookOpen size={16} className="text-gray-500" />;
+  };
+
+  const getSectionHeaderColor = (heading: string): string => {
+    const h = heading.toLowerCase();
+    if (h.includes("critical") || h.includes("alert")) return "text-red-600";
+    if (h.includes("diagnosis") || h.includes("finding")) return "text-red-500";
+    if (h.includes("recommendation") || h.includes("plan")) return "text-blue-600";
+    if (h.includes("medication")) return "text-purple-600";
+    return "text-gray-900";
+  };
+
+  const renderLongSummary = (summary: any) => {
+    if (!summary) return null;
+
+    const summaryStr = typeof summary === 'string' ? summary : JSON.stringify(summary);
+    const cleanedSummary = summaryStr
+      .replace(/[\[\]"]/g, "")
+      .replace(/\{/g, "")
+      .replace(/\}/g, "");
+
+    const lines = cleanedSummary.split("\n");
+    const sections: { heading: string; content: string[] }[] = [];
+    let currentSection: { heading: string; content: string[] } | null = null;
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed || /^[-=]{3,}$/.test(trimmed)) return;
+
+      if (isLikelyHeading(trimmed, lines[index + 1], lines[index - 1])) {
+        if (currentSection) sections.push(currentSection);
+        currentSection = { heading: trimmed.replace(/:$/, "").trim(), content: [] };
+      } else if (currentSection) {
+        currentSection.content.push(trimmed);
+      } else {
+        currentSection = { heading: "", content: [trimmed] };
+      }
+    });
+
+    if (currentSection) sections.push(currentSection);
+
+    if (sections.length === 0) return <p className="text-gray-700 leading-relaxed">{summaryStr}</p>;
+
+    return (
+      <div className="space-y-6">
+        {sections.map((section, idx) => (
+          <div key={idx} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            {section.heading && (
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                {getSectionIcon(section.heading)}
+                <span className={`text-sm font-bold uppercase tracking-wider ${getSectionHeaderColor(section.heading)}`}>
+                  {section.heading}
+                </span>
+              </div>
+            )}
+            <div className="p-5">
+              <ul className="space-y-3">
+                {section.content.map((item, iIdx) => {
+                  const isBullet = item.startsWith("-") || item.startsWith("*") || item.startsWith("•");
+                  const content = isBullet ? item.substring(1).trim() : item;
+
+                  return (
+                    <li key={iIdx} className="flex items-start gap-3">
+                      <span className="text-blue-500 mt-1.5 flex-shrink-0 text-xs">●</span>
+                      <p className="text-gray-700 leading-relaxed text-sm">{content}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const getPatientIcon = (patient: RecentPatient) => {
@@ -511,39 +643,7 @@ export default function PatientDrawer({
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
               {modalPatient.whatsNew ? (
-                <div className="space-y-4">
-                  {String(modalPatient.whatsNew).split("\n").map((line, i) => {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine) return null;
-
-                    // Handle bullet points
-                    if (trimmedLine.startsWith("-") || trimmedLine.startsWith("*") || trimmedLine.startsWith("•")) {
-                      return (
-                        <div key={i} className="flex gap-3 pl-2">
-                          <span className="text-blue-500 font-bold mt-1.5">•</span>
-                          <p className="flex-1 text-gray-700">{trimmedLine.substring(1).trim()}</p>
-                        </div>
-                      );
-                    }
-
-                    // Handle numbered lists
-                    if (/^\d+\./.test(trimmedLine)) {
-                      return (
-                        <div key={i} className="flex gap-3 pl-2">
-                          <span className="text-indigo-500 font-bold">{trimmedLine.split(".")[0]}.</span>
-                          <p className="flex-1 text-gray-700">{trimmedLine.split(".").slice(1).join(".").trim()}</p>
-                        </div>
-                      );
-                    }
-
-                    // Regular paragraph
-                    return (
-                      <p key={i} className="text-gray-700 leading-relaxed">
-                        {trimmedLine}
-                      </p>
-                    );
-                  })}
-                </div>
+                renderLongSummary(modalPatient.whatsNew)
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">

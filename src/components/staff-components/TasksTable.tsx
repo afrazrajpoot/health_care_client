@@ -122,6 +122,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 import { Task, FailedDocument } from "@/utils/staffDashboardUtils";
@@ -913,8 +914,8 @@ export default function TasksTable({
                     </div>
                   </th>
                 )}
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                  <div className="flex items-center gap-2">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                  <div className="flex items-center justify-end gap-2">
                     <Settings className="w-4 h-4" />
                     Actions
                   </div>
@@ -1011,83 +1012,95 @@ export default function TasksTable({
                         </td>
                       )}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          {task.document?.blobPath && (
-                            <button
-                              onClick={(e) => handleTaskDocumentPreview(e, task)}
-                              disabled={loadingTaskPreview === task.id}
-                              className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
-                              title="Preview Document"
-                            >
-                              {loadingTaskPreview === task.id ? (
-                                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <FileText className="w-4 h-4 text-gray-600" />
-                              )}
-                            </button>
-                          )}
+                        <div className="flex items-center justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none border border-gray-200"
+                              >
+                                <MoreVertical className="w-4 h-4 text-gray-500" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 bg-white">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onSaveQuickNote) {
+                                    setOpenQuickNoteId(task.id);
+                                  } else {
+                                    onTaskClick(task);
+                                  }
+                                }}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                              >
+                                {task.department?.toLowerCase().includes("clinical") ||
+                                  task.department?.toLowerCase().includes("medical")
+                                  ? <><FileSearch className="w-4 h-4" /> Review Task</>
+                                  : <><Eye className="w-4 h-4" /> View Task</>}
+                              </DropdownMenuItem>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (onSaveQuickNote) {
-                                setOpenQuickNoteId(
-                                  openQuickNoteId === task.id ? null : task.id
-                                );
-                              } else {
-                                onTaskClick(task);
-                              }
-                            }}
-                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-all shadow-sm shadow-blue-200"
-                          >
-                            {task.department?.toLowerCase().includes("clinical") ||
-                              task.department?.toLowerCase().includes("medical")
-                              ? <><FileSearch className="w-4 h-4" /> Review</>
-                              : <><Eye className="w-4 h-4" /> View</>}
-                          </button>
-
-                          {/* Three-dot menu */}
-                          <div className="relative">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none"
+                              {task.document?.blobPath && (
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    handleTaskDocumentPreview(e as any, task);
+                                  }}
+                                  disabled={loadingTaskPreview === task.id}
+                                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
                                 >
-                                  <MoreVertical className="w-4 h-4 text-gray-500" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40 bg-white">
-                                {onEditTask && (
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditTask(task);
-                                    }}
-                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    Edit Task
-                                  </DropdownMenuItem>
-                                )}
-                                {onDeleteTask && (
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setTaskToDelete(task);
-                                      setShowDeleteTaskModal(true);
-                                    }}
-                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete Task
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                                  {loadingTaskPreview === task.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <FileText className="w-4 h-4" />
+                                  )}
+                                  Preview Document
+                                </DropdownMenuItem>
+                              )}
 
+                              {session?.user?.role !== "Staff" && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenAssignTaskId(task.id);
+                                  }}
+                                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 cursor-pointer"
+                                >
+                                  <UserPlus className="w-4 h-4" />
+                                  {currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
+                                </DropdownMenuItem>
+                              )}
 
+                              {onEditTask && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditTask(task);
+                                  }}
+                                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  Edit Task
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuSeparator />
+
+                              {onDeleteTask && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTaskToDelete(task);
+                                    setShowDeleteTaskModal(true);
+                                  }}
+                                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete Task
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -1180,37 +1193,54 @@ export default function TasksTable({
                         </td>
                       )}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          {doc.blobPath && (
-                            <button
-                              onClick={(e) => handlePreviewFile(e, doc)}
-                              disabled={loadingPreview === doc.id}
-                              className="p-2 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all border border-gray-200"
-                              title="Preview File"
-                            >
-                              {loadingPreview === doc.id ? (
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <FileText className="w-4 h-4 text-gray-600" />
+                        <div className="flex items-center justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none border border-gray-200"
+                              >
+                                <MoreVertical className="w-4 h-4 text-gray-500" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 bg-white">
+                              <DropdownMenuItem
+                                onClick={(e) => handleViewSummary(e, doc)}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4" />
+                                View Details
+                              </DropdownMenuItem>
+
+                              {doc.blobPath && (
+                                <DropdownMenuItem
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    handlePreviewFile(e as any, doc);
+                                  }}
+                                  disabled={loadingPreview === doc.id}
+                                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                                >
+                                  {loadingPreview === doc.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <FileText className="w-4 h-4" />
+                                  )}
+                                  Preview File
+                                </DropdownMenuItem>
                               )}
-                            </button>
-                          )}
 
-                          <button
-                            onClick={(e) => handleViewSummary(e, doc)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 transition-all border border-blue-200"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4 text-blue-600" />
-                          </button>
+                              <DropdownMenuSeparator />
 
-                          <button
-                            onClick={(e) => handleDeleteClick(e, doc)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 transition-all border border-red-200"
-                            title="Delete Document"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
+                              <DropdownMenuItem
+                                onClick={(e) => handleDeleteClick(e, doc)}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Delete Document
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -1269,41 +1299,94 @@ export default function TasksTable({
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {session?.user?.role !== "Staff" && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenAssignTaskId(task.id);
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title={currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
-                        >
-                          <UserPlus className="w-4 h-4" />
-                        </button>
-                      )}
-                      {task.document?.blobPath && (
-                        <button
-                          onClick={(e) => handleTaskDocumentPreview(e, task)}
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                          title="Preview Document"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onSaveQuickNote) {
-                            setOpenQuickNoteId(openQuickNoteId === task.id ? null : task.id);
-                          } else {
-                            onTaskClick(task);
-                          }
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="View Task"
-                      >
-                        {task.department?.toLowerCase().includes("clinical") ? <FileSearch className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none border border-gray-200"
+                          >
+                            <MoreVertical className="w-4 h-4 text-gray-500" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 bg-white">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onSaveQuickNote) {
+                                setOpenQuickNoteId(task.id);
+                              } else {
+                                onTaskClick(task);
+                              }
+                            }}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                          >
+                            {task.department?.toLowerCase().includes("clinical") ||
+                              task.department?.toLowerCase().includes("medical")
+                              ? <><FileSearch className="w-4 h-4" /> Review Task</>
+                              : <><Eye className="w-4 h-4" /> View Task</>}
+                          </DropdownMenuItem>
+
+                          {task.document?.blobPath && (
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                handleTaskDocumentPreview(e as any, task);
+                              }}
+                              disabled={loadingTaskPreview === task.id}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                            >
+                              {loadingTaskPreview === task.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                              Preview Document
+                            </DropdownMenuItem>
+                          )}
+
+                          {session?.user?.role !== "Staff" && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenAssignTaskId(task.id);
+                              }}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 cursor-pointer"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                              {currentAssignee === "Unclaimed" ? "Assign Task" : "Reassign Task"}
+                            </DropdownMenuItem>
+                          )}
+
+                          {onEditTask && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditTask(task);
+                              }}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Edit Task
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuSeparator />
+
+                          {onDeleteTask && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTaskToDelete(task);
+                                setShowDeleteTaskModal(true);
+                              }}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Task
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>
@@ -1363,29 +1446,53 @@ export default function TasksTable({
                     </span>
 
                     <div className="flex items-center gap-1">
-                      {doc.blobPath && (
-                        <button
-                          onClick={(e) => handlePreviewFile(e, doc)}
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                          title="Preview File"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => handleViewSummary(e, doc)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteClick(e, doc)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none border border-gray-200"
+                          >
+                            <MoreVertical className="w-4 h-4 text-gray-500" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 bg-white">
+                          <DropdownMenuItem
+                            onClick={(e) => handleViewSummary(e, doc)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Details
+                          </DropdownMenuItem>
+
+                          {doc.blobPath && (
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                handlePreviewFile(e as any, doc);
+                              }}
+                              disabled={loadingPreview === doc.id}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 cursor-pointer"
+                            >
+                              {loadingPreview === doc.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                              Preview File
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem
+                            onClick={(e) => handleDeleteClick(e, doc)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete Document
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>

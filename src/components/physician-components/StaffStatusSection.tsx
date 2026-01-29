@@ -120,6 +120,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
     })
     .slice(0, 3);
 
+  const totalTasks = taskQuickNotes.length;
   const hasNotes = filteredDocNotes.length > 0 || taskQuickNotes.length > 0;
 
   if (!hasNotes) {
@@ -134,12 +135,12 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       background: white;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       overflow: hidden;
+      width: 100%;
     }
     
     .staff-status-header {
       padding: 16px 20px;
       border-bottom: 1px solid #f3f4f6;
-
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -156,7 +157,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
     }
     
     .staff-status-title svg {
@@ -164,6 +165,16 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       height: 20px;
     }
     
+    .total-badge {
+      background: #4f46e5;
+      color: white;
+      font-size: 11px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
+    }
+
     .staff-status-subtitle {
       font-size: 12px;
       opacity: 0.9;
@@ -174,90 +185,11 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       padding: 20px;
     }
     
-    .status-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      transition: all 0.2s ease;
-      cursor: default;
-      margin: 0 0 8px 0;
-      width: 100%;
-    }
-    
-    .status-chip:hover {
-    
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    
-    .status-dot.red { background: #ef4444; }
-    .status-dot.amber { background: #f59e0b; }
-    .status-dot.green { background: #10b981; }
-    .status-dot.blue { background: #3b82f6; }
-    .status-dot.gray { background: #9ca3af; }
-    
-    .task-group {
-      margin-bottom: 0px;
-      flex-shrink: 0;
-      width: 280px;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .task-group:last-child {
-      margin-bottom: 0;
-    }
-    
-    .task-group-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: #4b5563;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 10px;
-      padding-bottom: 4px;
-      border-bottom: 1px dashed #e5e7eb;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .task-group-title svg {
-      width: 12px;
-      height: 12px;
-      opacity: 0.7;
-    }
-    
-    .empty-state {
-      text-align: center;
-      padding: 30px 20px;
-    
-    }
-    
-    .empty-state svg {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 12px;
-      opacity: 0.4;
-    }
-    
     .notes-timeline {
       display: flex;
-      flex-direction: row;
+      flex-direction: row; /* ALL TASKS IN HORIZONTAL */
       gap: 24px;
+      width: 100%;
       overflow-x: auto;
       padding-bottom: 12px;
       scrollbar-width: thin;
@@ -276,27 +208,102 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
       background-color: #e5e7eb;
       border-radius: 20px;
     }
+
+    .task-group {
+      display: flex;
+      flex-direction: column; /* DESCRIPTION AND CHIPS IN COLUMN */
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 320px; /* Width for each horizontal task group */
+      flex-shrink: 0;
+      padding-right: 24px;
+      border-right: 1px solid #f3f4f6;
+    }
+    
+    .task-group:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+    
+    .task-group-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    
+    .task-group-title svg {
+      width: 16px;
+      height: 16px;
+      color: #4f46e5;
+      opacity: 0.8;
+    }
+
+    .chips-container {
+      display: flex;
+      flex-direction: row; /* CHIPS IN HORIZONTAL */
+      flex-wrap: wrap; 
+      gap: 8px;
+    }
+    
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      transition: all 0.2s ease;
+      cursor: default;
+      white-space: nowrap;
+    }
+    
+    .status-chip:hover {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .status-dot.red { background: #ef4444; }
+    .status-dot.amber { background: #f59e0b; }
+    .status-dot.green { background: #10b981; }
+    .status-dot.blue { background: #3b82f6; }
+    .status-dot.gray { background: #9ca3af; }
     
     .note-time {
       font-size: 11px;
-      color: #9ca3af;
-      margin-left: auto;
-      padding-left: 8px;
+      color: #6b7280;
+      margin-left: 4px;
+      font-weight: 400;
     }
     
-    @media (max-width: 640px) {
-      .staff-status-header {
-        padding: 12px 16px;
-      }
-      
-      .staff-status-body {
-        padding: 16px;
-      }
-      
-      .status-chip {
-        font-size: 12px;
-        padding: 5px 10px;
-      }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+      color: #4f46e5;
     }
   `;
 
@@ -321,6 +328,11 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
               </svg>
               Staff Status
+              {totalTasks > 0 && (
+                <span className="total-badge">
+                  {totalTasks} Total Tasks
+                </span>
+              )}
             </div>
             <div className="staff-status-subtitle">
               Patient-specific updates • Read-only view
@@ -356,23 +368,16 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                     </svg>
-                    Document Notes ({filteredDocNotes.length})
+                    <span>Document Notes ({filteredDocNotes.length})</span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div className="chips-container">
                     {filteredDocNotes.map((note, index) => {
                       const statusColor = getStatusColor(note);
                       const displayText = getDisplayText(note);
                       return (
                         <div key={`doc-note-${index}`} className="status-chip">
                           <span className={`status-dot ${statusColor}`}></span>
-                          <span style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            flex: 1
-                          }}>
-                            {displayText}
-                          </span>
+                          <span>{displayText}</span>
                         </div>
                       );
                     })}
@@ -383,13 +388,19 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
               {/* Task Quick Notes Section */}
               {groups.map(([description, notes], groupIndex) => (
                 <div key={`task-group-${groupIndex}`} className="task-group">
-                  <div className="task-group-title">
+                  <div className="task-group-title" title={description}>
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                     </svg>
-                    {description} ({notes.length})
+                    <span style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {description} ({notes.length})
+                    </span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div className="chips-container">
                     {notes.map((note, noteIndex) => {
                       const statusColor = getStatusColor(note);
                       const displayText = getDisplayText(note);
@@ -401,14 +412,7 @@ export const StaffStatusSection: React.FC<StaffStatusSectionProps> = ({
                       return (
                         <div key={`task-note-${groupIndex}-${noteIndex}`} className="status-chip">
                           <span className={`status-dot ${statusColor}`}></span>
-                          <span style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            flex: 1
-                          }}>
-                            {displayText}
-                          </span>
+                          <span>{displayText}</span>
                           {time && <span className="note-time">{time}</span>}
                         </div>
                       );
