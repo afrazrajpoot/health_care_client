@@ -26,12 +26,10 @@ export default function UploadProgressManager({
 }: UploadProgressManagerProps) {
   const { progressData, queueProgressData, isProcessing, currentPhase } =
     useSocket();
-  const { paymentError, ignoredFiles, clearPaymentError } = useFileUpload("wc");
+  const { paymentError, ignoredFiles, clearPaymentError, uploadError } = useFileUpload("wc");
   const router = useRouter();
 
-
-  const progressPopupShownRef = useRef(false);
-  const progressCompleteHandledRef = useRef(false);
+  const wasProcessingRef = useRef(false);
 
   const handleUpgrade = useCallback(() => {
     clearPaymentError();
@@ -43,76 +41,34 @@ export default function UploadProgressManager({
     setShowDocumentSuccessPopup(true);
   }, [onRefreshData, setShowDocumentSuccessPopup]);
 
-  // Effect for showing progress popup when extract API succeeds
+  // Reliable batch completion detection
   useEffect(() => {
-    if (!selectedPatient) return;
-
-    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
+    // If we have errors, don't show success logic/popup
+    if (paymentError || uploadError || (ignoredFiles && ignoredFiles.length > 0)) {
+      setShowDocumentSuccessPopup(false);
+      wasProcessingRef.current = false;
       return;
     }
 
-    if (currentPhase === "processing" && !progressPopupShownRef.current) {
-      progressPopupShownRef.current = true;
-    }
+    if (isProcessing) {
+      wasProcessingRef.current = true;
+    } else {
+      // isProcessing went from true -> false (Trailing Edge)
+      if (wasProcessingRef.current) {
+        wasProcessingRef.current = false; // Reset
 
-    if (!isProcessing) {
-      progressPopupShownRef.current = false;
-    }
-  }, [currentPhase, isProcessing, selectedPatient, paymentError, ignoredFiles]);
-
-  // Effect for instant 100% progress detection
-  useEffect(() => {
-    if (!selectedPatient) return;
-
-    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
-      return;
-    }
-
-    if (!isProcessing || (!progressData && !queueProgressData)) {
-      progressCompleteHandledRef.current = false;
-      return;
-    }
-
-    const progressComplete =
-      (progressData?.progress === 100 &&
-        progressData?.status === "completed") ||
-      queueProgressData?.status === "completed";
-
-    const allFilesProcessed = progressData
-      ? progressData.processed_count >= progressData.total_files
-      : true;
-
-    if (
-      progressComplete &&
-      allFilesProcessed &&
-      !progressCompleteHandledRef.current
-    ) {
-
-      progressCompleteHandledRef.current = true;
-      handleProgressComplete();
+        // This confirms a cycle of processing just finished successfully (no errors)
+        handleProgressComplete();
+      }
     }
   }, [
-    progressData?.progress,
-    progressData?.status,
-    progressData?.processed_count,
-    progressData?.total_files,
-    queueProgressData?.status,
     isProcessing,
-    selectedPatient,
-    handleProgressComplete,
-    progressData,
-    queueProgressData,
     paymentError,
+    uploadError,
     ignoredFiles,
+    handleProgressComplete,
+    setShowDocumentSuccessPopup
   ]);
-
-  // Effect to clear success popup on payment error
-  useEffect(() => {
-    if (paymentError || (ignoredFiles && ignoredFiles.length > 0)) {
-      setShowDocumentSuccessPopup(false);
-      progressCompleteHandledRef.current = false;
-    }
-  }, [paymentError, ignoredFiles, setShowDocumentSuccessPopup]);
 
   return null; // This component doesn't render UI, only manages effects
 }

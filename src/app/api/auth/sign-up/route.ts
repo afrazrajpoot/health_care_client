@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firstName, lastName, email, phoneNumber, password, role,physicianId } = body;
+    const { firstName, lastName, email, phoneNumber, password, role, physicianId } = body;
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Validate and set role
-    const validRoles = ['Physician', 'Staff','Attorney'];
+    // Validate and set role
+    const validRoles = ['Physician', 'Staff', 'Attorney', 'SubAdmin'];
     const userRole = role && validRoles.includes(role) ? role : 'Staff';
 
     // Create user

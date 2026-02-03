@@ -45,6 +45,7 @@ interface TasksSectionProps {
   selectedDocumentId?: string | null;
   onEditTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
+  showAllTasks?: boolean;
 }
 
 import { useState, useCallback, useEffect } from "react";
@@ -91,6 +92,7 @@ export default function TasksSection({
   selectedDocumentId,
   onEditTask,
   onDeleteTask,
+  showAllTasks,
 }: TasksSectionProps) {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
@@ -123,22 +125,24 @@ export default function TasksSection({
     <div>
       {/* Patient Content Section */}
       <div className="px-[1vw]">
-        <PatientContent
-          selectedPatient={selectedPatient}
-          loadingPatientData={loadingPatientData}
-          patientIntakeUpdate={patientIntakeUpdate}
-          patientQuiz={patientQuiz}
-          taskStats={taskStats}
-          questionnaireChips={questionnaireChips}
-          formatDOB={formatDOB}
-          formatClaimNumber={formatClaimNumber}
-          treatmentHistoryData={treatmentHistoryData}
-          isTreatmentHistoryLoading={isTreatmentHistoryLoading}
-        />
+        {!showAllTasks && (
+          <PatientContent
+            selectedPatient={selectedPatient}
+            loadingPatientData={loadingPatientData}
+            patientIntakeUpdate={patientIntakeUpdate}
+            patientQuiz={patientQuiz}
+            taskStats={taskStats}
+            questionnaireChips={questionnaireChips}
+            formatDOB={formatDOB}
+            formatClaimNumber={formatClaimNumber}
+            treatmentHistoryData={treatmentHistoryData}
+            isTreatmentHistoryLoading={isTreatmentHistoryLoading}
+          />
+        )}
 
       </div>
       {/* No Patient Selected Message */}
-      {!selectedPatient && (
+      {!selectedPatient && !showAllTasks && (
         <section className="bg-white border border-gray-200 rounded-[14px] shadow-[0_6px_20px_rgba(15,23,42,0.06)] p-5 text-center mb-4">
           <p className="text-sm text-gray-500 m-0">
             Select a patient from the drawer to view their details and tasks
@@ -177,7 +181,7 @@ export default function TasksSection({
           onEditTask={onEditTask}
           onDeleteTask={onDeleteTask}
         />
-        {selectedPatient &&
+        {(selectedPatient || showAllTasks) &&
           displayedTasks.length > 0 &&
           taskTotalCount > taskPageSize && (
             <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 rounded-lg">

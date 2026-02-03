@@ -14,6 +14,12 @@ export default function UploadProgressManager({
   const { progressData, queueProgressData, clearProgress } = useSocket();
 
   const progressCompleteHandledRef = useRef(false);
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+  // Return early if not on physician dashboard
+  if (pathname.includes('/staff-dashboard')) {
+    return null;
+  }
 
   const handleProgressComplete = useCallback(async () => {
     // Small delay to ensure backend has finished processing

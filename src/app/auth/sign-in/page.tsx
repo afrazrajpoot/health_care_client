@@ -69,7 +69,7 @@ export default function SignInPage() {
         // Fetch session to get user role
         const session = await getSession();
         const role = session?.user?.role;
-        if (role === "Staff") {
+        if (role === "Staff" || role === "SubAdmin") {
           router.push("/staff-dashboard");
         } else if (role === "Physician") {
           router.push("/dashboard");

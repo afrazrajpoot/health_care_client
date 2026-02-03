@@ -9,6 +9,8 @@ interface StaffDashboardHeaderProps {
   onUploadDocument: () => void;
   userRole?: string;
   dashboardHref?: string;
+  onShowAllTasks?: () => void;
+  showAllTasks?: boolean;
 }
 
 export default function StaffDashboardHeader({
@@ -17,6 +19,8 @@ export default function StaffDashboardHeader({
   onUploadDocument,
   userRole,
   dashboardHref = "/dashboard",
+  onShowAllTasks,
+  showAllTasks = false,
 }: StaffDashboardHeaderProps) {
   return (
     <header className="bg-gradient-to-r from-white to-gray-50 border-b border-gray-200/50 shadow-sm px-6 py-3.5">
@@ -52,7 +56,7 @@ export default function StaffDashboardHeader({
             Create Intake Link
           </button>
 
-          {userRole?.toLowerCase() !== "staff" && (
+          {userRole?.toLowerCase() !== "staff" && userRole?.toLowerCase() !== "subadmin" && (
             <Link
               href={dashboardHref}
               className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg font-semibold text-xs hover:border-blue-300 hover:from-gray-100 hover:to-gray-150 transition-all text-gray-700"
@@ -74,27 +78,28 @@ export default function StaffDashboardHeader({
             </Link>
           )}
 
-          {userRole?.toLowerCase() === "staff" && (
-            <Link
-              href="/staff-documents"
-              className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg font-semibold text-xs hover:from-amber-600 hover:to-amber-700 transition-all shadow-md shadow-amber-200"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          {(userRole?.toLowerCase() === "staff" ||
+            userRole?.toLowerCase() === "subadmin") && (
+              <Link
+                href="/staff-documents"
+                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg font-semibold text-xs hover:from-amber-600 hover:to-amber-700 transition-all shadow-md shadow-amber-200"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Recent Documents
-            </Link>
-          )}
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Recent Documents
+              </Link>
+            )}
 
           <button
             className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg font-semibold text-xs hover:from-indigo-600 hover:to-indigo-700 transition-all shadow-md shadow-indigo-200"
@@ -126,6 +131,32 @@ export default function StaffDashboardHeader({
             </button>
           )}
 
+          {(userRole?.toLowerCase() === "physician" ||
+            userRole?.toLowerCase() === "subadmin") && (
+              <button
+                className={`flex items-center gap-2 px-3.5 py-2 ${showAllTasks
+                  ? "bg-purple-600 shadow-purple-200"
+                  : "bg-gradient-to-r from-purple-500 to-purple-600 shadow-purple-200"
+                  } text-white rounded-lg font-semibold text-xs hover:from-purple-600 hover:to-purple-700 transition-all shadow-md`}
+                onClick={onShowAllTasks}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                  />
+                </svg>
+                {showAllTasks ? "Show My Patients" : "Show All Tasks"}
+              </button>
+            )}
+
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg font-semibold text-xs hover:from-rose-600 hover:to-rose-700 transition-all shadow-md shadow-rose-200"
@@ -147,6 +178,6 @@ export default function StaffDashboardHeader({
           </button>
         </div>
       </div>
-    </header>
+    </header >
   );
 }

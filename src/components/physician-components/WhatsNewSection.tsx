@@ -168,13 +168,13 @@ const BRIEF_SUMMARY_FIELD_CONFIG: Record<
     textColor: string;
     iconColor: string;
     icon:
-      | "critical"
-      | "finding"
-      | "diagnosis"
-      | "recommendation"
-      | "medication"
-      | "status"
-      | "default";
+    | "critical"
+    | "finding"
+    | "diagnosis"
+    | "recommendation"
+    | "medication"
+    | "status"
+    | "default";
   }
 > = {
   "Critical Findings": {
@@ -1484,6 +1484,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   const dispatch = useDispatch();
   const [verifyDocument] = useVerifyDocumentMutation();
   const [isVerifyingGlobal, setIsVerifyingGlobal] = useState(false);
+  const [showReviewed, setShowReviewed] = useState(false);
 
   // State for expanded items
   const [expandedItems, setExpandedItems] = useState<
@@ -1584,11 +1585,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
             return (
               <li key={idx} className="text-sm text-gray-700 leading-relaxed">
                 <div
-                  className={`flex items-start gap-2 ${
-                    contextData
+                  className={`flex items-start gap-2 ${contextData
                       ? "cursor-pointer hover:bg-blue-50 rounded p-1 -ml-1"
                       : ""
-                  }`}
+                    }`}
                   onClick={(e) => {
                     if (
                       contextData &&
@@ -2633,8 +2633,13 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       .filter((group: any) => {
         if (!group.shortSummary) return false;
 
-        // Filter out verified documents
-        if (group.status === "verified") return false;
+        // Filter based on showReviewed state
+        const isVerified = group.status === "verified";
+        if (showReviewed) {
+          if (!isVerified) return false;
+        } else {
+          if (isVerified) return false;
+        }
 
         if (mode && group.docMode) {
           return group.docMode === mode;
@@ -2656,7 +2661,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
 
         return dateB - dateA; // Descending order
       });
-  }, [documentData, mode]);
+  }, [documentData, mode, showReviewed]);
 
   const formatDisplayDate = (dateString: string): string => {
     if (!dateString) return "Not provided";
@@ -2857,9 +2862,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     setLoadingPreviews((prev) => new Set([...prev, docId]));
 
     try {
-      const previewUrl = `${
-        process.env.NEXT_PUBLIC_API_BASE_URL
-      }/api/documents/preview/${encodeURIComponent(doc.blob_path)}`;
+      const previewUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL
+        }/api/documents/preview/${encodeURIComponent(doc.blob_path)}`;
 
       console.log("Preview request:", { url: previewUrl, hasToken: !!token });
 
@@ -2992,6 +2996,24 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     <>
       {!isCollapsed && (
         <div className="mt-0">
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => setShowReviewed(!showReviewed)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-blue-100 transition-all duration-200 flex items-center gap-1.5"
+            >
+              {showReviewed ? (
+                <>
+                  <FileText size={14} />
+                  <span>Show New Documents</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={14} />
+                  <span>See Reviewed Documents</span>
+                </>
+              )}
+            </button>
+          </div>
           <div className="flex flex-col gap-2.5">
             {documentGroups.map((group: any, groupIndex: number) => {
               const isViewed = isGroupViewed(group.docId);
@@ -3080,11 +3102,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                         </div>
                         <div className="flex gap-2 items-center flex-shrink-0">
                           <button
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors ${
-                              isPreviewLoading
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors ${isPreviewLoading
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
-                            }`}
+                              }`}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -3118,7 +3139,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <div className="border-t border-gray-200 p-4 bg-gray-50">
                     <div className="grid grid-cols-1 gap-2">
                       {expandedLongSummary === group.docId &&
-                      group.longSummary ? (
+                        group.longSummary ? (
                         <div className="bg-white border border-gray-200 rounded-xl p-4">
                           <div className="flex items-center gap-2 mb-3">
                             <BookOpen size={14} className="text-gray-500" />
@@ -3139,8 +3160,8 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                                 typeof parsedLong === "string"
                                   ? parsedLong
                                   : group.longSummary ||
-                                    group.briefSummary ||
-                                    "";
+                                  group.briefSummary ||
+                                  "";
                               return renderPlainTextLongSummary(summaryText);
                             })()}
                           </div>
@@ -3183,11 +3204,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       )}
 
                       <button
-                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${
-                          isGroupCopied
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${isGroupCopied
                             ? "bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
                             : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-                        }`}
+                          }`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -3209,11 +3229,10 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                       </button>
 
                       <button
-                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${
-                          isViewed
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-200 min-h-[32px] ${isViewed
                             ? "bg-green-50 border-green-300 text-green-700"
                             : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-                        } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                          } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -3263,10 +3282,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                   <CheckCircle2 size={24} className="text-gray-400" />
                 </div>
                 <div className="text-sm font-medium text-gray-900 mb-2">
-                  All Caught Up!
+                  {showReviewed ? "No Reviewed Documents" : "All Caught Up!"}
                 </div>
                 <div className="text-xs text-gray-500">
-                  No new documents to review
+                  {showReviewed
+                    ? "No documents have been reviewed yet"
+                    : "No new documents to review"}
                 </div>
               </div>
             )}
@@ -3336,7 +3357,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       </Dialog>
 
       {/* Global Verification Loader Modal */}
-      <Dialog open={isVerifyingGlobal} onOpenChange={() => {}}>
+      <Dialog open={isVerifyingGlobal} onOpenChange={() => { }}>
         <DialogContent className="max-w-[300px] p-8 flex flex-col items-center justify-center border-none shadow-2xl bg-white/95 backdrop-blur-sm rounded-2xl">
           <div className="relative flex items-center justify-center w-20 h-20 mb-4">
             <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>

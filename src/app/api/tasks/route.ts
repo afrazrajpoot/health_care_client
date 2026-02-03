@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     // 🧠 Determine physicianId based on role
     if (user.role === "Physician") {
       physicianId = user.id || null;
-    } else if (user.role === "Staff") {
+    } else if (user.role === "Staff" || user.role === "SubAdmin") {
       physicianId = user.physicianId || null;
     } else {
       return NextResponse.json(

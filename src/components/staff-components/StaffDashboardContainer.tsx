@@ -117,6 +117,7 @@ export default function StaffDashboardContainer() {
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [taskPage, setTaskPage] = useState(1);
+  const [showAllTasks, setShowAllTasks] = useState(false);
   const taskPageSize = TASK_PAGE_SIZE;
   const [taskTypeFilter, setTaskTypeFilter] = useState<
     "all" | "internal" | "external"
@@ -136,6 +137,15 @@ export default function StaffDashboardContainer() {
 
   // Memoize task query params to prevent unnecessary re-renders and API calls
   const taskQueryParams = useMemo(() => {
+    if (showAllTasks) {
+      return {
+        page: taskPage,
+        pageSize: taskPageSize, // Use standard page size for all tasks view
+        status: viewMode === "completed" ? "completed" : viewMode === "all" ? "all" : undefined,
+        type: taskTypeFilter,
+        search: taskSearchQuery,
+      };
+    }
     if (!selectedPatient) return null;
     return {
       patientName: selectedPatient.patientName || "",
@@ -163,6 +173,7 @@ export default function StaffDashboardContainer() {
     viewMode,
     taskTypeFilter,
     taskSearchQuery,
+    showAllTasks,
   ]);
   const {
     data: tasksData,
@@ -381,13 +392,13 @@ export default function StaffDashboardContainer() {
       }
       router.push(`?${params.toString()}`, { scroll: false });
 
-      // Reset pagination and selected document when patient changes
       setTaskPage(1);
       if (patient.documentIds && patient.documentIds.length > 0) {
         setSelectedDocumentId(patient.documentIds[0]);
       } else {
         setSelectedDocumentId(null);
       }
+      setShowAllTasks(false); // Disable show all tasks when a patient is selected
     },
     [router, searchParams],
   );
@@ -800,6 +811,22 @@ export default function StaffDashboardContainer() {
     setIsRefreshingAfterUpload(true);
     refreshAllData();
   }, [refreshAllData]);
+
+
+  const handleShowAllTasks = useCallback(() => {
+    if (showAllTasks) {
+      setShowAllTasks(false);
+      // Select first patient if available
+      if (recentPatientsData && recentPatientsData.length > 0) {
+        handleSelectPatient(recentPatientsData[0]);
+      }
+    } else {
+      setShowAllTasks(true);
+      setSelectedPatient(null);
+      setTaskPage(1);
+    }
+  }, [showAllTasks, recentPatientsData, handleSelectPatient]);
+
   const handleUpgrade = useCallback(() => {
     clearPaymentError();
     router.push("/packages");
@@ -934,6 +961,8 @@ export default function StaffDashboardContainer() {
             onUploadDocument={() => snapInputRef.current?.click()} // Triggers file selection
             userRole={session?.user?.role}
             dashboardHref={dashboardHref}
+            onShowAllTasks={handleShowAllTasks}
+            showAllTasks={showAllTasks}
           />
           {/* Hidden file input—collects files and shows popup for review */}
           <input
@@ -1046,6 +1075,7 @@ export default function StaffDashboardContainer() {
                 selectedDocumentId={selectedDocumentId}
                 onEditTask={handleEditTask}
                 onDeleteTask={handleDeleteTask}
+                showAllTasks={showAllTasks}
               />
             </section>
           </main>

@@ -46,9 +46,7 @@ const addStaffSchema: any = z
     phoneNumber: z.string().optional(),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string(),
-    role: z.enum(["Attorney", "Staff", "Physician"], {
-      required_error: "Please select a role",
-    }),
+    role: z.enum(["Attorney", "Staff", "Physician", "SubAdmin"]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -340,6 +338,7 @@ export default function AddStaffPage() {
                                   <option value="Attorney" className="text-cyan-900">Attorney</option>
                                   <option value="Staff" className="text-cyan-900">Staff</option>
                                   <option value="Physician" className="text-cyan-900">Physician</option>
+                                  <option value="SubAdmin" className="text-cyan-900">Sub Admin</option>
                                 </select>
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                   <div className="w-3 h-3 border-r-2 border-b-2 border-aqua-400 transform rotate-45"></div>
