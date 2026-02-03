@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Search,
   X,
@@ -59,6 +60,7 @@ interface RecentPatient {
   dob: string;
   claimNumber: string;
   createdAt: string;
+  doi?: string; // Date of Injury
   documentType?: string;
   documentIds?: string[];
   status?: "active" | "inactive" | "pending" | "completed";
@@ -98,6 +100,11 @@ export default function PatientDrawer({
   const [visitTypeFilter, setVisitTypeFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPatient, setModalPatient] = useState<RecentPatient | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editedPatient, setEditedPatient] = useState<Partial<RecentPatient>>(
+    {},
+  );
 
   // Debounce search input
   useEffect(() => {
@@ -120,7 +127,56 @@ export default function PatientDrawer({
   const handleViewDetails = (e: React.MouseEvent, patient: RecentPatient) => {
     e.stopPropagation();
     setModalPatient(patient);
+    setEditedPatient({
+      patientName: patient.patientName,
+      dob: patient.dob,
+      doi: patient.doi || "",
+      claimNumber: patient.claimNumber,
+    });
+    setIsEditing(false);
     setIsModalOpen(true);
+  };
+
+  const handleSavePatient = async () => {
+    if (!modalPatient) return;
+
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/patients/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          originalPatient: modalPatient,
+          updatedData: editedPatient,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save patient data");
+      }
+
+      // Update the modal patient with edited data
+      setModalPatient({ ...modalPatient, ...editedPatient });
+      setIsEditing(false);
+
+      toast.success("Patient details updated successfully!", {
+        description: `${data.updatedCount} document(s) updated`,
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error("Error saving patient:", error);
+      toast.error("Failed to save patient details", {
+        description:
+          error instanceof Error ? error.message : "Please try again",
+        duration: 5000,
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getStatusColor = (status?: string) => {
@@ -637,7 +693,7 @@ export default function PatientDrawer({
                               onClick={(e) => handleViewDetails(e, patient)}
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group-hover:translate-x-0.5"
                             >
-                              <span>View Summary</span>
+                              <span>View Details</span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -730,19 +786,24 @@ export default function PatientDrawer({
             <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
-                  <Sparkles className="w-6 h-6 text-white" />
+                  <User className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-white">
-                    Clinical Summary
+                    Patient Details
                   </h3>
                   <p className="text-blue-100 text-sm">
-                    Patient: {modalPatient.patientName}
+                    {isEditing
+                      ? "Editing patient information"
+                      : "View and manage patient data"}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setIsEditing(false);
+                }}
                 className="p-2.5 hover:bg-white/20 rounded-xl text-white transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -751,32 +812,180 @@ export default function PatientDrawer({
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
-              {modalPatient.whatsNew ? (
-                renderLongSummary(modalPatient.whatsNew)
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                    <FileText className="w-10 h-10 text-gray-400" />
-                  </div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">
-                    No Summary Available
-                  </h4>
-                  <p className="text-gray-500 max-w-sm">
-                    We couldn't find a clinical summary for this patient's most
-                    recent document.
-                  </p>
+              <div className="max-w-2xl mx-auto space-y-6">
+                {/* Patient Name */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <User className="w-4 h-4 text-blue-600" />
+                    Patient Name
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedPatient.patientName || ""}
+                      onChange={(e) =>
+                        setEditedPatient({
+                          ...editedPatient,
+                          patientName: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter patient name"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900">
+                      {modalPatient.patientName || "Not specified"}
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* Date of Birth */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Date of Birth
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      value={editedPatient.dob?.split("T")[0] || ""}
+                      onChange={(e) =>
+                        setEditedPatient({
+                          ...editedPatient,
+                          dob: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900">
+                      {modalPatient.dob
+                        ? formatDOB(modalPatient.dob)
+                        : "Not specified"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Date of Injury */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <AlertCircle className="w-4 h-4 text-blue-600" />
+                    Date of Injury (DOI)
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      value={editedPatient.doi?.split("T")[0] || ""}
+                      onChange={(e) =>
+                        setEditedPatient({
+                          ...editedPatient,
+                          doi: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900">
+                      {modalPatient.doi
+                        ? new Date(modalPatient.doi).toLocaleDateString(
+                            "en-US",
+                            { year: "numeric", month: "long", day: "numeric" },
+                          )
+                        : "Not specified"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Claim Number */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    Claim Number
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedPatient.claimNumber || ""}
+                      onChange={(e) =>
+                        setEditedPatient({
+                          ...editedPatient,
+                          claimNumber: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter claim number"
+                    />
+                  ) : (
+                    <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900">
+                      {modalPatient.claimNumber !== "Not specified"
+                        ? formatClaimNumber(modalPatient.claimNumber)
+                        : "Not specified"}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-end">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-8 py-3 bg-gradient-to-r from-gray-800 to-gray-900 text-white font-bold rounded-2xl hover:from-black hover:to-gray-800 transition-all shadow-lg active:scale-95"
-              >
-                Close Summary
-              </button>
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                {isEditing &&
+                  "Make changes and click Save to update patient details"}
+              </div>
+              <div className="flex items-center gap-3">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditedPatient({
+                          patientName: modalPatient.patientName,
+                          dob: modalPatient.dob,
+                          doi: modalPatient.doi || "",
+                          claimNumber: modalPatient.claimNumber,
+                        });
+                      }}
+                      disabled={isSaving}
+                      className="px-6 py-3 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSavePatient}
+                      disabled={isSaving}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Clock className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Save Changes
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-6 py-3 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all border border-gray-300"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                    >
+                      <UserPen className="w-4 h-4" />
+                      Edit Details
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

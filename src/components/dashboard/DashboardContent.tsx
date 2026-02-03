@@ -16,6 +16,7 @@ const DashboardContent: React.FC = () => {
   } = useDashboard();
 
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
+  const [whatsNewCount, setWhatsNewCount] = useState(0);
   const timersRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   const handleCopy = async (text: string, fieldName: string) => {
@@ -388,15 +389,16 @@ const DashboardContent: React.FC = () => {
                     <div>
                       <div className="font-extrabold text-gray-900">
                         What's New Since Last Visit
+                        {whatsNewCount > 0 && (
+                          <span className="ml-2 inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                            {whatsNewCount}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         Click to expand • Expanded content scrolls inside the
                         card
                       </div>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {documentData?.documents?.length || 0}{" "}
-                      {documentData?.documents?.length === 1 ? "item" : "items"}
                     </div>
                   </div>
                   <div className="max-h-[420px] overflow-y-auto p-2.5">
@@ -410,6 +412,7 @@ const DashboardContent: React.FC = () => {
                       onCopySection={handleSectionCopy}
                       isCollapsed={collapsedSections.whatsNew}
                       onToggle={() => toggleSection("whatsNew")}
+                      onCountChange={setWhatsNewCount}
                     />
                   </div>
                 </div>

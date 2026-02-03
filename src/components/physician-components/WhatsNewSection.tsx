@@ -66,11 +66,18 @@ interface Citation {
   confidence_level: string;
 }
 
+interface ContextExpansion {
+  bullet: string;
+  context: string;
+  confidence: number;
+}
+
 interface SummaryItem {
   field: string;
   collapsed: string;
   expanded: string;
   citations?: Citation[];
+  context_expansion?: ContextExpansion[];
 }
 
 interface SummaryHeader {
@@ -1441,6 +1448,7 @@ interface WhatsNewSectionProps {
   isCollapsed: boolean;
   onToggle: () => void;
   mode?: string;
+  onCountChange?: (count: number) => void;
 }
 
 const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
@@ -1450,6 +1458,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   isCollapsed,
   onToggle,
   mode,
+  onCountChange,
 }) => {
   const [viewedWhatsNew, setViewedWhatsNew] = useState<Set<string>>(new Set());
   const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
@@ -1479,6 +1488,11 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   // State for expanded items
   const [expandedItems, setExpandedItems] = useState<
     Record<string, Set<number>>
+  >({});
+
+  // State for expanded bullets (docId-itemIdx-bulletIdx)
+  const [expandedBullets, setExpandedBullets] = useState<
+    Record<string, Set<string>>
   >({});
 
   const getPatientName = () => {
@@ -1514,7 +1528,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   };
 
   // Helper function to render expanded text with bullet points
-  const renderExpandedText = (text: string, citations?: Citation[]) => {
+  const renderExpandedText = (
+    text: string,
+    citations?: Citation[],
+    contextExpansion?: ContextExpansion[],
+    docId?: string,
+    itemIdx?: number,
+    expandedBulletsSet?: Set<string>,
+  ) => {
     if (!text) return null;
 
     // Check if text contains bullet points
@@ -1545,11 +1566,51 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
               );
             });
 
+            // Find matching context expansion
+            const contextData = contextExpansion?.find((c) => {
+              const normalizedBullet = c.bullet.trim().replace(/\s+/g, " ");
+              const normalizedLine = cleanLine.trim().replace(/\s+/g, " ");
+              return (
+                normalizedBullet === normalizedLine ||
+                normalizedLine.includes(normalizedBullet)
+              );
+            });
+
+            // Track expanded state for this bullet
+            const bulletKey = `${docId}-${itemIdx}-${idx}`;
+            const isBulletExpanded =
+              expandedBulletsSet?.has(bulletKey) || false;
+
             return (
               <li key={idx} className="text-sm text-gray-700 leading-relaxed">
-                <div className="flex items-start gap-2">
+                <div
+                  className={`flex items-start gap-2 ${
+                    contextData
+                      ? "cursor-pointer hover:bg-blue-50 rounded p-1 -ml-1"
+                      : ""
+                  }`}
+                  onClick={(e) => {
+                    if (
+                      contextData &&
+                      docId !== undefined &&
+                      itemIdx !== undefined
+                    ) {
+                      e.stopPropagation();
+                      toggleBulletExpanded(docId, itemIdx, idx);
+                    }
+                  }}
+                >
                   <span className="text-blue-500 mt-0.5">•</span>
-                  <span>{cleanLine}</span>
+                  <span className="flex-1">{cleanLine}</span>
+                  {contextData && (
+                    <span className="text-blue-400 text-xs mt-0.5">
+                      {isBulletExpanded ? (
+                        <ChevronDownIcon size={14} />
+                      ) : (
+                        <ChevronRightIcon size={14} />
+                      )}
+                    </span>
+                  )}
                 </div>
                 {citation && (
                   <div className="mt-2 ml-6 text-xs text-gray-500 bg-gray-50 p-2 rounded-md border border-gray-100">
@@ -1565,6 +1626,24 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                     </div>
                     <div className="italic text-gray-600">
                       "{citation.source_text}"
+                    </div>
+                  </div>
+                )}
+                {contextData && isBulletExpanded && (
+                  <div className="mt-2 ml-6 text-xs bg-blue-50 p-3 rounded-md border border-blue-100">
+                    <div className="flex items-start gap-2 mb-2">
+                      <Info
+                        size={14}
+                        className="text-blue-600 flex-shrink-0 mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-800 mb-1">
+                          Source Text From Document:
+                        </div>
+                        <p className="text-gray-700 leading-relaxed">
+                          {contextData.context}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1630,6 +1709,7 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
   ) => {
     const { header, summary: summaryContent } = summary;
     const expandedItemsSet = expandedItems[docId] || new Set();
+    const expandedBulletsSet = expandedBullets[docId] || new Set();
 
     // Check if it's the new format (summary is Record<string, string[]>)
     const isNewFormat =
@@ -1796,7 +1876,14 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
                           </p>
                           {isExpanded &&
                             item.expanded &&
-                            renderExpandedText(item.expanded, item.citations)}
+                            renderExpandedText(
+                              item.expanded,
+                              item.citations,
+                              item.context_expansion,
+                              docId,
+                              idx,
+                              expandedBulletsSet,
+                            )}
                         </div>
 
                         {/* Expand/Collapse Indicator */}
@@ -2477,6 +2564,25 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
     });
   };
 
+  // Toggle expanded state for a specific bullet point
+  const toggleBulletExpanded = (
+    docId: string,
+    itemIndex: number,
+    bulletIndex: number,
+  ) => {
+    const bulletKey = `${docId}-${itemIndex}-${bulletIndex}`;
+    setExpandedBullets((prev) => {
+      const docBullets = prev[docId] || new Set();
+      const newDocBullets = new Set(docBullets);
+      if (newDocBullets.has(bulletKey)) {
+        newDocBullets.delete(bulletKey);
+      } else {
+        newDocBullets.add(bulletKey);
+      }
+      return { ...prev, [docId]: newDocBullets };
+    });
+  };
+
   const documentGroups = useMemo(() => {
     if (!documentData || !(documentData as any)?.documents) return [];
 
@@ -2611,6 +2717,12 @@ const WhatsNewSection: React.FC<WhatsNewSectionProps> = ({
       return newSet;
     });
   }, [documentGroups]);
+
+  useEffect(() => {
+    if (onCountChange) {
+      onCountChange(documentGroups.length);
+    }
+  }, [documentGroups.length, onCountChange]);
 
   const handleCopyClick = (e: React.MouseEvent, groupId: string) => {
     e.stopPropagation();
