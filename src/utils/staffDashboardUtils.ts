@@ -310,12 +310,17 @@ export const saveQuickNote = async (
 export const formatDOB = (dob: string) => {
   if (!dob) return "";
   try {
+    // If it's something like "1990-05-15T00:00:00.000Z" or "1990-05-15",
+    // we want to ensure we don't shift the day due to timezone offsets.
     const date = new Date(dob);
-    return date.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
+    if (isNaN(date.getTime())) return dob;
+
+    // Use UTC methods to get the actual date parts from the ISO string
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const year = date.getUTCFullYear();
+
+    return `${month}/${day}/${year}`;
   } catch {
     return dob;
   }

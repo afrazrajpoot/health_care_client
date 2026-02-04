@@ -65,9 +65,9 @@ export default function FailedDocuments({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = date.getFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const year = date.getUTCFullYear();
     return `${month}-${day}-${year}`;
   };
 
@@ -246,9 +246,8 @@ export default function FailedDocuments({
         toast.success(
           `Successfully split and saved ${data.saved_documents} document(s)!`,
           {
-            description: `Document IDs: ${
-              data.document_ids?.join(", ") || "N/A"
-            }`,
+            description: `Document IDs: ${data.document_ids?.join(", ") || "N/A"
+              }`,
             duration: 5000,
           }
         );
@@ -806,8 +805,8 @@ export default function FailedDocuments({
                                       {report.end_page} (
                                       {report.page_count ||
                                         report.end_page -
-                                          report.start_page +
-                                          1}{" "}
+                                        report.start_page +
+                                        1}{" "}
                                       pages)
                                     </p>
                                   )}

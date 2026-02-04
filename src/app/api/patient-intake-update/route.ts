@@ -26,6 +26,28 @@ interface IntakeBody {
   notes?: string;
 }
 
+interface DetailedShortSummary {
+  header: {
+    date: string;
+    title: string;
+    author: string;
+    disclaimer: string;
+    source_type: string;
+  };
+  summary: {
+    items: Array<{
+      field: string;
+      expanded: string;
+      collapsed: string;
+      context_expansion: Array<{
+        bullet: string;
+        context: string;
+        confidence: number;
+      }>;
+    }>;
+  };
+}
+
 interface ParsedIntakeData {
   keyPatientReportedChanges: string;
   systemInterpretation: string;
@@ -33,6 +55,10 @@ interface ParsedIntakeData {
   adlEffectPoints: string[];
   intakePatientPoints: string[];
   generatedPoints: string[];
+  // These will be stored in the intakeData JSON instead of separate columns
+  longSummary?: string;
+  shortSummaryJson?: DetailedShortSummary;
+  reportTitle?: string;
 }
 
 // --- OpenAI Client Helper ---
@@ -66,86 +92,128 @@ function getOpenAIClient(): OpenAI | AzureOpenAI {
 
 function generateIntakeAnalysisPrompt(body: IntakeBody, medRefillsRequested: string, newAppointmentsList: string | null): string {
   const { patientName, bodyAreas, adl, refill, therapies, notes } = body;
+  const today = new Date().toISOString().split('T')[0];
 
   return `
-Analyze the following patient intake form submission and generate:
-
-1. KEY PATIENT-REPORTED CHANGES: Write a narrative summary (2-3 sentences) describing what the patient reported since their last visit. Include medication refill status, new appointments, changes in ADLs, and therapy effects.
-
-2. SYSTEM INTERPRETATION: Write exactly 2 clear, concise sentences. First sentence should flag clinically relevant changes. Second sentence should note correlation with exam findings and need for treatment modification or further evaluation.
-
-3. KEY FINDINGS: Generate a narrative summary based on the intake data. Format as a paragraph describing key findings from the patient intake including condition/concerns, medication needs, appointment status, ADL changes, and pain levels.
-
-4. ADL EFFECT POINTS: Generate 3-5 bullet points (one per line) describing ADL effects. Each point should be concise (5-10 words max). Use keywords like "decreased", "limited", "difficulty", "worse" for negative changes, and "improved", "better", "increased" for positive changes.
-
-5. INTAKE PATIENT POINTS: Generate 3-5 bullet points (one per line) from patient intake. Each point should be concise (5-10 words max). Use keywords like "refill", "medication", "appointment", "consult", "pain", "worse", "better".
-
-6. GENERATED POINTS: Generate a consolidated list of 3-5 key points for the dashboard. These should be short, actionable, and color-coded by intent (e.g., urgent/worse = red, improved = green, neutral/info = blue/amber).
-   CRITICAL: Use ONLY the data provided below. If a field is "N/A" or "None", do not invent information. If the patient reports worsening symptoms, reflect that in the points.
+Analyze the following patient intake form submission for "${patientName}".
+Current Date: ${today}
 
 Patient Intake Data:
-- Patient Name: ${patientName}
+- Body Areas: ${bodyAreas || "N/A"}
 - Medication Refill Needed: ${medRefillsRequested}
 - New Appointments: ${newAppointmentsList || "None"}
 - ADL State: ${adl?.state || "same"}
 - ADL Changes: ${JSON.stringify(adl?.list || [])}
 - Pain Level (before -> after): ${refill?.before || "N/A"} -> ${refill?.after || "N/A"}
 - Therapies: ${JSON.stringify(therapies || [])}
-- Body Areas: ${bodyAreas || "N/A"}
 - Notes: ${notes || "None"}
 
-Generate in this exact format:
-KEY PATIENT-REPORTED CHANGES:
-[Narrative summary]
+Generate a comprehensive medical analysis and return it strictly as a JSON object with the following fields:
 
-SYSTEM INTERPRETATION:
-[Sentence 1. Sentence 2.]
+1. "long_summary": A detailed, professional narrative medical report (approx 300-500 words) using formal medical terminology, formatted with markdown.
+2. "short_summary": {
+    "header": {
+      "date": "${today}",
+      "title": "[Generate a professional medical title based on findings]",
+      "author": "AI Medical Assistant",
+      "disclaimer": "This document is a restatement of the patient intake data and adheres to strict medical reporting standards.",
+      "source_type": "Patient Intake Form"
+    },
+    "summary": {
+      "items": [
+        {
+          "field": "assessment",
+          "expanded": "Detailed assessment bullets based on intake findings.",
+          "collapsed": "Concise assessment summary.",
+          "context_expansion": [
+            { "bullet": "Finding 1", "context": "Supporting snippet from intake", "confidence": 0.9 }
+          ]
+        },
+        {
+          "field": "plan",
+          "expanded": "Detailed plan bullets (medications, apps, therapies).",
+          "collapsed": "Concise plan summary.",
+          "context_expansion": [...]
+        },
+        {
+          "field": "pertinent_exam",
+          "expanded": "Bullets describing patient-reported symptoms and functional status.",
+          "collapsed": "Concise functional summary.",
+          "context_expansion": [...]
+        },
+        {
+          "field": "medication_changes",
+          "expanded": "Refill needs and pain management details.",
+          "collapsed": "Medication status summary.",
+          "context_expansion": [...]
+        },
+        {
+          "field": "chief_complaint",
+          "expanded": "Detailed complaint bullets based on body areas and notes.",
+          "collapsed": "Concise complaint summary.",
+          "context_expansion": [...]
+        }
+      ]
+    },
+    "_context_expansion_metadata": { "total_items": 5, "expansion_enabled": true, "items_with_context": 5 }
+  }
 
-KEY FINDINGS:
-[Narrative summary]
+3. "keyPatientReportedChanges": Narrative summary (2-3 sentences).
+4. "systemInterpretation": Exactly 2 clear sentences.
+5. "keyFindings": Narrative summary paragraph.
+6. "adlEffectPoints": List of 3-5 concise bullets.
+7. "intakePatientPoints": List of 3-5 concise bullets.
+8. "generatedPoints": List of 3-5 color-coded actionable points.
 
-ADL EFFECT POINTS:
-- Point 1
-- Point 2
-- Point 3
-
-INTAKE PATIENT POINTS:
-- Point 1
-- Point 2
-- Point 3
-
-GENERATED POINTS:
-- Point 1
-- Point 2
-- Point 3
+CRITICAL: Return ONLY raw JSON. No markdown formatting blocks or extra text.
 `;
 }
 
 // --- Parsing Helpers ---
 
 function parseAIContent(content: string): ParsedIntakeData {
-  const extractSection = (regex: RegExp) => {
-    const match = content.match(regex);
-    return match ? match[1].trim() : "";
-  };
+  try {
+    // Attempt to parse as JSON first
+    const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(cleanContent);
 
-  const extractPoints = (regex: RegExp) => {
-    const match = content.match(regex);
-    if (!match) return [];
-    return match[1]
-      .split('\n')
-      .map((line: string) => line.replace(/^[-•]\s*/, '').trim())
-      .filter((line: string) => line.length > 0);
-  };
+    return {
+      keyPatientReportedChanges: data.keyPatientReportedChanges || "",
+      systemInterpretation: data.systemInterpretation || "",
+      keyFindings: data.keyFindings || "",
+      adlEffectPoints: data.adlEffectPoints || [],
+      intakePatientPoints: data.intakePatientPoints || [],
+      generatedPoints: data.generatedPoints || [],
+      longSummary: data.long_summary || "",
+      shortSummaryJson: data.short_summary || null,
+      reportTitle: data.short_summary?.header?.title || data.reportTitle || "",
+    };
+  } catch (e) {
+    console.error("Failed to parse AI response as JSON, falling back to regex:", e);
 
-  return {
-    keyPatientReportedChanges: extractSection(/KEY PATIENT-REPORTED CHANGES:?\s*([\s\S]+?)(?=SYSTEM INTERPRETATION:?|$)/i),
-    systemInterpretation: extractSection(/SYSTEM INTERPRETATION:?\s*([\s\S]+?)(?=KEY FINDINGS:?|ADL EFFECT POINTS:?|$)/i),
-    keyFindings: extractSection(/KEY FINDINGS:?\s*([\s\S]+?)(?=ADL EFFECT POINTS:?|INTAKE PATIENT POINTS:?|$)/i),
-    adlEffectPoints: extractPoints(/ADL EFFECT POINTS:?\s*([\s\S]+?)(?=INTAKE PATIENT POINTS:?|$)/i),
-    intakePatientPoints: extractPoints(/INTAKE PATIENT POINTS:?\s*([\s\S]+?)(?=GENERATED POINTS:?|$)/i),
-    generatedPoints: extractPoints(/GENERATED POINTS:?\s*([\s\S]+?)$/i),
-  };
+    const extractSection = (regex: RegExp) => {
+      const match = content.match(regex);
+      return match ? match[1].trim() : "";
+    };
+
+    const extractPoints = (regex: RegExp) => {
+      const match = content.match(regex);
+      if (!match) return [];
+      return match[1]
+        .split('\n')
+        .map((line: string) => line.replace(/^[-•]\s*/, '').trim())
+        .filter((line: string) => line.length > 0);
+    };
+
+    return {
+      keyPatientReportedChanges: extractSection(/KEY PATIENT-REPORTED CHANGES:?\s*([\s\S]+?)(?=SYSTEM INTERPRETATION:?|$)/i),
+      systemInterpretation: extractSection(/SYSTEM INTERPRETATION:?\s*([\s\S]+?)(?=KEY FINDINGS:?|ADL EFFECT POINTS:?|$)/i),
+      keyFindings: extractSection(/KEY FINDINGS:?\s*([\s\S]+?)(?=ADL EFFECT POINTS:?|INTAKE PATIENT POINTS:?|$)/i),
+      adlEffectPoints: extractPoints(/ADL EFFECT POINTS:?\s*([\s\S]+?)(?=INTAKE PATIENT POINTS:?|$)/i),
+      intakePatientPoints: extractPoints(/INTAKE PATIENT POINTS:?\s*([\s\S]+?)(?=GENERATED POINTS:?|$)/i),
+      generatedPoints: extractPoints(/GENERATED POINTS:?\s*([\s\S]+?)$/i),
+    };
+  }
 }
 
 // --- Core Logic Functions ---
@@ -260,7 +328,7 @@ async function processPatientIntakeUpdate(document: { id: string } | null, body:
         messages: [
           {
             role: "system",
-            content: "You are a medical assistant. Provide structured narrative summaries and bullet points based on patient intake data.",
+            content: "You are a medical assistant. Provide structured narrative summaries and bullet points based on patient intake data. Also suggest a key concern for the clinical summary.",
           },
           { role: "user", content: prompt },
         ],
@@ -288,16 +356,76 @@ async function processPatientIntakeUpdate(document: { id: string } | null, body:
       parsed.keyFindings = `Patient reports ${bodyAreas || 'body area'} concerns with ${adlStatus} ADL status. ${medRefillsRequested === 'Yes' ? 'Medication refill requested.' : 'No medication refills needed.'} ${newAppointmentsList ? `New appointments: ${newAppointmentsList}.` : 'No new appointments reported.'}`;
     }
 
+    // --- Update Document and Create extra data (Task and Summary Snapshot) ---
+    if (document) {
+      try {
+        // Update the Document record with target JSON structure for whatsNew
+        const whatsNewData = {
+          long_summary: parsed.longSummary,
+          short_summary: parsed.shortSummaryJson,
+          generated_points: parsed.generatedPoints // Ensure chips are included here
+        };
+
+        await prisma.document.update({
+          where: { id: document.id },
+          data: {
+            whatsNew: whatsNewData as any,
+            briefSummary: parsed.reportTitle || parsed.keyFindings,
+            aiSummarizerText: parsed.longSummary || undefined,
+            status: "Intake Received",
+          },
+        });
+
+        // Create a task for staff to review the intake
+        await prisma.task.create({
+          data: {
+            description: `Review Intake: ${parsed.systemInterpretation}`,
+            department: "Clinical",
+            status: "Pending",
+            patient: patientName,
+            documentId: document.id,
+            claimNumber: claimNumber || null,
+            type: "internal",
+            reason: "Patient Intake Submitted",
+          },
+        });
+
+        // Update SummarySnapshot with key concern from intake
+        const keyConcern = parsed.keyFindings.split(".")[0]; // Use first sentence as key concern
+        await prisma.summarySnapshot.upsert({
+          where: { documentId: document.id },
+          update: {
+            keyConcern: keyConcern,
+            clinicalSummary: parsed.systemInterpretation,
+          },
+          create: {
+            documentId: document.id,
+            keyConcern: keyConcern,
+            clinicalSummary: parsed.systemInterpretation,
+            dx: "Review intake data",
+            nextStep: "Consultation",
+          },
+        });
+      } catch (extraDataError) {
+        console.error("Failed to update link/create extra intake data:", extraDataError);
+      }
+    }
+
+    const { shortSummaryJson, longSummary, reportTitle, ...summaryData } = parsed;
+
     const updateData = {
       dob: dob || null,
       doi: doi || null,
       documentId: document?.id || null,
-      ...parsed,
+      ...summaryData,
       medRefillsRequested,
       newAppointments: newAppointmentsList,
       adlChanges: adlChangesText,
       intakeData: {
         ...normalizedBody,
+        shortSummary: shortSummaryJson,
+        longSummary: longSummary,
+        reportTitle: reportTitle,
         timestamp: new Date().toISOString()
       },
     };
@@ -473,13 +601,35 @@ export async function POST(request: NextRequest) {
 
     const latestDocument = patientDocuments
       .filter((doc: any) => doc.reportDate)
-      .sort((a: any, b: any) => new Date(b.reportDate!).getTime() - new Date(a.reportDate!).getTime())[0];
+      .sort((a: any, b: any) => new Date(b.reportDate!).getTime() - new Date(a.reportDate!).getTime())[0]
+      || patientDocuments.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-    if (latestDocument) {
-      await processADLAnalysis(latestDocument, body).catch(console.error);
+    let targetDocument = latestDocument;
+
+    if (!targetDocument) {
+      console.log("🆕 New patient detected, creating initial document record from intake");
+      const doi = body.doi || body.claim?.doi || body.date_of_injury || new Date().toISOString().split('T')[0];
+      const claim = claimNumber || body.claim?.claim_number || "N/A";
+
+      targetDocument = await prisma.document.create({
+        data: {
+          patientName,
+          dob: dob || null,
+          doi: doi,
+          claimNumber: claim,
+          status: "Pending Intake",
+          gcsFileLink: "intake-form-only",
+          mode: "wc",
+          reportDate: new Date(),
+        }
+      });
     }
 
-    const result = await processPatientIntakeUpdate(latestDocument || null, body);
+    if (targetDocument) {
+      await processADLAnalysis(targetDocument, body).catch(console.error);
+    }
+
+    const result = await processPatientIntakeUpdate(targetDocument, body);
 
     return NextResponse.json({
       success: true,

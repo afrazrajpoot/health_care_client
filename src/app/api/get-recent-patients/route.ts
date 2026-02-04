@@ -46,27 +46,23 @@ function fuzzyNameMatch(name1: string, name2: string): boolean {
 }
 
 // Normalize name → remove commas/middle names, reorder alphabetically
+// Normalize name → lowercase, remove commas, sort ALL words alphabetically to handle reordered names
 function normalizePatientName(name: string | null | undefined): string {
   if (!name) return "";
 
   // Remove commas and convert to lowercase
   const cleaned = name.replace(/,/g, " ").toLowerCase().trim();
 
-  // Split by whitespace and filter out empty strings and single-letter parts (middle initials)
+  // Split by whitespace, filter out empty strings and single-letter parts (middle initials/junk)
   const parts = cleaned
     .split(/\s+/)
     .filter(Boolean)
-    .filter((part) => part.length > 1); // Remove single-letter middle initials
+    .filter((part) => part.length > 1);
 
   if (parts.length === 0) return "";
 
-  if (parts.length >= 2) {
-    const first = parts[0];
-    const last = parts[parts.length - 1];
-    return [first, last].sort().join(" ");
-  }
-
-  return parts[0]; // Single name case
+  // Sort ALL parts to handle "John Doe" vs "Doe John" vs "Doe, John"
+  return parts.sort().join(" ");
 }
 
 // Extract first and last name separately
@@ -158,24 +154,6 @@ function normalizeDOI(doi: Date | string | null | undefined): string {
   }
 }
 
-// Check if two DOBs are within 1-2 days (for timezone/format issues)
-function dobsWithinTolerance(
-  dob1: string,
-  dob2: string,
-  toleranceDays: number = 2
-): boolean {
-  if (!dob1 || !dob2) return false;
-
-  try {
-    const d1 = new Date(dob1);
-    const d2 = new Date(dob2);
-    const diffMs = Math.abs(d1.getTime() - d2.getTime());
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    return diffDays <= toleranceDays;
-  } catch {
-    return false;
-  }
-}
 
 /* ---------------------------------------------
  * SAME-PATIENT LOGIC
@@ -185,53 +163,49 @@ function isSamePatient(
   name1: string,
   dob1: string,
   doi1: string,
+  claim1: string,
   name2: string,
   dob2: string,
-  doi2: string
+  doi2: string,
+  claim2: string
 ): boolean {
-  // 🎯 PRIMARY RULE: Match by DOI (Date of Injury) - if both have valid DOI
-  // If both have DOI, they must match to be the same case
-  if (doi1 && doi2) {
-    // Same DOI → SAME case (merge them)
-    if (doi1 === doi2) return true;
-    // Different DOI → DIFFERENT case (do NOT merge)
+  // 🎯 PRIMARY RULE: Date of Birth must match exactly (if both present)
+  // Healthcare records are very sensitive to DOB; even 1 day difference means a different person.
+  if (dob1 && dob2 && dob1 !== dob2) {
     return false;
   }
 
-  // 🎯 FALLBACK: If one or both don't have DOI, use name + DOB matching
-  // This handles cases where DOI is missing (e.g., 2nd report comes without DOI)
-  if (!doi1 || !doi2) {
-    // Extract name parts for advanced matching
-    const parts1 = getNameParts(name1);
-    const parts2 = getNameParts(name2);
-
-    // Last name + DOB match (ignore first name)
-    if (
-      parts1.last &&
-      parts2.last &&
-      parts1.last === parts2.last &&
-      dob1 &&
-      dob2 &&
-      (dob1 === dob2 || dobsWithinTolerance(dob1, dob2))
-    ) {
-      return true;
+  // 🎯 RULE: Match by Claim Number
+  if (claim1 && claim2 && claim1.length >= 3 && claim2.length >= 3) {
+    if (claim1 === claim2) {
+      // If claims match, it's likely the same case. 
+      // Double check name or DOB to avoid clashing with generic placeholders
+      if (name1 === name2 || dob1 === dob2) return true;
     }
+    // If they have DIFFERENT valid claim numbers, they are different cases/patients
+    if (claim1 !== claim2) return false;
+  }
 
-    // Check if names match (exact or fuzzy)
-    const namesMatch = name1 === name2 || fuzzyNameMatch(name1, name2);
+  // 🎯 RULE: Match by DOI (Date of Injury)
+  if (doi1 && doi2) {
+    if (doi1 === doi2) {
+      // Same DOI and same name → Same case
+      if (name1 === name2 || fuzzyNameMatch(name1, name2)) return true;
+    }
+    // Different DOI means different injury case
+    return false;
+  }
 
-    if (!namesMatch) return false;
+  // 🎯 FALLBACK: If one or both don't have DOI/Claim, use name + DOB matching
+  const namesMatch = name1 === name2 || fuzzyNameMatch(name1, name2);
 
-    // Both have DOB and match (or within tolerance)
+  if (namesMatch) {
+    // If we've reached here, either DOBs matched exactly or one was missing
     if (dob1 && dob2) {
-      return dob1 === dob2 || dobsWithinTolerance(dob1, dob2);
+      return dob1 === dob2;
     }
-
-    // Both missing DOB
-    if (!dob1 && !dob2) return true;
-
-    // One has DOB, the other doesn't → still same
-    if ((dob1 && !dob2) || (dob2 && !dob1)) return true;
+    // If one is missing DOB, we trust the name match only if we don't have conflicting Claim/DOI
+    return true;
   }
 
   return false;
@@ -310,7 +284,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch documents with their documentSummary relation
-    let documents;
+    let documents: any[] = [];
     let retries = 3;
     while (retries > 0) {
       try {
@@ -400,9 +374,11 @@ export async function GET(request: Request) {
             docName,
             docDOB,
             docDOI,
+            normalizeClaimNumber(doc.claimNumber),
             groupName,
             groupDOB,
-            groupDOI
+            groupDOI,
+            normalizeClaimNumber(firstDoc.claimNumber)
           )
         ) {
           group.documents.push(doc);

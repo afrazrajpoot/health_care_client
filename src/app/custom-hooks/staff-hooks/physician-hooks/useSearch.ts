@@ -12,8 +12,18 @@ interface Patient {
 
 export const useSearch = (mode: "wc" | "gm") => {
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [currentSession, setCurrentSession] = useState<any>(null);
+
+  // ✅ Search debounce logic
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 1500); // 1.5 seconds high debounce as requested
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const getPhysicianId = useCallback((session: any): string | null => {
     if (!session?.user) return null;
@@ -33,14 +43,14 @@ export const useSearch = (mode: "wc" | "gm") => {
 
   const { data: recommendationData, isFetching: searchLoading } = useGetPatientRecommendationsQuery(
     {
-      patientName: searchQuery,
-      claimNumber: searchQuery,
-      dob: searchQuery,
+      patientName: debouncedSearchQuery,
+      claimNumber: debouncedSearchQuery,
+      dob: debouncedSearchQuery,
       physicianId: physicianId || "",
       mode,
     },
     {
-      skip: !searchQuery.trim() || !physicianId,
+      skip: !debouncedSearchQuery.trim() || !physicianId,
     }
   );
 
@@ -56,10 +66,10 @@ export const useSearch = (mode: "wc" | "gm") => {
         })
       );
       setSearchResults(patients);
-    } else if (searchQuery.trim() === "") {
+    } else if (debouncedSearchQuery.trim() === "") {
       setSearchResults([]);
     }
-  }, [recommendationData, searchQuery, formatDateToString]);
+  }, [recommendationData, debouncedSearchQuery, formatDateToString]);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, session: any) => {
     const query = e.target.value;

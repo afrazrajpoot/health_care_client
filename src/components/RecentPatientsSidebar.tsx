@@ -233,7 +233,7 @@ export default function RecentPatientsSidebar({
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "";
-      return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+      return `${date.getUTCMonth() + 1}/${date.getUTCDate()}/${date.getUTCFullYear()}`;
     } catch {
       return "";
     }

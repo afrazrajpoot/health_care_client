@@ -15,6 +15,8 @@ interface TokenPayload {
   exp: number;
   auth: string;
   createdAt: string;
+  claimNumber?: string;
+  physicianId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -31,6 +33,7 @@ export async function POST(request: NextRequest) {
       body: bodyParts = "",
       exp = "7",
       auth = "yes",
+      physicianId,
     } = body;
 
     // Validate required fields
@@ -58,10 +61,6 @@ export async function POST(request: NextRequest) {
     const payload: TokenPayload = {
       patient: patient.trim(),
       dob,
-      // include claim number in token payload if provided
-      // typing of TokenPayload doesn't include claimNumber yet but it's fine for ad-hoc addition
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
       claimNumber: claim_number || "",
       visit,
       lang,
@@ -70,10 +69,44 @@ export async function POST(request: NextRequest) {
       exp: expirationTime,
       auth,
       createdAt: new Date().toISOString(),
+      physicianId,
     };
 
     // Generate token
     const token = jwt.sign(payload, JWT_SECRET);
+
+    // If it's a new patient, create a placeholder document
+    if (visit === "New Patient") {
+      try {
+        const existingDoc = await prisma.document.findFirst({
+          where: {
+            patientName: patient.trim(),
+            dob: dob,
+            claimNumber: claim_number || "Not specified",
+          },
+        });
+
+        if (!existingDoc) {
+          await prisma.document.create({
+            data: {
+              patientName: patient.trim(),
+              dob: dob,
+              doi: new Date().toISOString().split("T")[0],
+              claimNumber: claim_number || "Not specified",
+              status: "Intake Pending",
+              gcsFileLink: "",
+              mode: mode === "office" ? "gm" : "wc",
+              reportDate: new Date(),
+              physicianId: physicianId || null,
+            },
+          });
+          console.log(`Created placeholder document for new patient: ${patient.trim()}`);
+        }
+      } catch (docError) {
+        console.error("Failed to create placeholder document:", docError);
+        // Continue even if placeholder creation fails
+      }
+    }
 
     // Check if patient with same name and DOB already exists
     const existingPatient = await prisma.intakeLink.findFirst({
@@ -83,14 +116,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    let databaseResult;
-
     if (existingPatient) {
       // UPDATE existing record
-      databaseResult = await prisma.intakeLink.update({
-        where: {
-          id: existingPatient.id,
-        },
+      await prisma.intakeLink.update({
+        where: { id: existingPatient.id },
         data: {
           token,
           claimNumber: claim_number || undefined,
@@ -104,12 +133,10 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         },
       });
-      console.log(
-        `Updated existing intake link for patient: ${patient.trim()}`
-      );
+      console.log(`Updated existing intake link for patient: ${patient.trim()}`);
     } else {
       // CREATE new record
-      databaseResult = await prisma.intakeLink.create({
+      await prisma.intakeLink.create({
         data: {
           token,
           patientName: patient.trim(),
@@ -126,25 +153,21 @@ export async function POST(request: NextRequest) {
       });
       console.log(`Created new intake link for patient: ${patient.trim()}`);
 
-      // Update WorkflowStats for intakes_created when a new intake link is created
+      // Update WorkflowStats for intakes_created
       try {
-        console.log("Attempting to update WorkflowStats...");
-        console.log("Available Prisma models:", Object.keys(prisma));
-
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to start of day for consistent date matching
+        today.setHours(0, 0, 0, 0);
 
         const existingStats = await prisma.workflowStats.findFirst({
           where: {
             date: {
               gte: today,
-              lt: new Date(today.getTime() + 24 * 60 * 60 * 1000), // Next day
+              lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
             },
           },
         });
 
         if (existingStats) {
-          // Update existing stats for today
           await prisma.workflowStats.update({
             where: { id: existingStats.id },
             data: {
@@ -153,7 +176,6 @@ export async function POST(request: NextRequest) {
             },
           });
         } else {
-          // Create new stats record for today
           await prisma.workflowStats.create({
             data: {
               date: today,
@@ -161,10 +183,8 @@ export async function POST(request: NextRequest) {
             },
           });
         }
-        console.log("Updated WorkflowStats: incremented intakes_created");
       } catch (statsError) {
         console.error("Failed to update WorkflowStats:", statsError);
-        // Don't fail the main request if stats update fails
       }
     }
 

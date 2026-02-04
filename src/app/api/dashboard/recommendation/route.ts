@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/services/authSErvice";
 import { Prisma } from "@prisma/client";
+import OpenAI, { AzureOpenAI } from "openai";
 
 export async function GET(request: Request) {
   try {
@@ -27,6 +28,27 @@ export async function GET(request: Request) {
       physicianId === ""
     ) {
       physicianId = null;
+    }
+
+    // ✅ Initialize OpenAI/Azure client
+    const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const standardApiKey = process.env.OPENAI_API_KEY;
+
+    let openai: OpenAI | AzureOpenAI | null = null;
+
+    if (azureApiKey && azureEndpoint && azureDeployment) {
+      openai = new AzureOpenAI({
+        apiKey: azureApiKey,
+        endpoint: azureEndpoint,
+        deployment: azureDeployment,
+        apiVersion: "2024-02-15-preview",
+      });
+    } else if (standardApiKey) {
+      openai = new OpenAI({
+        apiKey: standardApiKey,
+      });
     }
 
     // ✅ Build a flexible where clause
@@ -82,7 +104,7 @@ export async function GET(request: Request) {
         id: true,
         physicianId: true,
       },
-      take: 20,
+      take: 40, // Increased to allow better AI deduplication
       orderBy: { createdAt: "desc" },
     });
 
@@ -112,19 +134,85 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ Deduplicate by patientName + claimNumber + dob
-    const uniqueKeyMap = new Map<string, (typeof completeResults)[0]>();
+    let uniqueResults: typeof completeResults = [];
+
+    // ✅ Step 1: Algorithmic Deduplication (Fast & Robust)
+    const manualDedupeMap = new Map<string, (typeof completeResults)[0]>();
     completeResults.forEach((doc) => {
-      const key = `${doc.patientName}-${doc.claimNumber || ""}-${String(
-        doc.dob
-      )}`;
-      if (!uniqueKeyMap.has(key)) {
-        uniqueKeyMap.set(key, doc);
+      // Normalize name by sorting words to handle reordered names (e.g., "John Doe" vs "Doe John")
+      const normalizedName = doc.patientName
+        ? doc.patientName
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(Boolean)
+          .sort()
+          .join(" ")
+        : "";
+      const claimNormalized = doc.claimNumber?.trim().toLowerCase() || "no-claim";
+      const dobNormalized = String(doc.dob).trim();
+
+      // Key based on DOB, Claim Number (if available), and Normalized Name
+      const key = `${dobNormalized}|${claimNormalized}|${normalizedName}`;
+
+      if (!manualDedupeMap.has(key)) {
+        manualDedupeMap.set(key, doc);
       }
     });
-    const uniqueResults = Array.from(uniqueKeyMap.values());
+    uniqueResults = Array.from(manualDedupeMap.values());
 
-    // ✅ Extract patientNames
+    // ✅ Step 2: AI Deduplication (If OpenAI is available and multiple potential matches exist)
+    if (openai && uniqueResults.length > 1) {
+      try {
+        const recordsForAI = uniqueResults.map((r) => ({
+          id: r.id,
+          patientName: r.patientName,
+          dob: r.dob,
+          claimNumber: r.claimNumber,
+        }));
+
+        const prompt = `You are a medical data assistant. Below is a list of patients found in a search.
+Some records may belong to the same person despite slight variations in name (e.g., "John Doe" vs "Doe John", or "John A. Doe" vs "John Doe").
+Identify unique patients based on their DOB, claimNumber, and name similarity.
+For each unique patient, select ONLY ONE representative record (the most complete or standard one).
+
+DATA:
+${JSON.stringify(recordsForAI, null, 2)}
+
+Respond ONLY with a JSON object in this format:
+{
+  "uniqueIds": ["id1", "id2", ...]
+}
+Return only the IDs of the records that represent unique individuals.`;
+
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert at deduplicating medical records.",
+            },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0,
+        });
+
+        const content = aiResponse.choices[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          const uniqueIds = parsed.uniqueIds || [];
+          if (Array.isArray(uniqueIds) && uniqueIds.length > 0) {
+            uniqueResults = uniqueResults.filter((r) =>
+              uniqueIds.includes(r.id)
+            );
+          }
+        }
+      } catch (aiErr) {
+        console.error("⚠️ AI Deduplication failed, using manual results:", aiErr);
+      }
+    }
+
+    // ✅ Final extraction of patientNames
     const patientNames = Array.from(
       new Set(uniqueResults.map((r) => r.patientName).filter(Boolean))
     );
@@ -135,8 +223,8 @@ export async function GET(request: Request) {
         data: {
           userId: session.user.id,
           email: session.user.email,
-          action: `Flexible search: patientName="${patientName ?? ""}", claimNumber="${claimNumber ?? ""}", dob="${dobParam ?? ""}", physicianId="${physicianId ?? ""}", mode="${mode ?? ""}"`,
-          path: "/api/patients",
+          action: `Patient search suggestions: found ${uniqueResults.length} unique patients`,
+          path: "/api/dashboard/recommendation",
           method: "GET",
         },
       });

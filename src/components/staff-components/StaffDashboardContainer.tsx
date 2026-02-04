@@ -323,11 +323,14 @@ export default function StaffDashboardContainer() {
     session?.user?.email,
   ]);
   const taskTotalCount = useMemo(() => {
+    if (showAllTasks) {
+      return tasksData?.totalCount || 0;
+    }
     if (isStaff) {
       return filteredPatientTasks.length;
     }
     return tasksData?.totalCount || 0;
-  }, [isStaff, filteredPatientTasks.length, tasksData?.totalCount]);
+  }, [isStaff, filteredPatientTasks.length, tasksData?.totalCount, showAllTasks]);
   // Hooks
   const { isProcessing } = useSocket();
   const initialMode = "wc" as const;
@@ -533,10 +536,17 @@ export default function StaffDashboardContainer() {
     (task: Task): string[] => getAssigneeOptionsUtil(task),
     [],
   );
-  const taskStats: TaskStats = useMemo(
-    () => calculateTaskStats(filteredPatientTasks),
-    [filteredPatientTasks],
-  );
+  const taskStats: TaskStats = useMemo(() => {
+    if (showAllTasks && tasksData && typeof tasksData.completedCount === 'number') {
+      return {
+        open: tasksData.openCount || 0,
+        completed: tasksData.completedCount || 0,
+        urgent: tasksData.urgentCount || 0,
+        dueToday: tasksData.dueTodayCount || 0,
+      };
+    }
+    return calculateTaskStats(filteredPatientTasks);
+  }, [filteredPatientTasks, showAllTasks, tasksData]);
   const questionnaireChips = useMemo(
     () => getQuestionnaireChipsUtil(patientIntakeUpdate, patientQuiz),
     [patientIntakeUpdate, patientQuiz],
@@ -578,7 +588,7 @@ export default function StaffDashboardContainer() {
         const urlPatient = recentPatientsData.find((p: RecentPatient) => {
           const nameMatch =
             p.patientName.toLowerCase() === patientNameFromUrl.toLowerCase();
-          const dobMatch = !dobFromUrl || p.dob === dobFromUrl;
+          const dobMatch = !dobFromUrl || (p.dob && p.dob.split("T")[0] === dobFromUrl.split("T")[0]);
           const claimMatch = !claimFromUrl || p.claimNumber === claimFromUrl;
           return nameMatch && dobMatch && claimMatch;
         });
@@ -621,7 +631,9 @@ export default function StaffDashboardContainer() {
       ) {
         const fullPatient = recentPatientsData.find((p: RecentPatient) => {
           const nameMatch = p.patientName.toLowerCase() === selectedPatient.patientName.toLowerCase();
-          const dobMatch = !selectedPatient.dob || p.dob === selectedPatient.dob;
+          const pDobNormal = p.dob ? p.dob.split("T")[0] : "";
+          const selectedDobNormal = selectedPatient.dob ? selectedPatient.dob.split("T")[0] : "";
+          const dobMatch = !selectedPatient.dob || pDobNormal === selectedDobNormal;
           const claimMatch = !selectedPatient.claimNumber || selectedPatient.claimNumber === "Not specified" || p.claimNumber === selectedPatient.claimNumber;
           return nameMatch && dobMatch && claimMatch;
         });
@@ -833,15 +845,23 @@ export default function StaffDashboardContainer() {
       const params = new URLSearchParams();
       // Only set patient_name if it has a value
       params.set("patient_name", selectedPatient.patientName);
+
       if (selectedPatient.dob) {
-        // Normalize DOB to YYYY-MM-DD format (strip time component and handle timezone)
-        let dobStr = selectedPatient.dob;
-        if (dobStr.includes("T")) {
-          // If it's an ISO datetime, extract just the date part
-          dobStr = dobStr.split("T")[0];
+        // Priority: Use existing URL DOB if available to prevent formatting shifts
+        const urlDob = searchParams.get("dob");
+        if (urlDob) {
+          params.set("dob", urlDob);
+        } else {
+          // Normalize DOB to YYYY-MM-DD format (strip time component and handle timezone)
+          let dobStr = selectedPatient.dob;
+          if (dobStr.includes("T")) {
+            // If it's an ISO datetime, extract just the date part
+            dobStr = dobStr.split("T")[0];
+          }
+          params.set("dob", dobStr);
         }
-        params.set("dob", dobStr);
       }
+
       if (
         selectedPatient.claimNumber &&
         selectedPatient.claimNumber !== "Not specified"
@@ -851,7 +871,7 @@ export default function StaffDashboardContainer() {
       return `/dashboard?${params.toString()}`;
     }
     return "/dashboard";
-  }, [selectedPatient]);
+  }, [selectedPatient, searchParams]);
 
   // Function to trigger refresh manually using tag invalidation
   const triggerRefresh = useCallback(() => {

@@ -327,7 +327,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * pageSize;
 
     // Fetch tasks and total count
-    const [tasks, totalCount] = await Promise.all([
+    const [tasks, totalCount, completedCount, openCount, urgentCount, dueTodayCount] = await Promise.all([
       prisma.task.findMany({
         where: whereClause,
         orderBy,
@@ -351,6 +351,38 @@ export async function GET(request: Request) {
       prisma.task.count({
         where: whereClause,
       }),
+      prisma.task.count({
+        where: {
+          ...whereClause,
+          status: { in: ["Completed", "Done"] }
+        }
+      }),
+      prisma.task.count({
+        where: {
+          ...whereClause,
+          status: { notIn: ["Completed", "Done", "Closed"] }
+        }
+      }),
+      prisma.task.count({
+        where: {
+          ...whereClause,
+          OR: [
+            { dueDate: { lt: now } },
+            // Add priority high if stored explicitly, or rely on dueDate < now
+          ],
+          status: { notIn: ["Completed", "Done", "Closed"] }
+        }
+      }),
+      prisma.task.count({
+        where: {
+          ...whereClause,
+          dueDate: {
+            gte: new Date(now.setHours(0, 0, 0, 0)),
+            lte: new Date(now.setHours(23, 59, 59, 999))
+          },
+          status: { notIn: ["Completed", "Done", "Closed"] }
+        }
+      })
     ]);
 
     // Log matched document info
@@ -411,6 +443,10 @@ export async function GET(request: Request) {
       return NextResponse.json({
         tasks: tasksWithURAndPriority,
         totalCount,
+        completedCount,
+        openCount,
+        urgentCount,
+        dueTodayCount,
         timestamp: new Date().toISOString(),
         pagination: {
           page,
@@ -457,6 +493,10 @@ export async function GET(request: Request) {
       const responseData = {
         tasks: tasksWithURAndPriority,
         totalCount,
+        completedCount,
+        openCount,
+        urgentCount,
+        dueTodayCount,
         pagination: {
           page,
           pageSize,
@@ -498,6 +538,10 @@ export async function GET(request: Request) {
         metadata: {
           taskCount: tasksWithURAndPriority.length,
           totalCount,
+          completedCount,
+          openCount,
+          urgentCount,
+          dueTodayCount,
           page,
           pageSize,
           documentFiltered: documentIds.length > 0,

@@ -2,10 +2,11 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useSession } from "next-auth/react";
 import {
   useGenerateIntakeLinkMutation,
   useGetPatientRecommendationsQuery,
@@ -135,6 +136,7 @@ export default function IntakeModal({
   onClose,
   selectedPatient,
 }: IntakeModalProps) {
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -152,7 +154,7 @@ export default function IntakeModal({
         lkDob: dobDate || prev.lkDob,
         lkClaimNumber:
           selectedPatient.claimNumber &&
-          selectedPatient.claimNumber !== "Not specified"
+            selectedPatient.claimNumber !== "Not specified"
             ? selectedPatient.claimNumber
             : prev.lkClaimNumber,
       }));
@@ -168,11 +170,15 @@ export default function IntakeModal({
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  const [manualEntry, setManualEntry] = useState(false);
+  const [isNewPatient, setIsNewPatient] = useState(false);
+  const originalDataRef = useRef<Record<string, string> | null>(null);
+
   const [generateIntakeLinkMutation] = useGenerateIntakeLinkMutation();
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const { data: recommendationsData, isFetching: isLoadingSuggestions } =
     useGetPatientRecommendationsQuery(patientSearchQuery, {
-      skip: !patientSearchQuery.trim(),
+      skip: manualEntry || !patientSearchQuery.trim(),
     });
 
   const patientSuggestions = React.useMemo(() => {
@@ -204,31 +210,23 @@ export default function IntakeModal({
   };
 
   // Helper function to format date for input field (MM-DD-YYYY)
-  // Avoids timezone issues by extracting date string directly or using local time methods
   function formatDateForInput(date: Date | string | null | undefined): string {
     if (!date) return "";
-
-    // If it's already a string, extract the date part directly
     if (typeof date === "string") {
       const dateOnly = date.split("T")[0];
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
-        // Convert from YYYY-MM-DD to MM-DD-YYYY
         const [year, month, day] = dateOnly.split("-");
         return `${month}-${day}-${year}`;
       }
     }
-
-    // For Date objects, use local time methods to avoid timezone shift
     const d = typeof date === "string" ? new Date(date) : date;
     if (isNaN(d.getTime())) return "";
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
     return `${month}-${day}-${year}`;
   }
 
-  // Handle patient selection from suggestions
   const handlePatientSelect = (patient: Patient) => {
     setFormData((prev) => ({
       ...prev,
@@ -239,7 +237,6 @@ export default function IntakeModal({
     setPatientSearchQuery("");
   };
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -251,71 +248,47 @@ export default function IntakeModal({
         setPatientSearchQuery("");
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Populate form fields from URL parameters when modal opens
   useEffect(() => {
     if (!isOpen) return;
-
     const patientName = searchParams.get("patient_name");
     const dob = searchParams.get("dob");
     const claim = searchParams.get("claim");
+    const visit = searchParams.get("visit");
 
-    if (patientName || dob || claim) {
+    if (patientName || dob || claim || visit) {
+      if (visit === "New Patient") setIsNewPatient(true);
+
       setFormData((prev) => {
         const updated = { ...prev };
-
-        if (patientName) {
-          updated.lkPatient = decodeURIComponent(patientName);
-        }
-
+        if (patientName) updated.lkPatient = decodeURIComponent(patientName);
         if (dob) {
-          try {
-            // Use formatDateForInput to handle URL date param
-            // This ensures we get MM-DD-YYYY format regardless of input
-            const formattedDob = formatDateForInput(dob);
-            if (formattedDob) {
-              updated.lkDob = formattedDob;
-            }
-          } catch (e) {
-            console.error("Error parsing date from URL:", e);
-          }
+          const formattedDob = formatDateForInput(dob);
+          if (formattedDob) updated.lkDob = formattedDob;
         }
-
         if (claim && claim !== "Not specified" && claim !== "Not+specified") {
           updated.lkClaimNumber = decodeURIComponent(claim);
         }
-
+        if (visit) updated.lkVisit = visit;
         return updated;
       });
     }
   }, [isOpen, searchParams]);
 
-  // Close modal when clicking outside
   useEffect(() => {
     if (!isOpen) return;
-
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         onClose();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  // Reset suggestions and copy status when modal is opened/closed
   useEffect(() => {
     if (!isOpen) {
       setPatientSearchQuery("");
@@ -323,96 +296,60 @@ export default function IntakeModal({
     }
   }, [isOpen]);
 
-  // Convert MM-DD-YYYY string to Date object (for DatePicker only)
   const stringToDate = (dateStr: string): Date | null => {
     if (!dateStr) return null;
     const parts = dateStr.split("-").map(Number);
     if (parts.length !== 3) return null;
-    // Handle MM-DD-YYYY format
     const [month, day, year] = parts;
     if (!year || !month || !day) return null;
-    // Use local time to avoid timezone offset issues
     return new Date(year, month - 1, day);
   };
 
-  const generateLink = async () => {
+  const generateLink = async (overrideVisit?: string) => {
     setIsGenerating(true);
     try {
       const metadata = {
         patient: formData.lkPatient || "",
         dob: formData.lkDob || "",
         claim_number: formData.lkClaimNumber || "",
-        visit: formData.lkVisit || "",
+        visit: overrideVisit || formData.lkVisit || "",
         lang: formData.lkLang || "en",
         mode: formData.lkMode || "tele",
         body: formData.lkBody || "",
         exp: formData.lkExpire || "7",
         auth: formData.lkAuth || "yes",
+        physicianId: session?.user?.id,
       };
 
       const { token } = await generateIntakeLinkMutation(metadata).unwrap();
-      const form_url = process.env.NEXT_PUBLIC_APP_URL;
+      const form_url = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       const link = `${form_url}/intake-form?token=${encodeURIComponent(token)}`;
       setOutputLink(link);
-      setCopyStatus("idle"); // Reset copy status when new link is generated
+      setCopyStatus("idle");
 
-      // Auto-copy the link when generated
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(link);
-          setCopyStatus("copied");
-        } else {
-          // Fallback for older browsers
-          const textArea = document.createElement("textarea");
-          textArea.value = link;
-          textArea.style.position = "absolute";
-          textArea.style.left = "-999999px";
-          document.body.prepend(textArea);
-          textArea.select();
-          document.execCommand("copy");
-          textArea.remove();
-          setCopyStatus("copied");
-        }
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(link);
+        setCopyStatus("copied");
         setTimeout(() => setCopyStatus("idle"), 2000);
-      } catch (clipboardError) {
-        console.error("Auto-copy failed:", clipboardError);
       }
     } catch (error) {
       console.error("Token generation error:", error);
-      // toast error if needed
     } finally {
       setIsGenerating(false);
     }
   };
 
   const copyLink = async () => {
-    const link = outputLink || ""; // Fallback to empty if no link
+    const link = outputLink || "";
     if (!link) return;
-
     try {
-      // Try modern clipboard API first
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(link);
         setCopyStatus("copied");
-      } else {
-        // Fallback for older browsers or non-HTTPS
-        const textArea = document.createElement("textarea");
-        textArea.value = link;
-        textArea.style.position = "absolute";
-        textArea.style.left = "-999999px";
-        document.body.prepend(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        textArea.remove();
-        setCopyStatus("copied");
+        setTimeout(() => setCopyStatus("idle"), 2000);
       }
-
-      // Reset copy status after 2 seconds
-      setTimeout(() => setCopyStatus("idle"), 2000);
     } catch (error) {
       console.error("Failed to copy link:", error);
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus("idle"), 2000);
     }
   };
 
@@ -421,21 +358,42 @@ export default function IntakeModal({
     if (!link) return;
     const exp = formData.lkExpire || "7";
     const subject = encodeURIComponent("Patient Intake Link");
-    const bodyText = encodeURIComponent(`Hello,
-
-Please complete your 1–2 minute intake before your visit:
-${link}
-
-This link is personalized, supports English/Español, and expires in ${exp} days.
-
-Thank you.`);
+    const bodyText = encodeURIComponent(`Hello,\n\nPlease complete your 1–2 minute intake before your visit:\n${link}\n\nThis link is personalized and expires in ${exp} days.\n\nThank you.`);
     window.location.href = `mailto:?subject=${subject}&body=${bodyText}`;
   };
 
   const previewLink = () => {
-    const link = outputLink || "";
-    if (link) {
-      window.open(link, "_blank");
+    if (outputLink) window.open(outputLink, "_blank");
+  };
+
+  const resetForm = () => {
+    const fresh: Record<string, string> = {};
+    modalFields.forEach((field) => (fresh[field.id] = field.value));
+    setFormData(fresh);
+    setOutputLink("");
+    setPatientSearchQuery("");
+    setIsNewPatient(false);
+  };
+
+  const handleToggleNewPatient = () => {
+    const nextVal = !isNewPatient;
+    setIsNewPatient(nextVal);
+    setManualEntry(nextVal);
+
+    if (nextVal) {
+      // Transitioning TO New Patient: Save current data and clear for fresh entry
+      originalDataRef.current = { ...formData };
+      const fresh: Record<string, string> = {};
+      modalFields.forEach((field) => (fresh[field.id] = field.value));
+      fresh.lkVisit = "New Patient";
+      setFormData(fresh);
+      setOutputLink("");
+      setPatientSearchQuery("");
+    } else {
+      // Transitioning FROM New Patient: Restore saved data
+      if (originalDataRef.current) {
+        setFormData(originalDataRef.current);
+      }
     }
   };
 
@@ -465,30 +423,45 @@ Thank you.`);
           boxShadow: "0 12px 30px rgba(0,0,0,.2)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "8px",
-          }}
-        >
-          <h3 style={{ margin: 0, fontSize: "18px" }}>
-            Create Patient Intake Link
-          </h3>
-          <button className="btn light" onClick={onClose}>
-            Close
-          </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <h3 style={{ margin: 0, fontSize: "18px" }}>Create Patient Intake Link</h3>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{
+                  position: "relative",
+                  width: "36px",
+                  height: "20px",
+                  backgroundColor: isNewPatient ? "#33c7d8" : "#ccc",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  transition: "background-color 0.2s"
+                }}
+                onClick={handleToggleNewPatient}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: isNewPatient ? "18px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    backgroundColor: "#fff",
+                    borderRadius: "50%",
+                    transition: "left 0.2s"
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: "14px", color: "#666", cursor: "pointer", userSelect: "none" }} onClick={handleToggleNewPatient}>
+                New Patient (Manual Entry)
+              </span>
+            </div>
+            <button className="btn light" onClick={resetForm} style={{ fontSize: "12px" }}>Clear</button>
+            <button className="btn light" onClick={onClose}>Close</button>
+          </div>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "10px",
-            marginBottom: "8px",
-          }}
-        >
-          {modalFields.map((field) => (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "8px" }}>
+          {modalFields.filter(f => f.id !== "lkVisit").map((field) => (
             <label
               key={field.id}
               className="muted"
@@ -506,10 +479,7 @@ Thank you.`);
                       onChange={(date) => {
                         if (date) {
                           const year = date.getFullYear();
-                          const month = String(date.getMonth() + 1).padStart(
-                            2,
-                            "0",
-                          );
+                          const month = String(date.getMonth() + 1).padStart(2, "0");
                           const day = String(date.getDate()).padStart(2, "0");
                           handleChange(field.id, `${month}-${day}-${year}`);
                         } else {
@@ -524,246 +494,72 @@ Thank you.`);
                       maxDate={new Date()}
                       className="w-full"
                       wrapperClassName="w-full"
-                      customInput={
-                        <input
-                          style={{
-                            width: "100%",
-                            padding: "8px",
-                            border: "1px solid var(--border)",
-                            borderRadius: "8px",
-                          }}
-                        />
-                      }
+                      customInput={<input style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "8px" }} />}
                     />
                   ) : (
                     <input
-                      ref={
-                        field.id === "lkPatient" ? patientInputRef : undefined
-                      }
+                      ref={field.id === "lkPatient" ? patientInputRef : undefined}
                       id={field.id}
                       type="text"
                       value={formData[field.id]}
                       onChange={(e) => handleChange(field.id, e.target.value)}
                       onFocus={() => {
-                        if (
-                          field.id === "lkPatient" &&
-                          formData[field.id] &&
-                          patientSuggestions.length > 0
-                        ) {
+                        if (!manualEntry && field.id === "lkPatient" && formData[field.id] && patientSuggestions.length > 0) {
                           setPatientSearchQuery(formData[field.id]);
                         }
                       }}
                       placeholder={field.placeholder}
-                      style={{
-                        width: "100%",
-                        padding: "8px",
-                        border: "1px solid var(--border)",
-                        borderRadius: "8px",
-                      }}
+                      style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "8px" }}
                     />
                   )}
-                  {/* Patient suggestions dropdown */}
-                  {field.id === "lkPatient" && showSuggestions && (
+                  {field.id === "lkPatient" && !manualEntry && showSuggestions && (
                     <div
                       ref={suggestionsRef}
                       style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: "0",
-                        right: "0",
-                        background: "#fff",
-                        border: "1px solid var(--border)",
-                        borderRadius: "8px",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                        maxHeight: "200px",
-                        overflowY: "auto",
-                        zIndex: "1000",
-                        marginTop: "4px",
+                        position: "absolute", top: "100%", left: "0", right: "0", background: "#fff", border: "1px solid var(--border)",
+                        borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", maxHeight: "200px", overflowY: "auto", zIndex: "1000", marginTop: "4px"
                       }}
                     >
                       {isLoadingSuggestions ? (
-                        <div
-                          style={{
-                            padding: "12px",
-                            textAlign: "center",
-                            color: "#666",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Loading...
-                        </div>
-                      ) : patientSuggestions.length > 0 ? (
-                        patientSuggestions.map(
-                          (patient: Patient, index: number) => (
-                            <div
-                              key={patient.id || index}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handlePatientSelect(patient);
-                              }}
-                              style={{
-                                padding: "12px",
-                                cursor: "pointer",
-                                borderBottom:
-                                  index < patientSuggestions.length - 1
-                                    ? "1px solid #eee"
-                                    : "none",
-                                fontSize: "14px",
-                              }}
-                              onMouseEnter={(e) => {
-                                (
-                                  e.currentTarget as HTMLElement
-                                ).style.backgroundColor = "#f5f5f5";
-                              }}
-                              onMouseLeave={(e) => {
-                                (
-                                  e.currentTarget as HTMLElement
-                                ).style.backgroundColor = "transparent";
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: "500",
-                                  marginBottom: "4px",
-                                  pointerEvents: "none",
-                                }}
-                              >
-                                {patient.patientName}
-                              </div>
-                              <div
-                                style={{
-                                  color: "#666",
-                                  fontSize: "12px",
-                                  pointerEvents: "none",
-                                }}
-                              >
-                                DOB: {patient.dob || "Not specified"} | Claim:{" "}
-                                {patient.claimNumber}
-                              </div>
-                            </div>
-                          ),
-                        )
+                        <div style={{ padding: "12px", textAlign: "center", color: "#666", fontSize: "14px" }}>Loading...</div>
                       ) : (
-                        <div
-                          style={{
-                            padding: "12px",
-                            textAlign: "center",
-                            color: "#666",
-                            fontSize: "14px",
-                          }}
-                        >
-                          No patients found
-                        </div>
+                        patientSuggestions.map((p: any, idx: number) => (
+                          <div
+                            key={p.id || idx}
+                            onClick={() => handlePatientSelect(p)}
+                            style={{ padding: "12px", cursor: "pointer", borderBottom: idx < patientSuggestions.length - 1 ? "1px solid #eee" : "none", fontSize: "14px" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f5f5")}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                          >
+                            <div style={{ fontWeight: "500", marginBottom: "4px" }}>{p.patientName}</div>
+                            <div style={{ color: "#666", fontSize: "12px" }}>DOB: {p.dob} | Claim: {p.claimNumber}</div>
+                          </div>
+                        ))
                       )}
                     </div>
                   )}
                 </>
               ) : (
-                <select
-                  id={field.id}
-                  value={formData[field.id]}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                  }}
-                >
-                  {field.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
+                <select id={field.id} value={formData[field.id]} onChange={(e) => handleChange(field.id, e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "8px" }}>
+                  {field.options?.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                 </select>
               )}
             </label>
           ))}
         </div>
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-            alignItems: "center",
-            marginTop: "6px",
-          }}
-        >
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginTop: "6px" }}>
           <button
-            className="px-4 py-2 bg-teal-500 text-white font-semibold rounded-lg hover:bg-teal-600 active:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm hover:shadow-md"
-            onClick={generateLink}
+            className="btn teal px-4 py-2"
+            style={{ backgroundColor: "#0d9488", color: "#fff", fontWeight: "600", borderRadius: "8px", border: "none" }}
+            onClick={() => generateLink()}
             disabled={isGenerating || !formData.lkPatient || !formData.lkDob}
           >
-            {isGenerating ? (
-              <span className="flex items-center gap-2">
-                <svg
-                  className="animate-spin h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Generating...
-              </span>
-            ) : (
-              "Generate Link"
-            )}
+            {isGenerating ? "Generating..." : (isNewPatient ? "Generate New Patient Link" : "Generate Link")}
           </button>
-          <input
-            id="lkOutput"
-            readOnly
-            value={outputLink}
-            placeholder="Generated link will appear here"
-            style={{
-              flex: 1,
-              padding: "8px",
-              border: "1px solid var(--border)",
-              borderRadius: "8px",
-            }}
-          />
-          <button
-            className="btn light"
-            onClick={copyLink}
-            disabled={!outputLink}
-            style={{
-              padding: "8px 12px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            {copyStatus === "copied" ? "Copied!" : "Copy"}
-          </button>
-          <button
-            className="btn light"
-            onClick={emailLink}
-            disabled={!outputLink}
-            style={{ padding: "8px 12px" }}
-          >
-            Email
-          </button>
-          <button
-            className="btn light"
-            onClick={previewLink}
-            disabled={!outputLink}
-            style={{ padding: "8px 12px" }}
-          >
-            Preview
-          </button>
+          <input readOnly value={outputLink} placeholder="Generated link will appear here" style={{ flex: 1, padding: "8px", border: "1px solid var(--border)", borderRadius: "8px" }} />
+          <button className="btn light" onClick={copyLink} disabled={!outputLink}>{copyStatus === "copied" ? "Copied!" : "Copy"}</button>
+          <button className="btn light" onClick={emailLink} disabled={!outputLink}>Email</button>
+          <button className="btn light" onClick={previewLink} disabled={!outputLink}>Preview</button>
         </div>
       </div>
     </div>

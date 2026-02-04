@@ -180,6 +180,9 @@ export default function TasksSection({
           selectedDocumentId={selectedDocumentId}
           onEditTask={onEditTask}
           onDeleteTask={onDeleteTask}
+          showAllTasks={showAllTasks}
+          taskTotalCount={taskTotalCount}
+          taskStats={taskStats}
         />
         {(selectedPatient || showAllTasks) &&
           displayedTasks.length > 0 &&

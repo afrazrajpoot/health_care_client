@@ -341,12 +341,12 @@ export default function UpdateDocumentModal({
                     if (!formData.dob) return "N/A";
                     const dateObj = getDobAsDate();
                     if (!dateObj) return String(formData.dob);
-                    const month = String(dateObj.getMonth() + 1).padStart(
+                    const month = String(dateObj.getUTCMonth() + 1).padStart(
                       2,
                       "0"
                     );
-                    const day = String(dateObj.getDate()).padStart(2, "0");
-                    const year = dateObj.getFullYear();
+                    const day = String(dateObj.getUTCDate()).padStart(2, "0");
+                    const year = dateObj.getUTCFullYear();
                     return `${month}-${day}-${year}`;
                   })()}
                 </span>

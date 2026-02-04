@@ -156,6 +156,14 @@ interface TasksTableProps {
   selectedDocumentId?: string | null;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onEditTask?: (task: Task) => void;
+  showAllTasks?: boolean;
+  taskTotalCount?: number;
+  taskStats?: {
+    open: number;
+    urgent: number;
+    dueToday: number;
+    completed: number;
+  };
 }
 
 import { useDeleteFailedDocumentMutation } from "@/redux/staffApi";
@@ -189,6 +197,9 @@ export default function TasksTable({
   selectedDocumentId,
   onDeleteTask,
   onEditTask,
+  showAllTasks = false,
+  taskTotalCount = 0,
+  taskStats,
 }: TasksTableProps) {
   const { data: session } = useSession();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -483,8 +494,8 @@ export default function TasksTable({
       console.error("Error splitting document:", error);
       toast.error(
         error.data?.detail ||
-          error.message ||
-          "Failed to split and process document",
+        error.message ||
+        "Failed to split and process document",
       );
     } finally {
       setIsSplitting(false);
@@ -862,7 +873,7 @@ export default function TasksTable({
               <div>
                 <p className="text-sm text-gray-600">Total Tasks</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {filteredTasks.length}
+                  {showAllTasks ? taskTotalCount : filteredTasks.length}
                 </p>
               </div>
             </div>
@@ -876,13 +887,13 @@ export default function TasksTable({
               <div>
                 <p className="text-sm text-gray-600">Active Tasks</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {
-                    filteredTasks.filter(
+                  {showAllTasks && taskStats
+                    ? taskStats.open
+                    : filteredTasks.filter(
                       (t) =>
                         t.quickNotes?.options &&
                         t.quickNotes.options.length > 0,
-                    ).length
-                  }
+                    ).length}
                 </p>
               </div>
             </div>
@@ -910,14 +921,22 @@ export default function TasksTable({
               <div>
                 <p className="text-sm text-gray-600">Completion Rate</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {filteredTasks.length > 0
-                    ? Math.round(
-                        (filteredTasks.filter((t) => t.status === "completed")
-                          .length /
-                          filteredTasks.length) *
-                          100,
-                      )
-                    : 0}
+                  {showAllTasks && taskStats ? (
+                    taskTotalCount > 0 ? (
+                      Math.round((taskStats.completed / taskTotalCount) * 100)
+                    ) : (
+                      0
+                    )
+                  ) : filteredTasks.length > 0 ? (
+                    Math.round(
+                      (filteredTasks.filter((t) => t.status === "completed")
+                        .length /
+                        filteredTasks.length) *
+                      100,
+                    )
+                  ) : (
+                    0
+                  )}
                   %
                 </p>
               </div>
@@ -1119,9 +1138,9 @@ export default function TasksTable({
                                 {task.department
                                   ?.toLowerCase()
                                   .includes("clinical") ||
-                                task.department
-                                  ?.toLowerCase()
-                                  .includes("medical") ? (
+                                  task.department
+                                    ?.toLowerCase()
+                                    .includes("medical") ? (
                                   <>
                                     <FileSearch className="w-4 h-4" /> Review
                                     Task
@@ -1458,9 +1477,9 @@ export default function TasksTable({
                             {task.department
                               ?.toLowerCase()
                               .includes("clinical") ||
-                            task.department
-                              ?.toLowerCase()
-                              .includes("medical") ? (
+                              task.department
+                                ?.toLowerCase()
+                                .includes("medical") ? (
                               <>
                                 <FileSearch className="w-4 h-4" /> Review Task
                               </>
@@ -1753,17 +1772,17 @@ export default function TasksTable({
 
                   {(selectedDocument.summary ||
                     selectedDocument.documentText) && (
-                    <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
-                      <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Document Content
-                      </p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                        {selectedDocument.documentText ||
-                          selectedDocument.documentText}
-                      </p>
-                    </div>
-                  )}
+                      <div className="p-4 bg-gradient-to-br from-cyan-50 to-white rounded-xl border border-cyan-200">
+                        <p className="text-sm font-medium text-cyan-700 mb-2 flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          Document Content
+                        </p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                          {selectedDocument.documentText ||
+                            selectedDocument.documentText}
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
@@ -1947,9 +1966,9 @@ export default function TasksTable({
         onSave={
           onSaveQuickNote
             ? async (taskId: string, quickNotes: any, status?: string) => {
-                await onSaveQuickNote(taskId, quickNotes, status);
-                setOpenQuickNoteId(null);
-              }
+              await onSaveQuickNote(taskId, quickNotes, status);
+              setOpenQuickNoteId(null);
+            }
             : undefined
         }
         onAssignTask={async (taskId: string, assignee: string) => {
