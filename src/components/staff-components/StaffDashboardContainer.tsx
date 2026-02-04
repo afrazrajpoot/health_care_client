@@ -643,18 +643,15 @@ export default function StaffDashboardContainer() {
     isRefreshingAfterUpload,
     handleSelectPatient,
   ]);
-  // Function to refresh all data using tag invalidation and explicit refetch
   const refreshAllData = useCallback(() => {
     // 1. Invalidate tags for all observers
     dispatch(dashboardApi.util.invalidateTags(["Tasks", "Patients"]));
     dispatch(staffApi.util.invalidateTags(["FailedDocuments", "Intakes"]));
     dispatch(pythonApi.util.invalidateTags(["PythonTasks" as any]));
 
-    // 2. Explicitly trigger refetch for current active queries
-    refetchPatients();
-    refetchTasks();
-    fetchFailedDocuments();
-  }, [dispatch, refetchPatients, refetchTasks, fetchFailedDocuments]);
+    // 2. Explicit refetch calls removed to prevent "Cannot refetch" error on skipped queries.
+    // Tag invalidation automatically triggers refetch for all ACTIVE subscriptions.
+  }, [dispatch]);
   // Close all modals when upload errors occur
   useEffect(() => {
     if (paymentError || ignoredFiles?.length > 0 || uploadError) {

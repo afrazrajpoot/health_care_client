@@ -67,11 +67,11 @@ interface ProgressData {
   progress_percentage?: number; // New field from API
   current_file: string;
   status:
-    | "processing"
-    | "completed"
-    | "completed_with_errors"
-    | "failed"
-    | "upload_complete"; // Added completed_with_errors
+  | "processing"
+  | "completed"
+  | "completed_with_errors"
+  | "failed"
+  | "upload_complete"; // Added completed_with_errors
   processed_count: number;
   total_files: number;
   successful_count: number;
@@ -85,6 +85,14 @@ interface ProgressData {
   successful_items?: SuccessfulItem[];
   // New: Real-time list of files that failed with error messages
   failed_items?: FailedItem[];
+  // 🆕 Parallel progress: Per-file progress tracking
+  files_progress?: Array<{
+    index: number;
+    filename: string;
+    progress: number;
+    status: "processing" | "success" | "failed" | "pending";
+    message?: string;
+  } | null>;
 }
 
 // NEW: Frontend Queue Progress Data
@@ -176,8 +184,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     currentPhase === "upload"
       ? uploadProgress * 0.5
       : currentPhase === "processing"
-      ? 50 + processingProgress * 0.5
-      : 0;
+        ? 50 + processingProgress * 0.5
+        : 0;
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -376,6 +384,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       // New: Include detailed item lists for real-time file status tracking
       successful_items: backendData.successful_items || [],
       failed_items: backendData.failed_items || [],
+      // 🆕 CRITICAL: Include files_progress for parallel progress tracking
+      files_progress: (backendData as any).files_progress || [],
     };
 
     console.log("🔄 Mapped progress:", {
@@ -387,6 +397,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       mappedProgress: mapped.progress,
       successfulItems: mapped.successful_items?.length || 0,
       failedItems: mapped.failed_items?.length || 0,
+      filesProgress: (mapped as any).files_progress?.length || 0, // Log parallel progress count
     });
 
     return mapped;
@@ -529,8 +540,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     pollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${
-          activeTaskId === taskId
+        `⏱️ Task poll tick #${tickCount} for ${taskId} | Active: ${activeTaskId === taskId
         } | Processing: ${isProcessing}`
       );
       if (activeTaskId === taskId && isProcessing) {
@@ -567,8 +577,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     queuePollingIntervalRef.current = setInterval(async () => {
       tickCount++;
       console.log(
-        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${
-          activeQueueId === queueId
+        `⏱️ Queue poll tick #${tickCount} for ${queueId} | Active: ${activeQueueId === queueId
         } | Processing: ${isProcessing}`
       );
       if (activeQueueId === queueId && isProcessing) {
@@ -625,8 +634,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     console.log(
-      `🎯 Setting active task: ${taskId}, total: ${
-        totalFiles || "unknown"
+      `🎯 Setting active task: ${taskId}, total: ${totalFiles || "unknown"
       }, queue: ${queueId || "none"}`
     );
     setActiveTaskId(taskId);

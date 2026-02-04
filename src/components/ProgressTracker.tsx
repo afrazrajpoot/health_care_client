@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import DocLatchAnimation from "./DocLatchAnimation";
 import { toast } from "sonner";
+import { ParallelProgressTracker } from "./ui/parallel-progress-tracker";
 
 // File item status types
 interface FileItemStatus {
@@ -50,6 +51,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(
     null
   );
+  const [hasInitialized, setHasInitialized] = useState(false); // Track if we've shown modal for this batch
 
   // Check localStorage on mount for persisted visibility and minimized state
   useEffect(() => {
@@ -83,16 +85,25 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     // Only show if isProcessing becomes true AND we have data
     if (isProcessing && (progressData || queueProgressData)) {
       setIsVisible(true);
-      // Always start minimized for new uploads
-      setIsMinimized(true);
+
+      // ✅ Only auto-minimize on FIRST initialization, not on every update
+      if (!hasInitialized) {
+        setIsMinimized(true);
+        localStorage.setItem("progressTrackerMinimized", "true");
+        setHasInitialized(true);
+      }
+      // Keep existing user choice if already initialized
+
       localStorage.setItem("progressTrackerOpen", "true");
-      localStorage.setItem("progressTrackerMinimized", "true");
 
       // Dismiss any existing toast notifications when progress modal opens
       toast.dismiss();
+    } else if (!isProcessing) {
+      // Reset initialization flag when processing stops
+      setHasInitialized(false);
     }
     // Don't hide automatically - let completion logic or manual close handle that
-  }, [isProcessing, progressData, queueProgressData]);
+  }, [isProcessing, progressData, queueProgressData, hasInitialized]);
 
   // Auto-switch to queue view when queue data is available
   useEffect(() => {
@@ -285,6 +296,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const handleClose = () => {
     setIsVisible(false);
     setIsMinimized(true);
+    setHasInitialized(false); // Reset for next upload
     localStorage.removeItem("progressTrackerOpen");
     localStorage.removeItem("progressTrackerMinimized");
 
@@ -305,12 +317,16 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
 
   const handleMaximize = () => {
     setIsMinimized(false);
-    localStorage.removeItem("progressTrackerMinimized");
+    localStorage.setItem("progressTrackerMinimized", "false");
   };
 
   const toggleViewMode = () => {
     setViewMode(viewMode === "task" ? "queue" : "task");
   };
+
+  const hasParallelProgress = useMemo(() => {
+    return !!(progressData?.files_progress && progressData.files_progress.length > 0);
+  }, [progressData?.files_progress]);
 
   // Compute file items with real-time status from successful_items and failed_items
   const fileItems = useMemo((): FileItemStatus[] => {
@@ -402,8 +418,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const currentProgress = currentPhase
     ? combinedProgress // Use combined progress when two-phase tracking is active
     : viewMode === "queue"
-    ? displayQueueProgress
-    : displayProgress;
+      ? displayQueueProgress
+      : displayProgress;
 
   // Get progress counts for display - avoid using filenames.length if it's empty
   const processedCount =
@@ -416,9 +432,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     viewMode === "queue"
       ? queueProgressData?.total_tasks || 0
       : progressData?.total_files ||
-        progressData?.total_steps ||
-        (progressData as any)?.filenames?.length ||
-        1;
+      progressData?.total_steps ||
+      (progressData as any)?.filenames?.length ||
+      1;
   // If we have specific files counted, ensure totalCount reflects that at minimum
   const effectiveTotalCount = Math.max(
     totalCount,
@@ -565,15 +581,15 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
               {currentPhase === "upload"
                 ? "Uploading Documents"
                 : currentPhase === "processing"
-                ? "Processing Documents"
-                : "Uploading Documents"}
+                  ? "Processing Documents"
+                  : "Uploading Documents"}
             </h3>
             <p className="text-sm text-gray-500">
               {currentPhase === "upload"
                 ? "Validating and saving files..."
                 : currentPhase === "processing"
-                ? "Extracting data with AI..."
-                : "DocLatch processing your documents..."}
+                  ? "Extracting data with AI..."
+                  : "DocLatch processing your documents..."}
             </p>
           </div>
 
@@ -584,8 +600,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
                 currentPhase === "upload"
                   ? "Validating & Uploading Files..."
                   : currentPhase === "processing"
-                  ? "Extracting Data → Updating Dashboard…"
-                  : "Processing Documents…"
+                    ? "Extracting Data → Updating Dashboard…"
+                    : "Processing Documents…"
               }
               width={170}
               height={150}
@@ -642,8 +658,8 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
                 ? currentPhase === "upload"
                   ? "Validating & Uploading Files..."
                   : currentPhase === "processing"
-                  ? "Extracting Data → Updating Dashboard…"
-                  : "Processing Documents…"
+                    ? "Extracting Data → Updating Dashboard…"
+                    : "Processing Documents…"
                 : "Processing Complete ✓"
             }
             width={200}
@@ -677,170 +693,180 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             )}
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full transition-all duration-1000"
-              style={{ width: `${currentProgress}%` }}
-            />
-          </div>
+          {/* Progress Bar - Hidden for parallel mode to avoid redundancy */}
+          {!hasParallelProgress && (
+            <>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full transition-all duration-1000"
+                  style={{ width: `${currentProgress}%` }}
+                />
+              </div>
 
-          {/* Progress Details */}
-          <div className="text-xs text-gray-600 text-center">
-            {viewMode === "queue" ? (
-              <>
-                {queueProgressData?.completed_tasks || 0} of{" "}
-                {queueProgressData?.total_tasks || 0} tasks completed
-                {queueProgressData?.failed_tasks
-                  ? ` (${queueProgressData.failed_tasks} failed)`
-                  : ""}
-              </>
-            ) : (
-              <>
-                {progressData?.successful_items?.length || 0} of{" "}
-                {progressData?.total_files || progressData?.total_steps || 1}{" "}
-                files completed
-                {progressData?.failed_items?.length
-                  ? ` • ${progressData.failed_items.length} failed`
-                  : ""}
-                {pendingCount > 0 ? ` • ${pendingCount} pending` : ""}
-              </>
-            )}
-          </div>
+              {/* Progress Details */}
+              <div className="text-xs text-gray-600 text-center">
+                {viewMode === "queue" ? (
+                  <>
+                    {queueProgressData?.completed_tasks || 0} of{" "}
+                    {queueProgressData?.total_tasks || 0} tasks completed
+                    {queueProgressData?.failed_tasks
+                      ? ` (${queueProgressData.failed_tasks} failed)`
+                      : ""}
+                  </>
+                ) : (
+                  <>
+                    {progressData?.successful_items?.length || 0} of{" "}
+                    {progressData?.total_files || progressData?.total_steps || 1}{" "}
+                    files completed
+                    {progressData?.failed_items?.length
+                      ? ` • ${progressData.failed_items.length} failed`
+                      : ""}
+                    {pendingCount > 0 ? ` • ${pendingCount} pending` : ""}
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
-          {/* Phase Indicator - Show only when two-phase tracking is active */}
-          {currentPhase && (
+          {/* Phase Indicator - Show only when two-phase tracking is active AND not in parallel mode */}
+          {currentPhase && !hasParallelProgress && (
             <div className="flex items-center justify-center gap-2 mt-4">
               <div
-                className={`w-2 h-2 rounded-full ${
-                  currentPhase === "upload"
-                    ? "bg-cyan-500 animate-pulse"
-                    : "bg-green-500"
-                }`}
+                className={`w-2 h-2 rounded-full ${currentPhase === "upload"
+                  ? "bg-cyan-500 animate-pulse"
+                  : "bg-green-500"
+                  }`}
               />
               <span className="text-xs text-gray-500">Upload</span>
 
               <div className="w-8 h-px bg-gray-300" />
 
               <div
-                className={`w-2 h-2 rounded-full ${
-                  currentPhase === "processing"
-                    ? "bg-cyan-500 animate-pulse"
-                    : currentPhase === "upload"
+                className={`w-2 h-2 rounded-full ${currentPhase === "processing"
+                  ? "bg-cyan-500 animate-pulse"
+                  : currentPhase === "upload"
                     ? "bg-gray-300"
                     : "bg-green-500"
-                }`}
+                  }`}
               />
               <span className="text-xs text-gray-500">Processing</span>
             </div>
           )}
         </div>
 
-        {/* File Processing Status List */}
-        <div className="relative z-10 bg-gray-50 rounded-xl p-4 max-h-60 overflow-y-auto">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-teal-500" />
-              <span className="text-sm font-semibold text-gray-700">
-                File Status
-              </span>
-            </div>
-            {fileItems.length > 0 && (
-              <span className="text-xs text-gray-500">
-                {progressData?.successful_items?.length || 0}/{fileItems.length}{" "}
-                done
-              </span>
-            )}
+        {/* File Processing Status - Use Parallel Tracker if parallel data is active */}
+        {hasParallelProgress ? (
+          <div className="relative z-10">
+            <ParallelProgressTracker
+              filesProgress={progressData?.files_progress || []}
+              totalFiles={totalCount}
+              overallProgress={currentProgress}
+            />
           </div>
-
-          {fileItems.length > 0 ? (
-            <div className="space-y-2">
-              {fileItems.map((item, index) => (
-                <div
-                  key={`${item.filename}-${index}`}
-                  className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 transition-all duration-300"
-                  title={item.message || item.filename}
-                >
-                  {/* Status Icon */}
-                  <div className="flex-shrink-0">
-                    {item.status === "success" && (
-                      <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-green-600" />
-                      </div>
-                    )}
-                    {item.status === "failed" && (
-                      <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
-                        <AlertCircle className="w-3 h-3 text-red-600" />
-                      </div>
-                    )}
-                    {item.status === "processing" && (
-                      <div className="w-5 h-5 rounded-full bg-cyan-100 flex items-center justify-center">
-                        <Loader2 className="w-3 h-3 text-cyan-600 animate-spin" />
-                      </div>
-                    )}
-                    {item.status === "pending" && (
-                      <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Filename */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-700 truncate">
-                      {item.filename}
-                    </p>
-                    {item.message && item.status === "failed" && (
-                      <p className="text-[10px] text-red-500 truncate">
-                        {item.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Status Label */}
-                  <span
-                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                      item.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : item.status === "failed"
-                        ? "bg-red-100 text-red-700"
-                        : item.status === "processing"
-                        ? "bg-cyan-100 text-cyan-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {item.status === "success"
-                      ? "Done"
-                      : item.status === "failed"
-                      ? "Error"
-                      : item.status === "processing"
-                      ? "Processing"
-                      : "Pending"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {["Lab Results", "Vitals", "Diagnoses", "Medications"].map(
-                (item, index) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
-                    style={{
-                      animation: `fadeInSlide 0.5s ease-out ${
-                        0.5 + index * 0.15
-                      }s forwards`,
-                    }}
-                  >
-                    <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
-                    {item}
-                  </div>
-                )
+        ) : (
+          <div className="relative z-10 bg-gray-50 rounded-xl p-4 max-h-60 overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-teal-500" />
+                <span className="text-sm font-semibold text-gray-700">
+                  File Status
+                </span>
+              </div>
+              {fileItems.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {progressData?.successful_items?.length || 0}/{fileItems.length}{" "}
+                  done
+                </span>
               )}
             </div>
-          )}
-        </div>
+
+            {fileItems.length > 0 ? (
+              <div className="space-y-2">
+                {fileItems.map((item, index) => (
+                  <div
+                    key={`${item.filename}-${index}`}
+                    className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 transition-all duration-300"
+                    title={item.message || item.filename}
+                  >
+                    {/* Status Icon */}
+                    <div className="flex-shrink-0">
+                      {item.status === "success" && (
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-green-600" />
+                        </div>
+                      )}
+                      {item.status === "failed" && (
+                        <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                          <AlertCircle className="w-3 h-3 text-red-600" />
+                        </div>
+                      )}
+                      {item.status === "processing" && (
+                        <div className="w-5 h-5 rounded-full bg-cyan-100 flex items-center justify-center">
+                          <Loader2 className="w-3 h-3 text-cyan-600 animate-spin" />
+                        </div>
+                      )}
+                      {item.status === "pending" && (
+                        <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Filename */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-700 truncate">
+                        {item.filename}
+                      </p>
+                      {item.message && item.status === "failed" && (
+                        <p className="text-[10px] text-red-500 truncate">
+                          {item.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status Label */}
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${item.status === "success"
+                        ? "bg-green-100 text-green-700"
+                        : item.status === "failed"
+                          ? "bg-red-100 text-red-700"
+                          : item.status === "processing"
+                            ? "bg-cyan-100 text-cyan-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                    >
+                      {item.status === "success"
+                        ? "Done"
+                        : item.status === "failed"
+                          ? "Error"
+                          : item.status === "processing"
+                            ? "Processing"
+                            : "Pending"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {["Lab Results", "Vitals", "Diagnoses", "Medications"].map(
+                  (item, index) => (
+                    <div
+                      key={item}
+                      className="flex items-center gap-2 text-xs text-gray-600 opacity-0"
+                      style={{
+                        animation: `fadeInSlide 0.5s ease-out ${0.5 + index * 0.15
+                          }s forwards`,
+                      }}
+                    >
+                      <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
+                      {item}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bottom Actions */}
         <div className="relative z-10 mt-6 flex justify-between items-center">
